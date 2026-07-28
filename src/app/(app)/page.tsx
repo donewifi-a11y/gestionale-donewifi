@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ticket, PhoneCall, Plus, ArrowRight } from "lucide-react";
+import { Ticket, PhoneCall, CalendarDays, Plus, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -10,28 +10,43 @@ import { createClient } from "@/lib/supabase/server";
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ count: ticketAperti }, { count: segnalazioniDaContattare }, { count: segnalazioniInGestione }] =
-    await Promise.all([
-      supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .not("stato", "in", "(Completato,Annullato)"),
-      supabase
-        .from("segnalazioni")
-        .select("*", { count: "exact", head: true })
-        .eq("stato", "Da Contattare"),
-      supabase
-        .from("segnalazioni")
-        .select("*", { count: "exact", head: true })
-        .eq("stato", "Gestione Cliente"),
-    ]);
+  const oggiInizio = new Date();
+  oggiInizio.setHours(0, 0, 0, 0);
+  const oggiFine = new Date();
+  oggiFine.setHours(23, 59, 59, 999);
+
+  const [
+    { count: ticketAperti },
+    { count: segnalazioniDaContattare },
+    { count: segnalazioniInGestione },
+    { count: appuntamentiOggi },
+  ] = await Promise.all([
+    supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .not("stato", "in", "(Completato,Annullato)"),
+    supabase
+      .from("segnalazioni")
+      .select("*", { count: "exact", head: true })
+      .eq("stato", "Da Contattare"),
+    supabase
+      .from("segnalazioni")
+      .select("*", { count: "exact", head: true })
+      .eq("stato", "Gestione Cliente"),
+    supabase
+      .from("appuntamenti")
+      .select("*", { count: "exact", head: true })
+      .eq("stato", "Programmato")
+      .gte("data_ora", oggiInizio.toISOString())
+      .lte("data_ora", oggiFine.toISOString()),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="font-heading mb-1 text-2xl font-bold tracking-tight">Centro Operativo</h1>
       <p className="mb-8 text-muted-foreground">Scegli l&apos;area di lavoro o crea qualcosa di nuovo.</p>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <AreaCard
           href="/tickets"
           icona={Ticket}
@@ -55,6 +70,14 @@ export default async function HomePage() {
             segnalazioniInGestione ? `${segnalazioniInGestione} in Gestione Cliente` : undefined
           }
         />
+        <AreaCard
+          href="/calendario"
+          icona={CalendarDays}
+          titolo="Calendario"
+          descrizione="Appuntamenti e installazioni programmate."
+          numero={appuntamentiOggi ?? 0}
+          etichettaNumero="oggi"
+        />
       </div>
     </div>
   );
@@ -77,8 +100,8 @@ function AreaCard({
   descrizione: string;
   numero: number;
   etichettaNumero: string;
-  hrefNuovo: string;
-  etichettaNuovo: string;
+  hrefNuovo?: string;
+  etichettaNuovo?: string;
   badgeExtra?: string;
 }) {
   return (
@@ -104,13 +127,15 @@ function AreaCard({
           )}
         </div>
       </Link>
-      <Link
-        href={hrefNuovo}
-        className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-primary"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-        {etichettaNuovo}
-      </Link>
+      {hrefNuovo && etichettaNuovo && (
+        <Link
+          href={hrefNuovo}
+          className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-primary"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          {etichettaNuovo}
+        </Link>
+      )}
     </div>
   );
 }

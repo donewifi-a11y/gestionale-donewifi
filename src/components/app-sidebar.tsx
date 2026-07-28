@@ -3,18 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Ticket, PhoneCall, Menu, X } from "lucide-react";
+import { LayoutGrid, Ticket, PhoneCall, CalendarDays, Users, Menu, X } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 
 const VOCI_NAV = [
   { href: "/", etichetta: "Centro Operativo", icona: LayoutGrid, esatto: true },
   { href: "/tickets", etichetta: "Ticket", icona: Ticket, esatto: false },
   { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall, esatto: false },
+  { href: "/calendario", etichetta: "Calendario", icona: CalendarDays, esatto: false },
 ];
 
 export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso: string }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
+  const isAdmin = areaAccesso === "Tutto" || areaAccesso === "Admin";
+  const voci = isAdmin
+    ? [...VOCI_NAV, { href: "/utenti", etichetta: "Utenti", icona: Users, esatto: false }]
+    : VOCI_NAV;
 
   const contenuto = (
     <>
@@ -33,7 +38,7 @@ export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso:
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
-        {VOCI_NAV.map((voce) => {
+        {voci.map((voce) => {
           const attivo = voce.esatto ? pathname === voce.href : pathname.startsWith(voce.href);
           const Icona = voce.icona;
           return (

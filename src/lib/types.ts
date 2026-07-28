@@ -55,6 +55,21 @@ export interface Segnalazione {
   dati_ricevuti_at: string | null;
 }
 
+export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";
+
+export interface Appuntamento {
+  id: string;
+  ticket_id: string | null;
+  titolo: string;
+  indirizzo: string | null;
+  data_ora: string;
+  durata_minuti: number;
+  tecnico_id: string | null;
+  note: string | null;
+  stato: StatoAppuntamento;
+  creato_da: string | null;
+}
+
 export interface NotaTicket {
   id: string;
   ticket_id: string;

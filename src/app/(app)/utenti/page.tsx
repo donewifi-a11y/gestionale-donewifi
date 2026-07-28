@@ -1,0 +1,42 @@
+import { redirect } from "next/navigation";
+import { Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { UtentiBoard } from "@/components/utenti/utenti-board";
+
+export interface StaffCompleto {
+  id: string;
+  email: string;
+  nome: string | null;
+  area_accesso: string;
+  attivo: boolean;
+}
+
+export default async function UtentiPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: me } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
+  const autorizzato = me && (me.area_accesso === "Tutto" || me.area_accesso === "Admin");
+  if (!autorizzato) redirect("/?errore=non-autorizzato");
+
+  const { data: staff } = await supabase.from("staff").select("*").order("creato_il", { ascending: true });
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+          <Users className="h-5 w-5" strokeWidth={2.25} />
+        </div>
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">Utenti</h1>
+          <p className="text-sm text-muted-foreground">Chi ha accesso al gestionale e con quale ruolo.</p>
+        </div>
+      </div>
+
+      <UtentiBoard staff={(staff as StaffCompleto[]) ?? []} currentUserId={user.id} />
+    </div>
+  );
+}

@@ -6,15 +6,15 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ## Setup (prima volta)
 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
-2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla il contenuto di
-   `supabase/migrations/0001_init.sql`, poi esegui. Fai lo stesso con
-   `supabase/migrations/0002_storage.sql` (bucket privato per i documenti caricati dai clienti) e
-   `supabase/migrations/0003_note_ticket.sql` (log di note/aggiornamenti sui Ticket).
+2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
+   contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql` e
+   `0004_appuntamenti.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
    con i 3 valori sopra.
-5. **Crea il primo utente staff** (finché non c'è una UI di Gestione Utenti, a mano):
+5. **Crea il primo utente staff** (a mano, solo per il primissimo accesso — dopo si usa la pagina
+   "Utenti" nel gestionale):
    - Authentication → Users → Add user (email + password) nel pannello Supabase.
    - Copia l'`id` (UUID) generato.
    - Nell'SQL Editor: `insert into staff (id, email, area_accesso, permessi) values ('<uuid>', '<email>', 'Tutto', '{}');`
@@ -39,6 +39,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   richieste_clienti, storico).
 - `supabase/migrations/0002_storage.sql` — bucket Storage privato per i documenti del cliente.
 - `supabase/migrations/0003_note_ticket.sql` — log testuale di note/aggiornamenti sui Ticket.
+- `supabase/migrations/0004_appuntamenti.sql` — appuntamenti/installazioni (Calendario).
+- `src/app/(app)/utenti` — Gestione Utenti (visibile solo ad area_accesso `Tutto`/`Admin`): crea
+  accessi via `auth.admin.createUser` (service role, solo server-side), attiva/disattiva, cambia
+  ruolo.
+- `src/app/(app)/calendario` — agenda appuntamenti, collegabili a un Ticket.
 
 ## Stato attuale
 
@@ -47,14 +52,17 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   browser), creazione, cambio stato/presa in carico/avanzamento rapido dalla card, note e
   aggiornamenti testuali nel dettaglio.
 ✅ Segnalazioni: bacheca a 4 colonne (Da Contattare/In Contatto/Gestione Cliente/Trasmessa),
-  creazione, cambio stato, invio del link Richiesta Dati via WhatsApp/SMS/Email/copia link con
+  creazione, cambio stato, invio del link Richiesta Dati via WhatsApp/Email/copia link con
   anteprima del messaggio, "Trasmetti per l'installazione" → crea il Ticket collegato.
 ✅ Modulo pubblico Richiesta Dati (dati fiscali/pagamento + upload documenti) collegato
   automaticamente alla Segnalazione d'origine.
+✅ Gestione Utenti: creazione/attivazione/disattivazione/cambio ruolo, senza più bisogno di SQL a
+  mano dopo il primo utente.
+✅ Calendario: agenda appuntamenti/installazioni, raggruppata per giorno, collegabili a un Ticket
+  e assegnabili a un tecnico.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
 Fuori scope per ora (fasi successive): Dashboard/analytics, Clienti Attivi, Archivio, Storico
-Modifiche, Gestione Utenti (UI), Calendario/Installazioni, Lavorazione/Vista Tecnico, notifiche
-Telegram, invio WhatsApp, export PDF.
+Modifiche (UI), Lavorazione/Vista Tecnico, notifiche Telegram, export PDF.
