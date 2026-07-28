@@ -44,12 +44,10 @@ export function SegnalazioniBoard({
   richieste: RichiestaCliente[];
   currentUserId: string;
 }) {
-  const router = useRouter();
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
   const [soloMie, setSoloMie] = useState(false);
   const [ricerca, setRicerca] = useState("");
   const [pronto, setPronto] = useState(false);
-  const [colonnaTrascinata, setColonnaTrascinata] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -74,22 +72,6 @@ export function SegnalazioniBoard({
           String(s.numero).includes(testo))
     );
   }, [segnalazioni, soloMie, currentUserId, ricerca]);
-
-  async function gestisciDrop(colonna: (typeof COLONNE)[number], e: React.DragEvent) {
-    e.preventDefault();
-    setColonnaTrascinata(null);
-    const id = e.dataTransfer.getData("text/plain");
-    const segnalazione = segnalazioni.find((s) => s.id === id);
-    if (!segnalazione || segnalazione.stato === colonna.stato) return;
-
-    if (colonna.stato === "Trasmessa") {
-      if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
-      await trasmettiPerInstallazione(segnalazione.id);
-    } else {
-      await cambiaStatoSegnalazione(segnalazione.id, colonna.stato, segnalazione.stato);
-    }
-    router.refresh();
-  }
 
   return (
     <div>
@@ -126,20 +108,8 @@ export function SegnalazioniBoard({
         {COLONNE.map((col) => {
           const items = filtrate.filter((s) => s.stato === col.stato);
           const mostraGiorni = col.stato === "Da Contattare" || col.stato === "In Contatto";
-          const trascinamentoAttivo = colonnaTrascinata === col.titolo;
           return (
-            <div
-              key={col.stato}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setColonnaTrascinata(col.titolo);
-              }}
-              onDragLeave={() => setColonnaTrascinata((c) => (c === col.titolo ? null : c))}
-              onDrop={(e) => gestisciDrop(col, e)}
-              className={`rounded-2xl p-3 transition ${
-                trascinamentoAttivo ? "bg-accent ring-2 ring-primary/40" : "bg-muted/50"
-              }`}
-            >
+            <div key={col.stato} className="rounded-2xl bg-muted/50 p-3">
               <div className="mb-3 flex items-center justify-between px-1">
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
@@ -159,11 +129,9 @@ export function SegnalazioniBoard({
                       key={s.id}
                       role="button"
                       tabIndex={0}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
                       onClick={() => setAperta(s)}
                       onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
-                      className="cursor-grab rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40 active:cursor-grabbing"
+                      className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-semibold">{s.nome}</span>

@@ -70,7 +70,6 @@ export function TicketsBoard({
   const [soloMiei, setSoloMiei] = useState(false);
   const [aperto, setAperto] = useState<Ticket | null>(null);
   const [pronto, setPronto] = useState(false);
-  const [colonnaTrascinata, setColonnaTrascinata] = useState<string | null>(null);
 
   // ★ filtri ricordati per utente/browser (stessa idea già applicata su
   // Hub Ticket nel gestionale precedente): non si riparte mai da zero.
@@ -128,19 +127,6 @@ export function TicketsBoard({
     router.refresh();
   }
 
-  async function gestisciDrop(colonna: (typeof COLONNE)[number], e: React.DragEvent) {
-    e.preventDefault();
-    setColonnaTrascinata(null);
-    const id = e.dataTransfer.getData("text/plain");
-    const ticket = tickets.find((t) => t.id === id);
-    if (!ticket) return;
-    const nuovo = colonna.stati[0];
-    if (ticket.stato === nuovo || colonna.stati.includes(ticket.stato)) return;
-    if (nuovo === "Completato" && !confirm(`Segnare il ticket #${ticket.numero} come Completato?`)) return;
-    await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
-    router.refresh();
-  }
-
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -187,20 +173,8 @@ export function TicketsBoard({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLONNE.map((col) => {
           const items = filtrati.filter((t) => col.stati.includes(t.stato));
-          const trascinamentoAttivo = colonnaTrascinata === col.titolo;
           return (
-            <div
-              key={col.titolo}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setColonnaTrascinata(col.titolo);
-              }}
-              onDragLeave={() => setColonnaTrascinata((c) => (c === col.titolo ? null : c))}
-              onDrop={(e) => gestisciDrop(col, e)}
-              className={`rounded-2xl p-3 transition ${
-                trascinamentoAttivo ? "bg-accent ring-2 ring-primary/40" : "bg-muted/50"
-              }`}
-            >
+            <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
               <div className="mb-3 flex items-center justify-between px-1">
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
@@ -221,11 +195,9 @@ export function TicketsBoard({
                       key={t.id}
                       role="button"
                       tabIndex={0}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
                       onClick={() => setAperto(t)}
                       onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                      className={`relative cursor-grab overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 active:cursor-grabbing ${STRIPE_PRIORITA[t.priorita]}`}
+                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-semibold">{t.cliente}</span>
