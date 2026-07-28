@@ -28,6 +28,12 @@ const COLORE_COPERTURA: Record<string, string> = {
   daVerificare: "bg-warning/10 text-warning border-warning/20",
 };
 
+const STRIPE_COPERTURA: Record<string, string> = {
+  si: "before:bg-success",
+  no: "before:bg-critical",
+  daVerificare: "before:bg-warning",
+};
+
 const CHIAVE_FILTRI = "segnalazioniFiltri";
 
 function giorniAperta(data: string) {
@@ -131,7 +137,7 @@ export function SegnalazioniBoard({
                       tabIndex={0}
                       onClick={() => setAperta(s)}
                       onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
-                      className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
+                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-semibold">{s.nome}</span>

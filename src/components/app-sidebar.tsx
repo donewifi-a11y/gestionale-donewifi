@@ -24,7 +24,7 @@ export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso:
   const contenuto = (
     <>
       <div className="flex items-center gap-2.5 px-4 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_25%)] text-sm font-bold text-sidebar-primary-foreground shadow-md shadow-black/30">
           DW
         </div>
         <div className="leading-tight">
@@ -48,7 +48,7 @@ export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso:
               onClick={() => setAperta(false)}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                 attivo
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                  ? "bg-gradient-to-r from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
                   : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               }`}
             >
@@ -81,7 +81,7 @@ export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso:
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_25%)] text-[11px] font-bold text-sidebar-primary-foreground shadow-md shadow-black/30">
           DW
         </div>
         <span className="font-heading text-sm font-bold">

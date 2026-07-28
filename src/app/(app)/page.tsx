@@ -105,10 +105,10 @@ function AreaCard({
   badgeExtra?: string;
 }) {
   return (
-    <div className="group flex flex-col justify-between rounded-2xl border bg-card p-5 shadow-sm transition hover:shadow-md hover:border-primary/40">
+    <div className="group flex flex-col justify-between rounded-2xl border bg-card p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
       <Link href={href} className="flex flex-col gap-4">
         <div className="flex items-start justify-between">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
             <Icona className="h-5 w-5" strokeWidth={2.25} />
           </div>
           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />

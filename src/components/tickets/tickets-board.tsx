@@ -197,7 +197,7 @@ export function TicketsBoard({
                       tabIndex={0}
                       onClick={() => setAperto(t)}
                       onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
+                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-semibold">{t.cliente}</span>
