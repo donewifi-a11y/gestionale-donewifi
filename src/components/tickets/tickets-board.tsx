@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UserRound, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { UserRound, X, Search, ChevronRight, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +12,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { aggiornaStatoTicket } from "@/app/(app)/tickets/actions";
-import type { PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
+import { aggiornaStatoTicket, assegnaTicket } from "@/app/(app)/tickets/actions";
+import type { PrioritaTicket, StaffMinimo, StatoTicket, Ticket } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
@@ -40,7 +41,28 @@ const COLORE_REPARTO: Record<string, string> = {
 
 const CHIAVE_FILTRI = "ticketsFiltri";
 
-export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; currentUserId: string }) {
+const COLONNE: { titolo: string; stati: StatoTicket[] }[] = [
+  { titolo: "Da Lavorare", stati: ["Da gestire"] },
+  { titolo: "In Verifica", stati: ["In lavorazione", "In attesa"] },
+  { titolo: "Lavorata", stati: ["Completato"] },
+];
+
+function iniziali(persona: StaffMinimo) {
+  const nome = persona.nome || persona.email;
+  return nome.slice(0, 2).toUpperCase();
+}
+
+export function TicketsBoard({
+  tickets,
+  currentUserId,
+  staff,
+}: {
+  tickets: Ticket[];
+  currentUserId: string;
+  staff: StaffMinimo[];
+}) {
+  const router = useRouter();
+  const [ricerca, setRicerca] = useState("");
   const [fStato, setFStato] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fPriorita, setFPriorita] = useState("");
@@ -48,6 +70,7 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
   const [soloMiei, setSoloMiei] = useState(false);
   const [aperto, setAperto] = useState<Ticket | null>(null);
   const [pronto, setPronto] = useState(false);
+  const [colonnaTrascinata, setColonnaTrascinata] = useState<string | null>(null);
 
   // ★ filtri ricordati per utente/browser (stessa idea già applicata su
   // Hub Ticket nel gestionale precedente): non si riparte mai da zero.
@@ -70,30 +93,66 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
     );
   }, [fStato, fCategoria, fPriorita, fReparto, soloMiei, pronto]);
 
-  const filtrati = useMemo(
-    () =>
-      tickets
-        .filter(
-          (t) =>
-            (!fStato || t.stato === fStato) &&
-            (!fCategoria || t.categoria === fCategoria) &&
-            (!fPriorita || t.priorita === fPriorita) &&
-            (!fReparto || t.reparto === fReparto) &&
-            (!soloMiei || t.tecnico_assegnato === currentUserId)
-        )
-        .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]),
-    [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentUserId]
-  );
+  const filtrati = useMemo(() => {
+    const testo = ricerca.trim().toLowerCase();
+    return tickets
+      .filter(
+        (t) =>
+          (!fStato || t.stato === fStato) &&
+          (!fCategoria || t.categoria === fCategoria) &&
+          (!fPriorita || t.priorita === fPriorita) &&
+          (!fReparto || t.reparto === fReparto) &&
+          (!soloMiei || t.tecnico_assegnato === currentUserId) &&
+          (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
+      )
+      .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
+  }, [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentUserId, ricerca]);
 
-  const colonne: { titolo: string; stati: StatoTicket[] }[] = [
-    { titolo: "Da Lavorare", stati: ["Da gestire"] },
-    { titolo: "In Verifica", stati: ["In lavorazione", "In attesa"] },
-    { titolo: "Lavorata", stati: ["Completato"] },
-  ];
+  function trovaStaff(id: string | null) {
+    return id ? staff.find((s) => s.id === id) ?? null : null;
+  }
+
+  async function avanzaStato(t: Ticket, e: React.MouseEvent) {
+    e.stopPropagation();
+    const idx = SEQUENZA_STATO.indexOf(t.stato);
+    const prossimo = SEQUENZA_STATO[idx + 1];
+    if (!prossimo) return;
+    if (prossimo === "Completato" && !confirm(`Segnare il ticket #${t.numero} come Completato?`)) return;
+    await aggiornaStatoTicket(t.id, prossimo, t.stato);
+    router.refresh();
+  }
+
+  async function prendiInCarico(t: Ticket, e: React.MouseEvent) {
+    e.stopPropagation();
+    await assegnaTicket(t.id, currentUserId);
+    router.refresh();
+  }
+
+  async function gestisciDrop(colonna: (typeof COLONNE)[number], e: React.DragEvent) {
+    e.preventDefault();
+    setColonnaTrascinata(null);
+    const id = e.dataTransfer.getData("text/plain");
+    const ticket = tickets.find((t) => t.id === id);
+    if (!ticket) return;
+    const nuovo = colonna.stati[0];
+    if (ticket.stato === nuovo || colonna.stati.includes(ticket.stato)) return;
+    if (nuovo === "Completato" && !confirm(`Segnare il ticket #${ticket.numero} come Completato?`)) return;
+    await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
+    router.refresh();
+  }
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
+          <input
+            value={ricerca}
+            onChange={(e) => setRicerca(e.target.value)}
+            placeholder="Cerca cliente o numero..."
+            className="h-9 w-48 rounded-md border bg-background pl-8 pr-3 text-sm"
+          />
+        </div>
         <Select value={fStato} onChange={setFStato} placeholder="Tutti gli stati" options={SEQUENZA_STATO} />
         <Select value={fCategoria} onChange={setFCategoria} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} />
         <Select value={fPriorita} onChange={setFPriorita} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} />
@@ -106,7 +165,7 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
           <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
           Solo i miei
         </Button>
-        {(fStato || fCategoria || fPriorita || fReparto || soloMiei) && (
+        {(fStato || fCategoria || fPriorita || fReparto || soloMiei || ricerca) && (
           <Button
             size="sm"
             variant="ghost"
@@ -116,6 +175,7 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
               setFPriorita("");
               setFReparto("");
               setSoloMiei(false);
+              setRicerca("");
             }}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -125,10 +185,22 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {colonne.map((col) => {
+        {COLONNE.map((col) => {
           const items = filtrati.filter((t) => col.stati.includes(t.stato));
+          const trascinamentoAttivo = colonnaTrascinata === col.titolo;
           return (
-            <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
+            <div
+              key={col.titolo}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setColonnaTrascinata(col.titolo);
+              }}
+              onDragLeave={() => setColonnaTrascinata((c) => (c === col.titolo ? null : c))}
+              onDrop={(e) => gestisciDrop(col, e)}
+              className={`rounded-2xl p-3 transition ${
+                trascinamentoAttivo ? "bg-accent ring-2 ring-primary/40" : "bg-muted/50"
+              }`}
+            >
               <div className="mb-3 flex items-center justify-between px-1">
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
@@ -141,27 +213,68 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
                     Nessun ticket.
                   </div>
                 )}
-                {items.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setAperto(t)}
-                    className={`relative overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="font-semibold">{t.cliente}</span>
-                      <span className="font-mono text-[11px] text-muted-foreground">#{t.numero}</span>
+                {items.map((t) => {
+                  const assegnatario = trovaStaff(t.tecnico_assegnato);
+                  const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
+                  return (
+                    <div
+                      key={t.id}
+                      role="button"
+                      tabIndex={0}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
+                      onClick={() => setAperto(t)}
+                      onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
+                      className={`relative cursor-grab overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 active:cursor-grabbing ${STRIPE_PRIORITA[t.priorita]}`}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="font-semibold">{t.cliente}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">#{t.numero}</span>
+                      </div>
+                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">{t.categoria}</div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
+                          {t.priorita}
+                        </Badge>
+                        <Badge variant="outline" className={COLORE_REPARTO[t.reparto] ?? ""}>
+                          {t.reparto}
+                        </Badge>
+
+                        <div className="ml-auto flex items-center gap-1">
+                          {assegnatario ? (
+                            <span
+                              title={assegnatario.nome || assegnatario.email}
+                              className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                                assegnatario.id === currentUserId
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-secondary-foreground"
+                              }`}
+                            >
+                              {iniziali(assegnatario)}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => prendiInCarico(t, e)}
+                              title="Prendi in carico"
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed text-muted-foreground transition hover:border-primary hover:text-primary"
+                            >
+                              <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                            </button>
+                          )}
+                          {puoAvanzare && (
+                            <button
+                              onClick={(e) => avanzaStato(t, e)}
+                              title="Avanza allo stato successivo"
+                              className="flex h-6 w-6 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mb-2 text-xs text-muted-foreground line-clamp-1">{t.categoria}</div>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
-                        {t.priorita}
-                      </Badge>
-                      <Badge variant="outline" className={COLORE_REPARTO[t.reparto] ?? ""}>
-                        {t.reparto}
-                      </Badge>
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -170,7 +283,14 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
 
       <Sheet open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
         <SheetContent>
-          {aperto && <DettaglioTicket ticket={aperto} onCambiato={(t) => setAperto(t)} />}
+          {aperto && (
+            <DettaglioTicket
+              ticket={aperto}
+              staff={staff}
+              currentUserId={currentUserId}
+              onCambiato={(t) => setAperto(t)}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>
@@ -204,8 +324,20 @@ function Select({
   );
 }
 
-function DettaglioTicket({ ticket, onCambiato }: { ticket: Ticket; onCambiato: (t: Ticket) => void }) {
+function DettaglioTicket({
+  ticket,
+  staff,
+  currentUserId,
+  onCambiato,
+}: {
+  ticket: Ticket;
+  staff: StaffMinimo[];
+  currentUserId: string;
+  onCambiato: (t: Ticket) => void;
+}) {
+  const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
+  const assegnatario = ticket.tecnico_assegnato ? staff.find((s) => s.id === ticket.tecnico_assegnato) : null;
 
   async function cambiaStato(nuovo: StatoTicket) {
     if (nuovo === ticket.stato) return;
@@ -219,6 +351,18 @@ function DettaglioTicket({ ticket, onCambiato }: { ticket: Ticket; onCambiato: (
     try {
       await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
       onCambiato({ ...ticket, stato: nuovo });
+      router.refresh();
+    } finally {
+      setInCorso(false);
+    }
+  }
+
+  async function prendiInCarico() {
+    setInCorso(true);
+    try {
+      await assegnaTicket(ticket.id, currentUserId);
+      onCambiato({ ...ticket, tecnico_assegnato: currentUserId });
+      router.refresh();
     } finally {
       setInCorso(false);
     }
@@ -259,6 +403,23 @@ function DettaglioTicket({ ticket, onCambiato }: { ticket: Ticket; onCambiato: (
             ))}
           </div>
         )}
+
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>
+          {assegnatario ? (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {iniziali(assegnatario)}
+              </span>
+              <span className="font-medium">{assegnatario.nome || assegnatario.email}</span>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorso} className="mt-1.5">
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Prendi in carico
+            </Button>
+          )}
+        </div>
 
         <Campo etichetta="Reparto" valore={ticket.reparto} />
         <Campo etichetta="Priorità" valore={ticket.priorita} />

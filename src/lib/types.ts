@@ -55,6 +55,12 @@ export interface Segnalazione {
   dati_ricevuti_at: string | null;
 }
 
+export interface StaffMinimo {
+  id: string;
+  email: string;
+  nome: string | null;
+}
+
 export interface RichiestaCliente {
   id: string;
   data: string;

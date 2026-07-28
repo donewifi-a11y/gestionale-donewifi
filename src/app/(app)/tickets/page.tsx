@@ -17,6 +17,8 @@ export default async function TicketsPage() {
     .neq("stato", "Annullato")
     .order("data_creazione", { ascending: false });
 
+  const { data: staff } = await supabase.from("staff").select("id, email, nome").eq("attivo", true);
+
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 flex items-center justify-between">
@@ -37,7 +39,11 @@ export default async function TicketsPage() {
         </Link>
       </div>
 
-      <TicketsBoard tickets={(tickets as Ticket[]) ?? []} currentUserId={user?.id ?? ""} />
+      <TicketsBoard
+        tickets={(tickets as Ticket[]) ?? []}
+        currentUserId={user?.id ?? ""}
+        staff={staff ?? []}
+      />
     </div>
   );
 }

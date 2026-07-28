@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,9 +44,12 @@ export function SegnalazioniBoard({
   richieste: RichiestaCliente[];
   currentUserId: string;
 }) {
+  const router = useRouter();
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
   const [soloMie, setSoloMie] = useState(false);
+  const [ricerca, setRicerca] = useState("");
   const [pronto, setPronto] = useState(false);
+  const [colonnaTrascinata, setColonnaTrascinata] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -59,26 +62,84 @@ export function SegnalazioniBoard({
     localStorage.setItem(CHIAVE_FILTRI, JSON.stringify({ soloMie }));
   }, [soloMie, pronto]);
 
-  const filtrate = useMemo(
-    () => segnalazioni.filter((s) => !soloMie || s.operatore_id === currentUserId),
-    [segnalazioni, soloMie, currentUserId]
-  );
+  const filtrate = useMemo(() => {
+    const testo = ricerca.trim().toLowerCase();
+    return segnalazioni.filter(
+      (s) =>
+        (!soloMie || s.operatore_id === currentUserId) &&
+        (!testo ||
+          s.nome.toLowerCase().includes(testo) ||
+          s.telefono.includes(testo) ||
+          s.comune.toLowerCase().includes(testo) ||
+          String(s.numero).includes(testo))
+    );
+  }, [segnalazioni, soloMie, currentUserId, ricerca]);
+
+  async function gestisciDrop(colonna: (typeof COLONNE)[number], e: React.DragEvent) {
+    e.preventDefault();
+    setColonnaTrascinata(null);
+    const id = e.dataTransfer.getData("text/plain");
+    const segnalazione = segnalazioni.find((s) => s.id === id);
+    if (!segnalazione || segnalazione.stato === colonna.stato) return;
+
+    if (colonna.stato === "Trasmessa") {
+      if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
+      await trasmettiPerInstallazione(segnalazione.id);
+    } else {
+      await cambiaStatoSegnalazione(segnalazione.id, colonna.stato, segnalazione.stato);
+    }
+    router.refresh();
+  }
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
+          <input
+            value={ricerca}
+            onChange={(e) => setRicerca(e.target.value)}
+            placeholder="Cerca nome, telefono, comune..."
+            className="h-9 w-56 rounded-md border bg-background pl-8 pr-3 text-sm"
+          />
+        </div>
         <Button size="sm" variant={soloMie ? "default" : "outline"} onClick={() => setSoloMie((v) => !v)}>
           <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
           Solo le mie
         </Button>
+        {(soloMie || ricerca) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSoloMie(false);
+              setRicerca("");
+            }}
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Azzera filtri
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {COLONNE.map((col) => {
           const items = filtrate.filter((s) => s.stato === col.stato);
           const mostraGiorni = col.stato === "Da Contattare" || col.stato === "In Contatto";
+          const trascinamentoAttivo = colonnaTrascinata === col.titolo;
           return (
-            <div key={col.stato} className="rounded-2xl bg-muted/50 p-3">
+            <div
+              key={col.stato}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setColonnaTrascinata(col.titolo);
+              }}
+              onDragLeave={() => setColonnaTrascinata((c) => (c === col.titolo ? null : c))}
+              onDrop={(e) => gestisciDrop(col, e)}
+              className={`rounded-2xl p-3 transition ${
+                trascinamentoAttivo ? "bg-accent ring-2 ring-primary/40" : "bg-muted/50"
+              }`}
+            >
               <div className="mb-3 flex items-center justify-between px-1">
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
@@ -94,10 +155,15 @@ export function SegnalazioniBoard({
                 {items.map((s) => {
                   const giorni = giorniAperta(s.data);
                   return (
-                    <button
+                    <div
                       key={s.id}
+                      role="button"
+                      tabIndex={0}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
                       onClick={() => setAperta(s)}
-                      className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
+                      onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
+                      className="cursor-grab rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40 active:cursor-grabbing"
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-semibold">{s.nome}</span>
@@ -121,7 +187,7 @@ export function SegnalazioniBoard({
                           </span>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
