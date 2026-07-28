@@ -1,3 +1,4 @@
+import { Wifi, AlertTriangle } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
 import { RichiestaDatiForm } from "@/components/richiesta-dati/richiesta-dati-form";
 
@@ -13,21 +14,41 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
 
   if (!segnalazione) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center p-6 text-center">
-        <p className="text-muted-foreground">Link non valido o scaduto. Contatta Done Wifi per assistenza.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[oklch(0.22_0.035_255)] p-6 text-center">
+        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 shadow-2xl">
+          <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
+          <p className="text-muted-foreground">Link non valido o scaduto. Contatta Done Wifi per assistenza.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg p-6">
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Done Wifi</h1>
-        <p className="text-muted-foreground">
-          Ciao {segnalazione.nome}, completa i dati per procedere con il tuo contratto.
-        </p>
+    <div className="relative min-h-screen overflow-hidden bg-[oklch(0.22_0.035_255)]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/30 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-48 -left-32 h-96 w-96 rounded-full bg-[#6E9FDB]/20 blur-3xl"
+      />
+
+      <div className="relative mx-auto min-h-screen max-w-lg px-5 py-10 sm:py-16">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+            <Wifi className="h-6 w-6" strokeWidth={2.5} />
+          </div>
+          <h1 className="font-heading text-2xl font-bold text-white">
+            Done<span className="text-[#8FB3EA]">Wifi</span>
+          </h1>
+          <p className="mt-2 max-w-xs text-sm text-white/70">
+            Ciao <span className="font-semibold text-white">{segnalazione.nome}</span>, completa i dati per
+            procedere con il tuo contratto.
+          </p>
+        </div>
+        <RichiestaDatiForm segnalazioneId={segnalazione.id} giaInviato={!!segnalazione.dati_ricevuti_at} />
       </div>
-      <RichiestaDatiForm segnalazioneId={segnalazione.id} giaInviato={!!segnalazione.dati_ricevuti_at} />
     </div>
   );
 }

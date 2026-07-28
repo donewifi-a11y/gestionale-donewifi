@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { UserRound, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,17 +16,26 @@ import type { PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
+// ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
+// nello scroll di una colonna lunga.
+const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
 
 const COLORE_PRIORITA: Record<PrioritaTicket, string> = {
-  Urgente: "bg-red-100 text-red-700 border-red-200",
-  Normale: "bg-amber-100 text-amber-700 border-amber-200",
-  Bassa: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  Urgente: "bg-critical/10 text-critical border-critical/20",
+  Normale: "bg-warning/10 text-warning border-warning/20",
+  Bassa: "bg-success/10 text-success border-success/20",
+};
+
+const STRIPE_PRIORITA: Record<PrioritaTicket, string> = {
+  Urgente: "before:bg-critical",
+  Normale: "before:bg-warning",
+  Bassa: "before:bg-success",
 };
 
 const COLORE_REPARTO: Record<string, string> = {
-  "Analisi Rete": "bg-blue-100 text-blue-700 border-blue-200",
-  Commerciale: "bg-slate-100 text-slate-700 border-slate-200",
-  Fatturazione: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Analisi Rete": "bg-accent text-accent-foreground border-accent",
+  Commerciale: "bg-secondary text-secondary-foreground border-transparent",
+  Fatturazione: "bg-success/10 text-success border-success/20",
 };
 
 const CHIAVE_FILTRI = "ticketsFiltri";
@@ -62,14 +72,16 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
 
   const filtrati = useMemo(
     () =>
-      tickets.filter(
-        (t) =>
-          (!fStato || t.stato === fStato) &&
-          (!fCategoria || t.categoria === fCategoria) &&
-          (!fPriorita || t.priorita === fPriorita) &&
-          (!fReparto || t.reparto === fReparto) &&
-          (!soloMiei || t.tecnico_assegnato === currentUserId)
-      ),
+      tickets
+        .filter(
+          (t) =>
+            (!fStato || t.stato === fStato) &&
+            (!fCategoria || t.categoria === fCategoria) &&
+            (!fPriorita || t.priorita === fPriorita) &&
+            (!fReparto || t.reparto === fReparto) &&
+            (!soloMiei || t.tecnico_assegnato === currentUserId)
+        )
+        .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]),
     [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentUserId]
   );
 
@@ -91,7 +103,8 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
           variant={soloMiei ? "default" : "outline"}
           onClick={() => setSoloMiei((v) => !v)}
         >
-          🙋 Solo i miei
+          <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Solo i miei
         </Button>
         {(fStato || fCategoria || fPriorita || fReparto || soloMiei) && (
           <Button
@@ -105,7 +118,8 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
               setSoloMiei(false);
             }}
           >
-            ✕ Azzera filtri
+            <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Azzera filtri
           </Button>
         )}
       </div>
@@ -114,14 +128,16 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
         {colonne.map((col) => {
           const items = filtrati.filter((t) => col.stati.includes(t.stato));
           return (
-            <div key={col.titolo} className="rounded-xl border bg-card p-3">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-sm font-bold">{col.titolo}</span>
-                <span className="text-xs text-muted-foreground">{items.length}</span>
+            <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <span className="font-heading text-sm font-bold">{col.titolo}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
+                  {items.length}
+                </span>
               </div>
               <div className="flex flex-col gap-2">
                 {items.length === 0 && (
-                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                     Nessun ticket.
                   </div>
                 )}
@@ -129,7 +145,7 @@ export function TicketsBoard({ tickets, currentUserId }: { tickets: Ticket[]; cu
                   <button
                     key={t.id}
                     onClick={() => setAperto(t)}
-                    className="rounded-lg border bg-background p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
+                    className={`relative overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:shadow-md hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <span className="font-semibold">{t.cliente}</span>
@@ -234,7 +250,7 @@ function DettaglioTicket({ ticket, onCambiato }: { ticket: Ticket; onCambiato: (
                   i === idx
                     ? "bg-primary text-primary-foreground border-primary"
                     : i < idx
-                    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    ? "bg-success/10 text-success border-success/20"
                     : "bg-muted text-muted-foreground hover:border-primary/40"
                 }`}
               >

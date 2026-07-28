@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { UserRound, X, Copy, Check, Rocket, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,10 +23,17 @@ const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
 ];
 
 const COLORE_COPERTURA: Record<string, string> = {
-  si: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  no: "bg-red-100 text-red-700 border-red-200",
-  daVerificare: "bg-amber-100 text-amber-700 border-amber-200",
+  si: "bg-success/10 text-success border-success/20",
+  no: "bg-critical/10 text-critical border-critical/20",
+  daVerificare: "bg-warning/10 text-warning border-warning/20",
 };
+
+const CHIAVE_FILTRI = "segnalazioniFiltri";
+
+function giorniAperta(data: string) {
+  const ms = Date.now() - new Date(data).getTime();
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
 
 export function SegnalazioniBoard({
   segnalazioni,
@@ -37,42 +45,85 @@ export function SegnalazioniBoard({
   currentUserId: string;
 }) {
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
+  const [soloMie, setSoloMie] = useState(false);
+  const [pronto, setPronto] = useState(false);
+
+  useEffect(() => {
+    try {
+      setSoloMie(JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}").soloMie ?? false);
+    } catch {}
+    setPronto(true);
+  }, []);
+  useEffect(() => {
+    if (!pronto) return;
+    localStorage.setItem(CHIAVE_FILTRI, JSON.stringify({ soloMie }));
+  }, [soloMie, pronto]);
+
+  const filtrate = useMemo(
+    () => segnalazioni.filter((s) => !soloMie || s.operatore_id === currentUserId),
+    [segnalazioni, soloMie, currentUserId]
+  );
 
   return (
     <div>
+      <div className="mb-4 flex items-center gap-2">
+        <Button size="sm" variant={soloMie ? "default" : "outline"} onClick={() => setSoloMie((v) => !v)}>
+          <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Solo le mie
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {COLONNE.map((col) => {
-          const items = segnalazioni.filter((s) => s.stato === col.stato);
+          const items = filtrate.filter((s) => s.stato === col.stato);
+          const mostraGiorni = col.stato === "Da Contattare" || col.stato === "In Contatto";
           return (
-            <div key={col.stato} className="rounded-xl border bg-card p-3">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-sm font-bold">{col.titolo}</span>
-                <span className="text-xs text-muted-foreground">{items.length}</span>
+            <div key={col.stato} className="rounded-2xl bg-muted/50 p-3">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <span className="font-heading text-sm font-bold">{col.titolo}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
+                  {items.length}
+                </span>
               </div>
               <div className="flex flex-col gap-2">
                 {items.length === 0 && (
-                  <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                     Vuoto.
                   </div>
                 )}
-                {items.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setAperta(s)}
-                    className="rounded-lg border bg-background p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="font-semibold">{s.nome}</span>
-                      <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
-                    </div>
-                    <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
-                      {s.comune} · {s.telefono}
-                    </div>
-                    <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
-                      Copertura: {s.copertura === "si" ? "sì" : s.copertura === "no" ? "no" : "da verificare"}
-                    </Badge>
-                  </button>
-                ))}
+                {items.map((s) => {
+                  const giorni = giorniAperta(s.data);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setAperta(s)}
+                      className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm transition hover:shadow-md hover:border-primary/40"
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="font-semibold">{s.nome}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
+                      </div>
+                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
+                        {s.comune} · {s.telefono}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
+                          {s.copertura === "si" ? "Copertura sì" : s.copertura === "no" ? "Copertura no" : "Da verificare"}
+                        </Badge>
+                        {mostraGiorni && giorni >= 2 && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              giorni >= 5 ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
+                            }`}
+                          >
+                            <Clock className="h-3 w-3" strokeWidth={2.5} />
+                            da {giorni}g
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );
@@ -85,7 +136,6 @@ export function SegnalazioniBoard({
             <DettaglioSegnalazione
               segnalazione={aperta}
               richiesta={richieste.find((r) => r.segnalazione_id === aperta.id) ?? null}
-              currentUserId={currentUserId}
               onCambiata={(s) => setAperta(s)}
               onChiudi={() => setAperta(null)}
             />
@@ -104,7 +154,6 @@ function DettaglioSegnalazione({
 }: {
   segnalazione: Segnalazione;
   richiesta: RichiestaCliente | null;
-  currentUserId: string;
   onCambiata: (s: Segnalazione) => void;
   onChiudi: () => void;
 }) {
@@ -185,7 +234,8 @@ function DettaglioSegnalazione({
             <div className="flex gap-2">
               <input readOnly value={linkRichiestaDati} className="h-9 flex-1 rounded-md border bg-background px-2 text-xs" />
               <Button size="sm" variant="outline" onClick={copiaLink}>
-                {copiato ? "✓ Copiato" : "Copia link"}
+                {copiato ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                {copiato ? "Copiato" : "Copia link"}
               </Button>
             </div>
           </div>
@@ -213,7 +263,8 @@ function DettaglioSegnalazione({
 
         {segnalazione.stato !== "Trasmessa" && (
           <Button onClick={trasmetti} disabled={inCorso} className="mt-2">
-            🚀 Trasmetti per l&apos;installazione
+            <Rocket className="h-4 w-4" strokeWidth={2.25} />
+            Trasmetti per l&apos;installazione
           </Button>
         )}
       </div>

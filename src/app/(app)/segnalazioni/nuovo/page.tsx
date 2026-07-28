@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,13 +53,17 @@ export default function NuovaSegnalazionePage() {
   return (
     <div className="mx-auto max-w-xl">
       <div className="mb-6">
-        <Link href="/segnalazioni" className="text-sm text-muted-foreground hover:underline">
-          ← Torna alle Segnalazioni
+        <Link
+          href="/segnalazioni"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Torna alle Segnalazioni
         </Link>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">➕ Nuova Segnalazione</h1>
+        <h1 className="font-heading mt-1 text-2xl font-bold tracking-tight">Nuova Segnalazione</h1>
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-xl border bg-card p-5">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="nome">Nome cliente *</Label>
@@ -111,7 +116,12 @@ export default function NuovaSegnalazionePage() {
           <Textarea id="note" name="note" rows={3} className="mt-1" />
         </div>
 
-        {errore && <p className="text-sm font-medium text-red-600">{errore}</p>}
+        {errore && (
+          <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+            {errore}
+          </p>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Link href="/segnalazioni">
