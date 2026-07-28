@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Smartphone, Mail } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -271,7 +271,7 @@ function DettaglioSegnalazione({
             <div className="mb-3 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
               &ldquo;{messaggio}&rdquo;
             </div>
-            <div className="mb-2 grid grid-cols-2 gap-1.5">
+            <div className="mb-2 grid grid-cols-3 gap-1.5">
               <a
                 href={`https://wa.me/${telefonoIntl}?text=${encodeURIComponent(messaggio)}`}
                 target="_blank"
@@ -282,15 +282,6 @@ function DettaglioSegnalazione({
                   <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
                 </span>
                 WhatsApp
-              </a>
-              <a
-                href={`sms:${telefonoIntl}?body=${encodeURIComponent(messaggio)}`}
-                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <Smartphone className="h-3.5 w-3.5" strokeWidth={2.25} />
-                </span>
-                SMS
               </a>
               <a
                 href={`mailto:${segnalazione.email || ""}?subject=${encodeURIComponent("Done Wifi — completa i tuoi dati")}&body=${encodeURIComponent(messaggio)}`}
