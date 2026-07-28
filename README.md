@@ -8,8 +8,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla il contenuto di
    `supabase/migrations/0001_init.sql`, poi esegui. Fai lo stesso con
-   `supabase/migrations/0002_storage.sql` (crea il bucket privato per i documenti caricati dai
-   clienti nel modulo Richiesta Dati).
+   `supabase/migrations/0002_storage.sql` (bucket privato per i documenti caricati dai clienti) e
+   `supabase/migrations/0003_note_ticket.sql` (log di note/aggiornamenti sui Ticket).
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -38,15 +38,17 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 - `supabase/migrations/0001_init.sql` — schema del database (staff, tickets, segnalazioni,
   richieste_clienti, storico).
 - `supabase/migrations/0002_storage.sql` — bucket Storage privato per i documenti del cliente.
+- `supabase/migrations/0003_note_ticket.sql` — log testuale di note/aggiornamenti sui Ticket.
 
 ## Stato attuale
 
 ✅ Login, logout, guardia di accesso (rotte autenticate vs. pubbliche).
 ✅ Ticket: lista con filtri (stato/categoria/priorità/reparto + "solo i miei", ricordati per
-  browser), creazione, cambio stato da drawer.
+  browser), creazione, cambio stato/presa in carico/avanzamento rapido dalla card, note e
+  aggiornamenti testuali nel dettaglio.
 ✅ Segnalazioni: bacheca a 4 colonne (Da Contattare/In Contatto/Gestione Cliente/Trasmessa),
-  creazione, cambio stato, link "Richiesta Dati" da inviare al cliente, "Trasmetti per
-  l'installazione" → crea il Ticket collegato.
+  creazione, cambio stato, invio del link Richiesta Dati via WhatsApp/SMS/Email/copia link con
+  anteprima del messaggio, "Trasmetti per l'installazione" → crea il Ticket collegato.
 ✅ Modulo pubblico Richiesta Dati (dati fiscali/pagamento + upload documenti) collegato
   automaticamente alla Segnalazione d'origine.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +12,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { aggiornaStatoTicket, assegnaTicket } from "@/app/(app)/tickets/actions";
-import type { PrioritaTicket, StaffMinimo, StatoTicket, Ticket } from "@/lib/types";
+import { aggiornaStatoTicket, assegnaTicket, aggiungiNotaTicket, getNoteTicket } from "@/app/(app)/tickets/actions";
+import type { NotaTicket, PrioritaTicket, StaffMinimo, StatoTicket, Ticket } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
@@ -309,7 +309,31 @@ function DettaglioTicket({
 }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
+  const [note, setNote] = useState<NotaTicket[]>([]);
+  const [notaTesto, setNotaTesto] = useState("");
+  const [invioNota, setInvioNota] = useState(false);
   const assegnatario = ticket.tecnico_assegnato ? staff.find((s) => s.id === ticket.tecnico_assegnato) : null;
+
+  useEffect(() => {
+    getNoteTicket(ticket.id).then(setNote);
+  }, [ticket.id]);
+
+  function trovaStaff(id: string | null) {
+    return id ? staff.find((s) => s.id === id) ?? null : null;
+  }
+
+  async function inviaNota() {
+    const testo = notaTesto.trim();
+    if (!testo) return;
+    setInvioNota(true);
+    try {
+      const nuova = await aggiungiNotaTicket(ticket.id, testo);
+      setNote((n) => [...n, nuova]);
+      setNotaTesto("");
+    } finally {
+      setInvioNota(false);
+    }
+  }
 
   async function cambiaStato(nuovo: StatoTicket) {
     if (nuovo === ticket.stato) return;
@@ -364,7 +388,7 @@ function DettaglioTicket({
                 onClick={() => cambiaStato(s)}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                   i === idx
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
                     : i < idx
                     ? "bg-success/10 text-success border-success/20"
                     : "bg-muted text-muted-foreground hover:border-primary/40"
@@ -399,6 +423,47 @@ function DettaglioTicket({
         <Campo etichetta="Email" valore={ticket.email || "—"} />
         <Campo etichetta="Indirizzo" valore={ticket.indirizzo || "—"} />
         <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
+
+        <div className="border-t pt-4">
+          <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <NotebookText className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Note e aggiornamenti
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {note.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nessun aggiornamento ancora.</p>
+            )}
+            {note.map((n) => {
+              const autore = trovaStaff(n.autore_id);
+              return (
+                <div key={n.id} className="flex gap-2.5">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                    {autore ? iniziali(autore) : "?"}
+                  </span>
+                  <div className="flex-1 rounded-lg bg-muted/60 px-3 py-2">
+                    <div className="mb-0.5 text-[10.5px] font-bold text-muted-foreground">
+                      {autore?.nome || autore?.email || "Utente"} ·{" "}
+                      {new Date(n.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                    <div className="text-xs leading-relaxed">{n.testo}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2.5 flex gap-2">
+            <input
+              value={notaTesto}
+              onChange={(e) => setNotaTesto(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && inviaNota()}
+              placeholder="Scrivi un aggiornamento su questo ticket..."
+              className="h-9 flex-1 rounded-md border bg-background px-3 text-xs"
+            />
+            <Button size="icon" disabled={invioNota || !notaTesto.trim()} onClick={inviaNota}>
+              <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </Button>
+          </div>
+        </div>
       </div>
     </>
   );

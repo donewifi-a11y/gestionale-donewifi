@@ -55,6 +55,14 @@ export interface Segnalazione {
   dati_ricevuti_at: string | null;
 }
 
+export interface NotaTicket {
+  id: string;
+  ticket_id: string;
+  autore_id: string | null;
+  testo: string;
+  creato_il: string;
+}
+
 export interface StaffMinimo {
   id: string;
   email: string;

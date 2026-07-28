@@ -81,3 +81,30 @@ export async function assegnaTicket(id: string, tecnicoId: string | null) {
   if (error) throw new Error(error.message);
   revalidatePath("/tickets");
 }
+
+export async function getNoteTicket(ticketId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("note_ticket")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("creato_il", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function aggiungiNotaTicket(ticketId: string, testo: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non autenticato.");
+
+  const { data, error } = await supabase
+    .from("note_ticket")
+    .insert({ ticket_id: ticketId, autore_id: user.id, testo })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}

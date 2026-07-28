@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Smartphone, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -199,6 +199,9 @@ function DettaglioSegnalazione({
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
     [segnalazione.id]
   );
+  const primoNome = segnalazione.nome.trim().split(/\s+/)[0];
+  const messaggio = `Ciao ${primoNome}, per completare la tua richiesta Done Wifi inserisci qui i tuoi dati: ${linkRichiestaDati}`;
+  const telefonoIntl = "39" + segnalazione.telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
 
   async function cambiaStato(nuovo: StatoSegnalazione) {
     setInCorso(true);
@@ -247,7 +250,7 @@ function DettaglioSegnalazione({
               onClick={() => cambiaStato(c.stato)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 c.stato === segnalazione.stato
-                  ? "bg-primary text-primary-foreground border-primary"
+                  ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:border-primary/40"
               }`}
             >
@@ -261,16 +264,52 @@ function DettaglioSegnalazione({
         <Campo etichetta="Note" valore={segnalazione.note || "—"} />
 
         {segnalazione.stato === "Gestione Cliente" && !richiesta && (
-          <div className="rounded-lg border border-dashed p-3">
-            <p className="mb-2 text-xs text-muted-foreground">
-              Invia questo link al cliente per raccogliere i dati necessari al contratto.
+          <div className="rounded-xl border bg-card p-3 shadow-sm">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Invia il modulo dati al cliente
             </p>
-            <div className="flex gap-2">
-              <input readOnly value={linkRichiestaDati} className="h-9 flex-1 rounded-md border bg-background px-2 text-xs" />
-              <Button size="sm" variant="outline" onClick={copiaLink}>
-                {copiato ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.5} />}
+            <div className="mb-3 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
+              &ldquo;{messaggio}&rdquo;
+            </div>
+            <div className="mb-2 grid grid-cols-2 gap-1.5">
+              <a
+                href={`https://wa.me/${telefonoIntl}?text=${encodeURIComponent(messaggio)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#25b063] text-white">
+                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </span>
+                WhatsApp
+              </a>
+              <a
+                href={`sms:${telefonoIntl}?body=${encodeURIComponent(messaggio)}`}
+                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Smartphone className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </span>
+                SMS
+              </a>
+              <a
+                href={`mailto:${segnalazione.email || ""}?subject=${encodeURIComponent("Done Wifi — completa i tuoi dati")}&body=${encodeURIComponent(messaggio)}`}
+                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#5b52c9] text-white">
+                  <Mail className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </span>
+                Email
+              </a>
+              <button
+                onClick={copiaLink}
+                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted-foreground text-background">
+                  {copiato ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                </span>
                 {copiato ? "Copiato" : "Copia link"}
-              </Button>
+              </button>
             </div>
           </div>
         )}
