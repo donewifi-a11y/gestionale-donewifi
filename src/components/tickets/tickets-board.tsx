@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { aggiornaStatoTicket, assegnaTicket, aggiungiNotaTicket, getNoteTicket } from "@/app/(app)/tickets/actions";
+import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import type { NotaTicket, PrioritaTicket, StaffMinimo, StatoTicket, Ticket } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
 
@@ -423,6 +424,20 @@ function DettaglioTicket({
         <Campo etichetta="Email" valore={ticket.email || "—"} />
         <Campo etichetta="Indirizzo" valore={ticket.indirizzo || "—"} />
         <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
+        {ticket.contratto_pdf_url && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            onClick={async () => {
+              const url = await urlContratto(ticket.contratto_pdf_url!);
+              window.open(url, "_blank", "noopener,noreferrer");
+            }}
+          >
+            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Vedi contratto
+          </Button>
+        )}
 
         <div className="border-t pt-4">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

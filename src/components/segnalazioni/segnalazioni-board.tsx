@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { cambiaStatoSegnalazione, trasmettiPerInstallazione } from "@/app/(app)/segnalazioni/actions";
+import { cambiaStatoSegnalazione, trasmettiPerInstallazione, caricaContrattoSegnalazione, urlContratto } from "@/app/(app)/segnalazioni/actions";
 import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
@@ -200,6 +200,9 @@ function DettaglioSegnalazione({
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [copiato, setCopiato] = useState(false);
+  const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
+  const [caricamentoContratto, setCaricamentoContratto] = useState(false);
+  const [erroreContratto, setErroreContratto] = useState("");
 
   const linkRichiestaDati = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
@@ -236,6 +239,31 @@ function DettaglioSegnalazione({
     navigator.clipboard.writeText(linkRichiestaDati);
     setCopiato(true);
     setTimeout(() => setCopiato(false), 1500);
+  }
+
+  async function caricaContratto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErroreContratto("");
+    setCaricamentoContratto(true);
+    try {
+      const dati = new FormData();
+      dati.set("file", file);
+      const percorso = await caricaContrattoSegnalazione(segnalazione.id, dati);
+      setContrattoUrl(percorso);
+      onCambiata({ ...segnalazione, contratto_pdf_url: percorso });
+    } catch (err) {
+      setErroreContratto(err instanceof Error ? err.message : "Errore imprevisto.");
+    } finally {
+      setCaricamentoContratto(false);
+      e.target.value = "";
+    }
+  }
+
+  async function vediContratto() {
+    if (!contrattoUrl) return;
+    const url = await urlContratto(contrattoUrl);
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -330,6 +358,45 @@ function DettaglioSegnalazione({
             </div>
           </div>
         )}
+
+        <div className="rounded-xl border bg-card p-3 shadow-sm">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Contratto
+          </p>
+          {contrattoUrl ? (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={vediContratto}>
+                <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Vedi contratto
+              </Button>
+              <label className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:underline">
+                Sostituisci
+                <input type="file" accept="application/pdf" onChange={caricaContratto} className="hidden" disabled={caricamentoContratto} />
+              </label>
+            </div>
+          ) : (
+            <>
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary hover:text-primary">
+                <Upload className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+                {caricamentoContratto ? "Caricamento..." : "Carica il contratto firmato (PDF)"}
+                <input type="file" accept="application/pdf" onChange={caricaContratto} className="hidden" disabled={caricamentoContratto} />
+              </label>
+              {segnalazione.stato !== "Trasmessa" && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-warning">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  Meglio caricarlo prima di trasmettere per l&apos;installazione.
+                </p>
+              )}
+            </>
+          )}
+          {erroreContratto && (
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-critical">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              {erroreContratto}
+            </p>
+          )}
+        </div>
 
         {segnalazione.stato !== "Trasmessa" && (
           <Button onClick={trasmetti} disabled={inCorso} className="mt-2">

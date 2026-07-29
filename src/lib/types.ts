@@ -30,6 +30,7 @@ export interface Ticket {
   reparto: AreaAccesso;
   tecnico_assegnato: string | null;
   note: string | null;
+  contratto_pdf_url: string | null;
   segnalazione_id: string | null;
 }
 

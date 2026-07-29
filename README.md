@@ -72,10 +72,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   esistenti — nessuna tabella nuova.
 ✅ Vista Tecnico: schermata mobile con solo appuntamenti di oggi e Ticket assegnati all'utente,
   chiamata e avanzamento stato a un tocco.
+✅ Contratto: caricamento del PDF (generato altrove) sulla Segnalazione durante Gestione Cliente,
+  visibile poi anche sul Ticket collegato — bucket privato, link di visualizzazione firmato.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
 Fuori scope per ora (richiedono una decisione/setup da parte tua prima di poter procedere):
 Storico Modifiche (UI, non prioritario per ora), notifiche Telegram (serve un bot da creare su
-BotFather), export PDF dei contratti (serve il template/testo del contratto).
+BotFather). I contratti si continuano a generare sul gestionale esterno esistente — qui si carica
+solo il PDF già pronto (vedi sopra), niente generazione automatica.

@@ -1,8 +1,63 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
+
+// ★ NUOVA — i contratti oggi si generano su un altro gestionale: qui non
+// li si genera, li si carica come PDF già pronto sulla Segnalazione,
+// prima di trasmettere per l'installazione. Il bucket è privato: upload
+// e lettura passano dalla service role (stesso pattern del modulo
+// pubblico Richiesta Dati), l'URL restituito al browser è sempre firmato
+// e a scadenza breve.
+export async function caricaContrattoSegnalazione(segnalazioneId: string, formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non autenticato.");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Nessun file selezionato.");
+  if (file.type !== "application/pdf") throw new Error("Il contratto deve essere un file PDF.");
+
+  const service = createServiceClient();
+  const percorso = `contratti/${segnalazioneId}-${Date.now()}-${file.name}`;
+  const { error: erroreUpload } = await service.storage
+    .from("documenti")
+    .upload(percorso, file, { contentType: "application/pdf" });
+  if (erroreUpload) throw new Error(erroreUpload.message);
+
+  const { error } = await supabase
+    .from("segnalazioni")
+    .update({ contratto_pdf_url: percorso, aggiornato_il: new Date().toISOString() })
+    .eq("id", segnalazioneId);
+  if (error) throw new Error(error.message);
+
+  await supabase.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: segnalazioneId,
+    operazione: "Contratto caricato",
+    valore_dopo: file.name,
+    operatore_id: user.id,
+  });
+
+  revalidatePath("/segnalazioni");
+  return percorso;
+}
+
+export async function urlContratto(percorso: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non autenticato.");
+
+  const service = createServiceClient();
+  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
 
 export async function creaSegnalazione(dati: {
   nome: string;
