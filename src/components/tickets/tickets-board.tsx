@@ -312,6 +312,7 @@ function DettaglioTicket({
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
   const [invioNota, setInvioNota] = useState(false);
+  const [erroreNota, setErroreNota] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
@@ -326,13 +327,15 @@ function DettaglioTicket({
     const testo = notaTesto.trim();
     if (!testo) return;
     setInvioNota(true);
-    try {
-      const nuova = await aggiungiNotaTicket(ticket.id, testo);
-      setNote((n) => [...n, nuova]);
-      setNotaTesto("");
-    } finally {
-      setInvioNota(false);
+    setErroreNota("");
+    const risultato = await aggiungiNotaTicket(ticket.id, testo);
+    setInvioNota(false);
+    if (risultato.errore || !risultato.nota) {
+      setErroreNota(risultato.errore || "Errore imprevisto.");
+      return;
     }
+    setNote((n) => [...n, risultato.nota]);
+    setNotaTesto("");
   }
 
   async function cambiaStato(nuovo: StatoTicket) {
@@ -429,8 +432,12 @@ function DettaglioTicket({
             variant="outline"
             className="w-fit"
             onClick={async () => {
-              const url = await urlContratto(ticket.contratto_pdf_url!);
-              window.open(url, "_blank", "noopener,noreferrer");
+              const risultato = await urlContratto(ticket.contratto_pdf_url!);
+              if (risultato.errore || !risultato.url) {
+                alert(risultato.errore || "Errore imprevisto.");
+                return;
+              }
+              window.open(risultato.url, "_blank", "noopener,noreferrer");
             }}
           >
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -477,6 +484,7 @@ function DettaglioTicket({
               <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
             </Button>
           </div>
+          {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
         </div>
       </div>
     </>

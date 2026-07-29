@@ -21,9 +21,4 @@ export async function impostaCookiePersona(personaId: string) {
   });
 }
 
-/** Da usare nelle Server Action che devono registrare "chi" ha fatto un'azione. */
-export async function richiediPersonaId(): Promise<string> {
-  const id = await getPersonaCorrenteId();
-  if (!id) throw new Error("Seleziona prima chi sei, dal menu in basso a sinistra.");
-  return id;
-}
+export const ERRORE_PERSONA_MANCANTE = "Seleziona prima chi sei, dal menu in basso a sinistra.";

@@ -4,33 +4,45 @@ import { createClient } from "@/lib/supabase/server";
 import { impostaCookiePersona } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 
-async function verificaAdmin() {
+// ★ le Server Action, in produzione, nascondono al client il messaggio di
+// un errore lanciato con "throw" — per mostrare messaggi utili bisogna
+// restituirli come dato, non lanciarli.
+async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
+  if (!user) return "Non autenticato.";
 
   const { data: staff } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
   if (!staff || (staff.area_accesso !== "Tutto" && staff.area_accesso !== "Admin")) {
-    throw new Error("Non hai i permessi per gestire le persone.");
+    return "Non hai i permessi per gestire le persone.";
   }
+  return null;
 }
 
 export async function creaPersona(nome: string) {
-  await verificaAdmin();
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso };
+
   const supabase = await createClient();
   const { error } = await supabase.from("persone").insert({ nome });
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
+
   revalidatePath("/persone");
+  return { errore: null };
 }
 
 export async function aggiornaPersona(id: string, dati: { nome: string; attivo: boolean }) {
-  await verificaAdmin();
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso };
+
   const supabase = await createClient();
   const { error } = await supabase.from("persone").update(dati).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
+
   revalidatePath("/persone");
+  return { errore: null };
 }
 
 /** Chiunque sia autenticato può scegliere "chi è" tra le persone attive. */
@@ -39,10 +51,11 @@ export async function scegliPersonaCorrente(id: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
+  if (!user) return { errore: "Non autenticato." };
 
   const { data: persona } = await supabase.from("persone").select("id").eq("id", id).eq("attivo", true).single();
-  if (!persona) throw new Error("Persona non valida.");
+  if (!persona) return { errore: "Persona non valida." };
 
   await impostaCookiePersona(id);
+  return { errore: null };
 }

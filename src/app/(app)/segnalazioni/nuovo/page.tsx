@@ -31,23 +31,23 @@ export default function NuovaSegnalazionePage() {
       return;
     }
     setInCorso(true);
-    try {
-      await creaSegnalazione({
-        nome,
-        telefono,
-        email: String(dati.get("email") || ""),
-        via,
-        civico,
-        comune,
-        cap,
-        copertura: String(dati.get("copertura") || "daVerificare") as Copertura,
-        note: String(dati.get("note") || ""),
-      });
-      router.push("/segnalazioni");
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
+    const risultato = await creaSegnalazione({
+      nome,
+      telefono,
+      email: String(dati.get("email") || ""),
+      via,
+      civico,
+      comune,
+      cap,
+      copertura: String(dati.get("copertura") || "daVerificare") as Copertura,
+      note: String(dati.get("note") || ""),
+    });
+    if (risultato.errore) {
+      setErrore(risultato.errore);
       setInCorso(false);
+      return;
     }
+    router.push("/segnalazioni");
   }
 
   return (

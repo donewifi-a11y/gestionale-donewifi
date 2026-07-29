@@ -28,22 +28,22 @@ export default function NuovoTicketPage() {
       return;
     }
     setInCorso(true);
-    try {
-      await creaTicket({
-        cliente,
-        telefono: String(dati.get("telefono") || ""),
-        email: String(dati.get("email") || ""),
-        indirizzo: String(dati.get("indirizzo") || ""),
-        categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
-        problema: String(dati.get("problema") || ""),
-        priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
-        reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
-      });
-      router.push("/tickets");
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
+    const risultato = await creaTicket({
+      cliente,
+      telefono: String(dati.get("telefono") || ""),
+      email: String(dati.get("email") || ""),
+      indirizzo: String(dati.get("indirizzo") || ""),
+      categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
+      problema: String(dati.get("problema") || ""),
+      priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
+      reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
+    });
+    if (risultato.errore) {
+      setErrore(risultato.errore);
       setInCorso(false);
+      return;
     }
+    router.push("/tickets");
   }
 
   return (

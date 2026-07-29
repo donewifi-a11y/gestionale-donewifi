@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { richiediPersonaId } from "@/lib/persona";
+import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { StatoAppuntamento } from "@/lib/types";
 
@@ -18,8 +18,9 @@ export async function creaAppuntamento(dati: {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
-  const personaId = await richiediPersonaId();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const { error } = await supabase.from("appuntamenti").insert({
     titolo: dati.titolo,
@@ -31,13 +32,16 @@ export async function creaAppuntamento(dati: {
     note: dati.note || null,
     creato_da: personaId,
   });
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
+
   revalidatePath("/calendario");
+  return { errore: null };
 }
 
 export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamento) {
   const supabase = await createClient();
   const { error } = await supabase.from("appuntamenti").update({ stato }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
   revalidatePath("/calendario");
+  return { errore: null };
 }

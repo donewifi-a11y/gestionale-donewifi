@@ -109,20 +109,19 @@ function FormNuovoUtente({ onFatto }: { onFatto: () => void }) {
       return;
     }
     setInCorso(true);
-    try {
-      await creaStaff({
-        email,
-        password,
-        nome: String(dati.get("nome") || ""),
-        area_accesso: String(dati.get("area_accesso") || "Analisi Rete") as AreaAccesso,
-      });
-      router.refresh();
-      onFatto();
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
-    } finally {
-      setInCorso(false);
+    const risultato = await creaStaff({
+      email,
+      password,
+      nome: String(dati.get("nome") || ""),
+      area_accesso: String(dati.get("area_accesso") || "Analisi Rete") as AreaAccesso,
+    });
+    setInCorso(false);
+    if (risultato.errore) {
+      setErrore(risultato.errore);
+      return;
     }
+    router.refresh();
+    onFatto();
   }
 
   return (
@@ -176,19 +175,18 @@ function FormModificaUtente({ utente, onFatto }: { utente: StaffCompleto; onFatt
     setErrore("");
     const dati = new FormData(e.currentTarget);
     setInCorso(true);
-    try {
-      await aggiornaStaff(utente.id, {
-        nome: String(dati.get("nome") || ""),
-        area_accesso: String(dati.get("area_accesso") || utente.area_accesso) as AreaAccesso,
-        attivo: dati.get("attivo") === "on",
-      });
-      router.refresh();
-      onFatto();
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
-    } finally {
-      setInCorso(false);
+    const risultato = await aggiornaStaff(utente.id, {
+      nome: String(dati.get("nome") || ""),
+      area_accesso: String(dati.get("area_accesso") || utente.area_accesso) as AreaAccesso,
+      attivo: dati.get("attivo") === "on",
+    });
+    setInCorso(false);
+    if (risultato.errore) {
+      setErrore(risultato.errore);
+      return;
     }
+    router.refresh();
+    onFatto();
   }
 
   return (

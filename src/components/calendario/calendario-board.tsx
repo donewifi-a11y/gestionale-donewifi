@@ -192,23 +192,22 @@ function FormNuovoAppuntamento({
       return;
     }
     setInCorso(true);
-    try {
-      await creaAppuntamento({
-        titolo,
-        indirizzo: String(dati.get("indirizzo") || ""),
-        dataOra: new Date(`${data}T${ora}`).toISOString(),
-        durataMinuti: Number(dati.get("durata") || 60),
-        tecnicoId: String(dati.get("tecnico") || ""),
-        ticketId,
-        note: String(dati.get("note") || ""),
-      });
-      router.refresh();
-      onFatto();
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
-    } finally {
-      setInCorso(false);
+    const risultato = await creaAppuntamento({
+      titolo,
+      indirizzo: String(dati.get("indirizzo") || ""),
+      dataOra: new Date(`${data}T${ora}`).toISOString(),
+      durataMinuti: Number(dati.get("durata") || 60),
+      tecnicoId: String(dati.get("tecnico") || ""),
+      ticketId,
+      note: String(dati.get("note") || ""),
+    });
+    setInCorso(false);
+    if (risultato.errore) {
+      setErrore(risultato.errore);
+      return;
     }
+    router.refresh();
+    onFatto();
   }
 
   return (

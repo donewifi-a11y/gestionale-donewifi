@@ -226,13 +226,14 @@ function DettaglioSegnalazione({
   async function trasmetti() {
     if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
     setInCorso(true);
-    try {
-      const ticket = await trasmettiPerInstallazione(segnalazione.id);
-      onChiudi();
-      router.push(`/tickets?aperto=${ticket.id}`);
-    } finally {
-      setInCorso(false);
+    const risultato = await trasmettiPerInstallazione(segnalazione.id);
+    setInCorso(false);
+    if (risultato.errore || !risultato.id) {
+      alert(risultato.errore || "Errore imprevisto.");
+      return;
     }
+    onChiudi();
+    router.push(`/tickets?aperto=${risultato.id}`);
   }
 
   function copiaLink() {
@@ -246,24 +247,27 @@ function DettaglioSegnalazione({
     if (!file) return;
     setErroreContratto("");
     setCaricamentoContratto(true);
-    try {
-      const dati = new FormData();
-      dati.set("file", file);
-      const percorso = await caricaContrattoSegnalazione(segnalazione.id, dati);
-      setContrattoUrl(percorso);
-      onCambiata({ ...segnalazione, contratto_pdf_url: percorso });
-    } catch (err) {
-      setErroreContratto(err instanceof Error ? err.message : "Errore imprevisto.");
-    } finally {
-      setCaricamentoContratto(false);
-      e.target.value = "";
+    const dati = new FormData();
+    dati.set("file", file);
+    const risultato = await caricaContrattoSegnalazione(segnalazione.id, dati);
+    setCaricamentoContratto(false);
+    e.target.value = "";
+    if (risultato.errore || !risultato.percorso) {
+      setErroreContratto(risultato.errore || "Errore imprevisto.");
+      return;
     }
+    setContrattoUrl(risultato.percorso);
+    onCambiata({ ...segnalazione, contratto_pdf_url: risultato.percorso });
   }
 
   async function vediContratto() {
     if (!contrattoUrl) return;
-    const url = await urlContratto(contrattoUrl);
-    window.open(url, "_blank", "noopener,noreferrer");
+    const risultato = await urlContratto(contrattoUrl);
+    if (risultato.errore || !risultato.url) {
+      alert(risultato.errore || "Errore imprevisto.");
+      return;
+    }
+    window.open(risultato.url, "_blank", "noopener,noreferrer");
   }
 
   return (

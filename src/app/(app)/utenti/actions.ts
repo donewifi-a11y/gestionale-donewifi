@@ -4,21 +4,28 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso } from "@/lib/types";
 
-async function verificaAdmin() {
+// ★ le Server Action, in produzione, nascondono al client il messaggio di
+// un errore lanciato con "throw" (Next.js lo sostituisce con un digest
+// generico per sicurezza) — per mostrare messaggi utili all'utente
+// bisogna restituirli come dato, non lanciarli. "errore" qui è quel dato.
+async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
+  if (!user) return "Non autenticato.";
 
   const { data: staff } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
   if (!staff || (staff.area_accesso !== "Tutto" && staff.area_accesso !== "Admin")) {
-    throw new Error("Non hai i permessi per gestire gli utenti.");
+    return "Non hai i permessi per gestire gli utenti.";
   }
+  return null;
 }
 
 export async function creaStaff(dati: { email: string; password: string; nome: string; area_accesso: AreaAccesso }) {
-  await verificaAdmin();
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso };
+
   const service = createServiceClient();
 
   const { data: creato, error: erroreAuth } = await service.auth.admin.createUser({
@@ -26,7 +33,9 @@ export async function creaStaff(dati: { email: string; password: string; nome: s
     password: dati.password,
     email_confirm: true,
   });
-  if (erroreAuth) throw new Error(erroreAuth.message);
+  if (erroreAuth || !creato?.user) {
+    return { errore: erroreAuth?.message || "Creazione dell'accesso non riuscita." };
+  }
 
   const { error: erroreStaff } = await service.from("staff").insert({
     id: creato.user.id,
@@ -36,18 +45,23 @@ export async function creaStaff(dati: { email: string; password: string; nome: s
     permessi: [],
     attivo: true,
   });
-  if (erroreStaff) throw new Error(erroreStaff.message);
+  if (erroreStaff) return { errore: erroreStaff.message };
 
   revalidatePath("/utenti");
+  return { errore: null };
 }
 
 export async function aggiornaStaff(id: string, dati: { nome: string; area_accesso: AreaAccesso; attivo: boolean }) {
-  await verificaAdmin();
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("staff")
     .update({ nome: dati.nome || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
+
   revalidatePath("/utenti");
+  return { errore: null };
 }

@@ -19,15 +19,14 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
     if (!nome.trim()) return;
     setErrore("");
     setInCorso(true);
-    try {
-      await creaPersona(nome.trim());
-      setNome("");
-      router.refresh();
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
-    } finally {
-      setInCorso(false);
+    const risultato = await creaPersona(nome.trim());
+    setInCorso(false);
+    if (risultato.errore) {
+      setErrore(risultato.errore);
+      return;
     }
+    setNome("");
+    router.refresh();
   }
 
   async function toggleAttivo(p: Persona) {

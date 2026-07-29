@@ -1,9 +1,13 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { richiediPersonaId } from "@/lib/persona";
+import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
+
+// ★ le Server Action, in produzione, nascondono al client il messaggio di
+// un errore lanciato con "throw" — per mostrare messaggi utili bisogna
+// restituirli come dato ({ errore }), non lanciarli.
 
 // ★ NUOVA — i contratti oggi si generano su un altro gestionale: qui non
 // li si genera, li si carica come PDF già pronto sulla Segnalazione,
@@ -16,25 +20,26 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
-  const personaId = await richiediPersonaId();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) throw new Error("Nessun file selezionato.");
-  if (file.type !== "application/pdf") throw new Error("Il contratto deve essere un file PDF.");
+  if (!(file instanceof File) || file.size === 0) return { errore: "Nessun file selezionato." };
+  if (file.type !== "application/pdf") return { errore: "Il contratto deve essere un file PDF." };
 
   const service = createServiceClient();
   const percorso = `contratti/${segnalazioneId}-${Date.now()}-${file.name}`;
   const { error: erroreUpload } = await service.storage
     .from("documenti")
     .upload(percorso, file, { contentType: "application/pdf" });
-  if (erroreUpload) throw new Error(erroreUpload.message);
+  if (erroreUpload) return { errore: erroreUpload.message };
 
   const { error } = await supabase
     .from("segnalazioni")
     .update({ contratto_pdf_url: percorso, aggiornato_il: new Date().toISOString() })
     .eq("id", segnalazioneId);
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
 
   await supabase.from("storico").insert({
     origine: "segnalazione",
@@ -45,7 +50,7 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
   });
 
   revalidatePath("/segnalazioni");
-  return percorso;
+  return { errore: null, percorso };
 }
 
 export async function urlContratto(percorso: string) {
@@ -53,12 +58,12 @@ export async function urlContratto(percorso: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
+  if (!user) return { errore: "Non autenticato.", url: null };
 
   const service = createServiceClient();
   const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) throw new Error(error.message);
-  return data.signedUrl;
+  if (error) return { errore: error.message, url: null };
+  return { errore: null, url: data.signedUrl };
 }
 
 export async function creaSegnalazione(dati: {
@@ -76,8 +81,9 @@ export async function creaSegnalazione(dati: {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
-  const personaId = await richiediPersonaId();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const { data, error } = await supabase
     .from("segnalazioni")
@@ -96,7 +102,7 @@ export async function creaSegnalazione(dati: {
     .select("id, numero")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
 
   await supabase.from("storico").insert({
     origine: "segnalazione",
@@ -107,7 +113,7 @@ export async function creaSegnalazione(dati: {
   });
 
   revalidatePath("/segnalazioni");
-  return data;
+  return { errore: null, id: data.id, numero: data.numero };
 }
 
 export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegnalazione, statoVecchio: StatoSegnalazione) {
@@ -115,8 +121,9 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
-  const personaId = await richiediPersonaId();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const aggiornamento: Record<string, unknown> = { stato: statoNuovo, aggiornato_il: new Date().toISOString() };
   if (statoNuovo === "Gestione Cliente") {
@@ -124,7 +131,7 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   }
 
   const { error } = await supabase.from("segnalazioni").update(aggiornamento).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) return { errore: error.message };
 
   await supabase.from("storico").insert({
     origine: "segnalazione",
@@ -136,6 +143,7 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   });
 
   revalidatePath("/segnalazioni");
+  return { errore: null };
 }
 
 // ★ NUOVA — a differenza del gestionale precedente (dove "Trasmetti per
@@ -148,15 +156,16 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
-  const personaId = await richiediPersonaId();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const { data: segnalazione, error: erroreLettura } = await supabase
     .from("segnalazioni")
     .select("*")
     .eq("id", segnalazioneId)
     .single();
-  if (erroreLettura || !segnalazione) throw new Error(erroreLettura?.message || "Segnalazione non trovata.");
+  if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
 
   const { data: ticket, error: erroreTicket } = await supabase
     .from("tickets")
@@ -177,13 +186,13 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
     })
     .select("id, numero")
     .single();
-  if (erroreTicket) throw new Error(erroreTicket.message);
+  if (erroreTicket || !ticket) return { errore: erroreTicket?.message || "Creazione del Ticket non riuscita." };
 
   const { error: erroreStato } = await supabase
     .from("segnalazioni")
     .update({ stato: "Trasmessa", aggiornato_il: new Date().toISOString() })
     .eq("id", segnalazioneId);
-  if (erroreStato) throw new Error(erroreStato.message);
+  if (erroreStato) return { errore: erroreStato.message };
 
   await supabase.from("storico").insert([
     {
@@ -205,5 +214,5 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
 
   revalidatePath("/segnalazioni");
   revalidatePath("/tickets");
-  return ticket;
+  return { errore: null, id: ticket.id, numero: ticket.numero };
 }

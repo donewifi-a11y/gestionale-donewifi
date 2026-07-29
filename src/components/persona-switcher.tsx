@@ -13,12 +13,9 @@ export function PersonaSwitcher({ persone, personaCorrenteId }: { persone: Perso
   async function cambia(id: string) {
     if (!id || id === personaCorrenteId) return;
     setInCorso(true);
-    try {
-      await scegliPersonaCorrente(id);
-      router.refresh();
-    } finally {
-      setInCorso(false);
-    }
+    await scegliPersonaCorrente(id);
+    setInCorso(false);
+    router.refresh();
   }
 
   if (persone.length === 0) return null;
