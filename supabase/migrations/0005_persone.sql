@@ -6,7 +6,7 @@
 -- gestionale, e da quel momento assegnazioni/note/creazioni si
 -- riferiscono alla persona scelta, non più all'account condiviso.
 -- ============================================================
-create table persone (
+create table if not exists persone (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
   attivo boolean not null default true,
@@ -14,9 +14,22 @@ create table persone (
 );
 
 alter table persone enable row level security;
+drop policy if exists "staff attivo legge persone" on persone;
 create policy "staff attivo legge persone" on persone for select using (is_active_staff());
+drop policy if exists "staff attivo scrive persone" on persone;
 create policy "staff attivo scrive persone" on persone for insert with check (is_active_staff());
+drop policy if exists "staff attivo aggiorna persone" on persone;
 create policy "staff attivo aggiorna persone" on persone for update using (is_active_staff());
+
+-- ★ traghetta ogni account "staff" già in uso in una riga "persone" con lo
+-- stesso id: così i Ticket/Segnalazioni/Appuntamenti/Note già assegnati a
+-- quell'account restano validi quando le colonne sotto passano a
+-- referenziare persone(id) invece di staff(id). Chi gestisce il team può
+-- poi rinominare/disattivare queste righe "traghettate" dalla pagina
+-- Persone, o aggiungerne di nuove per le persone reali.
+insert into persone (id, nome, attivo)
+select id, coalesce(nome, email), attivo from staff
+on conflict (id) do nothing;
 
 -- ── ricollega a "persone" le colonne che tracciano un individuo ──────
 alter table tickets drop constraint if exists tickets_tecnico_assegnato_fkey;
