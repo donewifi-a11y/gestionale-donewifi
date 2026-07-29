@@ -19,16 +19,6 @@ function client() {
   }
 
   const chiave = normalizzaChiavePrivata(chiavePrivata);
-  console.error("Google Calendar: diagnostica chiave (nessun segreto)", {
-    lunghezza: chiave.length,
-    righe: chiave.split("\n").length,
-    iniziaCorrettamente: chiave.startsWith("-----BEGIN PRIVATE KEY-----"),
-    finisceCorrettamente: chiave.trim().endsWith("-----END PRIVATE KEY-----"),
-    primi40: JSON.stringify(chiave.slice(0, 40)),
-    ultimi40: JSON.stringify(chiave.slice(-40)),
-    indiceBegin: chiave.indexOf("BEGIN PRIVATE KEY"),
-  });
-
   const auth = new google.auth.JWT({
     email,
     key: chiave,
@@ -85,11 +75,6 @@ export async function creaEventoCalendario(dati: {
         start: { dateTime: inizio.toISOString(), timeZone: "Europe/Rome" },
         end: { dateTime: fine.toISOString(), timeZone: "Europe/Rome" },
       },
-    });
-    console.error("Google Calendar: evento creato con successo", {
-      calendarId: c.calendarId,
-      eventoId: data.id,
-      link: data.htmlLink,
     });
     return data.id ?? null;
   } catch (err) {
