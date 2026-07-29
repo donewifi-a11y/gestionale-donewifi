@@ -45,6 +45,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   ruolo.
 - `src/app/(app)/calendario` — agenda appuntamenti, collegabili a un Ticket.
 - `src/app/(app)/dashboard` — KPI e distribuzione Ticket/Segnalazioni per stato, carico per tecnico.
+- `src/app/(app)/archivio` — Ticket chiusi/annullati e Segnalazioni trasmesse, ricerca, sola lettura.
+- `src/app/(app)/clienti` — registro clienti ricavato aggregando i Ticket per nome/telefono.
 
 ## Stato attuale
 
@@ -63,9 +65,12 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   e assegnabili a un tecnico.
 ✅ Dashboard: Ticket urgenti/non assegnati, appuntamenti di oggi, distribuzione Ticket e
   Segnalazioni per stato, carico di lavoro per tecnico.
+✅ Archivio: Ticket Completato/Annullato e Segnalazioni Trasmesse, elenco cronologico ricercabile.
+✅ Clienti: registro clienti (nome/telefono/indirizzo) con storico ticket, ricavato dai Ticket
+  esistenti — nessuna tabella nuova.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
-Fuori scope per ora (fasi successive): Clienti Attivi, Archivio, Storico Modifiche (UI),
-Lavorazione/Vista Tecnico, notifiche Telegram, export PDF.
+Fuori scope per ora (fasi successive): Storico Modifiche (UI), Lavorazione/Vista Tecnico,
+notifiche Telegram, export PDF.
