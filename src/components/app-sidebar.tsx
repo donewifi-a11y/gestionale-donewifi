@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, Archive, Gauge, Users, Menu, X } from "lucide-react";
+import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, HardHat, Archive, Gauge, Users, Menu, X } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 
 const VOCI_NAV = [
@@ -12,6 +12,7 @@ const VOCI_NAV = [
   { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall, esatto: false },
   { href: "/clienti", etichetta: "Clienti", icona: Users2, esatto: false },
   { href: "/calendario", etichetta: "Calendario", icona: CalendarDays, esatto: false },
+  { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat, esatto: false },
   { href: "/archivio", etichetta: "Archivio", icona: Archive, esatto: false },
   { href: "/dashboard", etichetta: "Dashboard", icona: Gauge, esatto: false },
 ];

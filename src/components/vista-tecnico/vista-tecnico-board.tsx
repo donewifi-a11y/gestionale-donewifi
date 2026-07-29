@@ -1,0 +1,155 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Phone, MapPin, Clock, Check, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { aggiornaStatoTicket } from "@/app/(app)/tickets/actions";
+import { cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
+import type { Appuntamento, StatoTicket, Ticket } from "@/lib/types";
+
+const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
+
+const COLORE_PRIORITA: Record<string, string> = {
+  Urgente: "bg-critical/10 text-critical border-critical/20",
+  Normale: "bg-warning/10 text-warning border-warning/20",
+  Bassa: "bg-success/10 text-success border-success/20",
+};
+
+export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: Appuntamento[]; tickets: Ticket[] }) {
+  const router = useRouter();
+  const [inCorso, setInCorso] = useState<string | null>(null);
+
+  async function completaAppuntamento(id: string) {
+    setInCorso(id);
+    try {
+      await cambiaStatoAppuntamento(id, "Completato");
+      router.refresh();
+    } finally {
+      setInCorso(null);
+    }
+  }
+
+  async function avanzaTicket(t: Ticket) {
+    const idx = SEQUENZA_STATO.indexOf(t.stato);
+    const prossimo = SEQUENZA_STATO[idx + 1];
+    if (!prossimo) return;
+    if (prossimo === "Completato" && !confirm(`Segnare il ticket #${t.numero} come Completato?`)) return;
+    setInCorso(t.id);
+    try {
+      await aggiornaStatoTicket(t.id, prossimo, t.stato);
+      router.refresh();
+    } finally {
+      setInCorso(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <section>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Appuntamenti di oggi ({appuntamenti.length})
+        </h2>
+        {appuntamenti.length === 0 && (
+          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Nessun appuntamento in programma.
+          </div>
+        )}
+        <div className="flex flex-col gap-3">
+          {appuntamenti.map((a) => (
+            <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-md">
+              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-primary">
+                <Clock className="h-4 w-4" strokeWidth={2.5} />
+                {new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+              </div>
+              <div className="mb-1 text-lg font-semibold">{a.titolo}</div>
+              {a.indirizzo && (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  {a.indirizzo}
+                </a>
+              )}
+              {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
+              <button
+                onClick={() => completaAppuntamento(a.id)}
+                disabled={inCorso === a.id}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-bold text-success"
+              >
+                <Check className="h-4 w-4" strokeWidth={2.5} />
+                Segna completato
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          I miei Ticket aperti ({tickets.length})
+        </h2>
+        {tickets.length === 0 && (
+          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Nessun ticket assegnato.
+          </div>
+        )}
+        <div className="flex flex-col gap-3">
+          {tickets.map((t) => {
+            const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
+            return (
+              <div key={t.id} className="rounded-2xl border bg-card p-4 shadow-md">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-lg font-semibold">{t.cliente}</span>
+                  <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span>
+                </div>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
+                    {t.priorita}
+                  </Badge>
+                  <Badge variant="outline">{t.stato}</Badge>
+                </div>
+                {t.problema && <p className="mb-3 text-sm text-muted-foreground">{t.problema}</p>}
+                {t.indirizzo && (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(t.indirizzo)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    {t.indirizzo}
+                  </a>
+                )}
+                <div className="flex gap-2">
+                  {t.telefono && (
+                    <a
+                      href={`tel:${t.telefono}`}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-3 text-sm font-bold text-accent-foreground"
+                    >
+                      <Phone className="h-4 w-4" strokeWidth={2.5} />
+                      Chiama
+                    </a>
+                  )}
+                  {puoAvanzare && (
+                    <button
+                      onClick={() => avanzaTicket(t)}
+                      disabled={inCorso === t.id}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] py-3 text-sm font-bold text-primary-foreground shadow-md shadow-primary/25"
+                    >
+                      Avanza
+                      <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}

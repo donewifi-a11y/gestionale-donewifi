@@ -47,6 +47,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 - `src/app/(app)/dashboard` — KPI e distribuzione Ticket/Segnalazioni per stato, carico per tecnico.
 - `src/app/(app)/archivio` — Ticket chiusi/annullati e Segnalazioni trasmesse, ricerca, sola lettura.
 - `src/app/(app)/clienti` — registro clienti ricavato aggregando i Ticket per nome/telefono.
+- `src/app/(app)/vista-tecnico` — vista mobile-first: solo gli appuntamenti di oggi e i Ticket
+  assegnati all'utente collegato, con "Chiama" e avanzamento stato a un tocco.
 
 ## Stato attuale
 
@@ -68,9 +70,12 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Archivio: Ticket Completato/Annullato e Segnalazioni Trasmesse, elenco cronologico ricercabile.
 ✅ Clienti: registro clienti (nome/telefono/indirizzo) con storico ticket, ricavato dai Ticket
   esistenti — nessuna tabella nuova.
+✅ Vista Tecnico: schermata mobile con solo appuntamenti di oggi e Ticket assegnati all'utente,
+  chiamata e avanzamento stato a un tocco.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
-Fuori scope per ora (fasi successive): Storico Modifiche (UI), Lavorazione/Vista Tecnico,
-notifiche Telegram, export PDF.
+Fuori scope per ora (richiedono una decisione/setup da parte tua prima di poter procedere):
+Storico Modifiche (UI, non prioritario per ora), notifiche Telegram (serve un bot da creare su
+BotFather), export PDF dei contratti (serve il template/testo del contratto).
