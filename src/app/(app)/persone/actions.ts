@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, impostaCookiePersona } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso } from "@/lib/types";
@@ -22,12 +22,18 @@ async function verificaAdmin(): Promise<string | null> {
   return null;
 }
 
+// ★ FIX SICUREZZA — "persone" non ha più policy RLS di scrittura per il
+// ruolo "authenticated" (vedi 0008_sicurezza_persone.sql): l'unico modo
+// di scrivere è tramite la service role, qui, dopo che verificaAdmin() ha
+// già controllato il livello della persona corrente. Prima, chiunque
+// avesse la sessione poteva scrivere direttamente via REST bypassando
+// quel controllo, che viveva solo nel codice dell'app.
 export async function creaPersona(dati: { nome: string; area_accesso: AreaAccesso; password: string }) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const service = createServiceClient();
+  const { data, error } = await service
     .from("persone")
     .insert({ nome: dati.nome, area_accesso: dati.area_accesso })
     .select("id")
@@ -35,7 +41,7 @@ export async function creaPersona(dati: { nome: string; area_accesso: AreaAccess
   if (error) return { errore: error.message };
 
   if (dati.password.trim()) {
-    const { error: errorePwd } = await supabase.rpc("imposta_password_persona", {
+    const { error: errorePwd } = await service.rpc("imposta_password_persona", {
       p_persona_id: data.id,
       p_password: dati.password.trim(),
     });
@@ -53,15 +59,15 @@ export async function aggiornaPersona(
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
-  const supabase = await createClient();
-  const { error } = await supabase
+  const service = createServiceClient();
+  const { error } = await service
     .from("persone")
     .update({ nome: dati.nome, area_accesso: dati.area_accesso, attivo: dati.attivo })
     .eq("id", id);
   if (error) return { errore: error.message };
 
   if (dati.password.trim()) {
-    const { error: errorePwd } = await supabase.rpc("imposta_password_persona", {
+    const { error: errorePwd } = await service.rpc("imposta_password_persona", {
       p_persona_id: id,
       p_password: dati.password.trim(),
     });

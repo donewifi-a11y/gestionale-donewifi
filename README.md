@@ -8,8 +8,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
-   `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql` e
-   `0007_appuntamenti_google.sql`, eseguendo ognuno.
+   `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
+   `0007_appuntamenti_google.sql` e `0008_sicurezza_persone.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -100,6 +100,17 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   assegnazioni, note e "solo i miei/le mie" ora seguono la persona reale, non l'account Gmail
   condiviso usato per accedere. Ogni persona ha un proprio livello di accesso (da cui dipende chi
   vede Utenti/Persone) e una password facoltativa richiesta al cambio persona.
+✅ Google Calendar: ogni Appuntamento viene creato/aggiornato/annullato su un calendario Google
+  condiviso tramite un account di servizio (`src/lib/google-calendar.ts`).
+✅ Revisione di sicurezza (2026-07-29): il cookie `persona_id` è ora firmato (HMAC, `src/lib/persona.ts`)
+  — prima bastava modificarlo dai DevTools del browser per "diventare" un'altra persona, password
+  inclusa, senza che il server se ne accorgesse. La tabella `persone` non ha più policy RLS di
+  scrittura per il ruolo `authenticated` (solo le Server Action con service role possono scriverci,
+  dopo aver verificato il livello della persona corrente — prima chiunque poteva assegnarsi
+  `area_accesso = 'Tutto'` con una chiamata REST diretta). La pagina Utenti ora legge con la service
+  role invece che con RLS (prima mostrava sempre e solo il proprio account, mai gli altri login
+  condivisi). `tickets.segnalazione_id` ha un vincolo di unicità contro un doppio Ticket se
+  "Trasmetti" viene inviato due volte molto ravvicinate.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { createClient } from "@/lib/supabase/server";
 import type { AreaAccesso } from "@/lib/types";
 
@@ -7,19 +8,51 @@ import type { AreaAccesso } from "@/lib/types";
 // l'operatore: questo cookie porta la persona scelta dopo l'accesso,
 // letta sia dai Server Component (liste/filtri) sia dalle Server
 // Action (per registrare chi ha fatto cosa).
+//
+// ★ FIX SICUREZZA — il cookie è firmato (HMAC) con un segreto noto solo
+// al server: senza la firma, il valore non passa la verifica, quindi non
+// basta più aprire i DevTools e scrivere `document.cookie = "persona_id=..."`
+// per "diventare" un'altra persona (anche admin) senza conoscerne la
+// password — il server rifiuta qualunque id che non sia stato firmato da
+// scegliPersonaCorrente() dopo un controllo password riuscito.
 const COOKIE_PERSONA = "persona_id";
+
+function segreto(): string {
+  const s = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!s) throw new Error("SUPABASE_SERVICE_ROLE_KEY mancante: impossibile firmare il cookie persona.");
+  return s;
+}
+
+function firma(personaId: string): string {
+  return createHmac("sha256", segreto()).update(personaId).digest("hex");
+}
+
+function verificaFirma(personaId: string, firmaRicevuta: string): boolean {
+  const attesa = Buffer.from(firma(personaId));
+  const ricevuta = Buffer.from(firmaRicevuta);
+  return attesa.length === ricevuta.length && timingSafeEqual(attesa, ricevuta);
+}
 
 export async function getPersonaCorrenteId(): Promise<string | null> {
   const store = await cookies();
-  return store.get(COOKIE_PERSONA)?.value ?? null;
+  const valore = store.get(COOKIE_PERSONA)?.value;
+  if (!valore) return null;
+
+  const separatore = valore.lastIndexOf(".");
+  if (separatore === -1) return null;
+  const id = valore.slice(0, separatore);
+  const firmaRicevuta = valore.slice(separatore + 1);
+  if (!verificaFirma(id, firmaRicevuta)) return null;
+  return id;
 }
 
 export async function impostaCookiePersona(personaId: string) {
   const store = await cookies();
-  store.set(COOKIE_PERSONA, personaId, {
+  store.set(COOKIE_PERSONA, `${personaId}.${firma(personaId)}`, {
     maxAge: 60 * 60 * 24 * 365,
     path: "/",
     sameSite: "lax",
+    httpOnly: true,
   });
 }
 
@@ -31,7 +64,7 @@ export interface PersonaSessione {
   area_accesso: AreaAccesso;
 }
 
-/** La persona scelta (cookie) con il suo livello di accesso — o null se non attiva/non scelta. */
+/** La persona scelta (cookie firmato) con il suo livello di accesso — o null se non attiva/non scelta/non valida. */
 export async function getPersonaCorrente(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<PersonaSessione | null> {

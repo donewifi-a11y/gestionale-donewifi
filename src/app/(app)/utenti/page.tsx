@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { UtentiBoard } from "@/components/utenti/utenti-board";
 
@@ -22,7 +22,13 @@ export default async function UtentiPage() {
   const persona = await getPersonaCorrente(supabase);
   if (!personaHaAccessoAdmin(persona)) redirect("/?errore=non-autorizzato");
 
-  const { data: staff } = await supabase.from("staff").select("*").order("creato_il", { ascending: true });
+  // ★ FIX — la policy RLS di "staff" lascia leggere solo la propria riga
+  // (id = auth.uid()): con il client normale questa lista mostrava sempre
+  // e solo l'account con cui si è entrati, mai gli altri login condivisi.
+  // L'autorizzazione è già stata verificata sopra, quindi qui si può
+  // usare la service role per leggerli tutti.
+  const service = createServiceClient();
+  const { data: staff } = await service.from("staff").select("*").order("creato_il", { ascending: true });
 
   return (
     <div className="mx-auto max-w-4xl">
