@@ -9,7 +9,14 @@ function client() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const chiavePrivata = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
-  if (!email || !chiavePrivata || !calendarId) return null;
+  if (!email || !chiavePrivata || !calendarId) {
+    console.error("Google Calendar: variabili d'ambiente mancanti", {
+      haEmail: !!email,
+      haChiave: !!chiavePrivata,
+      haCalendarId: !!calendarId,
+    });
+    return null;
+  }
 
   const auth = new google.auth.JWT({
     email,
@@ -43,7 +50,8 @@ export async function creaEventoCalendario(dati: {
       },
     });
     return data.id ?? null;
-  } catch {
+  } catch (err) {
+    console.error("Google Calendar: creazione evento fallita", err);
     return null;
   }
 }
@@ -61,7 +69,7 @@ export async function aggiornaEventoCalendario(eventoId: string, campi: { summar
       eventId: eventoId,
       requestBody: { summary: campi.summary },
     });
-  } catch {
-    // evento perso su Google, non bloccante — resta comunque nel gestionale.
+  } catch (err) {
+    console.error("Google Calendar: aggiornamento evento fallito", err);
   }
 }
