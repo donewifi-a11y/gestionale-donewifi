@@ -1,13 +1,12 @@
-import { HardHat } from "lucide-react";
+import { HardHat, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrenteId } from "@/lib/persona";
 import { VistaTecnicoBoard } from "@/components/vista-tecnico/vista-tecnico-board";
 import type { Appuntamento, Ticket } from "@/lib/types";
 
 export default async function VistaTecnicoPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const personaId = await getPersonaCorrenteId();
 
   const oraInizio = new Date();
   oraInizio.setHours(0, 0, 0, 0);
@@ -16,14 +15,14 @@ export default async function VistaTecnicoPage() {
     supabase
       .from("appuntamenti")
       .select("*")
-      .eq("tecnico_id", user?.id ?? "")
+      .eq("tecnico_id", personaId ?? "")
       .eq("stato", "Programmato")
       .gte("data_ora", oraInizio.toISOString())
       .order("data_ora", { ascending: true }),
     supabase
       .from("tickets")
       .select("*")
-      .eq("tecnico_assegnato", user?.id ?? "")
+      .eq("tecnico_assegnato", personaId ?? "")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
   ]);
@@ -40,7 +39,14 @@ export default async function VistaTecnicoPage() {
         </div>
       </div>
 
-      <VistaTecnicoBoard appuntamenti={(appuntamenti as Appuntamento[]) ?? []} tickets={(tickets as Ticket[]) ?? []} />
+      {!personaId ? (
+        <div className="flex items-start gap-2 rounded-xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+          Seleziona prima "Tu sei" dal menu in basso a sinistra per vedere i tuoi appuntamenti e ticket.
+        </div>
+      ) : (
+        <VistaTecnicoBoard appuntamenti={(appuntamenti as Appuntamento[]) ?? []} tickets={(tickets as Ticket[]) ?? []} />
+      )}
     </div>
   );
 }

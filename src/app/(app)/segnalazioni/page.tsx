@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { PhoneCall, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrenteId } from "@/lib/persona";
 import { Button } from "@/components/ui/button";
 import { SegnalazioniBoard } from "@/components/segnalazioni/segnalazioni-board";
 import type { Segnalazione } from "@/lib/types";
 
 export default async function SegnalazioniPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const personaCorrenteId = await getPersonaCorrenteId();
 
   const { data: segnalazioni } = await supabase
     .from("segnalazioni")
@@ -46,7 +45,7 @@ export default async function SegnalazioniPage() {
       <SegnalazioniBoard
         segnalazioni={(segnalazioni as Segnalazione[]) ?? []}
         richieste={richieste ?? []}
-        currentUserId={user?.id ?? ""}
+        currentPersonaId={personaCorrenteId ?? ""}
       />
     </div>
   );

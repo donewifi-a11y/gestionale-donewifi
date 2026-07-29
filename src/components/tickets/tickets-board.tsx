@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { aggiornaStatoTicket, assegnaTicket, aggiungiNotaTicket, getNoteTicket } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
-import type { NotaTicket, PrioritaTicket, StaffMinimo, StatoTicket, Ticket } from "@/lib/types";
+import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
@@ -48,19 +48,18 @@ const COLONNE: { titolo: string; stati: StatoTicket[] }[] = [
   { titolo: "Lavorata", stati: ["Completato"] },
 ];
 
-function iniziali(persona: StaffMinimo) {
-  const nome = persona.nome || persona.email;
-  return nome.slice(0, 2).toUpperCase();
+function iniziali(persona: Persona) {
+  return persona.nome.slice(0, 2).toUpperCase();
 }
 
 export function TicketsBoard({
   tickets,
-  currentUserId,
-  staff,
+  currentPersonaId,
+  persone,
 }: {
   tickets: Ticket[];
-  currentUserId: string;
-  staff: StaffMinimo[];
+  currentPersonaId: string;
+  persone: Persona[];
 }) {
   const router = useRouter();
   const [ricerca, setRicerca] = useState("");
@@ -102,14 +101,14 @@ export function TicketsBoard({
           (!fCategoria || t.categoria === fCategoria) &&
           (!fPriorita || t.priorita === fPriorita) &&
           (!fReparto || t.reparto === fReparto) &&
-          (!soloMiei || t.tecnico_assegnato === currentUserId) &&
+          (!soloMiei || t.tecnico_assegnato === currentPersonaId) &&
           (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
       )
       .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
-  }, [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentUserId, ricerca]);
+  }, [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentPersonaId, ricerca]);
 
-  function trovaStaff(id: string | null) {
-    return id ? staff.find((s) => s.id === id) ?? null : null;
+  function trovaPersona(id: string | null) {
+    return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
   async function avanzaStato(t: Ticket, e: React.MouseEvent) {
@@ -124,7 +123,7 @@ export function TicketsBoard({
 
   async function prendiInCarico(t: Ticket, e: React.MouseEvent) {
     e.stopPropagation();
-    await assegnaTicket(t.id, currentUserId);
+    await assegnaTicket(t.id, currentPersonaId);
     router.refresh();
   }
 
@@ -189,7 +188,7 @@ export function TicketsBoard({
                   </div>
                 )}
                 {items.map((t) => {
-                  const assegnatario = trovaStaff(t.tecnico_assegnato);
+                  const assegnatario = trovaPersona(t.tecnico_assegnato);
                   const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
                   return (
                     <div
@@ -216,9 +215,9 @@ export function TicketsBoard({
                         <div className="ml-auto flex items-center gap-1">
                           {assegnatario ? (
                             <span
-                              title={assegnatario.nome || assegnatario.email}
+                              title={assegnatario.nome}
                               className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                                assegnatario.id === currentUserId
+                                assegnatario.id === currentPersonaId
                                   ? "bg-primary text-primary-foreground"
                                   : "bg-secondary text-secondary-foreground"
                               }`}
@@ -259,8 +258,8 @@ export function TicketsBoard({
           {aperto && (
             <DettaglioTicket
               ticket={aperto}
-              staff={staff}
-              currentUserId={currentUserId}
+              persone={persone}
+              currentPersonaId={currentPersonaId}
               onCambiato={(t) => setAperto(t)}
             />
           )}
@@ -299,13 +298,13 @@ function Select({
 
 function DettaglioTicket({
   ticket,
-  staff,
-  currentUserId,
+  persone,
+  currentPersonaId,
   onCambiato,
 }: {
   ticket: Ticket;
-  staff: StaffMinimo[];
-  currentUserId: string;
+  persone: Persona[];
+  currentPersonaId: string;
   onCambiato: (t: Ticket) => void;
 }) {
   const router = useRouter();
@@ -313,14 +312,14 @@ function DettaglioTicket({
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
   const [invioNota, setInvioNota] = useState(false);
-  const assegnatario = ticket.tecnico_assegnato ? staff.find((s) => s.id === ticket.tecnico_assegnato) : null;
+  const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
     getNoteTicket(ticket.id).then(setNote);
   }, [ticket.id]);
 
-  function trovaStaff(id: string | null) {
-    return id ? staff.find((s) => s.id === id) ?? null : null;
+  function trovaPersona(id: string | null) {
+    return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
   async function inviaNota() {
@@ -357,8 +356,8 @@ function DettaglioTicket({
   async function prendiInCarico() {
     setInCorso(true);
     try {
-      await assegnaTicket(ticket.id, currentUserId);
-      onCambiato({ ...ticket, tecnico_assegnato: currentUserId });
+      await assegnaTicket(ticket.id, currentPersonaId);
+      onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId });
       router.refresh();
     } finally {
       setInCorso(false);
@@ -408,7 +407,7 @@ function DettaglioTicket({
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                 {iniziali(assegnatario)}
               </span>
-              <span className="font-medium">{assegnatario.nome || assegnatario.email}</span>
+              <span className="font-medium">{assegnatario.nome}</span>
             </div>
           ) : (
             <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorso} className="mt-1.5">
@@ -449,7 +448,7 @@ function DettaglioTicket({
               <p className="text-xs text-muted-foreground">Nessun aggiornamento ancora.</p>
             )}
             {note.map((n) => {
-              const autore = trovaStaff(n.autore_id);
+              const autore = trovaPersona(n.autore_id);
               return (
                 <div key={n.id} className="flex gap-2.5">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
@@ -457,7 +456,7 @@ function DettaglioTicket({
                   </span>
                   <div className="flex-1 rounded-lg bg-muted/60 px-3 py-2">
                     <div className="mb-0.5 text-[10.5px] font-bold text-muted-foreground">
-                      {autore?.nome || autore?.email || "Utente"} ·{" "}
+                      {autore?.nome || "Persona"} ·{" "}
                       {new Date(n.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div className="text-xs leading-relaxed">{n.testo}</div>

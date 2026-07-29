@@ -14,7 +14,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { creaAppuntamento, cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
-import type { Appuntamento, StaffMinimo } from "@/lib/types";
+import type { Appuntamento, Persona } from "@/lib/types";
 
 interface TicketMinimo {
   id: string;
@@ -39,11 +39,11 @@ function etichettaGiorno(iso: string) {
 
 export function CalendarioBoard({
   appuntamenti,
-  staff,
+  persone,
   ticket,
 }: {
   appuntamenti: Appuntamento[];
-  staff: StaffMinimo[];
+  persone: Persona[];
   ticket: TicketMinimo[];
 }) {
   const [nuovo, setNuovo] = useState(false);
@@ -59,8 +59,8 @@ export function CalendarioBoard({
     return Array.from(mappa.entries());
   }, [appuntamenti]);
 
-  function trovaStaff(id: string | null) {
-    return id ? staff.find((s) => s.id === id) ?? null : null;
+  function trovaPersona(id: string | null) {
+    return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
   async function cambiaStato(id: string, stato: Appuntamento["stato"]) {
@@ -91,7 +91,7 @@ export function CalendarioBoard({
             </div>
             <div className="flex flex-col gap-2">
               {items.map((a) => {
-                const tecnico = trovaStaff(a.tecnico_id);
+                const tecnico = trovaPersona(a.tecnico_id);
                 const ora = new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
                 return (
                   <div
@@ -115,10 +115,10 @@ export function CalendarioBoard({
                     </div>
                     {tecnico && (
                       <span
-                        title={tecnico.nome || tecnico.email}
+                        title={tecnico.nome}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground"
                       >
-                        {(tecnico.nome || tecnico.email).slice(0, 2).toUpperCase()}
+                        {tecnico.nome.slice(0, 2).toUpperCase()}
                       </span>
                     )}
                     {a.stato === "Programmato" ? (
@@ -157,7 +157,7 @@ export function CalendarioBoard({
 
       <Sheet open={nuovo} onOpenChange={setNuovo}>
         <SheetContent>
-          <FormNuovoAppuntamento staff={staff} ticket={ticket} onFatto={() => setNuovo(false)} />
+          <FormNuovoAppuntamento persone={persone} ticket={ticket} onFatto={() => setNuovo(false)} />
         </SheetContent>
       </Sheet>
     </div>
@@ -165,11 +165,11 @@ export function CalendarioBoard({
 }
 
 function FormNuovoAppuntamento({
-  staff,
+  persone,
   ticket,
   onFatto,
 }: {
-  staff: StaffMinimo[];
+  persone: Persona[];
   ticket: TicketMinimo[];
   onFatto: () => void;
 }) {
@@ -259,8 +259,8 @@ function FormNuovoAppuntamento({
             <Label htmlFor="tecnico">Tecnico</Label>
             <select id="tecnico" name="tecnico" className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
               <option value="">Da assegnare</option>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>{s.nome || s.email}</option>
+              {persone.map((p) => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
           </div>

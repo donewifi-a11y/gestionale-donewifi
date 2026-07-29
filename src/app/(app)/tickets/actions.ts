@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { richiediPersonaId } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso, PrioritaTicket, StatoTicket } from "@/lib/types";
 
@@ -19,6 +20,7 @@ export async function creaTicket(dati: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const { data, error } = await supabase
     .from("tickets")
@@ -31,7 +33,7 @@ export async function creaTicket(dati: {
       problema: dati.problema || null,
       priorita: dati.priorita,
       reparto: dati.reparto,
-      creato_da: user.id,
+      creato_da: personaId,
     })
     .select("id, numero")
     .single();
@@ -43,7 +45,7 @@ export async function creaTicket(dati: {
     riferimento_id: data.id,
     operazione: "Creazione Ticket",
     valore_dopo: "Da gestire",
-    operatore_id: user.id,
+    operatore_id: personaId,
   });
 
   revalidatePath("/tickets");
@@ -56,6 +58,7 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const { error } = await supabase
     .from("tickets")
@@ -69,15 +72,15 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
     operazione: "Cambio Stato",
     valore_prima: statoVecchio,
     valore_dopo: statoNuovo,
-    operatore_id: user.id,
+    operatore_id: personaId,
   });
 
   revalidatePath("/tickets");
 }
 
-export async function assegnaTicket(id: string, tecnicoId: string | null) {
+export async function assegnaTicket(id: string, personaId: string | null) {
   const supabase = await createClient();
-  const { error } = await supabase.from("tickets").update({ tecnico_assegnato: tecnicoId }).eq("id", id);
+  const { error } = await supabase.from("tickets").update({ tecnico_assegnato: personaId }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/tickets");
 }
@@ -95,14 +98,11 @@ export async function getNoteTicket(ticketId: string) {
 
 export async function aggiungiNotaTicket(ticketId: string, testo: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const { data, error } = await supabase
     .from("note_ticket")
-    .insert({ ticket_id: ticketId, autore_id: user.id, testo })
+    .insert({ ticket_id: ticketId, autore_id: personaId, testo })
     .select("*")
     .single();
   if (error) throw new Error(error.message);

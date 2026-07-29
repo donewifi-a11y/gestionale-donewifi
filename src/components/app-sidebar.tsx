@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, HardHat, Archive, Gauge, Users, Menu, X } from "lucide-react";
+import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, HardHat, Archive, Gauge, Users, UserCircle, Menu, X } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
+import { PersonaSwitcher } from "@/components/persona-switcher";
+import type { Persona } from "@/lib/types";
 
 const VOCI_NAV = [
   { href: "/", etichetta: "Centro Operativo", icona: LayoutGrid, esatto: true },
@@ -17,12 +19,26 @@ const VOCI_NAV = [
   { href: "/dashboard", etichetta: "Dashboard", icona: Gauge, esatto: false },
 ];
 
-export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso: string }) {
+export function AppSidebar({
+  email,
+  areaAccesso,
+  persone,
+  personaCorrenteId,
+}: {
+  email: string;
+  areaAccesso: string;
+  persone: Persona[];
+  personaCorrenteId: string | null;
+}) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
   const isAdmin = areaAccesso === "Tutto" || areaAccesso === "Admin";
   const voci = isAdmin
-    ? [...VOCI_NAV, { href: "/utenti", etichetta: "Utenti", icona: Users, esatto: false }]
+    ? [
+        ...VOCI_NAV,
+        { href: "/persone", etichetta: "Persone", icona: UserCircle, esatto: false },
+        { href: "/utenti", etichetta: "Utenti", icona: Users, esatto: false },
+      ]
     : VOCI_NAV;
 
   const contenuto = (
@@ -64,6 +80,7 @@ export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso:
       </nav>
 
       <div className="border-t border-sidebar-border px-4 py-4">
+        <PersonaSwitcher persone={persone} personaCorrenteId={personaCorrenteId} />
         <div className="mb-3 leading-tight">
           <div className="truncate text-xs font-medium text-sidebar-foreground/90">{email}</div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary">

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { richiediPersonaId } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) throw new Error("Nessun file selezionato.");
@@ -39,7 +41,7 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
     riferimento_id: segnalazioneId,
     operazione: "Contratto caricato",
     valore_dopo: file.name,
-    operatore_id: user.id,
+    operatore_id: personaId,
   });
 
   revalidatePath("/segnalazioni");
@@ -75,6 +77,7 @@ export async function creaSegnalazione(dati: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const { data, error } = await supabase
     .from("segnalazioni")
@@ -88,7 +91,7 @@ export async function creaSegnalazione(dati: {
       cap: dati.cap,
       copertura: dati.copertura,
       note: dati.note || null,
-      operatore_id: user.id,
+      operatore_id: personaId,
     })
     .select("id, numero")
     .single();
@@ -100,7 +103,7 @@ export async function creaSegnalazione(dati: {
     riferimento_id: data.id,
     operazione: "Creazione Segnalazione",
     valore_dopo: "Da Contattare",
-    operatore_id: user.id,
+    operatore_id: personaId,
   });
 
   revalidatePath("/segnalazioni");
@@ -113,6 +116,7 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const aggiornamento: Record<string, unknown> = { stato: statoNuovo, aggiornato_il: new Date().toISOString() };
   if (statoNuovo === "Gestione Cliente") {
@@ -128,7 +132,7 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
     operazione: "Cambio Stato",
     valore_prima: statoVecchio,
     valore_dopo: statoNuovo,
-    operatore_id: user.id,
+    operatore_id: personaId,
   });
 
   revalidatePath("/segnalazioni");
@@ -145,6 +149,7 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non autenticato.");
+  const personaId = await richiediPersonaId();
 
   const { data: segnalazione, error: erroreLettura } = await supabase
     .from("segnalazioni")
@@ -168,7 +173,7 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
       profilo_internet: segnalazione.profilo_internet,
       contratto_pdf_url: segnalazione.contratto_pdf_url,
       segnalazione_id: segnalazione.id,
-      creato_da: user.id,
+      creato_da: personaId,
     })
     .select("id, numero")
     .single();
@@ -187,14 +192,14 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
       operazione: "Trasmessa per installazione",
       valore_prima: segnalazione.stato,
       valore_dopo: "Trasmessa",
-      operatore_id: user.id,
+      operatore_id: personaId,
     },
     {
       origine: "ticket",
       riferimento_id: ticket.id,
       operazione: "Creato da Segnalazione",
       valore_dopo: `Segnalazione #${segnalazione.numero}`,
-      operatore_id: user.id,
+      operatore_id: personaId,
     },
   ]);
 

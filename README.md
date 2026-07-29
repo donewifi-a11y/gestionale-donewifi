@@ -7,8 +7,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
-   contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql` e
-   `0004_appuntamenti.sql`, eseguendo ognuno.
+   contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
+   `0004_appuntamenti.sql` e `0005_persone.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -49,6 +49,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 - `src/app/(app)/clienti` — registro clienti ricavato aggregando i Ticket per nome/telefono.
 - `src/app/(app)/vista-tecnico` — vista mobile-first: solo gli appuntamenti di oggi e i Ticket
   assegnati all'utente collegato, con "Chiama" e avanzamento stato a un tocco.
+- `src/app/(app)/persone` + `src/lib/persona.ts` — quando più persone reali condividono lo stesso
+  login (Gmail comuni), "staff" (l'account) non basta più a distinguere chi fa cosa: "persone" è
+  il registro del team, e un cookie (`persona_id`, un anno, impostato dal selettore "Tu sei" in
+  fondo alla sidebar) porta quella scelta sia ai Server Component sia alle Server Action. Tutte le
+  colonne che tracciano un individuo (assegnazione Ticket, autore di una nota, chi ha creato una
+  Segnalazione/Appuntamento, `storico.operatore_id`) ora fanno riferimento a `persone(id)`, non
+  più a `staff(id)`.
 
 ## Stato attuale
 
@@ -78,6 +85,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   un solo avviso attivo — al reparto Commerciale quando un cliente invia la Richiesta Dati —
   stessa scelta deliberata già fatta nel sistema precedente. Richiede `TELEGRAM_BOT_TOKEN` tra le
   variabili d'ambiente (vedi `.env.local.example`).
+✅ Persone: registro del team indipendente dai login condivisi, con selettore "Tu sei" in sidebar —
+  assegnazioni, note e "solo i miei/le mie" ora seguono la persona reale, non l'account Gmail
+  condiviso usato per accedere.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.

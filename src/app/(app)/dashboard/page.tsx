@@ -27,11 +27,11 @@ export default async function DashboardPage() {
   const settimanaFa = new Date();
   settimanaFa.setDate(settimanaFa.getDate() - 7);
 
-  const [{ data: tickets }, { data: segnalazioni }, { data: staff }, { count: appuntamentiOggi }] =
+  const [{ data: tickets }, { data: segnalazioni }, { data: persone }, { count: appuntamentiOggi }] =
     await Promise.all([
       supabase.from("tickets").select("stato, priorita, tecnico_assegnato").neq("stato", "Annullato"),
       supabase.from("segnalazioni").select("stato"),
-      supabase.from("staff").select("id, email, nome").eq("attivo", true),
+      supabase.from("persone").select("id, nome").eq("attivo", true),
       supabase
         .from("appuntamenti")
         .select("*", { count: "exact", head: true })
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
 
   const listaTicket = tickets ?? [];
   const listaSegnalazioni = segnalazioni ?? [];
-  const listaStaff = staff ?? [];
+  const listaPersone = persone ?? [];
 
   const ticketUrgenti = listaTicket.filter((t) => t.priorita === "Urgente" && t.stato !== "Completato").length;
   const ticketNonAssegnati = listaTicket.filter((t) => !t.tecnico_assegnato && t.stato !== "Completato").length;
@@ -53,10 +53,10 @@ export default async function DashboardPage() {
   const ticketPerStato = conteggioPerStato(listaTicket, STATI_TICKET_ORDINE);
   const segnalazioniPerStato = conteggioPerStato(listaSegnalazioni, STATI_SEGN_ORDINE);
 
-  const caricoTecnici = listaStaff
-    .map((s) => ({
-      persona: s,
-      conteggio: listaTicket.filter((t) => t.tecnico_assegnato === s.id && t.stato !== "Completato").length,
+  const caricoTecnici = listaPersone
+    .map((p) => ({
+      persona: p,
+      conteggio: listaTicket.filter((t) => t.tecnico_assegnato === p.id && t.stato !== "Completato").length,
     }))
     .sort((a, b) => b.conteggio - a.conteggio);
 
@@ -110,12 +110,12 @@ export default async function DashboardPage() {
 
         <Pannello titolo="Carico per tecnico" className="md:col-span-2">
           {caricoTecnici.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nessun utente attivo.</p>
+            <p className="text-sm text-muted-foreground">Nessuna persona attiva. Aggiungile in &quot;Persone&quot;.</p>
           )}
           {caricoTecnici.map(({ persona, conteggio }) => (
             <BarraRiga
               key={persona.id}
-              etichetta={persona.nome || persona.email}
+              etichetta={persona.nome}
               conteggio={conteggio}
               max={maxCarico}
               colore="bg-primary"

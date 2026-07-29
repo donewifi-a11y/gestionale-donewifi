@@ -85,6 +85,12 @@ export interface StaffMinimo {
   nome: string | null;
 }
 
+export interface Persona {
+  id: string;
+  nome: string;
+  attivo: boolean;
+}
+
 export interface RichiestaCliente {
   id: string;
   data: string;

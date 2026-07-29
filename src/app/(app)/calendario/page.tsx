@@ -15,7 +15,7 @@ export default async function CalendarioPage() {
     .gte("data_ora", inizioSettimanaFa.toISOString())
     .order("data_ora", { ascending: true });
 
-  const { data: staff } = await supabase.from("staff").select("id, email, nome").eq("attivo", true);
+  const { data: persone } = await supabase.from("persone").select("id, nome, attivo").eq("attivo", true);
 
   const { data: ticket } = await supabase
     .from("tickets")
@@ -37,7 +37,7 @@ export default async function CalendarioPage() {
 
       <CalendarioBoard
         appuntamenti={(appuntamenti as Appuntamento[]) ?? []}
-        staff={staff ?? []}
+        persone={persone ?? []}
         ticket={ticket ?? []}
       />
     </div>

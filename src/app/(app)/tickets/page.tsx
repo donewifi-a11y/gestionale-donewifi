@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { Ticket as TicketIcon, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrenteId } from "@/lib/persona";
 import { Button } from "@/components/ui/button";
 import { TicketsBoard } from "@/components/tickets/tickets-board";
 import type { Ticket } from "@/lib/types";
 
 export default async function TicketsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: tickets } = await supabase
     .from("tickets")
@@ -17,7 +15,8 @@ export default async function TicketsPage() {
     .neq("stato", "Annullato")
     .order("data_creazione", { ascending: false });
 
-  const { data: staff } = await supabase.from("staff").select("id, email, nome").eq("attivo", true);
+  const { data: persone } = await supabase.from("persone").select("id, nome, attivo").eq("attivo", true);
+  const personaCorrenteId = await getPersonaCorrenteId();
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -41,8 +40,8 @@ export default async function TicketsPage() {
 
       <TicketsBoard
         tickets={(tickets as Ticket[]) ?? []}
-        currentUserId={user?.id ?? ""}
-        staff={staff ?? []}
+        currentPersonaId={personaCorrenteId ?? ""}
+        persone={persone ?? []}
       />
     </div>
   );

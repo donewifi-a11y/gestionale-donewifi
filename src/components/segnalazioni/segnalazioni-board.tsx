@@ -44,11 +44,11 @@ function giorniAperta(data: string) {
 export function SegnalazioniBoard({
   segnalazioni,
   richieste,
-  currentUserId,
+  currentPersonaId,
 }: {
   segnalazioni: Segnalazione[];
   richieste: RichiestaCliente[];
-  currentUserId: string;
+  currentPersonaId: string;
 }) {
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
   const [soloMie, setSoloMie] = useState(false);
@@ -70,14 +70,14 @@ export function SegnalazioniBoard({
     const testo = ricerca.trim().toLowerCase();
     return segnalazioni.filter(
       (s) =>
-        (!soloMie || s.operatore_id === currentUserId) &&
+        (!soloMie || s.operatore_id === currentPersonaId) &&
         (!testo ||
           s.nome.toLowerCase().includes(testo) ||
           s.telefono.includes(testo) ||
           s.comune.toLowerCase().includes(testo) ||
           String(s.numero).includes(testo))
     );
-  }, [segnalazioni, soloMie, currentUserId, ricerca]);
+  }, [segnalazioni, soloMie, currentPersonaId, ricerca]);
 
   return (
     <div>
