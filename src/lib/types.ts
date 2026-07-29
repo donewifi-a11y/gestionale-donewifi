@@ -69,6 +69,7 @@ export interface Appuntamento {
   note: string | null;
   stato: StatoAppuntamento;
   creato_da: string | null;
+  google_event_id: string | null;
 }
 
 export interface NotaTicket {

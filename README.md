@@ -8,7 +8,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
-   `0004_appuntamenti.sql`, `0005_persone.sql` e `0006_persone_accesso.sql`, eseguendo ognuno.
+   `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql` e
+   `0007_appuntamenti_google.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -43,7 +44,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 - `src/app/(app)/utenti` — Gestione Utenti (visibile solo ad area_accesso `Tutto`/`Admin`): crea
   accessi via `auth.admin.createUser` (service role, solo server-side), attiva/disattiva, cambia
   ruolo.
-- `src/app/(app)/calendario` — agenda appuntamenti, collegabili a un Ticket.
+- `src/app/(app)/calendario` + `src/lib/google-calendar.ts` — agenda appuntamenti, collegabili a un
+  Ticket; ogni appuntamento viene anche creato/aggiornato/annullato su un calendario Google
+  condiviso tramite un account di servizio (nessun login Google per persona). Se le variabili
+  `GOOGLE_SERVICE_ACCOUNT_EMAIL`/`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`/`GOOGLE_CALENDAR_ID` non sono
+  configurate, il Calendario funziona lo stesso, solo senza la sincronizzazione.
 - `src/app/(app)/dashboard` — KPI e distribuzione Ticket/Segnalazioni per stato, carico per tecnico.
 - `src/app/(app)/archivio` — Ticket chiusi/annullati e Segnalazioni trasmesse, ricerca, sola lettura.
 - `src/app/(app)/clienti` — registro clienti ricavato aggregando i Ticket per nome/telefono.
@@ -77,7 +82,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Gestione Utenti: creazione/attivazione/disattivazione/cambio ruolo, senza più bisogno di SQL a
   mano dopo il primo utente.
 ✅ Calendario: agenda appuntamenti/installazioni, raggruppata per giorno, collegabili a un Ticket
-  e assegnabili a un tecnico.
+  e assegnabili a un tecnico, sincronizzati su un calendario Google condiviso.
 ✅ Dashboard: Ticket urgenti/non assegnati, appuntamenti di oggi, distribuzione Ticket e
   Segnalazioni per stato, carico di lavoro per tecnico.
 ✅ Archivio: Ticket Completato/Annullato e Segnalazioni Trasmesse, elenco cronologico ricercabile.
