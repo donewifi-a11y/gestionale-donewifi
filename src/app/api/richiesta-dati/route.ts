@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { inviaNotificaTelegram } from "@/lib/telegram";
 
 // ★ Rotta pubblica (nessun login) usata dal modulo Richiesta Dati.
 // Usa la service role solo qui, lato server, per scrivere in modo
@@ -67,6 +68,17 @@ export async function POST(request: NextRequest) {
   if (erroreUpdate) {
     return NextResponse.json({ errore: erroreUpdate.message }, { status: 500 });
   }
+
+  // ★ stesso comportamento del vecchio gestionale: unica notifica Telegram
+  // rimasta attiva, al reparto Commerciale, quando arrivano dati/documenti
+  // da un cliente — non blocca la risposta se l'invio fallisce.
+  await inviaNotificaTelegram(
+    "Commerciale",
+    `📋 <b>Nuovi dati ricevuti</b>\n\nCliente: ${segnalazione.nome}\nSegnalazione #${segnalazione.numero}` +
+      (tipologiaCliente ? `\nTipologia: ${tipologiaCliente}` : "") +
+      (profiloInternet ? `\nProfilo: ${profiloInternet}` : "") +
+      `\n\nApri il gestionale per i dettagli.`
+  );
 
   return NextResponse.json({ ok: true });
 }

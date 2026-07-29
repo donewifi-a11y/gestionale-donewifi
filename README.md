@@ -74,11 +74,14 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   chiamata e avanzamento stato a un tocco.
 ✅ Contratto: caricamento del PDF (generato altrove) sulla Segnalazione durante Gestione Cliente,
   visibile poi anche sul Ticket collegato — bucket privato, link di visualizzazione firmato.
+✅ Notifiche Telegram: stesso bot e stessi 3 gruppi reparto del vecchio gestionale (`src/lib/telegram.ts`),
+  un solo avviso attivo — al reparto Commerciale quando un cliente invia la Richiesta Dati —
+  stessa scelta deliberata già fatta nel sistema precedente. Richiede `TELEGRAM_BOT_TOKEN` tra le
+  variabili d'ambiente (vedi `.env.local.example`).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
-Fuori scope per ora (richiedono una decisione/setup da parte tua prima di poter procedere):
-Storico Modifiche (UI, non prioritario per ora), notifiche Telegram (serve un bot da creare su
-BotFather). I contratti si continuano a generare sul gestionale esterno esistente — qui si carica
-solo il PDF già pronto (vedi sopra), niente generazione automatica.
+Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
+generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
+niente generazione automatica.
