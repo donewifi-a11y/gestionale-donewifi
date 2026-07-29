@@ -18,12 +18,35 @@ function client() {
     return null;
   }
 
+  const chiave = normalizzaChiavePrivata(chiavePrivata);
+  console.error("Google Calendar: diagnostica chiave (nessun segreto)", {
+    lunghezza: chiave.length,
+    righe: chiave.split("\n").length,
+    iniziaCorrettamente: chiave.startsWith("-----BEGIN PRIVATE KEY-----"),
+    finisceCorrettamente: chiave.trim().endsWith("-----END PRIVATE KEY-----"),
+  });
+
   const auth = new google.auth.JWT({
     email,
-    key: chiavePrivata.replace(/\\n/g, "\n"),
+    key: chiave,
     scopes: ["https://www.googleapis.com/auth/calendar"],
   });
   return { calendar: google.calendar({ version: "v3", auth }), calendarId };
+}
+
+// ★ la chiave privata passa attraverso più copia-incolla (file JSON → chat
+// → form di Vercel) prima di arrivare qui: normalizza le forme più comuni
+// in cui può arrivare rovinata (virgolette residue, "\n" letterali invece
+// di veri a capo, spazi extra) invece di richiedere un formato esatto.
+function normalizzaChiavePrivata(chiave: string): string {
+  let k = chiave.trim();
+  if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
+    k = k.slice(1, -1);
+  }
+  if (k.includes("\\n")) {
+    k = k.replace(/\\n/g, "\n");
+  }
+  return k.trim() + "\n";
 }
 
 export async function creaEventoCalendario(dati: {
