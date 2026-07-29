@@ -24,6 +24,9 @@ function client() {
     righe: chiave.split("\n").length,
     iniziaCorrettamente: chiave.startsWith("-----BEGIN PRIVATE KEY-----"),
     finisceCorrettamente: chiave.trim().endsWith("-----END PRIVATE KEY-----"),
+    primi40: JSON.stringify(chiave.slice(0, 40)),
+    ultimi40: JSON.stringify(chiave.slice(-40)),
+    indiceBegin: chiave.indexOf("BEGIN PRIVATE KEY"),
   });
 
   const auth = new google.auth.JWT({
