@@ -89,6 +89,8 @@ export interface Persona {
   id: string;
   nome: string;
   attivo: boolean;
+  area_accesso: AreaAccesso;
+  richiede_password?: boolean;
 }
 
 export interface RichiestaCliente {

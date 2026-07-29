@@ -15,7 +15,7 @@ export default async function CalendarioPage() {
     .gte("data_ora", inizioSettimanaFa.toISOString())
     .order("data_ora", { ascending: true });
 
-  const { data: persone } = await supabase.from("persone").select("id, nome, attivo").eq("attivo", true);
+  const { data: persone } = await supabase.from("persone").select("id, nome, attivo, area_accesso").eq("attivo", true);
 
   const { data: ticket } = await supabase
     .from("tickets")

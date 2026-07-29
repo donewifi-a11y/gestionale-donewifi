@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { UtentiBoard } from "@/components/utenti/utenti-board";
 
 export interface StaffCompleto {
@@ -18,9 +19,8 @@ export default async function UtentiPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: me } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
-  const autorizzato = me && (me.area_accesso === "Tutto" || me.area_accesso === "Admin");
-  if (!autorizzato) redirect("/?errore=non-autorizzato");
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) redirect("/?errore=non-autorizzato");
 
   const { data: staff } = await supabase.from("staff").select("*").order("creato_il", { ascending: true });
 

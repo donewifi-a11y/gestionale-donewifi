@@ -15,7 +15,7 @@ export default async function TicketsPage() {
     .neq("stato", "Annullato")
     .order("data_creazione", { ascending: false });
 
-  const { data: persone } = await supabase.from("persone").select("id, nome, attivo").eq("attivo", true);
+  const { data: persone } = await supabase.from("persone").select("id, nome, attivo, area_accesso").eq("attivo", true);
   const personaCorrenteId = await getPersonaCorrenteId();
 
   return (

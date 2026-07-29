@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso } from "@/lib/types";
 
@@ -8,6 +9,9 @@ import type { AreaAccesso } from "@/lib/types";
 // un errore lanciato con "throw" (Next.js lo sostituisce con un digest
 // generico per sicurezza) — per mostrare messaggi utili all'utente
 // bisogna restituirli come dato, non lanciarli. "errore" qui è quel dato.
+// ★ il permesso di gestire gli Utenti (login condivisi) segue ora il
+// livello di accesso della PERSONA corrente, non più quello dell'account
+// condiviso: un login "Tutto" può ospitare persone con ruoli diversi.
 async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
   const {
@@ -15,8 +19,8 @@ async function verificaAdmin(): Promise<string | null> {
   } = await supabase.auth.getUser();
   if (!user) return "Non autenticato.";
 
-  const { data: staff } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
-  if (!staff || (staff.area_accesso !== "Tutto" && staff.area_accesso !== "Admin")) {
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) {
     return "Non hai i permessi per gestire gli utenti.";
   }
   return null;

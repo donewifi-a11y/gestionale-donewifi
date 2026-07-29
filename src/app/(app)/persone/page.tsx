@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { UserCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { PersoneBoard } from "@/components/persone/persone-board";
 import type { Persona } from "@/lib/types";
 
@@ -11,11 +12,24 @@ export default async function PersonePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: me } = await supabase.from("staff").select("area_accesso").eq("id", user.id).single();
-  const autorizzato = me && (me.area_accesso === "Tutto" || me.area_accesso === "Admin");
-  if (!autorizzato) redirect("/?errore=non-autorizzato");
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) redirect("/?errore=non-autorizzato");
 
-  const { data: persone } = await supabase.from("persone").select("*").order("creato_il", { ascending: true });
+  // ★ la colonna password_hash si legge qui (Server Component, mai
+  // inviata al browser di suo) solo per calcolare un booleano — l'hash
+  // vero non viene mai passato al componente client sotto.
+  const { data: righe } = await supabase
+    .from("persone")
+    .select("id, nome, attivo, area_accesso, password_hash")
+    .order("creato_il", { ascending: true });
+
+  const persone: Persona[] = (righe ?? []).map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    attivo: p.attivo,
+    area_accesso: p.area_accesso,
+    richiede_password: p.password_hash !== null,
+  }));
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -26,12 +40,12 @@ export default async function PersonePage() {
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">Persone</h1>
           <p className="text-sm text-muted-foreground">
-            Il team reale — usato per distinguere chi fa cosa quando più persone condividono lo stesso accesso.
+            Il team reale — livello di accesso e password propri, indipendenti dal login condiviso.
           </p>
         </div>
       </div>
 
-      <PersoneBoard persone={(persone as Persona[]) ?? []} />
+      <PersoneBoard persone={persone} />
     </div>
   );
 }

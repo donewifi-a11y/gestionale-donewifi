@@ -21,18 +21,20 @@ const VOCI_NAV = [
 
 export function AppSidebar({
   email,
-  areaAccesso,
   persone,
   personaCorrenteId,
+  personaAreaAccesso,
 }: {
   email: string;
-  areaAccesso: string;
   persone: Persona[];
   personaCorrenteId: string | null;
+  personaAreaAccesso: string | null;
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
-  const isAdmin = areaAccesso === "Tutto" || areaAccesso === "Admin";
+  // ★ i link admin (Persone/Utenti) seguono il livello della PERSONA
+  // scelta, non più quello dell'account condiviso usato per accedere.
+  const isAdmin = personaAreaAccesso === "Tutto" || personaAreaAccesso === "Admin";
   const voci = isAdmin
     ? [
         ...VOCI_NAV,
@@ -82,10 +84,12 @@ export function AppSidebar({
       <div className="border-t border-sidebar-border px-4 py-4">
         <PersonaSwitcher persone={persone} personaCorrenteId={personaCorrenteId} />
         <div className="mb-3 leading-tight">
-          <div className="truncate text-xs font-medium text-sidebar-foreground/90">{email}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary">
-            {areaAccesso}
-          </div>
+          {personaAreaAccesso && (
+            <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary">
+              {personaAreaAccesso}
+            </div>
+          )}
+          <div className="truncate text-[11px] text-sidebar-foreground/50">{email}</div>
         </div>
         <LogoutButton />
       </div>

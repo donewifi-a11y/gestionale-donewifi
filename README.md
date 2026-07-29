@@ -8,7 +8,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 1. **Crea un progetto Supabase** su [supabase.com](https://supabase.com) (piano gratuito va bene per iniziare).
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
-   `0004_appuntamenti.sql` e `0005_persone.sql`, eseguendo ognuno.
+   `0004_appuntamenti.sql`, `0005_persone.sql` e `0006_persone_accesso.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -55,7 +55,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   fondo alla sidebar) porta quella scelta sia ai Server Component sia alle Server Action. Tutte le
   colonne che tracciano un individuo (assegnazione Ticket, autore di una nota, chi ha creato una
   Segnalazione/Appuntamento, `storico.operatore_id`) ora fanno riferimento a `persone(id)`, non
-  più a `staff(id)`.
+  più a `staff(id)`. Ogni persona ha anche un proprio `area_accesso` (il permesso di gestire
+  Utenti/Persone segue questo, non più quello dell'account condiviso) e una password facoltativa —
+  se impostata, il selettore "Tu sei" la richiede prima di cambiare persona. L'hash della password
+  (`persone.password_hash`) non è mai leggibile dal client: viene letto/scritto solo dentro le
+  funzioni Postgres `security definer` `imposta_password_persona`/`verifica_password_persona`
+  (migrazione `0006_persone_accesso.sql`), e ogni query dell'app seleziona colonne esplicite,
+  mai `select *`, su `persone`.
 
 ## Stato attuale
 
@@ -87,7 +93,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   variabili d'ambiente (vedi `.env.local.example`).
 ✅ Persone: registro del team indipendente dai login condivisi, con selettore "Tu sei" in sidebar —
   assegnazioni, note e "solo i miei/le mie" ora seguono la persona reale, non l'account Gmail
-  condiviso usato per accedere.
+  condiviso usato per accedere. Ogni persona ha un proprio livello di accesso (da cui dipende chi
+  vede Utenti/Persone) e una password facoltativa richiesta al cambio persona.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
