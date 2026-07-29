@@ -19,7 +19,7 @@ create or replace function imposta_password_persona(p_persona_id uuid, p_passwor
 returns void
 language sql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   update persone set password_hash = crypt(p_password, gen_salt('bf')) where id = p_persona_id;
 $$;
@@ -28,7 +28,7 @@ create or replace function verifica_password_persona(p_persona_id uuid, p_passwo
 returns boolean
 language sql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   select case
     when not exists (select 1 from persone where id = p_persona_id and attivo = true) then false
