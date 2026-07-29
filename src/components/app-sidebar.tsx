@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Ticket, PhoneCall, CalendarDays, Users, Menu, X } from "lucide-react";
+import { LayoutGrid, Ticket, PhoneCall, CalendarDays, Gauge, Users, Menu, X } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 
 const VOCI_NAV = [
@@ -11,6 +11,7 @@ const VOCI_NAV = [
   { href: "/tickets", etichetta: "Ticket", icona: Ticket, esatto: false },
   { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall, esatto: false },
   { href: "/calendario", etichetta: "Calendario", icona: CalendarDays, esatto: false },
+  { href: "/dashboard", etichetta: "Dashboard", icona: Gauge, esatto: false },
 ];
 
 export function AppSidebar({ email, areaAccesso }: { email: string; areaAccesso: string }) {

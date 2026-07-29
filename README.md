@@ -44,6 +44,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   accessi via `auth.admin.createUser` (service role, solo server-side), attiva/disattiva, cambia
   ruolo.
 - `src/app/(app)/calendario` — agenda appuntamenti, collegabili a un Ticket.
+- `src/app/(app)/dashboard` — KPI e distribuzione Ticket/Segnalazioni per stato, carico per tecnico.
 
 ## Stato attuale
 
@@ -60,9 +61,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   mano dopo il primo utente.
 ✅ Calendario: agenda appuntamenti/installazioni, raggruppata per giorno, collegabili a un Ticket
   e assegnabili a un tecnico.
+✅ Dashboard: Ticket urgenti/non assegnati, appuntamenti di oggi, distribuzione Ticket e
+  Segnalazioni per stato, carico di lavoro per tecnico.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
   con dati reali.
 
-Fuori scope per ora (fasi successive): Dashboard/analytics, Clienti Attivi, Archivio, Storico
-Modifiche (UI), Lavorazione/Vista Tecnico, notifiche Telegram, export PDF.
+Fuori scope per ora (fasi successive): Clienti Attivi, Archivio, Storico Modifiche (UI),
+Lavorazione/Vista Tecnico, notifiche Telegram, export PDF.
