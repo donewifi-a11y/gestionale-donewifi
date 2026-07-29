@@ -39,10 +39,21 @@ function client() {
 
 // ★ la chiave privata passa attraverso più copia-incolla (file JSON → chat
 // → form di Vercel) prima di arrivare qui: normalizza le forme più comuni
-// in cui può arrivare rovinata (virgolette residue, "\n" letterali invece
-// di veri a capo, spazi extra) invece di richiedere un formato esatto.
+// in cui può arrivare rovinata — compreso il caso, facile da sbagliare, in
+// cui è finito l'intero file JSON del service account invece del solo
+// campo "private_key" — invece di richiedere un formato esatto.
 function normalizzaChiavePrivata(chiave: string): string {
   let k = chiave.trim();
+
+  if (k.startsWith("{")) {
+    try {
+      const json = JSON.parse(k);
+      if (typeof json.private_key === "string") k = json.private_key;
+    } catch {
+      // non era JSON valido, si prosegue con il valore così com'è.
+    }
+  }
+
   if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
     k = k.slice(1, -1);
   }
