@@ -86,6 +86,11 @@ export async function creaEventoCalendario(dati: {
         end: { dateTime: fine.toISOString(), timeZone: "Europe/Rome" },
       },
     });
+    console.error("Google Calendar: evento creato con successo", {
+      calendarId: c.calendarId,
+      eventoId: data.id,
+      link: data.htmlLink,
+    });
     return data.id ?? null;
   } catch (err) {
     console.error("Google Calendar: creazione evento fallita", err);
