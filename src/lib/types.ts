@@ -89,6 +89,7 @@ export interface StaffMinimo {
 export interface Persona {
   id: string;
   nome: string;
+  email?: string | null;
   attivo: boolean;
   area_accesso: AreaAccesso;
   richiede_password?: boolean;

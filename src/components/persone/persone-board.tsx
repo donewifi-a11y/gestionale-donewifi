@@ -50,7 +50,10 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
                   {p.nome}
                   {p.richiede_password && <Lock className="h-3 w-3 text-muted-foreground" strokeWidth={2.25} />}
                 </div>
-                <div className="text-xs text-muted-foreground">{p.area_accesso}</div>
+                <div className="text-xs text-muted-foreground">
+                  {p.area_accesso}
+                  {p.email && ` · ${p.email}`}
+                </div>
               </div>
             </div>
             {p.attivo ? (
@@ -94,6 +97,7 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
     setInCorso(true);
     const risultato = await creaPersona({
       nome,
+      email: String(dati.get("email") || ""),
       area_accesso: String(dati.get("area_accesso") || "Analisi Rete") as AreaAccesso,
       password: String(dati.get("password") || ""),
     });
@@ -116,6 +120,13 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
         <div>
           <Label htmlFor="nome">Nome e cognome *</Label>
           <Input id="nome" name="nome" autoFocus required className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor="email">Email (facoltativa)</Label>
+          <Input id="email" name="email" type="email" placeholder="nome.cognome@donewifi.it" className="mt-1" />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Solo di contatto — indipendente dall&apos;email del login condiviso usato per accedere.
+          </p>
         </div>
         <div>
           <Label htmlFor="area_accesso">Livello di accesso</Label>
@@ -158,6 +169,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
     setInCorso(true);
     const risultato = await aggiornaPersona(persona.id, {
       nome: String(dati.get("nome") || persona.nome),
+      email: String(dati.get("email") ?? persona.email ?? ""),
       area_accesso: String(dati.get("area_accesso") || persona.area_accesso) as AreaAccesso,
       attivo: dati.get("attivo") === "on",
       password: String(dati.get("password") || ""),
@@ -181,6 +193,10 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
         <div>
           <Label htmlFor="nome">Nome e cognome</Label>
           <Input id="nome" name="nome" defaultValue={persona.nome} autoFocus className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor="email">Email (facoltativa)</Label>
+          <Input id="email" name="email" type="email" defaultValue={persona.email ?? ""} placeholder="nome.cognome@donewifi.it" className="mt-1" />
         </div>
         <div>
           <Label htmlFor="area_accesso">Livello di accesso</Label>

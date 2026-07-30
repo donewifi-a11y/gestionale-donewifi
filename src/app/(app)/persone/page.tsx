@@ -20,12 +20,13 @@ export default async function PersonePage() {
   // vero non viene mai passato al componente client sotto.
   const { data: righe } = await supabase
     .from("persone")
-    .select("id, nome, attivo, area_accesso, password_hash")
+    .select("id, nome, email, attivo, area_accesso, password_hash")
     .order("creato_il", { ascending: true });
 
   const persone: Persona[] = (righe ?? []).map((p) => ({
     id: p.id,
     nome: p.nome,
+    email: p.email,
     attivo: p.attivo,
     area_accesso: p.area_accesso,
     richiede_password: p.password_hash !== null,

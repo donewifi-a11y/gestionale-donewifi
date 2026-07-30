@@ -9,7 +9,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
-   `0007_appuntamenti_google.sql` e `0008_sicurezza_persone.sql`, eseguendo ognuno.
+   `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql` e `0009_persone_email.sql`,
+   eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -99,7 +100,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Persone: registro del team indipendente dai login condivisi, con selettore "Tu sei" in sidebar —
   assegnazioni, note e "solo i miei/le mie" ora seguono la persona reale, non l'account Gmail
   condiviso usato per accedere. Ogni persona ha un proprio livello di accesso (da cui dipende chi
-  vede Utenti/Persone) e una password facoltativa richiesta al cambio persona.
+  vede Utenti/Persone), un'email di contatto facoltativa (indipendente dall'email del login
+  condiviso) e una password facoltativa richiesta al cambio persona.
 ✅ Google Calendar: ogni Appuntamento viene creato/aggiornato/annullato su un calendario Google
   condiviso tramite un account di servizio (`src/lib/google-calendar.ts`).
 ✅ Revisione di sicurezza (2026-07-29): il cookie `persona_id` è ora firmato (HMAC, `src/lib/persona.ts`)

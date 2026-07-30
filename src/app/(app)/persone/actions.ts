@@ -28,14 +28,14 @@ async function verificaAdmin(): Promise<string | null> {
 // già controllato il livello della persona corrente. Prima, chiunque
 // avesse la sessione poteva scrivere direttamente via REST bypassando
 // quel controllo, che viveva solo nel codice dell'app.
-export async function creaPersona(dati: { nome: string; area_accesso: AreaAccesso; password: string }) {
+export async function creaPersona(dati: { nome: string; email: string; area_accesso: AreaAccesso; password: string }) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
   const service = createServiceClient();
   const { data, error } = await service
     .from("persone")
-    .insert({ nome: dati.nome, area_accesso: dati.area_accesso })
+    .insert({ nome: dati.nome, email: dati.email.trim() || null, area_accesso: dati.area_accesso })
     .select("id")
     .single();
   if (error) return { errore: error.message };
@@ -54,7 +54,7 @@ export async function creaPersona(dati: { nome: string; area_accesso: AreaAccess
 
 export async function aggiornaPersona(
   id: string,
-  dati: { nome: string; area_accesso: AreaAccesso; attivo: boolean; password: string }
+  dati: { nome: string; email: string; area_accesso: AreaAccesso; attivo: boolean; password: string }
 ) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
@@ -62,7 +62,7 @@ export async function aggiornaPersona(
   const service = createServiceClient();
   const { error } = await service
     .from("persone")
-    .update({ nome: dati.nome, area_accesso: dati.area_accesso, attivo: dati.attivo })
+    .update({ nome: dati.nome, email: dati.email.trim() || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
     .eq("id", id);
   if (error) return { errore: error.message };
 
