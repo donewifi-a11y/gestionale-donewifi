@@ -233,6 +233,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Vista Tecnico — nota rapida su ogni Ticket (senza aprire il dettaglio completo), pulsante
   WhatsApp accanto a Chiama (messaggio precompilato), sezione "Completati oggi" per una conferma
   visiva a fine giornata.
+✅ Archivio — "Riapri" un Ticket chiuso per errore (torna a "Da gestire", loggato in storico),
+  rapportino di chiusura e link contratto visibili direttamente qui invece che solo sulla bacheca
+  Ticket attiva, filtro per intervallo di date accanto alla ricerca testuale.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
