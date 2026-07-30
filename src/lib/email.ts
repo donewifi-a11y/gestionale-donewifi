@@ -26,6 +26,23 @@ export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: str
   }
 }
 
+export function emailApprovazioneIntervento(cliente: string, numero: number, link: string) {
+  return {
+    oggetto: `Done Wifi — Conferma Intervento (Ticket #${numero})`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <h2 style="color:#0B1B3D;">Done Wifi — Conferma Intervento</h2>
+        <p>Gentile ${cliente},</p>
+        <p>Ti confermiamo che l'intervento relativo al tuo Ticket #${numero} è stato completato da remoto.</p>
+        <p>Per confermare che tutto funzioni correttamente, clicca sul link qui sotto:</p>
+        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Conferma intervento</a></p>
+        <p>Se hai ancora problemi, rispondi a questa email o scrivi a <b>servizioclienti@donewifi.it</b>.</p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
 export function emailChiusuraTicket(cliente: string, numero: number) {
   return {
     oggetto: `Done Wifi — Intervento completato (Ticket #${numero})`,

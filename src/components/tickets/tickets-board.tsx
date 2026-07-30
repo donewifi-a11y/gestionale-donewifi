@@ -12,7 +12,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { aggiornaStatoTicket, assegnaTicket, aggiungiNotaTicket, getNoteTicket } from "@/app/(app)/tickets/actions";
+import {
+  aggiornaStatoTicket,
+  assegnaTicket,
+  aggiungiNotaTicket,
+  getNoteTicket,
+  inviaEmailApprovazioneTicket,
+} from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
@@ -338,6 +344,8 @@ function DettaglioTicket({
   const [invioNota, setInvioNota] = useState(false);
   const [erroreNota, setErroreNota] = useState("");
   const [praticaScelta, setPraticaScelta] = useState("");
+  const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
+  const [esitoApprovazione, setEsitoApprovazione] = useState("");
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
@@ -359,6 +367,14 @@ function DettaglioTicket({
   }, [praticaScelta, ticket.numero, ticket.id]);
   const primoNomeCliente = ticket.cliente.trim().split(/\s+/)[0];
   const messaggioPratica = `Ciao ${primoNomeCliente}, per la tua pratica Done Wifi apri questo link: ${linkPratica}`;
+
+  async function inviaApprovazione() {
+    setInCorsoApprovazione(true);
+    setEsitoApprovazione("");
+    const risultato = await inviaEmailApprovazioneTicket(ticket.id, window.location.origin);
+    setInCorsoApprovazione(false);
+    setEsitoApprovazione(risultato.errore ? risultato.errore : "Email di approvazione inviata.");
+  }
 
   useEffect(() => {
     getNoteTicket(ticket.id).then(setNote);
@@ -530,6 +546,18 @@ function DettaglioTicket({
                 messaggio={messaggioPratica}
                 oggetto={`Done Wifi — ${PRATICHE_INVIABILI.find((p) => p.slug === praticaScelta)?.titolo ?? "pratica"}`}
               />
+            </div>
+          )}
+
+          {ticket.email && (
+            <div className="mt-3 border-t pt-3">
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                Intervento risolto da remoto?
+              </p>
+              <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione}>
+                {inCorsoApprovazione ? "Invio..." : "Invia email di approvazione"}
+              </Button>
+              {esitoApprovazione && <p className="mt-1.5 text-xs text-muted-foreground">{esitoApprovazione}</p>}
             </div>
           )}
         </div>

@@ -10,10 +10,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
-   `0010_rapportini_tariffe_richieste.sql`, eseguendo ognuno. **`0011` e `0012` (login
-   individuale) vanno applicate con cautela — vedi sezione dedicata sotto**, non di seguito come
-   le altre: `0012` da sola blocca l'accesso a chiunque se applicata prima di aver collegato
-   almeno una Persona a un login vero.
+   `0010_rapportini_tariffe_richieste.sql` e `0013_portale_approvazione.sql`, eseguendo ognuno.
+   **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
+   sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
+   prima di aver collegato almeno una Persona a un login vero.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -119,6 +119,14 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 - `src/lib/email.ts` — email di chiusura al cliente quando un Ticket passa a Completato via
   rapportino, tramite Resend (`RESEND_API_KEY`); come Telegram/Google Calendar, se non configurata
   l'invio viene saltato senza bloccare nulla.
+- `src/app/portale` — ultimo pezzo pubblico ancora sul vecchio gestionale Apps Script (Portale.html
+  su `area.donewifi.it`), ora qui: il cliente apre un Ticket da solo (nome + telefono/email +
+  categoria, honeypot anti-spam) oppure verifica lo stato di uno esistente (numero + telefono),
+  senza login — via `src/app/api/portale/apri-ticket` e `.../verifica-stato` (service role).
+- `src/app/approva/[token]` — conferma via email dell'intervento quando il tecnico risolve da
+  remoto (niente firma su rapportino): `inviaEmailApprovazioneTicket` (dal dettaglio Ticket) genera
+  un token monouso (`token_approvazione`, migrazione `0013`) e invia il link via Resend; il click
+  del cliente scrive `tickets.confermato_cliente_il` e cancella il token.
 
 ## Stato attuale
 
@@ -177,6 +185,14 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Autocompletamento indirizzo e autofill cliente esistente in Nuovo Ticket.
 ✅ Automazioni: pulizia documenti clienti scaduti ed avviso ticket fermi, via Vercel Cron.
 ✅ Email di chiusura automatica al cliente (Resend, facoltativa).
+✅ Login individuale (2026-07-31): ogni Persona può avere un accesso Supabase Auth reale
+  (`persone.auth_user_id`), selezionato automaticamente al login — non serve più passare da "Tu
+  sei" per il proprio account. Il controllo accessi dell'intero database (`is_active_staff()`) ora
+  verifica questo, non più la tabella `staff` (rimasta solo per compatibilità/transizione).
+✅ Portale clienti pubblico (`/portale`): apri un Ticket o verifica lo stato di uno esistente, senza
+  login — ultimo pezzo pubblico migrato dal vecchio gestionale Apps Script.
+✅ Approvazione via email (`/approva/[token]`): conferma di un intervento risolto da remoto, quando
+  non c'è una firma su rapportino perché il tecnico non era di persona dal cliente.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
@@ -184,3 +200,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
+
+Con Portale e Approvazione migrati, il vecchio gestionale Apps Script non ha più flussi pubblici
+esclusivi (restano solo `approvaEmail`/`Portale`/`RichiestaDati`/ecc. come fallback per i link già
+inviati ai clienti prima di questa migrazione) — valutare in futuro se e quando reindirizzare
+anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi in circolazione.

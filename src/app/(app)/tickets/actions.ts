@@ -3,7 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
+import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
 import type { AreaAccesso, PrioritaTicket, StatoTicket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -239,6 +239,37 @@ export async function completaTicketConRapportino(
 
   revalidatePath("/tickets");
   return { errore: null };
+}
+
+// ★ ex inviaEmailApprovazione()/_gestisciApprovazioneEmail() del vecchio
+// gestionale — quando il tecnico risolve da remoto (non di persona, quindi
+// niente firma su rapportino), il cliente conferma via un link monouso
+// inviato per email, invece di un PropertiesService key/value: qui una
+// vera tabella (token_approvazione, migrazione 0013).
+export async function inviaEmailApprovazioneTicket(ticketId: string, origine: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { data: ticket } = await supabase.from("tickets").select("numero, cliente, email").eq("id", ticketId).single();
+  if (!ticket) return { errore: "Ticket non trovato." };
+  if (!ticket.email) return { errore: "Il cliente non ha un'email registrata su questo ticket." };
+
+  const service = createServiceClient();
+  const { data: creato, error } = await service
+    .from("token_approvazione")
+    .insert({ ticket_id: ticketId })
+    .select("token")
+    .single();
+  if (error) return { errore: error.message };
+
+  const link = `${origine}/approva/${creato.token}`;
+  const { oggetto, corpoHtml } = emailApprovazioneIntervento(ticket.cliente, ticket.numero, link);
+  await inviaEmail({ a: ticket.email, oggetto, corpoHtml });
+
+  return { errore: null, link };
 }
 
 export async function urlDocumentoRapportino(percorso: string) {
