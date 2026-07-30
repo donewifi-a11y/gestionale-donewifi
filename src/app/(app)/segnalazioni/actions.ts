@@ -3,7 +3,34 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
+import { inviaEmail, emailRichiestaDatiSegnalazione, mittenteReparto } from "@/lib/email";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
+
+// ★ invia davvero l'email (Resend) dall'indirizzo del reparto Commerciale
+// invece del mailto: che apriva il client di posta personale dell'operatore
+// — il cliente riceve sempre da commerciale@donewifi.it, non da un
+// indirizzo diverso a seconda di chi ha in mano la pratica in quel momento.
+export async function inviaEmailRichiestaDatiSegnalazione(segnalazioneId: string, origine: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { data: segnalazione } = await supabase.from("segnalazioni").select("nome, email").eq("id", segnalazioneId).single();
+  if (!segnalazione) return { errore: "Segnalazione non trovata." };
+  if (!segnalazione.email) return { errore: "Il cliente non ha un'email registrata su questa segnalazione." };
+
+  const link = `${origine}/richiesta-dati/${segnalazioneId}`;
+  const { oggetto, corpoHtml } = emailRichiestaDatiSegnalazione(segnalazione.nome, link);
+  const risultato = await inviaEmail({
+    a: segnalazione.email,
+    oggetto,
+    corpoHtml,
+    mittente: mittenteReparto("Commerciale"),
+  });
+  return risultato;
+}
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna

@@ -207,6 +207,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   chi non ha accesso Tutto/Admin, scorciatoia a Vista Tecnico per chi ha ticket assegnati oggi.
 ✅ Ticket — sottocategorie (14 voci puntuali ex vecchio gestionale, es. "Assistenza: Internet
   assente", `tickets.sottocategoria`, facoltative) e cambio reparto post-creazione dal dettaglio.
+✅ Segnalazioni — il pulsante "Email" per il link Richiesta Dati ora invia davvero (Resend) da
+  `commerciale@donewifi.it` invece di aprire il client di posta personale dell'operatore
+  (`mailto:`) — stesso principio di `EMAIL_MITTENTE_REPARTI` del vecchio gestionale
+  (`src/lib/email.ts`, funzione `mittenteReparto`), pronto per estendersi agli altri reparti.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -12,7 +12,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { cambiaStatoSegnalazione, trasmettiPerInstallazione, caricaContrattoSegnalazione, urlContratto } from "@/app/(app)/segnalazioni/actions";
+import {
+  cambiaStatoSegnalazione,
+  trasmettiPerInstallazione,
+  caricaContrattoSegnalazione,
+  urlContratto,
+  inviaEmailRichiestaDatiSegnalazione,
+} from "@/app/(app)/segnalazioni/actions";
 import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
@@ -213,6 +219,8 @@ function DettaglioSegnalazione({
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
   const [caricamentoContratto, setCaricamentoContratto] = useState(false);
   const [erroreContratto, setErroreContratto] = useState("");
+  const [inCorsoEmail, setInCorsoEmail] = useState(false);
+  const [esitoEmail, setEsitoEmail] = useState("");
 
   const linkRichiestaDati = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
@@ -244,6 +252,14 @@ function DettaglioSegnalazione({
     }
     onChiudi();
     router.push(`/tickets?aperto=${risultato.id}`);
+  }
+
+  async function inviaEmailServer() {
+    setInCorsoEmail(true);
+    setEsitoEmail("");
+    const risultato = await inviaEmailRichiestaDatiSegnalazione(segnalazione.id, window.location.origin);
+    setInCorsoEmail(false);
+    setEsitoEmail(risultato.errore ? risultato.errore : "Inviata da commerciale@donewifi.it.");
   }
 
   function copiaLink() {
@@ -331,15 +347,17 @@ function DettaglioSegnalazione({
                 </span>
                 WhatsApp
               </a>
-              <a
-                href={`mailto:${segnalazione.email || ""}?subject=${encodeURIComponent("Done Wifi — completa i tuoi dati")}&body=${encodeURIComponent(messaggio)}`}
-                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+              <button
+                onClick={inviaEmailServer}
+                disabled={inCorsoEmail || !segnalazione.email}
+                title={segnalazione.email ? "Invia da commerciale@donewifi.it" : "Il cliente non ha un'email registrata"}
+                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40 disabled:opacity-50"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#5b52c9] text-white">
                   <Mail className="h-3.5 w-3.5" strokeWidth={2.25} />
                 </span>
-                Email
-              </a>
+                {inCorsoEmail ? "Invio..." : "Email"}
+              </button>
               <button
                 onClick={copiaLink}
                 className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
@@ -350,6 +368,7 @@ function DettaglioSegnalazione({
                 {copiato ? "Copiato" : "Copia link"}
               </button>
             </div>
+            {esitoEmail && <p className="text-xs text-muted-foreground">{esitoEmail}</p>}
           </div>
         )}
 
