@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId, getPersonaCorrente } from "@/lib/persona";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrenteId, getPersonaCorrente, impostaCookiePersona } from "@/lib/persona";
 import { AppSidebar } from "@/components/app-sidebar";
 import type { Persona } from "@/lib/types";
 
@@ -19,19 +19,48 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect("/login");
 
-  const { data: staff } = await supabase
-    .from("staff")
-    .select("email, nome, area_accesso, attivo")
-    .eq("id", user.id)
-    .single();
+  // ★ login individuale — un account può ora essere autorizzato in due
+  // modi: un login diretto collegato a una Persona (persone.auth_user_id,
+  // il caso normale ora) oppure, ancora per transizione, un vecchio
+  // account condiviso in "staff". Si usa la service role solo per QUESTA
+  // verifica sul proprio utente autenticato (auth.uid()) — non su dati
+  // altrui — perché finché la migrazione 0012 non è applicata, is_active_staff()
+  // (letta dalle policy RLS) controlla ancora "staff", quindi un login
+  // individuale nuovo non passerebbe la RLS del client normale.
+  const service = createServiceClient();
+  const { data: personaLoggata } = await service
+    .from("persone")
+    .select("id, nome, email, area_accesso, attivo, password_hash")
+    .eq("auth_user_id", user.id)
+    .eq("attivo", true)
+    .maybeSingle();
 
-  if (!staff || !staff.attivo) {
-    redirect("/login?errore=account-non-attivo");
+  let emailVisualizzata = user.email ?? "";
+
+  if (personaLoggata) {
+    // ★ rete di sicurezza: se per qualsiasi motivo il cookie persona non
+    // fosse ancora allineato a questo login individuale, lo si allinea
+    // qui — così non serve mai passare da "Tu sei" per il proprio account.
+    const idCorrente = await getPersonaCorrenteId();
+    if (idCorrente !== personaLoggata.id) {
+      await impostaCookiePersona(personaLoggata.id);
+    }
+    emailVisualizzata = personaLoggata.email || emailVisualizzata;
+  } else {
+    const { data: staff } = await service
+      .from("staff")
+      .select("email, nome, area_accesso, attivo")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!staff || !staff.attivo) {
+      redirect("/login?errore=account-non-attivo");
+    }
+    emailVisualizzata = staff.email;
   }
 
   // ★ password_hash si legge qui solo per calcolare "richiede_password" —
   // non passa mai, come valore vero, al componente client sotto.
-  const { data: righe } = await supabase
+  const { data: righe } = await service
     .from("persone")
     .select("id, nome, attivo, area_accesso, password_hash")
     .eq("attivo", true)
@@ -50,7 +79,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <AppSidebar
-        email={staff.email}
+        email={emailVisualizzata}
         persone={persone}
         personaCorrenteId={personaCorrenteId}
         personaAreaAccesso={personaCorrente?.area_accesso ?? null}
