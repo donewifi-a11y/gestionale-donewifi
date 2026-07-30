@@ -15,6 +15,23 @@ export const STATI_TICKET: StatoTicket[] = [
 export const REPARTI: AreaAccesso[] = ["Analisi Rete", "Commerciale", "Fatturazione"];
 export const CATEGORIE_TICKET = ["Assistenza", "Commerciale", "Amministrativa"] as const;
 
+// ★ ex 14 categorie puntuali del vecchio gestionale — qui come dettaglio
+// facoltativo (tickets.sottocategoria) dipendente dalla categoria
+// principale, non come sostituto: filtri e mappatura reparto restano
+// sui 3 valori sopra.
+export const SOTTOCATEGORIE_TICKET: Record<(typeof CATEGORIE_TICKET)[number], string[]> = {
+  Assistenza: [
+    "Internet assente",
+    "Internet lento",
+    "Voip",
+    "Intervento in loco",
+    "Pianificazione installazione",
+    "Ritiro Apparati",
+  ],
+  Commerciale: ["Trasferimento impianto", "Nuovo contratto", "Subentro", "Upgrade/Downgrade"],
+  Amministrativa: ["Cambio anagrafico", "Disdetta", "Cambio IBAN", "Fatture non saldate"],
+};
+
 export interface Ticket {
   id: string;
   numero: number;
@@ -24,6 +41,7 @@ export interface Ticket {
   email: string | null;
   indirizzo: string | null;
   categoria: string;
+  sottocategoria: string | null;
   problema: string | null;
   stato: StatoTicket;
   priorita: PrioritaTicket;

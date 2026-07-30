@@ -18,6 +18,7 @@ import {
   aggiungiNotaTicket,
   getNoteTicket,
   inviaEmailApprovazioneTicket,
+  cambiaRepartoTicket,
 } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
@@ -233,7 +234,10 @@ export function TicketsBoard({
                         <span className="font-semibold">{t.cliente}</span>
                         <span className="font-mono text-[11px] text-muted-foreground">#{t.numero}</span>
                       </div>
-                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">{t.categoria}</div>
+                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
+                        {t.categoria}
+                        {t.sottocategoria && ` · ${t.sottocategoria}`}
+                      </div>
                       <div className="flex flex-wrap items-center gap-1">
                         <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
                           {t.priorita}
@@ -345,6 +349,7 @@ function DettaglioTicket({
   const [erroreNota, setErroreNota] = useState("");
   const [praticaScelta, setPraticaScelta] = useState("");
   const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
+  const [inCorsoReparto, setInCorsoReparto] = useState(false);
   const [esitoApprovazione, setEsitoApprovazione] = useState("");
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
@@ -374,6 +379,19 @@ function DettaglioTicket({
     const risultato = await inviaEmailApprovazioneTicket(ticket.id, window.location.origin);
     setInCorsoApprovazione(false);
     setEsitoApprovazione(risultato.errore ? risultato.errore : "Email di approvazione inviata.");
+  }
+
+  async function cambiaReparto(nuovo: (typeof REPARTI)[number]) {
+    if (nuovo === ticket.reparto) return;
+    setInCorsoReparto(true);
+    const risultato = await cambiaRepartoTicket(ticket.id, nuovo, ticket.reparto);
+    setInCorsoReparto(false);
+    if (risultato.errore) {
+      alert(risultato.errore);
+      return;
+    }
+    onCambiato({ ...ticket, reparto: nuovo });
+    router.refresh();
   }
 
   useEffect(() => {
@@ -436,6 +454,7 @@ function DettaglioTicket({
         <SheetTitle>{ticket.cliente}</SheetTitle>
         <SheetDescription>
           #{ticket.numero} · {ticket.categoria}
+          {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
         </SheetDescription>
       </SheetHeader>
       <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
@@ -499,7 +518,19 @@ function DettaglioTicket({
           )}
         </div>
 
-        <Campo etichetta="Reparto" valore={ticket.reparto} />
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Reparto</div>
+          <select
+            value={ticket.reparto}
+            disabled={inCorsoReparto}
+            onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
+            className="mt-1 h-8 rounded-md border bg-background px-2 text-xs font-medium"
+          >
+            {REPARTI.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
         <Campo etichetta="Priorità" valore={ticket.priorita} />
         <Campo etichetta="Telefono" valore={ticket.telefono || "—"} />
         <Campo etichetta="Email" valore={ticket.email || "—"} />

@@ -11,7 +11,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
-   `0014_ricavi_ticket.sql`, eseguendo ognuno.
+   `0014_ricavi_ticket.sql` e `0015_sottocategoria_ticket.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -202,6 +202,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   rapportino di chiusura). Ogni reparto ha anche una propria vista (`/dashboard/analisi-rete`,
   `/dashboard/commerciale`, `/dashboard/fatturazione`): ticket attivi/urgenti/non assegnati, carico
   per tecnico, completati e ricavi del mese — visibile a chi ha quel reparto o a Tutto/Admin.
+✅ Mondo Ticket (Home, rinominata da "Centro Operativo"): KPI di urgenza (Urgenti/Non presi in
+  carico/Aperti/Completati oggi), pannello "Serve attenzione ora", vista filtrata per reparto per
+  chi non ha accesso Tutto/Admin, scorciatoia a Vista Tecnico per chi ha ticket assegnati oggi.
+✅ Ticket — sottocategorie (14 voci puntuali ex vecchio gestionale, es. "Assistenza: Internet
+  assente", `tickets.sottocategoria`, facoltative) e cambio reparto post-creazione dal dettaglio.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

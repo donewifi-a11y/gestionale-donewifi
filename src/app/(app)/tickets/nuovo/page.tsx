@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaTicket, cercaClientiEsistenti, type ClienteEsistente } from "../actions";
-import { CATEGORIE_TICKET, REPARTI } from "@/lib/types";
+import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET } from "@/lib/types";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
 
 export default function NuovoTicketPage() {
@@ -22,6 +22,7 @@ export default function NuovoTicketPage() {
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
+  const [categoria, setCategoria] = useState<(typeof CATEGORIE_TICKET)[number]>(CATEGORIE_TICKET[0]);
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
   const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,6 +62,7 @@ export default function NuovoTicketPage() {
       email,
       indirizzo,
       categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
+      sottocategoria: String(dati.get("sottocategoria") || ""),
       problema: String(dati.get("problema") || ""),
       priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
       reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
@@ -136,7 +138,13 @@ export default function NuovoTicketPage() {
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label htmlFor="categoria">Categoria</Label>
-            <select id="categoria" name="categoria" defaultValue={CATEGORIE_TICKET[0]} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <select
+              id="categoria"
+              name="categoria"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value as (typeof CATEGORIE_TICKET)[number])}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
               {CATEGORIE_TICKET.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -158,6 +166,22 @@ export default function NuovoTicketPage() {
               <option value="Bassa">Bassa</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor="sottocategoria">Dettaglio (facoltativo)</Label>
+          <select
+            id="sottocategoria"
+            name="sottocategoria"
+            key={categoria}
+            defaultValue=""
+            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="">Nessun dettaglio specifico</option>
+            {SOTTOCATEGORIE_TICKET[categoria].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
 
         <div>

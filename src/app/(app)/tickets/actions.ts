@@ -16,6 +16,7 @@ export async function creaTicket(dati: {
   email: string;
   indirizzo: string;
   categoria: string;
+  sottocategoria: string;
   problema: string;
   priorita: PrioritaTicket;
   reparto: AreaAccesso;
@@ -36,6 +37,7 @@ export async function creaTicket(dati: {
       email: dati.email || null,
       indirizzo: dati.indirizzo || null,
       categoria: dati.categoria,
+      sottocategoria: dati.sottocategoria || null,
       problema: dati.problema || null,
       priorita: dati.priorita,
       reparto: dati.reparto,
@@ -56,6 +58,34 @@ export async function creaTicket(dati: {
 
   revalidatePath("/tickets");
   return { errore: null, id: data.id, numero: data.numero };
+}
+
+// ★ ex cambiaRepartoTicketWeb() del vecchio gestionale — un Ticket
+// assegnato al reparto sbagliato in apertura si può correggere qui,
+// invece di doverlo ricreare.
+export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso, repartoVecchio: AreaAccesso) {
+  const supabase = await createClient();
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (repartoNuovo === repartoVecchio) return { errore: null };
+
+  const { error } = await supabase
+    .from("tickets")
+    .update({ reparto: repartoNuovo, aggiornato_il: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "ticket",
+    riferimento_id: id,
+    operazione: "Cambio Reparto",
+    valore_prima: repartoVecchio,
+    valore_dopo: repartoNuovo,
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/tickets");
+  return { errore: null };
 }
 
 export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, statoVecchio: StatoTicket) {
