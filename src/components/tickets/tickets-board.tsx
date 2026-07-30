@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +21,7 @@ import {
   cambiaRepartoTicket,
 } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
+import { creaAppuntamento, getSlotOccupatiProssimi, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
 import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
@@ -561,12 +561,7 @@ function DettaglioTicket({
           </Button>
         )}
 
-        <Link href={`/calendario?nuovoTicket=${ticket.id}`}>
-          <Button size="sm" variant="outline" className="w-fit">
-            <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Pianifica appuntamento
-          </Button>
-        </Link>
+        <PianificaAppuntamento ticket={ticket} persone={persone} />
 
         <div className="border-t pt-4">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -699,6 +694,127 @@ function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; d
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** ★ NUOVA — pianifica un appuntamento senza uscire dal Ticket: mostra gli
+ * slot già occupati nei prossimi 14 giorni e permette di "Assegnare e
+ * fissare" in un click, tecnico e indirizzo già precompilati dal ticket. */
+function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: Persona[] }) {
+  const router = useRouter();
+  const [aperto, setAperto] = useState(false);
+  const [slot, setSlot] = useState<SlotOccupato[]>([]);
+  const [inCorso, setInCorso] = useState(false);
+  const [errore, setErrore] = useState("");
+  const [fatto, setFatto] = useState(false);
+
+  useEffect(() => {
+    if (aperto) getSlotOccupatiProssimi().then(setSlot);
+  }, [aperto]);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrore("");
+    const dati = new FormData(e.currentTarget);
+    const data = String(dati.get("data") || "");
+    const ora = String(dati.get("ora") || "");
+    if (!data || !ora) return setErrore("Imposta data e ora.");
+
+    setInCorso(true);
+    const risultato = await creaAppuntamento({
+      titolo: `${ticket.categoria}${ticket.sottocategoria ? ` — ${ticket.sottocategoria}` : ""} · ${ticket.cliente}`,
+      indirizzo: ticket.indirizzo || "",
+      dataOra: new Date(`${data}T${ora}`).toISOString(),
+      durataMinuti: Number(dati.get("durata") || 60),
+      tecnicoId: String(dati.get("tecnico") || ""),
+      ticketId: ticket.id,
+      note: "",
+    });
+    setInCorso(false);
+    if (risultato.errore) return setErrore(risultato.errore);
+    setFatto(true);
+    router.refresh();
+  }
+
+  if (!aperto) {
+    return (
+      <Button size="sm" variant="outline" className="w-fit" onClick={() => setAperto(true)}>
+        <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+        Pianifica appuntamento
+      </Button>
+    );
+  }
+
+  if (fatto) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+        <CalendarCheck2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+        Appuntamento fissato — visibile in Calendario.
+      </p>
+    );
+  }
+
+  const slotPerGiorno = slot.reduce<Record<string, SlotOccupato[]>>((acc, s) => {
+    const giorno = s.data_ora.slice(0, 10);
+    (acc[giorno] ??= []).push(s);
+    return acc;
+  }, {});
+
+  return (
+    <div className="rounded-xl border bg-card p-3 shadow-sm">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+        Pianifica appuntamento
+      </p>
+
+      {Object.keys(slotPerGiorno).length > 0 && (
+        <div className="mb-3 max-h-28 overflow-y-auto rounded-lg bg-muted/50 p-2 text-xs">
+          <p className="mb-1 font-semibold text-muted-foreground">Slot già occupati (prossimi 14 giorni)</p>
+          {Object.entries(slotPerGiorno).map(([giorno, items]) => (
+            <div key={giorno} className="mb-1">
+              <span className="font-semibold">
+                {new Date(`${giorno}T00:00:00`).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}:
+              </span>{" "}
+              {items
+                .map((s) => {
+                  const tecnico = persone.find((p) => p.id === s.tecnico_id)?.nome;
+                  const ora = new Date(s.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                  return `${ora}${tecnico ? ` (${tecnico})` : ""}`;
+                })
+                .join(", ")}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <input type="date" name="data" required className="h-8 rounded-md border bg-background px-2 text-xs" />
+          <input type="time" name="ora" required className="h-8 rounded-md border bg-background px-2 text-xs" />
+          <select name="durata" defaultValue="60" className="h-8 rounded-md border bg-background px-2 text-xs">
+            <option value="30">30 min</option>
+            <option value="60">1 ora</option>
+            <option value="90">1h30</option>
+            <option value="120">2 ore</option>
+          </select>
+        </div>
+        <select name="tecnico" defaultValue={ticket.tecnico_assegnato ?? ""} className="h-8 rounded-md border bg-background px-2 text-xs">
+          <option value="">Nessun tecnico</option>
+          {persone.map((p) => (
+            <option key={p.id} value={p.id}>{p.nome}</option>
+          ))}
+        </select>
+        {errore && <p className="text-xs text-critical">{errore}</p>}
+        <div className="flex gap-2">
+          <Button type="submit" size="sm" disabled={inCorso} className="flex-1">
+            {inCorso ? "Fisso..." : "Assegna e fissa"}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setAperto(false)}>
+            Annulla
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

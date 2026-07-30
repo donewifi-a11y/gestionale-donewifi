@@ -290,6 +290,16 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   bacheca a 3 colonne con lo stato intermedio "In Verifica" (tra "Da Lavorare" e "Lavorata",
   nessuna migrazione necessaria — `stato` era già testo libero); il collegamento al Ticket
   d'origine (già in `richieste_clienti.ticket_id`) ora è visibile e cliccabile nel dettaglio.
+✅ Mondo Ticket (2026-08): altri tre ripristini dal confronto col vecchio gestionale. **Segnalazioni**:
+  "Trasmetti per l'installazione" ora è bloccato davvero (non solo un avviso testuale) finché mancano
+  i dati del cliente (tipologia/profilo internet, arrivati dal form pubblico Richiesta Dati) o il
+  contratto firmato — evita di avviare un'installazione con una pratica incompleta. **Ticket**:
+  "Pianifica appuntamento" non porta più via al Calendario — mostra direttamente nel dettaglio gli
+  slot già occupati nei prossimi 14 giorni e un mini-form "Assegna e fissa" che crea l'appuntamento
+  sul posto, tecnico e indirizzo già precompilati dal ticket (`getSlotOccupatiProssimi()` in
+  `calendario/actions.ts`). **Clienti**: riepilogo in cima alla pagina — clienti totali, nuovi questo
+  mese, andamento ultimi 6 mesi — calcolato dalla prima attività di ciascun cliente nei Ticket,
+  nessuna tabella nuova.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

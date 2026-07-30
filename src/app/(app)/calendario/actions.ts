@@ -6,6 +6,35 @@ import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-cal
 import { revalidatePath } from "next/cache";
 import type { StatoAppuntamento } from "@/lib/types";
 
+export interface SlotOccupato {
+  id: string;
+  titolo: string;
+  data_ora: string;
+  durata_minuti: number;
+  tecnico_id: string | null;
+}
+
+/** ★ NUOVA — slot già occupati nei prossimi 14 giorni, per pianificare un
+ * appuntamento dalla lavorazione del Ticket senza dover prima aprire il
+ * Calendario per controllare la disponibilità del tecnico. */
+export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
+  const supabase = await createClient();
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+  const tra14gg = new Date(oggi);
+  tra14gg.setDate(tra14gg.getDate() + 14);
+
+  const { data } = await supabase
+    .from("appuntamenti")
+    .select("id, titolo, data_ora, durata_minuti, tecnico_id")
+    .eq("stato", "Programmato")
+    .gte("data_ora", oggi.toISOString())
+    .lte("data_ora", tra14gg.toISOString())
+    .order("data_ora", { ascending: true });
+
+  return data ?? [];
+}
+
 export async function creaAppuntamento(dati: {
   titolo: string;
   indirizzo: string;

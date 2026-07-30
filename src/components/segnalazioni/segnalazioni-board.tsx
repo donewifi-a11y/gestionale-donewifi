@@ -242,7 +242,13 @@ function DettaglioSegnalazione({
     }
   }
 
+  const mancanti: string[] = [];
+  if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
+  if (!contrattoUrl) mancanti.push("contratto firmato");
+  const puoTrasmettere = mancanti.length === 0;
+
   async function trasmetti() {
+    if (!puoTrasmettere) return;
     if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
     setInCorso(true);
     const risultato = await trasmettiPerInstallazione(segnalazione.id);
@@ -428,12 +434,6 @@ function DettaglioSegnalazione({
                 {caricamentoContratto ? "Caricamento..." : "Carica il contratto firmato (PDF)"}
                 <input type="file" accept="application/pdf" onChange={caricaContratto} className="hidden" disabled={caricamentoContratto} />
               </label>
-              {segnalazione.stato !== "Trasmessa" && (
-                <p className="mt-2 flex items-start gap-1.5 text-xs text-warning">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  Meglio caricarlo prima di trasmettere per l&apos;installazione.
-                </p>
-              )}
             </>
           )}
           {erroreContratto && (
@@ -445,10 +445,18 @@ function DettaglioSegnalazione({
         </div>
 
         {segnalazione.stato !== "Trasmessa" && (
-          <Button onClick={trasmetti} disabled={inCorso} className="mt-2">
-            <Rocket className="h-4 w-4" strokeWidth={2.25} />
-            Trasmetti per l&apos;installazione
-          </Button>
+          <div className="mt-2">
+            <Button onClick={trasmetti} disabled={inCorso || !puoTrasmettere} className="w-full">
+              <Rocket className="h-4 w-4" strokeWidth={2.25} />
+              Trasmetti per l&apos;installazione
+            </Button>
+            {!puoTrasmettere && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-warning">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                Mancano ancora: {mancanti.join(", ")}.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </>

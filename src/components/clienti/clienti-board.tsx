@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle } from "lucide-react";
+import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ interface Cliente {
   indirizzo: string | null;
   ticket: Ticket[];
   ultimaAttivita: string;
+  primaAttivita: string;
   attivi: number;
   dati: ClienteAttivo | null;
 }
@@ -64,6 +65,7 @@ export function ClientiBoard({
           indirizzo: t.indirizzo,
           ticket: [],
           ultimaAttivita: t.data_creazione,
+          primaAttivita: t.data_creazione,
           attivi: 0,
           dati: mappaDati.get(normalizzaTelefono(t.telefono)) ?? null,
         });
@@ -72,6 +74,7 @@ export function ClientiBoard({
       c.ticket.push(t);
       if (t.stato !== "Completato" && t.stato !== "Annullato") c.attivi += 1;
       if (new Date(t.data_creazione) > new Date(c.ultimaAttivita)) c.ultimaAttivita = t.data_creazione;
+      if (new Date(t.data_creazione) < new Date(c.primaAttivita)) c.primaAttivita = t.data_creazione;
     }
     return Array.from(mappa.values()).sort(
       (a, b) => new Date(b.ultimaAttivita).getTime() - new Date(a.ultimaAttivita).getTime()
@@ -86,8 +89,50 @@ export function ClientiBoard({
     );
   }, [clienti, ricerca]);
 
+  // ★ NUOVA — riepilogo in cima alla pagina (ex "Clienti attivi totali" / "Nuovi questo mese" /
+  // andamento ultimi 6 mesi di ClientiAttivi.html), assente da quando la pagina è stata ricostruita.
+  const andamento6Mesi = useMemo(() => {
+    const oggi = new Date();
+    const mesi: { chiave: string; etichetta: string; conteggio: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(oggi.getFullYear(), oggi.getMonth() - i, 1);
+      mesi.push({ chiave: `${d.getFullYear()}-${d.getMonth()}`, etichetta: d.toLocaleDateString("it-IT", { month: "short" }), conteggio: 0 });
+    }
+    const mappaMesi = new Map(mesi.map((m) => [m.chiave, m]));
+    for (const c of clienti) {
+      const d = new Date(c.primaAttivita);
+      const chiave = `${d.getFullYear()}-${d.getMonth()}`;
+      const m = mappaMesi.get(chiave);
+      if (m) m.conteggio++;
+    }
+    return mesi;
+  }, [clienti]);
+  const nuoviQuestoMese = andamento6Mesi[andamento6Mesi.length - 1]?.conteggio ?? 0;
+  const maxAndamento = Math.max(1, ...andamento6Mesi.map((m) => m.conteggio));
+
   return (
     <div>
+      <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-md">
+          <Users2 className="mb-2 h-4 w-4 text-primary" strokeWidth={2.25} />
+          <div className="font-heading text-2xl font-bold tabular-nums">{clienti.length}</div>
+          <div className="text-xs text-muted-foreground">Clienti totali</div>
+        </div>
+        <div className="rounded-2xl border bg-card p-4 shadow-md">
+          <UserPlus2 className="mb-2 h-4 w-4 text-success" strokeWidth={2.25} />
+          <div className="font-heading text-2xl font-bold tabular-nums">{nuoviQuestoMese}</div>
+          <div className="text-xs text-muted-foreground">Nuovi questo mese</div>
+        </div>
+        <div className="col-span-2 rounded-2xl border bg-card p-4 shadow-md sm:col-span-1">
+          <div className="mb-1.5 text-xs text-muted-foreground">Nuovi clienti — ultimi 6 mesi</div>
+          <div className="flex h-10 items-end gap-1">
+            {andamento6Mesi.map((m) => (
+              <div key={m.chiave} title={`${m.etichetta}: ${m.conteggio}`} className="flex-1 rounded-t bg-primary/70" style={{ height: `${Math.max(8, Math.round((m.conteggio / maxAndamento) * 100))}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
         <input
