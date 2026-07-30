@@ -1,5 +1,7 @@
-import { Gauge, TriangleAlert, Clock, CalendarCheck2 } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { getDatiAmministrazione } from "@/lib/analytics";
 
 const STATI_TICKET_ORDINE = ["Da gestire", "In lavorazione", "In attesa", "Completato"] as const;
 const COLORE_STATO_TICKET: Record<string, string> = {
@@ -43,6 +45,10 @@ export default async function DashboardPage() {
   const listaTicket = tickets ?? [];
   const listaSegnalazioni = segnalazioni ?? [];
   const listaPersone = persone ?? [];
+
+  const personaCorrente = await getPersonaCorrente(supabase);
+  const isAdmin = personaHaAccessoAdmin(personaCorrente);
+  const amministrazione = isAdmin ? await getDatiAmministrazione(supabase) : null;
 
   const ticketUrgenti = listaTicket.filter((t) => t.priorita === "Urgente" && t.stato !== "Completato").length;
   const ticketNonAssegnati = listaTicket.filter((t) => !t.tecnico_assegnato && t.stato !== "Completato").length;
@@ -123,6 +129,70 @@ export default async function DashboardPage() {
           ))}
         </Pannello>
       </div>
+
+      {amministrazione && <SezioneAmministrazione dati={amministrazione} />}
+    </div>
+  );
+}
+
+function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType<typeof getDatiAmministrazione>>> }) {
+  const maxAndamento = Math.max(1, ...dati.andamentoGiornaliero);
+  const maxRicaviReparto = Math.max(1, ...Object.values(dati.ricaviPerReparto));
+  const maxCompletatiReparto = Math.max(1, ...Object.values(dati.completatiPerReparto));
+  const maxTipologia = Math.max(1, ...Object.values(dati.perTipologia));
+
+  return (
+    <div className="mt-8 border-t pt-8">
+      <div className="mb-4 flex items-center gap-2">
+        <TrendingUp className="h-4 w-4 text-primary" strokeWidth={2.5} />
+        <h2 className="font-heading text-lg font-bold capitalize">Amministrazione — {dati.mese}</h2>
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Kpi icona={UserPlus2} etichetta="Acquisizioni del mese" valore={dati.acquisizioniTotali} colore="text-primary" />
+        <Kpi icona={Euro} etichetta="Ricavi del mese" valore={`€ ${dati.ricaviTotali.toLocaleString("it-IT")}`} colore="text-success" />
+        <Kpi icona={Gauge} etichetta="Ticket completati" valore={dati.ticketCompletatiTotali} colore="text-foreground" />
+      </div>
+
+      <div className="mb-5 rounded-2xl border bg-card p-5 shadow-md">
+        <h3 className="mb-4 font-heading text-sm font-bold">Andamento acquisizioni — giorno per giorno</h3>
+        <div className="flex h-24 items-end gap-[3px]">
+          {dati.andamentoGiornaliero.map((v, i) => (
+            <div
+              key={i}
+              title={`Giorno ${i + 1}: ${v}`}
+              className="flex-1 rounded-t bg-primary/70 transition hover:bg-primary"
+              style={{ height: `${Math.max(4, Math.round((v / maxAndamento) * 100))}%` }}
+            />
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+          <span>1</span>
+          <span>{dati.giorniNelMese}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <Pannello titolo="Acquisizioni per tipologia">
+          {Object.entries(dati.perTipologia)
+            .filter(([, v]) => v > 0)
+            .map(([tipo, v]) => (
+              <BarraRiga key={tipo} etichetta={tipo} conteggio={v} max={maxTipologia} colore="bg-primary" />
+            ))}
+        </Pannello>
+
+        <Pannello titolo="Ricavi per reparto (€)">
+          {Object.entries(dati.ricaviPerReparto).map(([reparto, v]) => (
+            <BarraRiga key={reparto} etichetta={reparto} conteggio={Math.round(v)} max={maxRicaviReparto} colore="bg-success" />
+          ))}
+        </Pannello>
+
+        <Pannello titolo="Ticket completati per reparto" className="md:col-span-2">
+          {Object.entries(dati.completatiPerReparto).map(([reparto, v]) => (
+            <BarraRiga key={reparto} etichetta={reparto} conteggio={v} max={maxCompletatiReparto} colore="bg-primary" />
+          ))}
+        </Pannello>
+      </div>
     </div>
   );
 }
@@ -135,7 +205,7 @@ function Kpi({
 }: {
   icona: typeof Gauge;
   etichetta: string;
-  valore: number;
+  valore: number | string;
   colore: string;
 }) {
   return (

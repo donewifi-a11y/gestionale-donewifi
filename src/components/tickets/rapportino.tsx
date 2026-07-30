@@ -44,6 +44,7 @@ export function RapportinoForm({
         lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
         materiali: String(dati.get("materiali") || ""),
         firmaDataUrl: firmaRef.current?.ottieniDataUrl() ?? "",
+        importoFatturato: String(dati.get("importoFatturato") || ""),
       },
       foto
     );
@@ -68,6 +69,17 @@ export function RapportinoForm({
       <div>
         <Label htmlFor="materiali">Materiali usati</Label>
         <textarea id="materiali" name="materiali" rows={2} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <Label htmlFor="importoFatturato">Importo fatturato (€, facoltativo)</Label>
+        <input
+          id="importoFatturato"
+          name="importoFatturato"
+          type="number"
+          step="0.01"
+          min="0"
+          className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+        />
       </div>
       <div>
         <Label htmlFor="foto">Foto (facoltative)</Label>
@@ -109,7 +121,7 @@ export function RapportinoForm({
   );
 }
 
-export function RapportinoVista({ rapportino }: { rapportino: RapportinoIntervento }) {
+export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: RapportinoIntervento; importoFatturato?: number | null }) {
   const [urlFirma, setUrlFirma] = useState<string | null>(null);
 
   async function mostraFirma() {
@@ -140,6 +152,7 @@ export function RapportinoVista({ rapportino }: { rapportino: RapportinoInterven
         <Campo etichetta="Esito" valore={rapportino.esito} />
         {rapportino.lavori_svolti && <Campo etichetta="Lavori svolti" valore={rapportino.lavori_svolti} />}
         {rapportino.materiali && <Campo etichetta="Materiali usati" valore={rapportino.materiali} />}
+        {importoFatturato != null && <Campo etichetta="Importo fatturato" valore={`€ ${importoFatturato}`} />}
         <Campo
           etichetta="Data"
           valore={new Date(rapportino.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}

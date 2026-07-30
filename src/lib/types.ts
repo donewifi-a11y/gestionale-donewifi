@@ -32,6 +32,7 @@ export interface Ticket {
   note: string | null;
   contratto_pdf_url: string | null;
   segnalazione_id: string | null;
+  importo_fatturato: number | null;
 }
 
 export interface Segnalazione {

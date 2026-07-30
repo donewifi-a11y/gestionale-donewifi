@@ -41,8 +41,17 @@ export function AppSidebar({
   // e Fatturazione lavoravano le richieste clienti) — oltre agli admin.
   const vedeTariffe = isAdmin || personaAreaAccesso === "Commerciale";
   const vedeRichieste = isAdmin || personaAreaAccesso === "Commerciale" || personaAreaAccesso === "Fatturazione";
+  // ★ cruscotti per reparto — un admin vede tutti e tre, chi ha un solo
+  // reparto vede solo il proprio.
+  const REPARTI_SLUG: { slug: string; reparto: string; etichetta: string }[] = [
+    { slug: "analisi-rete", reparto: "Analisi Rete", etichetta: "Dash. Analisi Rete" },
+    { slug: "commerciale", reparto: "Commerciale", etichetta: "Dash. Commerciale" },
+    { slug: "fatturazione", reparto: "Fatturazione", etichetta: "Dash. Fatturazione" },
+  ];
+  const dashboardReparti = isAdmin ? REPARTI_SLUG : REPARTI_SLUG.filter((r) => r.reparto === personaAreaAccesso);
   const voci = [
     ...VOCI_NAV,
+    ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge, esatto: false })),
     ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList, esatto: false }] : []),
     ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags, esatto: false }] : []),
     ...(isAdmin

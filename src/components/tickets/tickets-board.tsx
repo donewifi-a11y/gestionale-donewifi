@@ -478,7 +478,9 @@ function DettaglioTicket({
           />
         )}
 
-        {ticket.stato === "Completato" && rapportino && <RapportinoVista rapportino={rapportino} />}
+        {ticket.stato === "Completato" && rapportino && (
+          <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
+        )}
 
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>

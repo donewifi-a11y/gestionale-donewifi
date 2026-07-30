@@ -169,7 +169,7 @@ export async function getRapportinoTicket(ticketId: string) {
 export async function completaTicketConRapportino(
   ticketId: string,
   statoVecchio: StatoTicket,
-  dati: { esito: string; lavoriSvolti: string; materiali: string; firmaDataUrl: string },
+  dati: { esito: string; lavoriSvolti: string; materiali: string; firmaDataUrl: string; importoFatturato: string },
   foto: File[]
 ) {
   const supabase = await createClient();
@@ -217,9 +217,10 @@ export async function completaTicketConRapportino(
   });
   if (erroreRapportino) return { errore: erroreRapportino.message };
 
+  const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
   const { error: erroreStato } = await supabase
     .from("tickets")
-    .update({ stato: "Completato", aggiornato_il: new Date().toISOString() })
+    .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
     .eq("id", ticketId);
   if (erroreStato) return { errore: erroreStato.message };
 
