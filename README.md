@@ -255,6 +255,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   tessera sanitaria) invece di un unico campo file generico che non lasciava capire quanti/quali
   documenti caricare. Le etichette dei dettagli raccolti (`src/lib/etichette-dettagli.ts`) sono
   ora leggibili nel gestionale invece del nome tecnico del campo.
+✅ Sidebar riorganizzata a "mondi" (2026-08): invece di un'unica lista fino a 15 voci, un rail di
+  tab laterali (Mondo Ticket / Mondo Numeri / Mondo Team) mostra solo le 4-7 voci di quello attivo
+  — il mondo si apre da solo in base alla pagina corrente. Un mondo compare solo se l'utente ha
+  almeno una voce da vederci dentro (`src/components/app-sidebar.tsx`).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
