@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MapPin, Clock, Check, ChevronRight } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { aggiornaStatoTicket } from "@/app/(app)/tickets/actions";
+import { aggiornaStatoTicket, aggiungiNotaTicket } from "@/app/(app)/tickets/actions";
 import { cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
 import type { Appuntamento, StatoTicket, Ticket } from "@/lib/types";
+
+function telefonoIntl(telefono: string) {
+  return "39" + telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
+}
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
 
@@ -18,10 +22,34 @@ const COLORE_PRIORITA: Record<string, string> = {
   Bassa: "bg-success/10 text-success border-success/20",
 };
 
-export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: Appuntamento[]; tickets: Ticket[] }) {
+export function VistaTecnicoBoard({
+  appuntamenti,
+  tickets,
+  completatiOggi,
+}: {
+  appuntamenti: Appuntamento[];
+  tickets: Ticket[];
+  completatiOggi: Ticket[];
+}) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState<string | null>(null);
   const [ticketRapportino, setTicketRapportino] = useState<Ticket | null>(null);
+  const [note, setNote] = useState<Record<string, string>>({});
+  const [invioNota, setInvioNota] = useState<string | null>(null);
+
+  async function inviaNota(ticketId: string) {
+    const testo = (note[ticketId] || "").trim();
+    if (!testo) return;
+    setInvioNota(ticketId);
+    const risultato = await aggiungiNotaTicket(ticketId, testo);
+    setInvioNota(null);
+    if (risultato.errore) {
+      alert(risultato.errore);
+      return;
+    }
+    setNote((n) => ({ ...n, [ticketId]: "" }));
+    router.refresh();
+  }
 
   async function completaAppuntamento(id: string) {
     setInCorso(id);
@@ -141,6 +169,17 @@ export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: App
                       Chiama
                     </a>
                   )}
+                  {t.telefono && (
+                    <a
+                      href={`https://wa.me/${telefonoIntl(t.telefono)}?text=${encodeURIComponent(`Ciao ${t.cliente}, sono il tecnico Done Wifi in arrivo per il tuo intervento.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25b063]/10 py-3 text-sm font-bold text-[#1a8046]"
+                    >
+                      <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
+                      WhatsApp
+                    </a>
+                  )}
                   {puoAvanzare && (
                     <button
                       onClick={() => avanzaTicket(t)}
@@ -152,11 +191,44 @@ export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: App
                     </button>
                   )}
                 </div>
+                <div className="mt-2.5 flex gap-2">
+                  <input
+                    value={note[t.id] || ""}
+                    onChange={(e) => setNote((n) => ({ ...n, [t.id]: e.target.value }))}
+                    onKeyDown={(e) => e.key === "Enter" && inviaNota(t.id)}
+                    placeholder="Nota rapida (es. cliente non in casa)..."
+                    className="h-10 flex-1 rounded-xl border bg-background px-3 text-sm"
+                  />
+                  <button
+                    onClick={() => inviaNota(t.id)}
+                    disabled={invioNota === t.id || !(note[t.id] || "").trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" strokeWidth={2.25} />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       </section>
+
+      {completatiOggi.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Completati oggi ({completatiOggi.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {completatiOggi.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 rounded-xl border bg-muted/40 p-3">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" strokeWidth={2.25} />
+                <span className="min-w-0 flex-1 truncate text-sm">{t.cliente}</span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">#{t.numero}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Sheet open={!!ticketRapportino} onOpenChange={(v) => !v && setTicketRapportino(null)}>
         <SheetContent>

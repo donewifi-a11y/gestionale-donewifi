@@ -10,8 +10,10 @@ export default async function VistaTecnicoPage() {
 
   const oraInizio = new Date();
   oraInizio.setHours(0, 0, 0, 0);
+  const oraFine = new Date();
+  oraFine.setHours(23, 59, 59, 999);
 
-  const [{ data: appuntamenti }, { data: tickets }] = await Promise.all([
+  const [{ data: appuntamenti }, { data: tickets }, { data: completatiOggi }] = await Promise.all([
     supabase
       .from("appuntamenti")
       .select("*")
@@ -25,6 +27,14 @@ export default async function VistaTecnicoPage() {
       .eq("tecnico_assegnato", personaId ?? "")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
+    supabase
+      .from("tickets")
+      .select("*")
+      .eq("tecnico_assegnato", personaId ?? "")
+      .eq("stato", "Completato")
+      .gte("aggiornato_il", oraInizio.toISOString())
+      .lte("aggiornato_il", oraFine.toISOString())
+      .order("aggiornato_il", { ascending: false }),
   ]);
 
   return (
@@ -45,7 +55,11 @@ export default async function VistaTecnicoPage() {
           Seleziona prima "Tu sei" dal menu in basso a sinistra per vedere i tuoi appuntamenti e ticket.
         </div>
       ) : (
-        <VistaTecnicoBoard appuntamenti={(appuntamenti as Appuntamento[]) ?? []} tickets={(tickets as Ticket[]) ?? []} />
+        <VistaTecnicoBoard
+          appuntamenti={(appuntamenti as Appuntamento[]) ?? []}
+          tickets={(tickets as Ticket[]) ?? []}
+          completatiOggi={(completatiOggi as Ticket[]) ?? []}
+        />
       )}
     </div>
   );

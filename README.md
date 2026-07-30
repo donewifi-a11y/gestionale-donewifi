@@ -230,6 +230,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   data ("richiamare il cliente X", "ordinare materiale per Y"), non legato per forza a un Ticket
   — appare nel Calendario insieme agli appuntamenti (evidenziato in rosso se scaduto) e ripreso in
   Mondo Ticket in un pannello dedicato quando è del giorno o scaduto, per non doverlo cercare.
+✅ Vista Tecnico — nota rapida su ogni Ticket (senza aprire il dettaglio completo), pulsante
+  WhatsApp accanto a Chiama (messaggio precompilato), sezione "Completati oggi" per una conferma
+  visiva a fine giornata.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
