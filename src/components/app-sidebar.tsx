@@ -10,7 +10,7 @@ import { RicercaGlobale } from "@/components/ricerca-globale";
 import type { Persona } from "@/lib/types";
 
 const VOCI_NAV = [
-  { href: "/", etichetta: "Centro Operativo", icona: LayoutGrid, esatto: true },
+  { href: "/", etichetta: "Mondo Ticket", icona: LayoutGrid, esatto: true },
   { href: "/tickets", etichetta: "Ticket", icona: Ticket, esatto: false },
   { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall, esatto: false },
   { href: "/clienti", etichetta: "Clienti", icona: Users2, esatto: false },
