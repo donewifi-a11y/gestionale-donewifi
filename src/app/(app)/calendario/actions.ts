@@ -52,6 +52,48 @@ export async function creaAppuntamento(dati: {
   return { errore: null };
 }
 
+// ★ ex SelettoreData.html/impostaDataPosa() del vecchio gestionale —
+// modifica un appuntamento già creato invece di doverlo annullare e
+// ricreare da zero per cambiare data/ora/tecnico.
+export async function modificaAppuntamento(
+  id: string,
+  dati: { titolo: string; indirizzo: string; dataOra: string; durataMinuti: number; tecnicoId: string; note: string }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { data: esistente } = await supabase.from("appuntamenti").select("google_event_id").eq("id", id).single();
+
+  const { error } = await supabase
+    .from("appuntamenti")
+    .update({
+      titolo: dati.titolo,
+      indirizzo: dati.indirizzo || null,
+      data_ora: dati.dataOra,
+      durata_minuti: dati.durataMinuti,
+      tecnico_id: dati.tecnicoId || null,
+      note: dati.note || null,
+    })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  if (esistente?.google_event_id) {
+    await aggiornaEventoCalendario(esistente.google_event_id, {
+      summary: dati.titolo,
+      location: dati.indirizzo,
+      note: dati.note,
+      dataOraInizio: dati.dataOra,
+      durataMinuti: dati.durataMinuti,
+    });
+  }
+
+  revalidatePath("/calendario");
+  return { errore: null };
+}
+
 export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamento) {
   const supabase = await createClient();
   const { data: appuntamento } = await supabase

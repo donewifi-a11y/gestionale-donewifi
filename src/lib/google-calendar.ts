@@ -83,7 +83,17 @@ export async function creaEventoCalendario(dati: {
   }
 }
 
-export async function aggiornaEventoCalendario(eventoId: string, campi: { summary?: string; status?: "confirmed" | "cancelled" }) {
+export async function aggiornaEventoCalendario(
+  eventoId: string,
+  campi: {
+    summary?: string;
+    status?: "confirmed" | "cancelled";
+    location?: string | null;
+    note?: string | null;
+    dataOraInizio?: string;
+    durataMinuti?: number;
+  }
+) {
   const c = client();
   if (!c) return;
   try {
@@ -91,10 +101,20 @@ export async function aggiornaEventoCalendario(eventoId: string, campi: { summar
       await c.calendar.events.delete({ calendarId: c.calendarId, eventId: eventoId });
       return;
     }
+    const requestBody: Record<string, unknown> = {};
+    if (campi.summary !== undefined) requestBody.summary = campi.summary;
+    if (campi.location !== undefined) requestBody.location = campi.location || undefined;
+    if (campi.note !== undefined) requestBody.description = campi.note || undefined;
+    if (campi.dataOraInizio && campi.durataMinuti) {
+      const inizio = new Date(campi.dataOraInizio);
+      const fine = new Date(inizio.getTime() + campi.durataMinuti * 60_000);
+      requestBody.start = { dateTime: inizio.toISOString(), timeZone: "Europe/Rome" };
+      requestBody.end = { dateTime: fine.toISOString(), timeZone: "Europe/Rome" };
+    }
     await c.calendar.events.patch({
       calendarId: c.calendarId,
       eventId: eventoId,
-      requestBody: { summary: campi.summary },
+      requestBody,
     });
   } catch (err) {
     console.error("Google Calendar: aggiornamento evento fallito", err);

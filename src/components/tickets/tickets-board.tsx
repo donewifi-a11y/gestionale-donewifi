@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature } from "lucide-react";
+import Link from "next/link";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -554,6 +555,13 @@ function DettaglioTicket({
             Vedi contratto
           </Button>
         )}
+
+        <Link href={`/calendario?nuovoTicket=${ticket.id}`}>
+          <Button size="sm" variant="outline" className="w-fit">
+            <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Pianifica appuntamento
+          </Button>
+        </Link>
 
         <div className="border-t pt-4">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

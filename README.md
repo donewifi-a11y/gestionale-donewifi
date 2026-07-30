@@ -222,6 +222,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   da Commerciale/Fatturazione/Admin (`clienti`, migrazione `0016`) — con badge "Scade tra Ngg"
   nell'elenco quando il contratto è entro 30 giorni dalla scadenza. L'elenco resta comunque
   derivato dai Ticket per chi non ha ancora un record proprio.
+✅ Calendario — modifica/riprogrammazione di un appuntamento già creato (data/ora/durata/tecnico,
+  con l'aggiornamento riflesso anche su Google Calendar), pulsante "Pianifica appuntamento" nel
+  dettaglio Ticket (apre il form già precompilato invece di doverlo cercare a mano nel menu a
+  tendina) e link "vedi su mappa" sull'indirizzo.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
