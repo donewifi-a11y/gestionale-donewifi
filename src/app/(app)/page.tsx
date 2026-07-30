@@ -10,6 +10,10 @@ const SLUG_REPARTO: Record<string, string> = {
   Fatturazione: "fatturazione",
 };
 
+function etichettaReparti(reparti: AreaAccesso[]): string {
+  return reparti.join(" e ");
+}
+
 /**
  * ★ NUOVA — "Mondo Ticket": non solo le porte d'ingresso ma il vero punto
  * di partenza della giornata, centrato sui Ticket (da qui il nome) — KPI
@@ -22,8 +26,8 @@ export default async function MondoTicketPage() {
   const personaCorrente = await getPersonaCorrente(supabase);
   const personaCorrenteId = await getPersonaCorrenteId();
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
-  const repartoUtente = !isAdmin ? (personaCorrente?.area_accesso as AreaAccesso | undefined) : undefined;
-  const filtratoPerReparto = repartoUtente && SLUG_REPARTO[repartoUtente];
+  const repartiUtente: AreaAccesso[] = !isAdmin ? personaCorrente?.reparti ?? [] : [];
+  const filtratoPerReparto = repartiUtente.length > 0;
 
   const oggiInizio = new Date();
   oggiInizio.setHours(0, 0, 0, 0);
@@ -35,7 +39,7 @@ export default async function MondoTicketPage() {
     .from("tickets")
     .select("id, numero, cliente, categoria, stato, priorita, reparto, tecnico_assegnato, data_creazione, aggiornato_il")
     .not("stato", "in", "(Completato,Annullato)");
-  if (filtratoPerReparto) queryTicket = queryTicket.eq("reparto", repartoUtente!);
+  if (filtratoPerReparto) queryTicket = queryTicket.in("reparto", repartiUtente);
 
   const [
     { data: ticketAttivi },
@@ -92,7 +96,13 @@ export default async function MondoTicketPage() {
     })
     .slice(0, 8);
 
-  const linkDashboard = isAdmin ? "/dashboard" : filtratoPerReparto ? `/dashboard/${filtratoPerReparto}` : null;
+  const linkDashboard = isAdmin
+    ? "/dashboard"
+    : repartiUtente.length === 1
+      ? `/dashboard/${SLUG_REPARTO[repartiUtente[0]]}`
+      : repartiUtente.length > 1
+        ? "/dashboard"
+        : null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -101,12 +111,12 @@ export default async function MondoTicketPage() {
         {linkDashboard && (
           <Link href={linkDashboard} className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
             <Gauge className="h-3.5 w-3.5" strokeWidth={2.5} />
-            {isAdmin ? "Dashboard generale" : `Dashboard ${repartoUtente}`}
+            {isAdmin ? "Dashboard generale" : `Dashboard ${etichettaReparti(repartiUtente)}`}
           </Link>
         )}
       </div>
       <p className="mb-6 text-muted-foreground">
-        {filtratoPerReparto ? `Il colpo d'occhio sul reparto ${repartoUtente}.` : "Il colpo d'occhio sull'intera azienda."}
+        {filtratoPerReparto ? `Il colpo d'occhio sul reparto ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda."}
       </p>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

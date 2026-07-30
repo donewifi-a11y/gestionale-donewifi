@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { Gauge, TriangleAlert, Clock, Euro, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { getPersonaCorrente, personaVedeReparto } from "@/lib/persona";
 import { getDatiReparto } from "@/lib/analytics";
 import type { AreaAccesso } from "@/lib/types";
 
@@ -18,8 +18,7 @@ export default async function DashboardRepartoPage({ params }: { params: Promise
 
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
-  const isAdmin = personaHaAccessoAdmin(persona);
-  if (!persona || (!isAdmin && persona.area_accesso !== reparto)) {
+  if (!personaVedeReparto(persona, reparto)) {
     redirect("/?errore=non-autorizzato");
   }
 

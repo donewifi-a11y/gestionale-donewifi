@@ -15,7 +15,8 @@ export default async function ClientiPage() {
 
   const personaCorrente = await getPersonaCorrente(supabase);
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
-  const puoModificare = isAdmin || personaCorrente?.area_accesso === "Commerciale" || personaCorrente?.area_accesso === "Fatturazione";
+  const puoModificare =
+    isAdmin || !!personaCorrente?.reparti.includes("Commerciale") || !!personaCorrente?.reparti.includes("Fatturazione");
 
   return (
     <div className="mx-auto max-w-4xl">

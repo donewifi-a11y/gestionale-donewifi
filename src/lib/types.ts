@@ -111,7 +111,8 @@ export interface Persona {
   nome: string;
   email?: string | null;
   attivo: boolean;
-  area_accesso: AreaAccesso;
+  amministratore: boolean;
+  reparti: AreaAccesso[];
   richiede_password?: boolean;
   ha_login?: boolean;
 }

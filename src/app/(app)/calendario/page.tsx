@@ -21,7 +21,7 @@ export default async function CalendarioPage() {
       .select("*")
       .gte("data_promemoria", inizioSettimanaFaData)
       .order("data_promemoria", { ascending: true }),
-    supabase.from("persone").select("id, nome, attivo, area_accesso").eq("attivo", true),
+    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
     supabase
       .from("tickets")
       .select("id, numero, cliente, indirizzo")

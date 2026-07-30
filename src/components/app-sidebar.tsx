@@ -23,7 +23,7 @@ import {
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { RicercaGlobale } from "@/components/ricerca-globale";
-import type { Persona } from "@/lib/types";
+import type { AreaAccesso, Persona } from "@/lib/types";
 
 interface VoceNav {
   href: string;
@@ -43,26 +43,28 @@ export function AppSidebar({
   email,
   persone,
   personaCorrenteId,
-  personaAreaAccesso,
+  personaAmministratore,
+  personaReparti,
 }: {
   email: string;
   persone: Persona[];
   personaCorrenteId: string | null;
-  personaAreaAccesso: string | null;
+  personaAmministratore: boolean;
+  personaReparti: AreaAccesso[];
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
 
-  const isAdmin = personaAreaAccesso === "Tutto" || personaAreaAccesso === "Admin";
-  const vedeTariffe = isAdmin || personaAreaAccesso === "Commerciale";
-  const vedeRichieste = isAdmin || personaAreaAccesso === "Commerciale" || personaAreaAccesso === "Fatturazione";
+  const isAdmin = personaAmministratore;
+  const vedeTariffe = isAdmin || personaReparti.includes("Commerciale");
+  const vedeRichieste = isAdmin || personaReparti.includes("Commerciale") || personaReparti.includes("Fatturazione");
 
-  const REPARTI_SLUG: { slug: string; reparto: string; etichetta: string }[] = [
+  const REPARTI_SLUG: { slug: string; reparto: AreaAccesso; etichetta: string }[] = [
     { slug: "analisi-rete", reparto: "Analisi Rete", etichetta: "Dashboard Analisi Rete" },
     { slug: "commerciale", reparto: "Commerciale", etichetta: "Dashboard Commerciale" },
     { slug: "fatturazione", reparto: "Fatturazione", etichetta: "Dashboard Fatturazione" },
   ];
-  const dashboardReparti = isAdmin ? REPARTI_SLUG : REPARTI_SLUG.filter((r) => r.reparto === personaAreaAccesso);
+  const dashboardReparti = isAdmin ? REPARTI_SLUG : REPARTI_SLUG.filter((r) => personaReparti.includes(r.reparto));
 
   // ★ NUOVA — la sidebar è ora divisa in "mondi" (tab laterali): invece di
   // un'unica lista fino a 15 voci, ogni mondo ha le proprie 4-7 voci. Un
@@ -191,9 +193,9 @@ export function AppSidebar({
       <div className="border-t border-sidebar-border px-4 py-4">
         <PersonaSwitcher persone={persone} personaCorrenteId={personaCorrenteId} />
         <div className="mb-3 leading-tight">
-          {personaAreaAccesso && (
+          {(isAdmin || personaReparti.length > 0) && (
             <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary">
-              {personaAreaAccesso}
+              {isAdmin ? "Amministratore" : personaReparti.join(" · ")}
             </div>
           )}
           <div className="truncate text-[11px] text-sidebar-foreground/50">{email}</div>

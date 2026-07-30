@@ -33,7 +33,7 @@ async function verificaAdmin(): Promise<string | null> {
 // un'email, la Persona ottiene un vero accesso Supabase Auth (non solo
 // la vecchia password di conferma per il cambio-persona), collegato via
 // persone.auth_user_id (migrazione 0011_login_individuale.sql).
-export async function creaPersona(dati: { nome: string; email: string; area_accesso: AreaAccesso; password: string }) {
+export async function creaPersona(dati: { nome: string; email: string; amministratore: boolean; reparti: AreaAccesso[]; password: string }) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
@@ -43,7 +43,7 @@ export async function creaPersona(dati: { nome: string; email: string; area_acce
   const service = createServiceClient();
   const { data, error } = await service
     .from("persone")
-    .insert({ nome: dati.nome, email: email || null, area_accesso: dati.area_accesso })
+    .insert({ nome: dati.nome, email: email || null, amministratore: dati.amministratore, reparti: dati.reparti })
     .select("id")
     .single();
   if (error) return { errore: error.message };
@@ -77,7 +77,7 @@ export async function creaPersona(dati: { nome: string; email: string; area_acce
 
 export async function aggiornaPersona(
   id: string,
-  dati: { nome: string; email: string; area_accesso: AreaAccesso; attivo: boolean; password: string }
+  dati: { nome: string; email: string; amministratore: boolean; reparti: AreaAccesso[]; attivo: boolean; password: string }
 ) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
@@ -90,7 +90,7 @@ export async function aggiornaPersona(
 
   const { error } = await service
     .from("persone")
-    .update({ nome: dati.nome, email: email || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
+    .update({ nome: dati.nome, email: email || null, amministratore: dati.amministratore, reparti: dati.reparti, attivo: dati.attivo })
     .eq("id", id);
   if (error) return { errore: error.message };
 

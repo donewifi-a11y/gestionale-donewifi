@@ -61,7 +61,8 @@ export const ERRORE_PERSONA_MANCANTE = "Seleziona prima chi sei, dal menu in bas
 export interface PersonaSessione {
   id: string;
   nome: string;
-  area_accesso: AreaAccesso;
+  amministratore: boolean;
+  reparti: AreaAccesso[];
 }
 
 /** La persona scelta (cookie firmato) con il suo livello di accesso — o null se non attiva/non scelta/non valida. */
@@ -72,7 +73,7 @@ export async function getPersonaCorrente(
   if (!id) return null;
   const { data } = await supabase
     .from("persone")
-    .select("id, nome, area_accesso")
+    .select("id, nome, amministratore, reparti")
     .eq("id", id)
     .eq("attivo", true)
     .single();
@@ -80,5 +81,10 @@ export async function getPersonaCorrente(
 }
 
 export function personaHaAccessoAdmin(persona: PersonaSessione | null): boolean {
-  return !!persona && (persona.area_accesso === "Tutto" || persona.area_accesso === "Admin");
+  return !!persona && persona.amministratore;
+}
+
+/** Un admin vede sempre tutto; chiunque altro solo se il reparto è tra i suoi. */
+export function personaVedeReparto(persona: PersonaSessione | null, reparto: AreaAccesso): boolean {
+  return personaHaAccessoAdmin(persona) || !!persona?.reparti.includes(reparto);
 }

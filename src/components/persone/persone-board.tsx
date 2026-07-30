@@ -22,9 +22,8 @@ import {
   type AttivitaPersona,
   type CaricoPersona,
 } from "@/app/(app)/persone/actions";
+import { REPARTI } from "@/lib/types";
 import type { AreaAccesso, Persona } from "@/lib/types";
-
-const AREE: AreaAccesso[] = ["Tutto", "Admin", "Analisi Rete", "Commerciale", "Fatturazione"];
 
 export function PersoneBoard({ persone }: { persone: Persona[] }) {
   const [nuova, setNuova] = useState(false);
@@ -77,7 +76,7 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {p.area_accesso}
+                  {p.amministratore ? "Amministratore" : p.reparti.length > 0 ? p.reparti.join(" · ") : "Nessun reparto"}
                   {p.email && ` · ${p.email}`}
                   {p.ha_login && " · login individuale"}
                 </div>
@@ -107,6 +106,42 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
   );
 }
 
+function SelettoreAccesso({ amministratore = false, reparti = [] }: { amministratore?: boolean; reparti?: AreaAccesso[] }) {
+  const [isAdmin, setIsAdmin] = useState(amministratore);
+
+  return (
+    <div>
+      <Label>Livello di accesso</Label>
+      <label className="mt-1.5 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="amministratore"
+          defaultChecked={amministratore}
+          onChange={(e) => setIsAdmin(e.target.checked)}
+          className="h-4 w-4"
+        />
+        Amministratore (vede e gestisce tutto)
+      </label>
+      <div className={`mt-2 flex flex-col gap-1.5 ${isAdmin ? "opacity-40" : ""}`}>
+        <p className="text-xs text-muted-foreground">Reparti (se non amministratore)</p>
+        {REPARTI.map((r) => (
+          <label key={r} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="reparti"
+              value={r}
+              defaultChecked={reparti.includes(r)}
+              disabled={isAdmin}
+              className="h-4 w-4"
+            />
+            {r}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
@@ -125,7 +160,8 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
     const risultato = await creaPersona({
       nome,
       email: String(dati.get("email") || ""),
-      area_accesso: String(dati.get("area_accesso") || "Analisi Rete") as AreaAccesso,
+      amministratore: dati.get("amministratore") === "on",
+      reparti: dati.getAll("reparti") as AreaAccesso[],
       password: String(dati.get("password") || ""),
     });
     setInCorso(false);
@@ -155,14 +191,7 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
             Solo di contatto — indipendente dall&apos;email del login condiviso usato per accedere.
           </p>
         </div>
-        <div>
-          <Label htmlFor="area_accesso">Livello di accesso</Label>
-          <select id="area_accesso" name="area_accesso" defaultValue="Analisi Rete" className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
-            {AREE.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
+        <SelettoreAccesso />
         <div>
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="text" placeholder="lascia vuoto per non attivare il login ora" className="mt-1" />
@@ -216,7 +245,8 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
     const risultato = await aggiornaPersona(persona.id, {
       nome: String(dati.get("nome") || persona.nome),
       email: String(dati.get("email") ?? persona.email ?? ""),
-      area_accesso: String(dati.get("area_accesso") || persona.area_accesso) as AreaAccesso,
+      amministratore: dati.get("amministratore") === "on",
+      reparti: dati.getAll("reparti") as AreaAccesso[],
       attivo: dati.get("attivo") === "on",
       password: String(dati.get("password") || ""),
     });
@@ -244,14 +274,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
           <Label htmlFor="email">Email (facoltativa)</Label>
           <Input id="email" name="email" type="email" defaultValue={persona.email ?? ""} placeholder="nome.cognome@donewifi.it" className="mt-1" />
         </div>
-        <div>
-          <Label htmlFor="area_accesso">Livello di accesso</Label>
-          <select id="area_accesso" name="area_accesso" defaultValue={persona.area_accesso} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
-            {AREE.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
+        <SelettoreAccesso amministratore={persona.amministratore} reparti={persona.reparti} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="attivo" defaultChecked={persona.attivo} className="h-4 w-4" />
           Persona attiva

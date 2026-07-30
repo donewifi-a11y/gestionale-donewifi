@@ -12,7 +12,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
-   `0017_note_calendario.sql` e `0018_dettagli_extra_ticket.sql`, eseguendo ognuno.
+   `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql` e `0019_permessi_granulari.sql`,
+   eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -266,6 +267,16 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   via script come per `fornitori@donewifi.it`); attività recente (ultime 10 voci di `storico`) e
   carico di lavoro (ticket attivi/completati questo mese) nella scheda, per non doverli dedurre
   dalle Dashboard di reparto (`src/app/(app)/persone/actions.ts`, `persone-board.tsx`).
+✅ Permessi granulari e multi-reparto (2026-08, migrazione `0019`): `persone.area_accesso` (un solo
+  valore che faceva sia da "livello" sia da "reparto") è sostituito da `persone.amministratore`
+  (booleano — "Tutto" e "Admin" si comportavano già in modo identico ovunque, quindi unificati) e
+  `persone.reparti` (lista — una Persona può ora appartenere a più di un reparto). Sidebar,
+  Dashboard di reparto, filtro Ticket in Mondo Ticket e permesso di modifica su Clienti seguono
+  tutti la nuova lista invece di un confronto a valore singolo (`personaVedeReparto()` in
+  `src/lib/persona.ts`). Il form Persone ha ora una casella "Amministratore" + tre reparti
+  spuntabili al posto del menu a tendina. Nessuna policy RLS coinvolta: il controllo restava già
+  tutto lato applicazione. La pagina Utenti (legacy, superflua da quando esiste il login
+  individuale) mantiene il suo vecchio `area_accesso` a valore singolo, non essendo più promossa.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
