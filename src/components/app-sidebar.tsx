@@ -11,7 +11,6 @@ import {
   HardHat,
   Archive,
   Gauge,
-  Users,
   UserCircle,
   Menu,
   X,
@@ -99,12 +98,10 @@ export function AppSidebar({
         id: "team",
         etichetta: "Mondo Team",
         icona: UsersRound,
-        voci: isAdmin
-          ? [
-              { href: "/persone", etichetta: "Persone", icona: UserCircle },
-              { href: "/utenti", etichetta: "Utenti", icona: Users },
-            ]
-          : [],
+        // ★ "Utenti" (account condivisi) non è più promosso qui: dal login
+        // individuale, l'accesso vero passa da Persone — Utenti resta
+        // raggiungibile su /utenti per chi lo conosce già, solo non in menu.
+        voci: isAdmin ? [{ href: "/persone", etichetta: "Persone", icona: UserCircle }] : [],
       },
     ];
     return lista.filter((m) => m.voci.length > 0);

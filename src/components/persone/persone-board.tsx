@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Lock, KeyRound } from "lucide-react";
+import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,15 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { creaPersona, aggiornaPersona } from "@/app/(app)/persone/actions";
+import {
+  creaPersona,
+  aggiornaPersona,
+  reimpostaPasswordPersona,
+  getAttivitaPersona,
+  getCaricoPersona,
+  type AttivitaPersona,
+  type CaricoPersona,
+} from "@/app/(app)/persone/actions";
 import type { AreaAccesso, Persona } from "@/lib/types";
 
 const AREE: AreaAccesso[] = ["Tutto", "Admin", "Analisi Rete", "Commerciale", "Fatturazione"];
@@ -21,6 +29,8 @@ const AREE: AreaAccesso[] = ["Tutto", "Admin", "Analisi Rete", "Commerciale", "F
 export function PersoneBoard({ persone }: { persone: Persona[] }) {
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Persona | null>(null);
+
+  const senzaLogin = persone.filter((p) => p.attivo && !p.ha_login);
 
   return (
     <div>
@@ -30,6 +40,18 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
           Aggiungi Persona
         </Button>
       </div>
+
+      {senzaLogin.length > 0 && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2.25} />
+          <div>
+            <div className="font-semibold">
+              {senzaLogin.length} persona{senzaLogin.length > 1 ? "e" : ""} senza login individuale
+            </div>
+            <div className="text-xs text-muted-foreground">{senzaLogin.map((p) => p.nome).join(", ")}</div>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         {persone.length === 0 && (
@@ -167,6 +189,24 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const [reset, setReset] = useState<{ inCorso: boolean; password: string | null; errore: string | null }>({
+    inCorso: false,
+    password: null,
+    errore: null,
+  });
+  const [attivita, setAttivita] = useState<AttivitaPersona[]>([]);
+  const [carico, setCarico] = useState<CaricoPersona | null>(null);
+
+  useEffect(() => {
+    getAttivitaPersona(persona.id).then(setAttivita);
+    getCaricoPersona(persona.id).then(setCarico);
+  }, [persona.id]);
+
+  async function onReset() {
+    setReset({ inCorso: true, password: null, errore: null });
+    const risultato = await reimpostaPasswordPersona(persona.id);
+    setReset({ inCorso: false, password: risultato.password, errore: risultato.errore });
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -229,6 +269,28 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
             </p>
           )}
         </div>
+
+        {persona.ha_login && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium">Password dimenticata?</div>
+              <Button type="button" variant="outline" size="sm" onClick={onReset} disabled={reset.inCorso}>
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.25} />
+                {reset.inCorso ? "Reimposto..." : "Reimposta password"}
+              </Button>
+            </div>
+            {reset.password && (
+              <p className="mt-2 rounded-md bg-success/10 p-2 text-xs text-success">
+                Nuova password provvisoria: <span className="font-mono font-semibold">{reset.password}</span> — comunicala a{" "}
+                {persona.nome} e falla cambiare al primo accesso.
+              </p>
+            )}
+            {reset.errore && (
+              <p className="mt-2 rounded-md bg-critical/10 p-2 text-xs text-critical">{reset.errore}</p>
+            )}
+          </div>
+        )}
+
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
@@ -239,6 +301,36 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
           {inCorso ? "Salvataggio..." : "Salva modifiche"}
         </Button>
       </form>
+
+      <div className="mx-4 mb-4 flex flex-col gap-3 border-t pt-4">
+        {carico && (
+          <div className="flex items-center gap-2.5 rounded-lg border bg-muted/30 p-3 text-sm">
+            <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+            <div>
+              <span className="font-semibold">{carico.attivi}</span> ticket attivi ·{" "}
+              <span className="font-semibold">{carico.completatiMese}</span> completati questo mese
+            </div>
+          </div>
+        )}
+
+        {attivita.length > 0 && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Attività recente
+            </div>
+            <ul className="flex flex-col gap-1.5">
+              {attivita.map((a) => (
+                <li key={a.id} className="rounded-md border bg-card px-2.5 py-1.5 text-xs">
+                  <span className="text-muted-foreground">{new Date(a.data).toLocaleDateString("it-IT")}</span>{" "}
+                  <span className="font-medium">{a.operazione}</span>{" "}
+                  <span className="text-muted-foreground">({a.origine})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </>
   );
 }

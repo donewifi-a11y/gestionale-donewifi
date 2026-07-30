@@ -259,6 +259,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   tab laterali (Mondo Ticket / Mondo Numeri / Mondo Team) mostra solo le 4-7 voci di quello attivo
   — il mondo si apre da solo in base alla pagina corrente. Un mondo compare solo se l'utente ha
   almeno una voce da vederci dentro (`src/components/app-sidebar.tsx`).
+✅ Mondo Team — Persone (2026-08): "Utenti" non è più in sidebar (resta raggiungibile su `/utenti`
+  per chi la conosce già, l'accesso vero passa da Persone dal login individuale); avviso in cima
+  all'elenco per le persone attive senza login individuale; pulsante "Reimposta password" nella
+  scheda Persona per un admin (genera una password provvisoria, senza più bisogno di intervenire
+  via script come per `fornitori@donewifi.it`); attività recente (ultime 10 voci di `storico`) e
+  carico di lavoro (ticket attivi/completati questo mese) nella scheda, per non doverli dedurre
+  dalle Dashboard di reparto (`src/app/(app)/persone/actions.ts`, `persone-board.tsx`).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

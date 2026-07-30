@@ -128,6 +128,92 @@ export async function aggiornaPersona(
   return { errore: null };
 }
 
+function generaPasswordProvvisoria(): string {
+  const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let risultato = "";
+  for (let i = 0; i < 10; i++) risultato += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  return risultato;
+}
+
+/** ★ NUOVA — un admin può reimpostare la password di una Persona con login
+ * individuale senza dover intervenire da fuori il gestionale (come fatto
+ * a mano, via script, per fornitori@donewifi.it in una sessione precedente). */
+export async function reimpostaPasswordPersona(id: string) {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso, password: null };
+
+  const service = createServiceClient();
+  const { data: persona } = await service.from("persone").select("auth_user_id").eq("id", id).single();
+  if (!persona?.auth_user_id) {
+    return { errore: "Questa persona non ha ancora un login individuale da reimpostare.", password: null };
+  }
+
+  const nuovaPassword = generaPasswordProvvisoria();
+  const { error } = await service.auth.admin.updateUserById(persona.auth_user_id, { password: nuovaPassword });
+  if (error) return { errore: error.message, password: null };
+
+  // ★ tenuta allineata anche la password "di conferma" del selettore "Tu sei".
+  await service.rpc("imposta_password_persona", { p_persona_id: id, p_password: nuovaPassword });
+
+  return { errore: null, password: nuovaPassword };
+}
+
+export interface AttivitaPersona {
+  id: string;
+  data: string;
+  origine: string;
+  operazione: string;
+  valore_dopo: string | null;
+}
+
+/** ★ NUOVA — ultime azioni registrate in storico per questa persona, per
+ * avere visibilità senza dover scavare nei singoli Ticket/Segnalazioni. */
+export async function getAttivitaPersona(id: string): Promise<AttivitaPersona[]> {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("storico")
+    .select("id, data, origine, operazione, valore_dopo")
+    .eq("operatore_id", id)
+    .order("data", { ascending: false })
+    .limit(10);
+  return data ?? [];
+}
+
+export interface CaricoPersona {
+  attivi: number;
+  completatiMese: number;
+}
+
+/** ★ NUOVA — carico di lavoro sintetico, centralizzato qui invece di doverlo dedurre dalle Dashboard di reparto. */
+export async function getCaricoPersona(id: string): Promise<CaricoPersona> {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { attivi: 0, completatiMese: 0 };
+
+  const supabase = await createClient();
+  const inizioMese = new Date();
+  inizioMese.setDate(1);
+  inizioMese.setHours(0, 0, 0, 0);
+
+  const [{ count: attivi }, { count: completatiMese }] = await Promise.all([
+    supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("tecnico_assegnato", id)
+      .not("stato", "in", "(Completato,Annullato)"),
+    supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("tecnico_assegnato", id)
+      .eq("stato", "Completato")
+      .gte("aggiornato_il", inizioMese.toISOString()),
+  ]);
+
+  return { attivi: attivi ?? 0, completatiMese: completatiMese ?? 0 };
+}
+
 /** Chiunque sia autenticato può scegliere "chi è" tra le persone attive — con password se ne hanno una impostata. */
 export async function scegliPersonaCorrente(id: string, password: string) {
   const supabase = await createClient();
