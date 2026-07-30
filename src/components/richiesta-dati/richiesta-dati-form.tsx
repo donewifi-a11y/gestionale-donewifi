@@ -5,18 +5,44 @@ import { CheckCircle2, AlertTriangle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
+import type { Tariffa } from "@/lib/types";
 
-export function RichiestaDatiForm({ segnalazioneId, giaInviato }: { segnalazioneId: string; giaInviato: boolean }) {
+export function RichiestaDatiForm({
+  segnalazioneId,
+  giaInviato,
+  tariffe,
+}: {
+  segnalazioneId: string;
+  giaInviato: boolean;
+  tariffe: Tariffa[];
+}) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
   const [nomeFile, setNomeFile] = useState("");
+  const [tipologiaCliente, setTipologiaCliente] = useState("");
+
+  const tariffeVisibili = tariffe.filter(
+    (t) => !tipologiaCliente || t.tipologia_cliente === "Tutti" || t.tipologia_cliente === tipologiaCliente
+  );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
-    setInCorso(true);
     const dati = new FormData(e.currentTarget);
+
+    // ★ validazione formale (checksum) prima dell'invio — solo sui campi
+    // compilati: non tutte le pratiche richiedono CF/P.IVA/IBAN insieme.
+    const cf = String(dati.get("codiceFiscale") || "").trim();
+    const piva = String(dati.get("partitaIva") || "").trim();
+    const iban = String(dati.get("iban") || "").trim();
+    if (cf && !validaCodiceFiscale(cf).valido) return setErrore(validaCodiceFiscale(cf).messaggio);
+    if (piva && !validaPartitaIva(piva).valido) return setErrore(validaPartitaIva(piva).messaggio);
+    if (iban && !validaIban(iban).valido) return setErrore(validaIban(iban).messaggio);
+    if (!dati.get("consenso")) return setErrore("Devi accettare l'informativa privacy per proseguire.");
+
+    setInCorso(true);
     dati.set("segnalazioneId", segnalazioneId);
     try {
       const risposta = await fetch("/api/richiesta-dati", { method: "POST", body: dati });
@@ -51,7 +77,14 @@ export function RichiestaDatiForm({ segnalazioneId, giaInviato }: { segnalazione
 
       <div>
         <Label htmlFor="tipologiaCliente">Tipologia cliente</Label>
-        <select id="tipologiaCliente" name="tipologiaCliente" autoFocus className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+        <select
+          id="tipologiaCliente"
+          name="tipologiaCliente"
+          autoFocus
+          value={tipologiaCliente}
+          onChange={(e) => setTipologiaCliente(e.target.value)}
+          className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm"
+        >
           <option value="">Seleziona...</option>
           <option value="Privato">Privato</option>
           <option value="Azienda">Azienda</option>
@@ -60,7 +93,20 @@ export function RichiestaDatiForm({ segnalazioneId, giaInviato }: { segnalazione
 
       <div>
         <Label htmlFor="profiloInternet">Profilo internet richiesto</Label>
-        <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-10" />
+        {tariffe.length > 0 ? (
+          <select id="profiloInternet" name="profiloInternet" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+            <option value="">Seleziona il tuo piano...</option>
+            {tariffeVisibili.map((t) => (
+              <option key={t.id} value={t.nome}>
+                {t.nome}
+                {t.velocita ? ` — ${t.velocita}` : ""}
+                {t.prezzo_mensile != null ? ` — €${t.prezzo_mensile}/mese` : ""}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-10" />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -107,6 +153,17 @@ export function RichiestaDatiForm({ segnalazioneId, giaInviato }: { segnalazione
           onChange={(e) => setNomeFile(Array.from(e.target.files ?? []).map((f) => f.name).join(", "))}
         />
       </div>
+
+      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" name="consenso" required className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Ho letto e accetto l&apos;
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">
+            informativa privacy
+          </a>
+          .
+        </span>
+      </label>
 
       {errore && (
         <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

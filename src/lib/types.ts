@@ -101,7 +101,41 @@ export interface RichiestaCliente {
   tipo_richiesta: string;
   cliente: string | null;
   segnalazione_id: string | null;
+  ticket_id: string | null;
   dettagli: Record<string, string>;
   documenti: { nome: string; percorso: string }[];
   stato: string;
 }
+
+export interface Tariffa {
+  id: string;
+  nome: string;
+  tipologia_cliente: "Privato" | "Azienda" | "Tutti";
+  velocita: string | null;
+  prezzo_mensile: number | null;
+  descrizione: string | null;
+  attivo: boolean;
+  ordine: number;
+}
+
+export interface RapportinoIntervento {
+  id: string;
+  ticket_id: string;
+  esito: string;
+  lavori_svolti: string | null;
+  materiali: string | null;
+  firma_url: string | null;
+  foto: { nome: string; percorso: string }[];
+  creato_da: string | null;
+  creato_il: string;
+}
+
+export const TIPI_RICHIESTA_CLIENTE = ["Cambio IBAN", "Cambio Anagrafica", "Trasferimento", "Subentro"] as const;
+export type TipoRichiestaCliente = (typeof TIPI_RICHIESTA_CLIENTE)[number];
+
+export const REPARTO_PER_TIPO_RICHIESTA: Record<TipoRichiestaCliente, AreaAccesso> = {
+  "Cambio IBAN": "Fatturazione",
+  "Cambio Anagrafica": "Fatturazione",
+  Trasferimento: "Commerciale",
+  Subentro: "Commerciale",
+};

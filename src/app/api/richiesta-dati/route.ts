@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
+import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
 
 // ★ Rotta pubblica (nessun login) usata dal modulo Richiesta Dati.
 // Usa la service role solo qui, lato server, per scrivere in modo
@@ -25,10 +26,26 @@ export async function POST(request: NextRequest) {
 
   const tipologiaCliente = String(dati.get("tipologiaCliente") || "");
   const profiloInternet = String(dati.get("profiloInternet") || "");
+  const codiceFiscale = String(dati.get("codiceFiscale") || "").trim();
+  const partitaIva = String(dati.get("partitaIva") || "").trim();
+  const iban = String(dati.get("iban") || "").trim();
+
+  // ★ stessa validazione formale del client, ripetuta qui: la route è
+  // pubblica, un client malevolo potrebbe saltare i controlli JS.
+  if (codiceFiscale && !validaCodiceFiscale(codiceFiscale).valido) {
+    return NextResponse.json({ errore: validaCodiceFiscale(codiceFiscale).messaggio }, { status: 400 });
+  }
+  if (partitaIva && !validaPartitaIva(partitaIva).valido) {
+    return NextResponse.json({ errore: validaPartitaIva(partitaIva).messaggio }, { status: 400 });
+  }
+  if (iban && !validaIban(iban).valido) {
+    return NextResponse.json({ errore: validaIban(iban).messaggio }, { status: 400 });
+  }
+
   const dettagli: Record<string, string> = {
-    "Codice Fiscale": String(dati.get("codiceFiscale") || ""),
-    "Partita IVA": String(dati.get("partitaIva") || ""),
-    IBAN: String(dati.get("iban") || ""),
+    "Codice Fiscale": codiceFiscale,
+    "Partita IVA": partitaIva,
+    IBAN: iban,
     "Metodo di pagamento": String(dati.get("metodoPagamento") || ""),
   };
 

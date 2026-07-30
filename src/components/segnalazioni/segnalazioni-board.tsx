@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,16 @@ export function SegnalazioniBoard({
   const [soloMie, setSoloMie] = useState(false);
   const [ricerca, setRicerca] = useState("");
   const [pronto, setPronto] = useState(false);
+  const searchParams = useSearchParams();
+
+  // ★ apre direttamente una segnalazione via ?aperto=<id> — usato dalla
+  // ricerca globale.
+  useEffect(() => {
+    const id = searchParams.get("aperto");
+    if (!id) return;
+    const trovata = segnalazioni.find((s) => s.id === id);
+    if (trovata) setAperta(trovata);
+  }, [searchParams, segnalazioni]);
 
   useEffect(() => {
     try {

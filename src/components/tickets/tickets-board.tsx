@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +14,17 @@ import {
 } from "@/components/ui/sheet";
 import { aggiornaStatoTicket, assegnaTicket, aggiungiNotaTicket, getNoteTicket } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
-import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
+import { InvioLinkCliente } from "@/components/condivisi/invio-link";
+import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
+import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
+import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
+import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
+
+const PRATICHE_INVIABILI = [
+  { slug: "disdetta" as const, titolo: "Disdetta contratto" },
+  ...SLUG_RICHIESTE_CLIENTE.map((slug) => ({ slug, titolo: RICHIESTE_CLIENTE_CONFIG[slug].titolo })),
+];
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
@@ -62,6 +71,7 @@ export function TicketsBoard({
   persone: Persona[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [ricerca, setRicerca] = useState("");
   const [fStato, setFStato] = useState("");
   const [fCategoria, setFCategoria] = useState("");
@@ -70,6 +80,15 @@ export function TicketsBoard({
   const [soloMiei, setSoloMiei] = useState(false);
   const [aperto, setAperto] = useState<Ticket | null>(null);
   const [pronto, setPronto] = useState(false);
+
+  // ★ apre direttamente un ticket via ?aperto=<id> — usato dalla ricerca
+  // globale e dal link "vai al ticket" dopo aver trasmesso una Segnalazione.
+  useEffect(() => {
+    const id = searchParams.get("aperto");
+    if (!id) return;
+    const trovato = tickets.find((t) => t.id === id);
+    if (trovato) setAperto(trovato);
+  }, [searchParams, tickets]);
 
   // ★ filtri ricordati per utente/browser (stessa idea già applicata su
   // Hub Ticket nel gestionale precedente): non si riparte mai da zero.
@@ -116,7 +135,12 @@ export function TicketsBoard({
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
     if (!prossimo) return;
-    if (prossimo === "Completato" && !confirm(`Segnare il ticket #${t.numero} come Completato?`)) return;
+    // ★ passare a Completato richiede il rapportino di chiusura: si apre il
+    // dettaglio invece di aggiornare subito lo stato da qui.
+    if (prossimo === "Completato") {
+      setAperto(t);
+      return;
+    }
     await aggiornaStatoTicket(t.id, prossimo, t.stato);
     router.refresh();
   }
@@ -313,7 +337,28 @@ function DettaglioTicket({
   const [notaTesto, setNotaTesto] = useState("");
   const [invioNota, setInvioNota] = useState(false);
   const [erroreNota, setErroreNota] = useState("");
+  const [praticaScelta, setPraticaScelta] = useState("");
+  const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
+  const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
+
+  useEffect(() => {
+    if (ticket.stato === "Completato") {
+      getRapportinoTicket(ticket.id).then((r) => setRapportino((r as RapportinoIntervento) ?? null));
+    } else {
+      setRapportino(null);
+    }
+    setMostraRapportinoForm(false);
+  }, [ticket.id, ticket.stato]);
+
+  const linkPratica = useMemo(() => {
+    if (!praticaScelta || typeof window === "undefined") return "";
+    const origine = window.location.origin;
+    if (praticaScelta === "disdetta") return `${origine}/disdetta?ticket=${ticket.numero}`;
+    return `${origine}/richiesta-cliente/${praticaScelta}?ticketId=${ticket.id}`;
+  }, [praticaScelta, ticket.numero, ticket.id]);
+  const primoNomeCliente = ticket.cliente.trim().split(/\s+/)[0];
+  const messaggioPratica = `Ciao ${primoNomeCliente}, per la tua pratica Done Wifi apri questo link: ${linkPratica}`;
 
   useEffect(() => {
     getNoteTicket(ticket.id).then(setNote);
@@ -340,10 +385,10 @@ function DettaglioTicket({
 
   async function cambiaStato(nuovo: StatoTicket) {
     if (nuovo === ticket.stato) return;
-    if (
-      nuovo === "Completato" &&
-      !confirm(`Segnare il ticket #${ticket.numero} come Completato?`)
-    ) {
+    // ★ passare a Completato richiede il rapportino di chiusura invece di
+    // un semplice confirm() — vedi form sotto.
+    if (nuovo === "Completato") {
+      setMostraRapportinoForm(true);
       return;
     }
     setInCorso(true);
@@ -403,6 +448,22 @@ function DettaglioTicket({
           </div>
         )}
 
+        {mostraRapportinoForm && (
+          <RapportinoForm
+            ticketId={ticket.id}
+            ticketNumero={ticket.numero}
+            statoVecchio={ticket.stato}
+            onAnnulla={() => setMostraRapportinoForm(false)}
+            onSalvato={() => {
+              setMostraRapportinoForm(false);
+              onCambiato({ ...ticket, stato: "Completato" });
+              router.refresh();
+            }}
+          />
+        )}
+
+        {ticket.stato === "Completato" && rapportino && <RapportinoVista rapportino={rapportino} />}
+
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>
           {assegnatario ? (
@@ -444,6 +505,34 @@ function DettaglioTicket({
             Vedi contratto
           </Button>
         )}
+
+        <div className="border-t pt-4">
+          <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Invia una pratica al cliente
+          </div>
+          <select
+            value={praticaScelta}
+            onChange={(e) => setPraticaScelta(e.target.value)}
+            className="h-9 w-full rounded-md border bg-background px-3 text-xs"
+          >
+            <option value="">Scegli una pratica...</option>
+            {PRATICHE_INVIABILI.map((p) => (
+              <option key={p.slug} value={p.slug}>{p.titolo}</option>
+            ))}
+          </select>
+          {praticaScelta && (
+            <div className="mt-2.5">
+              <InvioLinkCliente
+                url={linkPratica}
+                telefono={ticket.telefono}
+                email={ticket.email}
+                messaggio={messaggioPratica}
+                oggetto={`Done Wifi — ${PRATICHE_INVIABILI.find((p) => p.slug === praticaScelta)?.titolo ?? "pratica"}`}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="border-t pt-4">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

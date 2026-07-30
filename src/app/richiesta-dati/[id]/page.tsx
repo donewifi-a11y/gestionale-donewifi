@@ -1,6 +1,7 @@
 import { Wifi, AlertTriangle } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
 import { RichiestaDatiForm } from "@/components/richiesta-dati/richiesta-dati-form";
+import type { Tariffa } from "@/lib/types";
 
 export default async function RichiestaDatiPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,6 +12,14 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
     .select("id, nome, dati_ricevuti_at")
     .eq("id", id)
     .single();
+
+  // ★ catalogo tariffe attive per lo step "scegli il tuo piano" — letto qui
+  // (service role, form pubblico senza login) e passato già pronto al form.
+  const { data: tariffe } = await supabase
+    .from("tariffe")
+    .select("*")
+    .eq("attivo", true)
+    .order("ordine", { ascending: true });
 
   if (!segnalazione) {
     return (
@@ -47,7 +56,11 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
             procedere con il tuo contratto.
           </p>
         </div>
-        <RichiestaDatiForm segnalazioneId={segnalazione.id} giaInviato={!!segnalazione.dati_ricevuti_at} />
+        <RichiestaDatiForm
+          segnalazioneId={segnalazione.id}
+          giaInviato={!!segnalazione.dati_ricevuti_at}
+          tariffe={(tariffe as Tariffa[]) ?? []}
+        />
       </div>
     </div>
   );

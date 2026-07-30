@@ -1,0 +1,94 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search, Ticket, PhoneCall, Loader2 } from "lucide-react";
+import { ricercaGlobale, type RisultatoRicerca } from "@/app/(app)/ricerca/actions";
+
+export function RicercaGlobale() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [risultati, setRisultati] = useState<RisultatoRicerca[]>([]);
+  const [aperta, setAperta] = useState(false);
+  const [caricamento, setCaricamento] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contenitoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickFuori(e: MouseEvent) {
+      if (contenitoreRef.current && !contenitoreRef.current.contains(e.target as Node)) setAperta(false);
+    }
+    document.addEventListener("mousedown", onClickFuori);
+    return () => document.removeEventListener("mousedown", onClickFuori);
+  }, []);
+
+  function onChange(valore: string) {
+    setQuery(valore);
+    setAperta(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (valore.trim().length < 2) {
+      setRisultati([]);
+      return;
+    }
+    setCaricamento(true);
+    timeoutRef.current = setTimeout(async () => {
+      const r = await ricercaGlobale(valore);
+      setRisultati(r);
+      setCaricamento(false);
+    }, 300);
+  }
+
+  function vai(r: RisultatoRicerca) {
+    setAperta(false);
+    setQuery("");
+    setRisultati([]);
+    router.push(r.tipo === "ticket" ? `/tickets?aperto=${r.id}` : `/segnalazioni?aperto=${r.id}`);
+  }
+
+  return (
+    <div ref={contenitoreRef} className="relative px-3 pb-2">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/40" strokeWidth={2.5} />
+        <input
+          value={query}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setAperta(true)}
+          placeholder="Cerca ticket o segnalazione..."
+          className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-3 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-sidebar-primary"
+        />
+      </div>
+
+      {aperta && query.trim().length >= 2 && (
+        <div className="absolute left-3 right-3 top-full z-10 mt-1 max-h-80 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+          {caricamento && (
+            <div className="flex items-center justify-center gap-2 p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />
+              Ricerca...
+            </div>
+          )}
+          {!caricamento && risultati.length === 0 && (
+            <p className="p-3 text-center text-xs text-muted-foreground">Nessun risultato.</p>
+          )}
+          {!caricamento &&
+            risultati.map((r) => (
+              <button
+                key={`${r.tipo}-${r.id}`}
+                onClick={() => vai(r)}
+                className="flex w-full items-center gap-2.5 border-t px-3 py-2.5 text-left text-xs transition first:border-t-0 hover:bg-muted"
+              >
+                {r.tipo === "ticket" ? (
+                  <Ticket className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+                ) : (
+                  <PhoneCall className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+                )}
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{r.titolo}</div>
+                  <div className="truncate text-[10.5px] text-muted-foreground">{r.sottotitolo}</div>
+                </div>
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}

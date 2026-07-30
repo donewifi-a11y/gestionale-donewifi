@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, HardHat, Archive, Gauge, Users, UserCircle, Menu, X } from "lucide-react";
+import { LayoutGrid, Ticket, PhoneCall, Users2, CalendarDays, HardHat, Archive, Gauge, Users, UserCircle, Menu, X, Tags, ClipboardList } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
+import { RicercaGlobale } from "@/components/ricerca-globale";
 import type { Persona } from "@/lib/types";
 
 const VOCI_NAV = [
@@ -35,13 +36,22 @@ export function AppSidebar({
   // ★ i link admin (Persone/Utenti) seguono il livello della PERSONA
   // scelta, non più quello dell'account condiviso usato per accedere.
   const isAdmin = personaAreaAccesso === "Tutto" || personaAreaAccesso === "Admin";
-  const voci = isAdmin
-    ? [
-        ...VOCI_NAV,
-        { href: "/persone", etichetta: "Persone", icona: UserCircle, esatto: false },
-        { href: "/utenti", etichetta: "Utenti", icona: Users, esatto: false },
-      ]
-    : VOCI_NAV;
+  // ★ Tariffe e Richieste Clienti seguono i reparti che le usano nel
+  // vecchio gestionale (Commerciale gestiva tariffe/promo, Commerciale
+  // e Fatturazione lavoravano le richieste clienti) — oltre agli admin.
+  const vedeTariffe = isAdmin || personaAreaAccesso === "Commerciale";
+  const vedeRichieste = isAdmin || personaAreaAccesso === "Commerciale" || personaAreaAccesso === "Fatturazione";
+  const voci = [
+    ...VOCI_NAV,
+    ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList, esatto: false }] : []),
+    ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags, esatto: false }] : []),
+    ...(isAdmin
+      ? [
+          { href: "/persone", etichetta: "Persone", icona: UserCircle, esatto: false },
+          { href: "/utenti", etichetta: "Utenti", icona: Users, esatto: false },
+        ]
+      : []),
+  ];
 
   const contenuto = (
     <>
@@ -58,6 +68,8 @@ export function AppSidebar({
           </div>
         </div>
       </div>
+
+      <RicercaGlobale />
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {voci.map((voce) => {

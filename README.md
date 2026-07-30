@@ -9,8 +9,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 2. **Applica lo schema**: apri l'SQL Editor del progetto Supabase e incolla, in ordine, il
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
-   `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql` e `0009_persone_email.sql`,
-   eseguendo ognuno.
+   `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
+   `0010_rapportini_tariffe_richieste.sql`, eseguendo ognuno.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -68,6 +68,39 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   funzioni Postgres `security definer` `imposta_password_persona`/`verifica_password_persona`
   (migrazione `0006_persone_accesso.sql`), e ogni query dell'app seleziona colonne esplicite,
   mai `select *`, su `persone`.
+- `src/app/(app)/tickets` + `src/components/tickets/rapportino.tsx` — passare un Ticket a
+  Completato apre il rapportino di chiusura (esito, lavori svolti, materiali, foto, firma cliente
+  su canvas) invece di un semplice conferma/annulla; niente generazione PDF lato server, il
+  rapportino resta un record leggibile a schermo con un pulsante "Stampa / Salva PDF" (il browser
+  genera il PDF). Disponibile sia dal dettaglio Ticket sia da Vista Tecnico.
+- `src/app/(app)/tariffe` — catalogo tariffe (CRUD, visibile a Commerciale/admin), usato dallo step
+  "scegli il tuo piano" nel modulo pubblico Richiesta Dati quando il tipo è Nuovo Contratto.
+- `src/app/(app)/richieste-clienti` + `src/app/richiesta-cliente/[tipo]` — le 4 pratiche cliente
+  (Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro) hanno un form pubblico dedicato
+  (`/richiesta-cliente/cambio-iban` ecc., inviabile da un Ticket via WhatsApp/Email/copia link) e
+  una bacheca staff filtrata per reparto (Fatturazione: IBAN/Anagrafica; Commerciale:
+  Trasferimento/Subentro), sullo stesso modello già usato da Richiesta Dati — tutte scrivono nella
+  stessa tabella `richieste_clienti`.
+- `src/app/disdetta` — pagina pubblica con le istruzioni per disdire il contratto (Raccomandata
+  A/R o PEC, checklist, fac-simile testo), inviabile da un Ticket come le altre pratiche.
+- `src/app/privacy` — informativa privacy pubblica, linkata dal checkbox di consenso nei form
+  pubblici (Richiesta Dati e Richieste Cliente).
+- `src/lib/validazione.ts` — validazione formale (checksum, non solo formato) di Codice Fiscale,
+  Partita IVA, IBAN ed Email, usata sia lato client sia nelle route pubbliche che ricevono i dati.
+- `src/components/ricerca-globale.tsx` — barra di ricerca in sidebar su Ticket e Segnalazioni
+  insieme (cliente o numero); apre direttamente la scheda trovata via `?aperto=<id>`.
+- `src/components/condivisi/indirizzo-autocomplete.tsx` — suggerimenti indirizzo mentre si scrive
+  (OpenStreetMap/Nominatim, nessuna chiave API) nel form Nuovo Ticket.
+- `src/app/(app)/tickets/nuovo` — cercando un nome/telefono già presente tra i Ticket esistenti,
+  suggerisce il cliente e precompila telefono/email/indirizzo.
+- `src/app/api/cron/pulizia-documenti`, `src/app/api/cron/promemoria-ticket` + `vercel.json` — due
+  cron job giornalieri: il primo elimina (dopo 30 giorni, come da Informativa Privacy) i documenti
+  caricati dai clienti nelle Richieste Clienti già lavorate; il secondo avvisa via Telegram il
+  reparto competente per i Ticket ancora "Da gestire" da oltre 24h. Protetti da `CRON_SECRET`
+  quando è impostata (Vercel la invia in automatico).
+- `src/lib/email.ts` — email di chiusura al cliente quando un Ticket passa a Completato via
+  rapportino, tramite Resend (`RESEND_API_KEY`); come Telegram/Google Calendar, se non configurata
+  l'invio viene saltato senza bloccare nulla.
 
 ## Stato attuale
 
@@ -113,9 +146,22 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   role invece che con RLS (prima mostrava sempre e solo il proprio account, mai gli altri login
   condivisi). `tickets.segnalazione_id` ha un vincolo di unicità contro un doppio Ticket se
   "Trasmetti" viene inviato due volte molto ravvicinate.
+✅ Rapportino di chiusura intervento: esito, lavori svolti, materiali, foto e firma cliente quando
+  un Ticket passa a Completato (dal dettaglio Ticket o da Vista Tecnico), con vista stampabile.
+✅ Tariffe: catalogo gestito da Commerciale/admin, usato nello step "scegli il tuo piano" del
+  modulo pubblico Richiesta Dati.
+✅ Richieste Clienti: Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro — form pubblici
+  dedicati inviabili da un Ticket, bacheca staff filtrata per reparto.
+✅ Disdetta: pagina pubblica con le istruzioni ufficiali, inviabile da un Ticket.
+✅ Informativa Privacy pubblica, linkata dai form pubblici con consenso obbligatorio.
+✅ Validazione formale (checksum) di Codice Fiscale/Partita IVA/IBAN/Email nei form pubblici.
+✅ Ricerca globale in sidebar su Ticket e Segnalazioni.
+✅ Autocompletamento indirizzo e autofill cliente esistente in Nuovo Ticket.
+✅ Automazioni: pulizia documenti clienti scaduti ed avviso ticket fermi, via Vercel Cron.
+✅ Email di chiusura automatica al cliente (Resend, facoltativa).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
-  Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket) ancora da fare
-  con dati reali.
+  Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
+  rapportino di chiusura) ancora da fare con dati reali.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

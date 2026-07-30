@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { creaTicket } from "../actions";
+import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
+import { creaTicket, cercaClientiEsistenti, type ClienteEsistente } from "../actions";
 import { CATEGORIE_TICKET, REPARTI } from "@/lib/types";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
 
@@ -17,22 +18,48 @@ export default function NuovoTicketPage() {
   const primoCampo = useRef<HTMLInputElement>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const [cliente, setCliente] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  const [indirizzo, setIndirizzo] = useState("");
+  const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
+  const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onCambiaCliente(v: string) {
+    setCliente(v);
+    if (timeoutClienteRef.current) clearTimeout(timeoutClienteRef.current);
+    if (v.trim().length < 2) {
+      setSuggerimentiCliente([]);
+      return;
+    }
+    timeoutClienteRef.current = setTimeout(async () => {
+      setSuggerimentiCliente(await cercaClientiEsistenti(v));
+    }, 300);
+  }
+
+  function scegliCliente(c: ClienteEsistente) {
+    setCliente(c.cliente);
+    if (c.telefono) setTelefono(c.telefono);
+    if (c.email) setEmail(c.email);
+    if (c.indirizzo) setIndirizzo(c.indirizzo);
+    setSuggerimentiCliente([]);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
-    const cliente = String(dati.get("cliente") || "").trim();
-    if (!cliente) {
+    const nomeCliente = cliente.trim();
+    if (!nomeCliente) {
       setErrore("Il nome del cliente è obbligatorio.");
       return;
     }
     setInCorso(true);
     const risultato = await creaTicket({
-      cliente,
-      telefono: String(dati.get("telefono") || ""),
-      email: String(dati.get("email") || ""),
-      indirizzo: String(dati.get("indirizzo") || ""),
+      cliente: nomeCliente,
+      telefono,
+      email,
+      indirizzo,
       categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
       problema: String(dati.get("problema") || ""),
       priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
@@ -60,25 +87,50 @@ export default function NuovoTicketPage() {
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm">
-        <div>
+        <div className="relative">
           <Label htmlFor="cliente">Cliente *</Label>
-          <Input ref={primoCampo} id="cliente" name="cliente" autoFocus required className="mt-1" />
+          <Input
+            ref={primoCampo}
+            id="cliente"
+            name="cliente"
+            autoFocus
+            required
+            autoComplete="off"
+            value={cliente}
+            onChange={(e) => onCambiaCliente(e.target.value)}
+            className="mt-1"
+          />
+          {suggerimentiCliente.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+              {suggerimentiCliente.map((c, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => scegliCliente(c)}
+                  className="flex w-full flex-col border-t px-3 py-2 text-left text-xs transition first:border-t-0 hover:bg-muted"
+                >
+                  <span className="font-semibold">{c.cliente}</span>
+                  {c.telefono && <span className="text-muted-foreground">{c.telefono}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="telefono">Telefono</Label>
-            <Input id="telefono" name="telefono" type="tel" className="mt-1" />
+            <Input id="telefono" name="telefono" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="mt-1" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" className="mt-1" />
+            <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
           </div>
         </div>
 
         <div>
           <Label htmlFor="indirizzo">Indirizzo</Label>
-          <Input id="indirizzo" name="indirizzo" className="mt-1" />
+          <IndirizzoAutocomplete id="indirizzo" name="indirizzo" value={indirizzo} onChange={setIndirizzo} className="mt-1" />
         </div>
 
         <div className="grid grid-cols-3 gap-3">

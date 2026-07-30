@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, MapPin, Clock, Check, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { aggiornaStatoTicket } from "@/app/(app)/tickets/actions";
 import { cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
+import { RapportinoForm } from "@/components/tickets/rapportino";
 import type { Appuntamento, StatoTicket, Ticket } from "@/lib/types";
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
@@ -19,6 +21,7 @@ const COLORE_PRIORITA: Record<string, string> = {
 export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: Appuntamento[]; tickets: Ticket[] }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState<string | null>(null);
+  const [ticketRapportino, setTicketRapportino] = useState<Ticket | null>(null);
 
   async function completaAppuntamento(id: string) {
     setInCorso(id);
@@ -34,7 +37,11 @@ export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: App
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
     if (!prossimo) return;
-    if (prossimo === "Completato" && !confirm(`Segnare il ticket #${t.numero} come Completato?`)) return;
+    // ★ passare a Completato richiede il rapportino di chiusura sul campo.
+    if (prossimo === "Completato") {
+      setTicketRapportino(t);
+      return;
+    }
     setInCorso(t.id);
     try {
       await aggiornaStatoTicket(t.id, prossimo, t.stato);
@@ -150,6 +157,31 @@ export function VistaTecnicoBoard({ appuntamenti, tickets }: { appuntamenti: App
           })}
         </div>
       </section>
+
+      <Sheet open={!!ticketRapportino} onOpenChange={(v) => !v && setTicketRapportino(null)}>
+        <SheetContent>
+          {ticketRapportino && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{ticketRapportino.cliente}</SheetTitle>
+                <SheetDescription>Chiudi il ticket con il rapportino di intervento.</SheetDescription>
+              </SheetHeader>
+              <div className="px-4 pb-4">
+                <RapportinoForm
+                  ticketId={ticketRapportino.id}
+                  ticketNumero={ticketRapportino.numero}
+                  statoVecchio={ticketRapportino.stato}
+                  onAnnulla={() => setTicketRapportino(null)}
+                  onSalvato={() => {
+                    setTicketRapportino(null);
+                    router.refresh();
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
