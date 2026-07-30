@@ -1,14 +1,14 @@
 import { Tags } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { TariffeBoard } from "@/components/tariffe/tariffe-board";
-import type { Tariffa } from "@/lib/types";
+import type { Promozione, Tariffa } from "@/lib/types";
 
 export default async function TariffePage() {
   const supabase = await createClient();
-  const { data: tariffe } = await supabase
-    .from("tariffe")
-    .select("*")
-    .order("ordine", { ascending: true });
+  const [{ data: tariffe }, { data: promozioni }] = await Promise.all([
+    supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
+    supabase.from("promozioni").select("*").order("da", { ascending: false }),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -24,7 +24,7 @@ export default async function TariffePage() {
         </div>
       </div>
 
-      <TariffeBoard tariffe={(tariffe as Tariffa[]) ?? []} />
+      <TariffeBoard tariffe={(tariffe as Tariffa[]) ?? []} promozioni={(promozioni as Promozione[]) ?? []} />
     </div>
   );
 }

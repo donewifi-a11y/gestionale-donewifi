@@ -207,7 +207,7 @@ export function AppSidebar({
 
   return (
     <>
-      <header className="flex items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden">
+      <header className="flex items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden print:hidden">
         <button
           onClick={() => setAperta(true)}
           aria-label="Apri il menu"
@@ -223,7 +223,7 @@ export function AppSidebar({
         </span>
       </header>
 
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex print:hidden">
         {contenuto}
       </aside>
 

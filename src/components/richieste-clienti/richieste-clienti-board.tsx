@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search } from "lucide-react";
+import { FileText, Search, Ticket as TicketIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,7 @@ import { aggiornaStatoRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 
-const STATI = ["Da Lavorare", "Lavorata"];
+const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 
 const COLORE_TIPO: Record<string, string> = {
   "Cambio IBAN": "bg-success/10 text-success border-success/20",
@@ -29,20 +30,14 @@ const COLORE_TIPO: Record<string, string> = {
 export function RichiesteClientiBoard({ richieste }: { richieste: RichiestaCliente[] }) {
   const [ricerca, setRicerca] = useState("");
   const [fTipo, setFTipo] = useState("");
-  const [fStato, setFStato] = useState("");
   const [aperta, setAperta] = useState<RichiestaCliente | null>(null);
 
   const tipi = useMemo(() => Array.from(new Set(richieste.map((r) => r.tipo_richiesta))), [richieste]);
 
   const filtrate = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
-    return richieste.filter(
-      (r) =>
-        (!fTipo || r.tipo_richiesta === fTipo) &&
-        (!fStato || r.stato === fStato) &&
-        (!testo || (r.cliente || "").toLowerCase().includes(testo))
-    );
-  }, [richieste, fTipo, fStato, ricerca]);
+    return richieste.filter((r) => (!fTipo || r.tipo_richiesta === fTipo) && (!testo || (r.cliente || "").toLowerCase().includes(testo)));
+  }, [richieste, fTipo, ricerca]);
 
   return (
     <div>
@@ -62,42 +57,47 @@ export function RichiesteClientiBoard({ richieste }: { richieste: RichiestaClien
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select value={fStato} onChange={(e) => setFStato(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
-          <option value="">Tutti gli stati</option>
-          {STATI.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {filtrate.length === 0 && (
-          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna richiesta.</p>
-        )}
-        {filtrate.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setAperta(r)}
-            className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
-          >
-            <div>
-              <div className="font-semibold">{r.cliente || "—"}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(r.data).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {STATI.map((stato) => {
+          const items = filtrate.filter((r) => r.stato === stato);
+          return (
+            <div key={stato} className="rounded-2xl bg-muted/50 p-3">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <span className="font-heading text-sm font-bold">{stato}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
+                  {items.length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {items.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">Vuoto.</div>
+                )}
+                {items.map((r) => (
+                  <div
+                    key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setAperta(r)}
+                    onKeyDown={(e) => e.key === "Enter" && setAperta(r)}
+                    className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="font-semibold">{r.cliente || "—"}</span>
+                    </div>
+                    <div className="mb-2 text-xs text-muted-foreground">
+                      {new Date(r.data).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </div>
+                    <Badge variant="outline" className={COLORE_TIPO[r.tipo_richiesta] ?? ""}>
+                      {r.tipo_richiesta}
+                    </Badge>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={COLORE_TIPO[r.tipo_richiesta] ?? ""}>
-                {r.tipo_richiesta}
-              </Badge>
-              {r.stato === "Lavorata" ? (
-                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Lavorata</span>
-              ) : (
-                <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">Da Lavorare</span>
-              )}
-            </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       <Sheet open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
@@ -163,6 +163,16 @@ function DettaglioRichiesta({
             </button>
           ))}
         </div>
+
+        {richiesta.ticket_id && (
+          <Link
+            href={`/tickets?aperto=${richiesta.ticket_id}`}
+            className="flex w-fit items-center gap-1.5 rounded-lg border bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-muted/60"
+          >
+            <TicketIcon className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Vedi il Ticket collegato
+          </Link>
+        )}
 
         {Object.entries(richiesta.dettagli || {}).map(([chiave, valore]) =>
           valore ? (

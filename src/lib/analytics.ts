@@ -109,4 +109,68 @@ export async function getDatiReparto(supabase: Supabase, reparto: AreaAccesso) {
   };
 }
 
+export interface StatistichePeriodo {
+  perReparto: Record<AreaAccesso, { aperti: number; completati: number; urgenti: number; slaOreMedia: number | null; slaCampione: number }>;
+  perPriorita: Record<string, { slaOreMedia: number | null; campione: number }>;
+}
+
+/** ★ ex getStatistichePeriodo() del vecchio gestionale: SLA medio (ore da
+ * creazione a completamento) e conteggi per reparto/priorità su un
+ * intervallo scelto — qui basato su tickets.aggiornato_il (che segna
+ * l'ultimo cambio, quindi il completamento per i ticket Completato)
+ * invece che rileggere lo Storico Modifiche riga per riga. */
+export async function getStatistichePeriodo(supabase: Supabase, inizio: Date, fine: Date): Promise<StatistichePeriodo> {
+  const { data } = await supabase
+    .from("tickets")
+    .select("reparto, stato, priorita, data_creazione, aggiornato_il")
+    .neq("stato", "Annullato")
+    .gte("data_creazione", inizio.toISOString())
+    .lte("data_creazione", fine.toISOString());
+
+  const righe = data ?? [];
+
+  const perReparto: StatistichePeriodo["perReparto"] = {} as StatistichePeriodo["perReparto"];
+  for (const r of REPARTI_ELENCO) perReparto[r] = { aperti: 0, completati: 0, urgenti: 0, slaOreMedia: null, slaCampione: 0 };
+  const sommaSlaReparto: Record<string, number> = {};
+
+  const perPriorita: StatistichePeriodo["perPriorita"] = {
+    Urgente: { slaOreMedia: null, campione: 0 },
+    Normale: { slaOreMedia: null, campione: 0 },
+    Bassa: { slaOreMedia: null, campione: 0 },
+  };
+  const sommaSlaPriorita: Record<string, number> = {};
+
+  for (const t of righe) {
+    const reparto = t.reparto as AreaAccesso;
+    if (!perReparto[reparto]) continue;
+
+    if (t.stato === "Completato") {
+      perReparto[reparto].completati++;
+      const oreSla = (new Date(t.aggiornato_il).getTime() - new Date(t.data_creazione).getTime()) / (1000 * 60 * 60);
+      if (oreSla >= 0) {
+        sommaSlaReparto[reparto] = (sommaSlaReparto[reparto] ?? 0) + oreSla;
+        perReparto[reparto].slaCampione++;
+        if (perPriorita[t.priorita]) {
+          sommaSlaPriorita[t.priorita] = (sommaSlaPriorita[t.priorita] ?? 0) + oreSla;
+          perPriorita[t.priorita].campione++;
+        }
+      }
+    } else {
+      perReparto[reparto].aperti++;
+    }
+    if (t.priorita === "Urgente") perReparto[reparto].urgenti++;
+  }
+
+  for (const r of REPARTI_ELENCO) {
+    const d = perReparto[r];
+    d.slaOreMedia = d.slaCampione > 0 ? Math.round((sommaSlaReparto[r] / d.slaCampione) * 10) / 10 : null;
+  }
+  for (const p of Object.keys(perPriorita)) {
+    const d = perPriorita[p];
+    d.slaOreMedia = d.campione > 0 ? Math.round((sommaSlaPriorita[p] / d.campione) * 10) / 10 : null;
+  }
+
+  return { perReparto, perPriorita };
+}
+
 export { REPARTI_ELENCO };

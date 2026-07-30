@@ -140,6 +140,19 @@ export interface Tariffa {
   ordine: number;
 }
 
+export type TipoPromozione = "Sconto % / mese" | "Sconto fisso / mese" | "Mesi omaggio" | "Attivazione gratuita";
+
+export interface Promozione {
+  id: string;
+  nome: string;
+  tipo: TipoPromozione;
+  valore: number | null;
+  tariffe_ids: string[];
+  da: string;
+  a: string;
+  codice: string | null;
+}
+
 export interface NotaCalendario {
   id: string;
   testo: string;

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { Tariffa } from "@/lib/types";
+import type { Promozione, Tariffa } from "@/lib/types";
 
 type DatiTariffa = Pick<Tariffa, "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "descrizione" | "attivo" | "ordine">;
 
@@ -48,5 +48,77 @@ export async function eliminaTariffa(id: string) {
 
   revalidatePath("/tariffe");
   revalidatePath("/richiesta-dati", "layout");
+  return { errore: null };
+}
+
+/** ★ NUOVA — clona un piano esistente per una variante (es. stagionale), invece di ricompilare tutto da zero. */
+export async function duplicaTariffa(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { data: originale, error: erroreLettura } = await supabase.from("tariffe").select("*").eq("id", id).single();
+  if (erroreLettura || !originale) return { errore: erroreLettura?.message || "Tariffa non trovata." };
+
+  const { error } = await supabase.from("tariffe").insert({
+    nome: `${originale.nome} (copia)`,
+    tipologia_cliente: originale.tipologia_cliente,
+    velocita: originale.velocita,
+    prezzo_mensile: originale.prezzo_mensile,
+    descrizione: originale.descrizione,
+    attivo: false,
+    ordine: originale.ordine,
+  });
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
+  return { errore: null };
+}
+
+type DatiPromozione = Pick<Promozione, "nome" | "tipo" | "valore" | "tariffe_ids" | "da" | "a" | "codice">;
+
+export async function creaPromozione(dati: DatiPromozione) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  if (dati.tariffe_ids.length === 0) return { errore: "Seleziona almeno un piano applicabile." };
+
+  const { error } = await supabase.from("promozioni").insert(dati);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
+  return { errore: null };
+}
+
+export async function aggiornaPromozione(id: string, dati: DatiPromozione) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  if (dati.tariffe_ids.length === 0) return { errore: "Seleziona almeno un piano applicabile." };
+
+  const { error } = await supabase.from("promozioni").update(dati).eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
+  return { errore: null };
+}
+
+export async function eliminaPromozione(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { error } = await supabase.from("promozioni").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
   return { errore: null };
 }

@@ -1,7 +1,9 @@
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2 } from "lucide-react";
+import Link from "next/link";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
-import { getDatiAmministrazione } from "@/lib/analytics";
+import { getDatiAmministrazione, getStatistichePeriodo, REPARTI_ELENCO } from "@/lib/analytics";
+import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
 
 const STATI_TICKET_ORDINE = ["Da gestire", "In lavorazione", "In attesa", "Completato"] as const;
 const COLORE_STATO_TICKET: Record<string, string> = {
@@ -19,8 +21,31 @@ const COLORE_STATO_SEGN: Record<string, string> = {
   Trasmessa: "bg-success",
 };
 
-export default async function DashboardPage() {
+const PERIODI = [
+  { chiave: "7", etichetta: "Ultimi 7 giorni", giorni: 7 },
+  { chiave: "30", etichetta: "Ultimi 30 giorni", giorni: 30 },
+  { chiave: "90", etichetta: "Ultimi 90 giorni", giorni: 90 },
+] as const;
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; da?: string; a?: string }>;
+}) {
   const supabase = await createClient();
+  const params = await searchParams;
+
+  const oraFine = params.a ? new Date(`${params.a}T23:59:59`) : new Date();
+  let periodoInizio: Date;
+  if (params.da) {
+    periodoInizio = new Date(`${params.da}T00:00:00`);
+  } else {
+    const giorni = PERIODI.find((p) => p.chiave === params.periodo)?.giorni ?? 30;
+    periodoInizio = new Date();
+    periodoInizio.setDate(periodoInizio.getDate() - giorni);
+    periodoInizio.setHours(0, 0, 0, 0);
+  }
+  const periodoAttivo = params.da ? "custom" : (params.periodo ?? "30");
 
   const oggiInizio = new Date();
   oggiInizio.setHours(0, 0, 0, 0);
@@ -49,6 +74,7 @@ export default async function DashboardPage() {
   const personaCorrente = await getPersonaCorrente(supabase);
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
   const amministrazione = isAdmin ? await getDatiAmministrazione(supabase) : null;
+  const statistichePeriodo = isAdmin ? await getStatistichePeriodo(supabase, periodoInizio, oraFine) : null;
 
   const ticketUrgenti = listaTicket.filter((t) => t.priorita === "Urgente" && t.stato !== "Completato").length;
   const ticketNonAssegnati = listaTicket.filter((t) => !t.tecnico_assegnato && t.stato !== "Completato").length;
@@ -71,15 +97,18 @@ export default async function DashboardPage() {
   const maxCarico = Math.max(1, ...caricoTecnici.map((r) => r.conteggio));
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
-          <Gauge className="h-5 w-5" strokeWidth={2.25} />
+    <div id="dashboard-stampabile" className="mx-auto max-w-4xl">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
+            <Gauge className="h-5 w-5" strokeWidth={2.25} />
+          </div>
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Il colpo d&apos;occhio sul carico di lavoro di oggi.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Il colpo d&apos;occhio sul carico di lavoro di oggi.</p>
-        </div>
+        <EsportaPdfButton />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -130,7 +159,104 @@ export default async function DashboardPage() {
         </Pannello>
       </div>
 
+      {statistichePeriodo && (
+        <SezionePeriodo dati={statistichePeriodo} periodoAttivo={periodoAttivo} da={params.da} a={params.a} />
+      )}
+
       {amministrazione && <SezioneAmministrazione dati={amministrazione} />}
+    </div>
+  );
+}
+
+function SezionePeriodo({
+  dati,
+  periodoAttivo,
+  da,
+  a,
+}: {
+  dati: NonNullable<Awaited<ReturnType<typeof getStatistichePeriodo>>>;
+  periodoAttivo: string;
+  da?: string;
+  a?: string;
+}) {
+  const fmtSla = (ore: number | null) => (ore === null ? "—" : ore < 24 ? `${ore} h` : `${Math.round(ore / 24)} gg`);
+
+  return (
+    <div className="mt-8 border-t pt-8 print:break-before-page">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Timer className="h-4 w-4 text-primary" strokeWidth={2.5} />
+          <h2 className="font-heading text-lg font-bold">Statistiche per periodo</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          {PERIODI.map((p) => (
+            <Link
+              key={p.chiave}
+              href={`/dashboard?periodo=${p.chiave}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                periodoAttivo === p.chiave
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border bg-card text-muted-foreground hover:bg-muted/60"
+              }`}
+            >
+              {p.etichetta}
+            </Link>
+          ))}
+          <form className="flex items-center gap-1.5">
+            <input type="date" name="da" defaultValue={da} className="h-7 rounded-md border bg-background px-2 text-xs" />
+            <span className="text-xs text-muted-foreground">–</span>
+            <input type="date" name="a" defaultValue={a} className="h-7 rounded-md border bg-background px-2 text-xs" />
+            <button
+              type="submit"
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                periodoAttivo === "custom" ? "bg-primary text-primary-foreground" : "border bg-card text-muted-foreground hover:bg-muted/60"
+              }`}
+            >
+              Applica
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="mb-5 overflow-x-auto rounded-2xl border bg-card p-5 shadow-md">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="pb-2 font-semibold">Reparto</th>
+              <th className="pb-2 text-right font-semibold">Aperti</th>
+              <th className="pb-2 text-right font-semibold">Completati</th>
+              <th className="pb-2 text-right font-semibold">Urgenti</th>
+              <th className="pb-2 text-right font-semibold">SLA medio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {REPARTI_ELENCO.map((r) => {
+              const d = dati.perReparto[r];
+              return (
+                <tr key={r} className="border-b last:border-0">
+                  <td className="py-2 font-medium">{r}</td>
+                  <td className="py-2 text-right tabular-nums">{d.aperti}</td>
+                  <td className="py-2 text-right tabular-nums">{d.completati}</td>
+                  <td className="py-2 text-right tabular-nums text-critical">{d.urgenti || ""}</td>
+                  <td className="py-2 text-right tabular-nums" title={`basato su ${d.slaCampione} ticket`}>
+                    {fmtSla(d.slaOreMedia)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {Object.entries(dati.perPriorita).map(([priorita, d]) => (
+          <div key={priorita} className="rounded-2xl border bg-card p-4 shadow-md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{priorita}</div>
+            <div className="font-heading text-xl font-bold tabular-nums">{fmtSla(d.slaOreMedia)}</div>
+            <div className="text-xs text-muted-foreground">SLA medio · {d.campione} ticket</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

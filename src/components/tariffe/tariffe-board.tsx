@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,14 +13,42 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { creaTariffa, aggiornaTariffa, eliminaTariffa } from "@/app/(app)/tariffe/actions";
-import type { Tariffa } from "@/lib/types";
+import {
+  creaTariffa,
+  aggiornaTariffa,
+  eliminaTariffa,
+  duplicaTariffa,
+  creaPromozione,
+  aggiornaPromozione,
+  eliminaPromozione,
+} from "@/app/(app)/tariffe/actions";
+import type { Promozione, Tariffa, TipoPromozione } from "@/lib/types";
 
 const TIPOLOGIE: Tariffa["tipologia_cliente"][] = ["Tutti", "Privato", "Azienda"];
+const TIPI_PROMO: TipoPromozione[] = ["Sconto % / mese", "Sconto fisso / mese", "Mesi omaggio", "Attivazione gratuita"];
 
-export function TariffeBoard({ tariffe }: { tariffe: Tariffa[] }) {
+function statoPromozione(promo: Promozione): "Attiva" | "Programmata" | "Scaduta" {
+  const oggi = new Date().toISOString().slice(0, 10);
+  if (promo.a < oggi) return "Scaduta";
+  if (promo.da > oggi) return "Programmata";
+  return "Attiva";
+}
+
+export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; promozioni: Promozione[] }) {
+  const router = useRouter();
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Tariffa | null>(null);
+  const [nuovaPromo, setNuovaPromo] = useState(false);
+  const [modificaPromo, setModificaPromo] = useState<Promozione | null>(null);
+
+  async function duplica(t: Tariffa) {
+    const risultato = await duplicaTariffa(t.id);
+    if (!risultato.errore) router.refresh();
+  }
+
+  // ★ come nel vecchio gestionale: avviso se una tariffa ha più promo attive insieme (rischio di sconti che si sommano per errore).
+  const promoAttive = promozioni.filter((p) => statoPromozione(p) === "Attiva");
+  const tariffeConPiuPromo = tariffe.filter((t) => promoAttive.filter((p) => p.tariffe_ids.includes(t.id)).length > 1);
 
   return (
     <div>
@@ -36,25 +64,29 @@ export function TariffeBoard({ tariffe }: { tariffe: Tariffa[] }) {
           <p className="p-5 text-center text-sm text-muted-foreground">Nessuna tariffa ancora. Aggiungine una sopra.</p>
         )}
         {tariffe.map((t) => (
-          <button
+          <div
             key={t.id}
-            onClick={() => setModifica(t)}
             className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
           >
-            <div>
+            <button onClick={() => setModifica(t)} className="flex-1 text-left">
               <div className="font-semibold">{t.nome}</div>
               <div className="text-xs text-muted-foreground">
                 {t.tipologia_cliente}
                 {t.velocita && ` · ${t.velocita}`}
                 {t.prezzo_mensile != null && ` · €${t.prezzo_mensile}/mese`}
               </div>
+            </button>
+            <div className="flex items-center gap-2">
+              {t.attivo ? (
+                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
+              ) : (
+                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivata</span>
+              )}
+              <Button size="icon" variant="ghost" title="Duplica tariffa" onClick={() => duplica(t)}>
+                <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </Button>
             </div>
-            {t.attivo ? (
-              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
-            ) : (
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivata</span>
-            )}
-          </button>
+          </div>
         ))}
       </div>
 
@@ -67,6 +99,76 @@ export function TariffeBoard({ tariffe }: { tariffe: Tariffa[] }) {
       <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
           {modifica && <FormTariffa tariffa={modifica} onFatto={() => setModifica(null)} />}
+        </SheetContent>
+      </Sheet>
+
+      <div className="mt-10 mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Percent className="h-4 w-4 text-primary" strokeWidth={2.5} />
+          <h2 className="font-heading text-lg font-bold">Promozioni</h2>
+        </div>
+        <Button onClick={() => setNuovaPromo(true)}>
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Aggiungi Promozione
+        </Button>
+      </div>
+
+      {tariffeConPiuPromo.length > 0 && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning-foreground">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2.25} />
+          <div>
+            <span className="font-semibold">{tariffeConPiuPromo.map((t) => t.nome).join(", ")}</span>{" "}
+            {tariffeConPiuPromo.length > 1 ? "hanno" : "ha"} più di una promozione attiva contemporaneamente — controlla
+            che gli sconti non si sommino per errore.
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        {promozioni.length === 0 && (
+          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna promozione ancora.</p>
+        )}
+        {promozioni.map((p) => {
+          const stato = statoPromozione(p);
+          return (
+            <button
+              key={p.id}
+              onClick={() => setModificaPromo(p)}
+              className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
+            >
+              <div>
+                <div className="font-semibold">{p.nome}</div>
+                <div className="text-xs text-muted-foreground">
+                  {p.tipo}
+                  {p.valore != null && ` · ${p.valore}`}
+                  {p.codice && ` · codice ${p.codice}`} · {p.da} → {p.a}
+                </div>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  stato === "Attiva"
+                    ? "bg-success/10 text-success"
+                    : stato === "Programmata"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {stato}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Sheet open={nuovaPromo} onOpenChange={setNuovaPromo}>
+        <SheetContent>
+          <FormPromozione tariffe={tariffe} onFatto={() => setNuovaPromo(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
+        <SheetContent>
+          {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} onFatto={() => setModificaPromo(null)} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -174,6 +276,129 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
             {inCorso ? "Salvataggio..." : tariffa ? "Salva modifiche" : "Aggiungi"}
           </Button>
           {tariffa && (
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina}>
+              <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+            </Button>
+          )}
+        </div>
+      </form>
+    </>
+  );
+}
+
+function FormPromozione({
+  tariffe,
+  promozione,
+  onFatto,
+}: {
+  tariffe: Tariffa[];
+  promozione?: Promozione;
+  onFatto: () => void;
+}) {
+  const router = useRouter();
+  const [inCorso, setInCorso] = useState(false);
+  const [errore, setErrore] = useState("");
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrore("");
+    const dati = new FormData(e.currentTarget);
+    const nome = String(dati.get("nome") || "").trim();
+    if (!nome) return setErrore("Il nome è obbligatorio.");
+    const da = String(dati.get("da") || "");
+    const a = String(dati.get("a") || "");
+    if (!da || !a) return setErrore("Imposta il periodo di validità (Da/A).");
+
+    const payload = {
+      nome,
+      tipo: String(dati.get("tipo") || TIPI_PROMO[0]) as TipoPromozione,
+      valore: dati.get("valore") ? Number(dati.get("valore")) : null,
+      tariffe_ids: dati.getAll("tariffe_ids") as string[],
+      da,
+      a,
+      codice: String(dati.get("codice") || "").trim() || null,
+    };
+
+    setInCorso(true);
+    const risultato = promozione ? await aggiornaPromozione(promozione.id, payload) : await creaPromozione(payload);
+    setInCorso(false);
+    if (risultato.errore) return setErrore(risultato.errore);
+    router.refresh();
+    onFatto();
+  }
+
+  async function elimina() {
+    if (!promozione || !confirm(`Eliminare la promozione "${promozione.nome}"?`)) return;
+    setInCorso(true);
+    const risultato = await eliminaPromozione(promozione.id);
+    setInCorso(false);
+    if (risultato.errore) return setErrore(risultato.errore);
+    router.refresh();
+    onFatto();
+  }
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>{promozione ? promozione.nome : "Aggiungi Promozione"}</SheetTitle>
+        <SheetDescription>Lo stato (Attiva/Programmata/Scaduta) si calcola da sé dalle date.</SheetDescription>
+      </SheetHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+        <div>
+          <Label htmlFor="nome">Nome promozione *</Label>
+          <Input id="nome" name="nome" defaultValue={promozione?.nome} autoFocus required className="mt-1" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="tipo">Tipo</Label>
+            <select id="tipo" name="tipo" defaultValue={promozione?.tipo ?? TIPI_PROMO[0]} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+              {TIPI_PROMO.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="valore">Valore</Label>
+            <Input id="valore" name="valore" type="number" step="0.01" defaultValue={promozione?.valore ?? ""} placeholder="Es. 20" className="mt-1" />
+          </div>
+        </div>
+        <div>
+          <Label>Piani applicabili *</Label>
+          <div className="mt-1.5 flex flex-col gap-1.5 rounded-md border p-2.5">
+            {tariffe.map((t) => (
+              <label key={t.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="tariffe_ids" value={t.id} defaultChecked={promozione?.tariffe_ids.includes(t.id)} className="h-4 w-4" />
+                {t.nome}
+              </label>
+            ))}
+            {tariffe.length === 0 && <p className="text-xs text-muted-foreground">Crea prima almeno una tariffa.</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="da">Valida dal *</Label>
+            <Input id="da" name="da" type="date" defaultValue={promozione?.da} required className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="a">Al *</Label>
+            <Input id="a" name="a" type="date" defaultValue={promozione?.a} required className="mt-1" />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="codice">Codice promo (facoltativo)</Label>
+          <Input id="codice" name="codice" defaultValue={promozione?.codice ?? ""} placeholder="Es. ESTATE2026" className="mt-1" />
+        </div>
+        {errore && (
+          <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+            {errore}
+          </p>
+        )}
+        <div className="mt-2 flex gap-2">
+          <Button type="submit" disabled={inCorso} className="flex-1">
+            {inCorso ? "Salvataggio..." : promozione ? "Salva modifiche" : "Aggiungi"}
+          </Button>
+          {promozione && (
             <Button type="button" variant="outline" disabled={inCorso} onClick={elimina}>
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>

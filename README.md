@@ -12,8 +12,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
-   `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql` e `0019_permessi_granulari.sql`,
-   eseguendo ognuno.
+   `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql` e
+   `0020_promozioni_tariffe.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -277,6 +277,19 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   spuntabili al posto del menu a tendina. Nessuna policy RLS coinvolta: il controllo restava già
   tutto lato applicazione. La pagina Utenti (legacy, superflua da quando esiste il login
   individuale) mantiene il suo vecchio `area_accesso` a valore singolo, non essendo più promossa.
+✅ Mondo Business (2026-08): ripristinate funzioni del vecchio gestionale rimaste indietro nella
+  migrazione. **Dashboard**: pannello "Statistiche per periodo" (chip Ultimi 7/30/90 giorni +
+  intervallo personalizzato, `getStatistichePeriodo()` in `src/lib/analytics.ts`) con aperti/
+  completati/urgenti e **SLA medio di risoluzione** per reparto e per priorità (ore da creazione a
+  completamento, ex `getStatistichePeriodo()` del vecchio gestionale); pulsante "Esporta PDF" (stampa
+  browser, sidebar nascosta in stampa). **Tariffe**: sezione **Promozioni** ricostruita da zero (era
+  assente — tabella `promozioni`, migrazione `0020`): sconto %/fisso, mesi omaggio o attivazione
+  gratuita, piani applicabili multipli, periodo di validità con stato Attiva/Programmata/Scaduta
+  calcolato dalle date, codice promo facoltativo, avviso se una tariffa ha più promo attive insieme;
+  pulsante "Duplica" per clonare un piano esistente. **Richieste Clienti**: vista passata da lista a
+  bacheca a 3 colonne con lo stato intermedio "In Verifica" (tra "Da Lavorare" e "Lavorata",
+  nessuna migrazione necessaria — `stato` era già testo libero); il collegamento al Ticket
+  d'origine (già in `richieste_clienti.ticket_id`) ora è visibile e cliccabile nel dettaglio.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
