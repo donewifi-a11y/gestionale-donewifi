@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaTicket, cercaClientiEsistenti, type ClienteEsistente } from "../actions";
 import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET } from "@/lib/types";
+import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
 
 export default function NuovoTicketPage() {
   const router = useRouter();
   const primoCampo = useRef<HTMLInputElement>(null);
+  const fileExtraRef = useRef<HTMLInputElement>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [cliente, setCliente] = useState("");
@@ -23,8 +25,11 @@ export default function NuovoTicketPage() {
   const [email, setEmail] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [categoria, setCategoria] = useState<(typeof CATEGORIE_TICKET)[number]>(CATEGORIE_TICKET[0]);
+  const [sottocategoria, setSottocategoria] = useState("");
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
   const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const configExtra = sottocategoria ? CONFIG_SOTTOCATEGORIE[sottocategoria] : undefined;
 
   function onCambiaCliente(v: string) {
     setCliente(v);
@@ -55,18 +60,42 @@ export default function NuovoTicketPage() {
       setErrore("Il nome del cliente è obbligatorio.");
       return;
     }
+
+    // ★ campi extra per sottocategoria (ex CONFIG_CATEGORIE) — raccolti
+    // qui e validati come i campi normali, un file al massimo.
+    const dettagliExtra: Record<string, string> = {};
+    let fileExtra: File | null = null;
+    if (configExtra) {
+      for (const campo of configExtra.campi) {
+        if (campo.tipo === "file") {
+          fileExtra = fileExtraRef.current?.files?.[0] ?? null;
+          continue;
+        }
+        const valore = String(dati.get(`cx_${campo.id}`) || "").trim();
+        if (campo.obbligatorio && !valore) {
+          setErrore(`Il campo "${campo.label}" è obbligatorio.`);
+          return;
+        }
+        if (valore) dettagliExtra[campo.id] = valore;
+      }
+    }
+
     setInCorso(true);
-    const risultato = await creaTicket({
-      cliente: nomeCliente,
-      telefono,
-      email,
-      indirizzo,
-      categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
-      sottocategoria: String(dati.get("sottocategoria") || ""),
-      problema: String(dati.get("problema") || ""),
-      priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
-      reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
-    });
+    const risultato = await creaTicket(
+      {
+        cliente: nomeCliente,
+        telefono,
+        email,
+        indirizzo,
+        categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
+        sottocategoria,
+        problema: String(dati.get("problema") || ""),
+        priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
+        reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
+        dettagliExtra,
+      },
+      fileExtra
+    );
     if (risultato.errore) {
       setErrore(risultato.errore);
       setInCorso(false);
@@ -142,7 +171,10 @@ export default function NuovoTicketPage() {
               id="categoria"
               name="categoria"
               value={categoria}
-              onChange={(e) => setCategoria(e.target.value as (typeof CATEGORIE_TICKET)[number])}
+              onChange={(e) => {
+                setCategoria(e.target.value as (typeof CATEGORIE_TICKET)[number]);
+                setSottocategoria("");
+              }}
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
               {CATEGORIE_TICKET.map((c) => (
@@ -174,7 +206,8 @@ export default function NuovoTicketPage() {
             id="sottocategoria"
             name="sottocategoria"
             key={categoria}
-            defaultValue=""
+            value={sottocategoria}
+            onChange={(e) => setSottocategoria(e.target.value)}
             className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
           >
             <option value="">Nessun dettaglio specifico</option>
@@ -183,6 +216,40 @@ export default function NuovoTicketPage() {
             ))}
           </select>
         </div>
+
+        {configExtra && (
+          <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-accent-soft/40 p-3.5">
+            {configExtra.info && (
+              <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+                {configExtra.info}
+              </p>
+            )}
+            {configExtra.campi.map((campo) => (
+              <div key={campo.id}>
+                <Label htmlFor={`cx_${campo.id}`}>
+                  {campo.label}
+                  {campo.obbligatorio && " *"}
+                </Label>
+                {campo.tipo === "select" ? (
+                  <select id={`cx_${campo.id}`} name={`cx_${campo.id}`} defaultValue="" className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+                    <option value="">-- Seleziona --</option>
+                    {campo.opzioni?.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                ) : campo.tipo === "textarea" ? (
+                  <Textarea id={`cx_${campo.id}`} name={`cx_${campo.id}`} placeholder={campo.placeholder} rows={2} className="mt-1" />
+                ) : campo.tipo === "file" ? (
+                  <input ref={fileExtraRef} id={`cx_${campo.id}`} type="file" accept="image/*,.pdf" className="mt-1 block w-full text-xs" />
+                ) : (
+                  <Input id={`cx_${campo.id}`} name={`cx_${campo.id}`} type={campo.tipo} placeholder={campo.placeholder} className="mt-1" />
+                )}
+                {campo.hint && <p className="mt-1 text-[11px] text-muted-foreground">{campo.hint}</p>}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div>
           <Label htmlFor="problema">Problema / Note</Label>

@@ -28,6 +28,8 @@ import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richiest
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
+import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
+import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 
 const PRATICHE_INVIABILI = [
   { slug: "disdetta" as const, titolo: "Disdetta contratto" },
@@ -537,6 +539,9 @@ function DettaglioTicket({
         <Campo etichetta="Email" valore={ticket.email || "—"} />
         <Campo etichetta="Indirizzo" valore={ticket.indirizzo || "—"} />
         <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
+        {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
+          <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
+        )}
         {ticket.contratto_pdf_url && (
           <Button
             size="sm"
@@ -654,6 +659,46 @@ function Campo({ etichetta, valore }: { etichetta: string; valore: string }) {
     <div>
       <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichetta}</div>
       <div className="font-medium">{valore}</div>
+    </div>
+  );
+}
+function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; dettagli: Record<string, string> }) {
+  const config = CONFIG_SOTTOCATEGORIE[sottocategoria];
+
+  async function apriAllegato() {
+    const percorso = dettagli._allegato;
+    if (!percorso) return;
+    const risultato = await urlDocumentoRapportino(percorso);
+    if (risultato.errore || !risultato.url) {
+      alert(risultato.errore || "Errore imprevisto.");
+      return;
+    }
+    window.open(risultato.url, "_blank", "noopener,noreferrer");
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/40 p-3">
+      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        Dettagli — {sottocategoria}
+      </div>
+      <div className="flex flex-col gap-1.5 text-xs">
+        {Object.entries(dettagli)
+          .filter(([chiave]) => chiave !== "_allegato" && chiave !== "_allegatoNome")
+          .map(([chiave, valore]) => {
+            const label = config?.campi.find((c) => c.id === chiave)?.label ?? chiave;
+            return (
+              <div key={chiave}>
+                <span className="font-semibold">{label}: </span>
+                {valore}
+              </div>
+            );
+          })}
+        {dettagli._allegato && (
+          <button onClick={apriAllegato} className="w-fit text-primary underline-offset-2 hover:underline">
+            📎 {dettagli._allegatoNome || "Vedi allegato"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

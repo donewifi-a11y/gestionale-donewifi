@@ -12,7 +12,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
-   `0017_note_calendario.sql`, eseguendo ognuno.
+   `0017_note_calendario.sql` e `0018_dettagli_extra_ticket.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -236,6 +236,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Archivio — "Riapri" un Ticket chiuso per errore (torna a "Da gestire", loggato in storico),
   rapportino di chiusura e link contratto visibili direttamente qui invece che solo sulla bacheca
   Ticket attiva, filtro per intervallo di date accanto alla ricerca testuale.
+✅ Campi dinamici per sottocategoria in Nuovo Ticket (ex CONFIG_CATEGORIE del vecchio gestionale,
+  `src/lib/campi-ticket.ts`): scegliendo una sottocategoria (es. "Internet assente") compaiono le
+  domande specifiche di quel caso — 11 delle 14 sottocategorie ne avevano (le altre 3 passavano
+  già ai moduli pubblici già costruiti). Salvate in `tickets.dettagli_extra` (jsonb, migrazione
+  `0018`), incluso un eventuale allegato (foto/PDF), mostrate nel dettaglio Ticket.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

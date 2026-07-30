@@ -10,17 +10,21 @@ import type { AreaAccesso, PrioritaTicket, StatoTicket } from "@/lib/types";
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
 // restituirli come dato ({ errore }), non lanciarli.
 
-export async function creaTicket(dati: {
-  cliente: string;
-  telefono: string;
-  email: string;
-  indirizzo: string;
-  categoria: string;
-  sottocategoria: string;
-  problema: string;
-  priorita: PrioritaTicket;
-  reparto: AreaAccesso;
-}) {
+export async function creaTicket(
+  dati: {
+    cliente: string;
+    telefono: string;
+    email: string;
+    indirizzo: string;
+    categoria: string;
+    sottocategoria: string;
+    problema: string;
+    priorita: PrioritaTicket;
+    reparto: AreaAccesso;
+    dettagliExtra: Record<string, string>;
+  },
+  fileExtra?: File | null
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,6 +32,21 @@ export async function creaTicket(dati: {
   if (!user) return { errore: "Non autenticato." };
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  // ★ i campi extra per sottocategoria (ex CONFIG_CATEGORIE) possono
+  // includere un allegato (foto apparati, allegato contabile) — caricato
+  // qui con la service role, come gli altri allegati del gestionale.
+  const dettagliExtra = { ...dati.dettagliExtra };
+  if (fileExtra && fileExtra.size > 0) {
+    const service = createServiceClient();
+    const percorso = `ticket-extra/${Date.now()}-${fileExtra.name}`;
+    const { error: erroreUpload } = await service.storage.from("documenti").upload(percorso, fileExtra, {
+      contentType: fileExtra.type || "application/octet-stream",
+    });
+    if (erroreUpload) return { errore: `Errore caricamento allegato: ${erroreUpload.message}` };
+    dettagliExtra._allegato = percorso;
+    dettagliExtra._allegatoNome = fileExtra.name;
+  }
 
   const { data, error } = await supabase
     .from("tickets")
@@ -38,6 +57,7 @@ export async function creaTicket(dati: {
       indirizzo: dati.indirizzo || null,
       categoria: dati.categoria,
       sottocategoria: dati.sottocategoria || null,
+      dettagli_extra: dettagliExtra,
       problema: dati.problema || null,
       priorita: dati.priorita,
       reparto: dati.reparto,

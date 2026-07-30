@@ -42,6 +42,7 @@ export interface Ticket {
   indirizzo: string | null;
   categoria: string;
   sottocategoria: string | null;
+  dettagli_extra: Record<string, string>;
   problema: string | null;
   stato: StatoTicket;
   priorita: PrioritaTicket;
