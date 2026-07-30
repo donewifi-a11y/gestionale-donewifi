@@ -241,6 +241,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   domande specifiche di quel caso — 11 delle 14 sottocategorie ne avevano (le altre 3 passavano
   già ai moduli pubblici già costruiti). Salvate in `tickets.dettagli_extra` (jsonb, migrazione
   `0018`), incluso un eventuale allegato (foto/PDF), mostrate nel dettaglio Ticket.
+✅ Richieste Clienti — moduli pubblici riportati ai campi originali di RichiestaDati.html invece
+  del singolo campo semplificato: Cambio IBAN (nome+CF+IBAN), Cambio Anagrafica (due checkbox
+  indipendenti telefono/email, come nel vecchio gestionale), Trasferimento (nuovo indirizzo
+  completo con autocomplete, piano/interno, data preferita), Subentro (tipologia Privato/Partita
+  IVA con campi condizionali, metodo di pagamento con mandato SEPA per l'addebito IBAN, upload
+  documento d'identità + tessera sanitaria). Tutto raccolto in modo generico in
+  `richieste_clienti.dettagli`, nessuna nuova migrazione necessaria.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

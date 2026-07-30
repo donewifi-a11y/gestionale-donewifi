@@ -179,7 +179,7 @@ function DettaglioRichiesta({
               {richiesta.documenti.map((doc, i) => (
                 <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(doc.percorso)}>
                   <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  {doc.nome}
+                  {doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}
                 </Button>
               ))}
             </div>

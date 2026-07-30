@@ -124,7 +124,7 @@ export interface RichiestaCliente {
   segnalazione_id: string | null;
   ticket_id: string | null;
   dettagli: Record<string, string>;
-  documenti: { nome: string; percorso: string }[];
+  documenti: { nome: string; percorso: string; tipo?: string }[];
   stato: string;
 }
 

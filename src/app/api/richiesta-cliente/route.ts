@@ -1,12 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
-import { validaIban } from "@/lib/validazione";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "consenso"]);
+const CAMPI_FILE: Record<string, string> = {
+  fronteDoc: "Fronte documento",
+  retroDoc: "Retro documento",
+  fronteTS: "Fronte tessera sanitaria",
+  retroTS: "Retro tessera sanitaria",
+};
+
 // ★ Rotta pubblica (nessun login) per le 4 pratiche cliente — Cambio IBAN,
-// Cambio Anagrafica, Trasferimento, Subentro — sul modello già usato da
-// /api/richiesta-dati: service role solo qui, lato server.
+// Cambio Anagrafica, Trasferimento, Subentro — ognuna con i propri campi
+// (ex form dedicati di RichiestaDati.html), raccolti qui in modo generico
+// invece di uno per tipo: tutto ciò che non è un campo di controllo o un
+// allegato noto finisce in "dettagli".
 export async function POST(request: NextRequest) {
   const dati = await request.formData();
   const tipo = String(dati.get("tipo") || "");
@@ -20,22 +29,18 @@ export async function POST(request: NextRequest) {
 
   const ticketId = String(dati.get("ticketId") || "") || null;
 
-  const campoValori: Record<string, string> = {};
-  for (const chiave of ["iban", "nuovoRecapito", "nuovoIndirizzo", "nuovoIntestatario"]) {
-    const valore = String(dati.get(chiave) || "").trim();
-    if (valore) campoValori[chiave] = valore;
-  }
-
-  if (tipo === "Cambio IBAN" && campoValori.iban) {
-    const esito = validaIban(campoValori.iban);
-    if (!esito.valido) return NextResponse.json({ errore: esito.messaggio }, { status: 400 });
+  const dettagli: Record<string, string> = {};
+  for (const [chiave, valore] of dati.entries()) {
+    if (CAMPI_RISERVATI.has(chiave) || chiave in CAMPI_FILE) continue;
+    if (typeof valore === "string" && valore.trim()) dettagli[chiave] = valore.trim();
   }
 
   const supabase = createServiceClient();
 
-  const documenti: { nome: string; percorso: string }[] = [];
-  const files = dati.getAll("documenti").filter((f): f is File => f instanceof File && f.size > 0);
-  for (const file of files) {
+  const documenti: { nome: string; percorso: string; tipo: string }[] = [];
+  for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
+    const file = dati.get(campo);
+    if (!(file instanceof File) || file.size === 0) continue;
     const percorso = `richieste-cliente/${Date.now()}-${file.name}`;
     const { error: erroreUpload } = await supabase.storage.from("documenti").upload(percorso, file, {
       contentType: file.type || "application/octet-stream",
@@ -43,14 +48,14 @@ export async function POST(request: NextRequest) {
     if (erroreUpload) {
       return NextResponse.json({ errore: `Errore caricamento "${file.name}": ${erroreUpload.message}` }, { status: 500 });
     }
-    documenti.push({ nome: file.name, percorso });
+    documenti.push({ nome: file.name, percorso, tipo: etichetta });
   }
 
   const { error: erroreInsert } = await supabase.from("richieste_clienti").insert({
     tipo_richiesta: tipo,
     cliente: nomeCliente,
     ticket_id: ticketId,
-    dettagli: campoValori,
+    dettagli,
     documenti,
   });
   if (erroreInsert) {
