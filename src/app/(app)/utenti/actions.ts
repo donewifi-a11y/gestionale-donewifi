@@ -59,8 +59,12 @@ export async function aggiornaStaff(id: string, dati: { nome: string; area_acces
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
-  const supabase = await createClient();
-  const { error } = await supabase
+  // ★ FIX — "staff" non ha mai avuto una policy RLS di scrittura per il
+  // client normale (solo "leggi il tuo profilo"): questo update, con la
+  // sessione dell'utente, non modificava alcuna riga senza segnalare
+  // errore — l'azione sembrava riuscire ma non cambiava mai nulla.
+  const service = createServiceClient();
+  const { error } = await service
     .from("staff")
     .update({ nome: dati.nome || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
     .eq("id", id);
