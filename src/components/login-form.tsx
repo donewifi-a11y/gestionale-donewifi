@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle } from "lucide-react";
+import { selezionaPersonaDopoLogin } from "@/app/login/actions";
 
 export function LoginForm({ erroreIniziale }: { erroreIniziale?: string }) {
   const router = useRouter();
@@ -32,6 +33,10 @@ export function LoginForm({ erroreIniziale }: { erroreIniziale?: string }) {
       setCaricamento(false);
       return;
     }
+
+    // ★ login individuale — se questo account è collegato a una Persona,
+    // la seleziona subito: non serve più il passaggio "Tu sei".
+    await selezionaPersonaDopoLogin();
 
     router.push("/");
     router.refresh();

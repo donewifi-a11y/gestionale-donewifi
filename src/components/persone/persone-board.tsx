@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Lock } from "lucide-react";
+import { Plus, AlertTriangle, Lock, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,11 +48,16 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
               <div>
                 <div className="flex items-center gap-1.5 font-semibold">
                   {p.nome}
-                  {p.richiede_password && <Lock className="h-3 w-3 text-muted-foreground" strokeWidth={2.25} />}
+                  {p.ha_login ? (
+                    <KeyRound className="h-3 w-3 text-success" strokeWidth={2.25} />
+                  ) : (
+                    p.richiede_password && <Lock className="h-3 w-3 text-muted-foreground" strokeWidth={2.25} />
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {p.area_accesso}
                   {p.email && ` · ${p.email}`}
+                  {p.ha_login && " · login individuale"}
                 </div>
               </div>
             </div>
@@ -137,10 +142,11 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
           </select>
         </div>
         <div>
-          <Label htmlFor="password">Password (facoltativa)</Label>
-          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non richiederla" className="mt-1" />
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non attivare il login ora" className="mt-1" />
           <p className="mt-1 text-xs text-muted-foreground">
-            Se impostata, verrà richiesta ogni volta che qualcuno sceglie questa persona dal menu &quot;Tu sei&quot;.
+            Con un&apos;email e una password, questa persona ottiene un accesso individuale reale (login diretto,
+            non più solo un account condiviso + scelta &quot;Tu sei&quot;).
           </p>
         </div>
         {errore && (
@@ -212,9 +218,16 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
         </label>
         <div>
           <Label htmlFor="password">
-            {persona.richiede_password ? "Nuova password (lascia vuoto per non cambiarla)" : "Imposta una password (facoltativa)"}
+            {persona.ha_login
+              ? "Nuova password di accesso (lascia vuoto per non cambiarla)"
+              : "Password (per attivare il login individuale)"}
           </Label>
-          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non richiederla" className="mt-1" />
+          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non cambiarla" className="mt-1" />
+          {!persona.ha_login && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Serve anche l&apos;email qui sopra: con entrambe, questa persona ottiene un login diretto.
+            </p>
+          )}
         </div>
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

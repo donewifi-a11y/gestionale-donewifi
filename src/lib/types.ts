@@ -93,6 +93,7 @@ export interface Persona {
   attivo: boolean;
   area_accesso: AreaAccesso;
   richiede_password?: boolean;
+  ha_login?: boolean;
 }
 
 export interface RichiestaCliente {

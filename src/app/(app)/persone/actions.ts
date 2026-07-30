@@ -28,24 +28,47 @@ async function verificaAdmin(): Promise<string | null> {
 // già controllato il livello della persona corrente. Prima, chiunque
 // avesse la sessione poteva scrivere direttamente via REST bypassando
 // quel controllo, che viveva solo nel codice dell'app.
+//
+// ★ NUOVA — login individuale: se si imposta una password insieme a
+// un'email, la Persona ottiene un vero accesso Supabase Auth (non solo
+// la vecchia password di conferma per il cambio-persona), collegato via
+// persone.auth_user_id (migrazione 0011_login_individuale.sql).
 export async function creaPersona(dati: { nome: string; email: string; area_accesso: AreaAccesso; password: string }) {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
+  const email = dati.email.trim();
+  const password = dati.password.trim();
+
   const service = createServiceClient();
   const { data, error } = await service
     .from("persone")
-    .insert({ nome: dati.nome, email: dati.email.trim() || null, area_accesso: dati.area_accesso })
+    .insert({ nome: dati.nome, email: email || null, area_accesso: dati.area_accesso })
     .select("id")
     .single();
   if (error) return { errore: error.message };
 
-  if (dati.password.trim()) {
+  if (password) {
+    // ★ resta anche come password di conferma per il selettore "Tu sei"
+    // (usata finché non tutte le Persone hanno un login individuale).
     const { error: errorePwd } = await service.rpc("imposta_password_persona", {
       p_persona_id: data.id,
-      p_password: dati.password.trim(),
+      p_password: password,
     });
     if (errorePwd) return { errore: errorePwd.message };
+
+    if (email) {
+      const { data: creato, error: erroreAuth } = await service.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (erroreAuth || !creato?.user) {
+        return { errore: erroreAuth?.message || "Persona creata, ma l'accesso individuale non è riuscito." };
+      }
+      const { error: erroreLink } = await service.from("persone").update({ auth_user_id: creato.user.id }).eq("id", data.id);
+      if (erroreLink) return { errore: erroreLink.message };
+    }
   }
 
   revalidatePath("/persone");
@@ -59,19 +82,46 @@ export async function aggiornaPersona(
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso };
 
+  const email = dati.email.trim();
+  const password = dati.password.trim();
+
   const service = createServiceClient();
+  const { data: esistente } = await service.from("persone").select("auth_user_id").eq("id", id).single();
+
   const { error } = await service
     .from("persone")
-    .update({ nome: dati.nome, email: dati.email.trim() || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
+    .update({ nome: dati.nome, email: email || null, area_accesso: dati.area_accesso, attivo: dati.attivo })
     .eq("id", id);
   if (error) return { errore: error.message };
 
-  if (dati.password.trim()) {
+  if (password) {
     const { error: errorePwd } = await service.rpc("imposta_password_persona", {
       p_persona_id: id,
-      p_password: dati.password.trim(),
+      p_password: password,
     });
     if (errorePwd) return { errore: errorePwd.message };
+  }
+
+  if (email && (password || esistente?.auth_user_id)) {
+    if (esistente?.auth_user_id) {
+      // ★ account individuale già collegato: aggiorna email/password lì.
+      const aggiornamento: { email?: string; password?: string } = { email };
+      if (password) aggiornamento.password = password;
+      const { error: erroreAuth } = await service.auth.admin.updateUserById(esistente.auth_user_id, aggiornamento);
+      if (erroreAuth) return { errore: erroreAuth.message };
+    } else if (password) {
+      // ★ prima password impostata per questa Persona: crea l'accesso individuale ora.
+      const { data: creato, error: erroreAuth } = await service.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (erroreAuth || !creato?.user) {
+        return { errore: erroreAuth?.message || "Persona aggiornata, ma l'accesso individuale non è riuscito." };
+      }
+      const { error: erroreLink } = await service.from("persone").update({ auth_user_id: creato.user.id }).eq("id", id);
+      if (erroreLink) return { errore: erroreLink.message };
+    }
   }
 
   revalidatePath("/persone");

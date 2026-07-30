@@ -10,7 +10,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    contenuto di `supabase/migrations/0001_init.sql`, `0002_storage.sql`, `0003_note_ticket.sql`,
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
-   `0010_rapportini_tariffe_richieste.sql`, eseguendo ognuno.
+   `0010_rapportini_tariffe_richieste.sql`, eseguendo ognuno. **`0011` e `0012` (login
+   individuale) vanno applicate con cautela — vedi sezione dedicata sotto**, non di seguito come
+   le altre: `0012` da sola blocca l'accesso a chiunque se applicata prima di aver collegato
+   almeno una Persona a un login vero.
 3. **Copia le credenziali**: Project Settings → API → copia `Project URL`, `anon public key`,
    `service_role key`.
 4. **Configura le variabili d'ambiente**: copia `.env.local.example` in `.env.local` e compila
@@ -68,6 +71,21 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   funzioni Postgres `security definer` `imposta_password_persona`/`verifica_password_persona`
   (migrazione `0006_persone_accesso.sql`), e ogni query dell'app seleziona colonne esplicite,
   mai `select *`, su `persone`.
+- **Login individuale (migrazioni `0011`/`0012`)** — sostituisce il modello "account condiviso +
+  scelta Persona dopo il login" con un login vero per ciascuna Persona. `persone.auth_user_id`
+  collega la Persona al suo account Supabase Auth reale; la funzione SQL `is_active_staff()` (letta
+  da tutte le policy RLS del database) non guarda più `staff`, guarda `persone.auth_user_id =
+  auth.uid()`. `creaPersona`/`aggiornaPersona` (`src/app/(app)/persone/actions.ts`) creano/
+  aggiornano quell'account reale quando email e password sono entrambe presenti. Dopo un login
+  riuscito, `selezionaPersonaDopoLogin` (`src/app/login/actions.ts`) seleziona subito quella
+  Persona — non serve più il passaggio "Tu sei" per chi ha un accesso individuale.
+  ⚠️ **Ordine di attivazione obbligatorio** (altrimenti si resta tutti fuori): 1) applicare
+  `0011_persone_auth_user_id.sql` (aggiunge solo la colonna, innocua); 2) collegare almeno una
+  Persona attiva a un vero `auth_user_id` (via `aggiornaPersona`/`creaPersona` dalla UI, oppure con
+  uno script che usa `service.auth.admin.createUser` + un update mirato); 3) **solo dopo**,
+  applicare `0012_login_individuale_controllo_accessi.sql`. Gli account condivisi (`staff`) restano
+  nel database ma smettono di avere effetto sui permessi: possono ancora autenticarsi, ma senza una
+  Persona collegata non superano più `is_active_staff()` e non vedono/scrivono nulla.
 - `src/app/(app)/tickets` + `src/components/tickets/rapportino.tsx` — passare un Ticket a
   Completato apre il rapportino di chiusura (esito, lavori svolti, materiali, foto, firma cliente
   su canvas) invece di un semplice conferma/annulla; niente generazione PDF lato server, il
