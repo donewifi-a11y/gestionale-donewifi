@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaSegnalazione } from "../actions";
 import type { Copertura } from "@/lib/types";
 
@@ -15,6 +16,15 @@ export default function NuovaSegnalazionePage() {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const [via, setVia] = useState("");
+  const [comune, setComune] = useState("");
+  const [cap, setCap] = useState("");
+
+  function onSelezionaIndirizzo(d: DettagliIndirizzo) {
+    setVia(d.via);
+    if (d.comune) setComune(d.comune);
+    if (d.cap) setCap(d.cap);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -22,10 +32,7 @@ export default function NuovaSegnalazionePage() {
     const dati = new FormData(e.currentTarget);
     const nome = String(dati.get("nome") || "").trim();
     const telefono = String(dati.get("telefono") || "").trim();
-    const via = String(dati.get("via") || "").trim();
     const civico = String(dati.get("civico") || "").trim();
-    const comune = String(dati.get("comune") || "").trim();
-    const cap = String(dati.get("cap") || "").trim();
     if (!nome || !telefono || !via || !civico || !comune || !cap) {
       setErrore("Nome, telefono e indirizzo completo sono obbligatori.");
       return;
@@ -83,7 +90,7 @@ export default function NuovaSegnalazionePage() {
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
             <Label htmlFor="via">Via *</Label>
-            <Input id="via" name="via" required className="mt-1" />
+            <IndirizzoAutocomplete id="via" name="via" value={via} onChange={setVia} onSeleziona={onSelezionaIndirizzo} className="mt-1" />
           </div>
           <div>
             <Label htmlFor="civico">Civico *</Label>
@@ -94,11 +101,11 @@ export default function NuovaSegnalazionePage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="comune">Comune *</Label>
-            <Input id="comune" name="comune" required className="mt-1" />
+            <Input id="comune" name="comune" value={comune} onChange={(e) => setComune(e.target.value)} required className="mt-1" />
           </div>
           <div>
             <Label htmlFor="cap">CAP *</Label>
-            <Input id="cap" name="cap" required className="mt-1" />
+            <Input id="cap" name="cap" value={cap} onChange={(e) => setCap(e.target.value)} required className="mt-1" />
           </div>
         </div>
 

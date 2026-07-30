@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -325,6 +325,18 @@ function DettaglioSegnalazione({
 
         <Campo etichetta="Telefono" valore={segnalazione.telefono} />
         <Campo etichetta="Email" valore={segnalazione.email || "—"} />
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(`${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} ${segnalazione.cap}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-0.5 flex items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+            {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
+          </a>
+        </div>
         <Campo etichetta="Note" valore={segnalazione.note || "—"} />
 
         {segnalazione.stato === "Gestione Cliente" && !richiesta && (
