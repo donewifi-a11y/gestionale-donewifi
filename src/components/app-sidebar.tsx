@@ -86,8 +86,8 @@ export function AppSidebar({
         ],
       },
       {
-        id: "numeri",
-        etichetta: "Mondo Numeri",
+        id: "business",
+        etichetta: "Mondo Business",
         icona: BarChart3,
         voci: [
           { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
@@ -110,7 +110,7 @@ export function AppSidebar({
   }, [dashboardReparti, vedeRichieste, vedeTariffe, isAdmin]);
 
   // ★ il mondo attivo segue la pagina corrente (es. aprendo /tariffe si
-  // apre già "Mondo Numeri"), con ricordo della scelta manuale sopra.
+  // apre già "Mondo Business"), con ricordo della scelta manuale sopra.
   const mondoDaPercorso = useMemo(() => {
     for (const m of mondi) {
       if (m.voci.some((v) => (v.esatto ? pathname === v.href : pathname.startsWith(v.href)))) return m.id;
