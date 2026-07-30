@@ -213,7 +213,7 @@ export async function completaTicketConRapportino(
 
   const service = createServiceClient();
 
-  const { data: ticketRiga } = await supabase.from("tickets").select("cliente, numero, email").eq("id", ticketId).single();
+  const { data: ticketRiga } = await supabase.from("tickets").select("cliente, numero, email, reparto").eq("id", ticketId).single();
 
   let firmaUrl: string | null = null;
   if (dati.firmaDataUrl) {
@@ -265,7 +265,7 @@ export async function completaTicketConRapportino(
 
   if (ticketRiga?.email) {
     const { oggetto, corpoHtml } = emailChiusuraTicket(ticketRiga.cliente, ticketRiga.numero);
-    await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml });
+    await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml, reparto: ticketRiga.reparto });
   }
 
   revalidatePath("/tickets");
@@ -284,7 +284,7 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
 
-  const { data: ticket } = await supabase.from("tickets").select("numero, cliente, email").eq("id", ticketId).single();
+  const { data: ticket } = await supabase.from("tickets").select("numero, cliente, email, reparto").eq("id", ticketId).single();
   if (!ticket) return { errore: "Ticket non trovato." };
   if (!ticket.email) return { errore: "Il cliente non ha un'email registrata su questo ticket." };
 
@@ -298,7 +298,7 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
 
   const link = `${origine}/approva/${creato.token}`;
   const { oggetto, corpoHtml } = emailApprovazioneIntervento(ticket.cliente, ticket.numero, link);
-  await inviaEmail({ a: ticket.email, oggetto, corpoHtml });
+  await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto: ticket.reparto });
 
   return { errore: null, link };
 }

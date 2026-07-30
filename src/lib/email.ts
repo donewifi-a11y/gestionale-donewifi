@@ -1,46 +1,65 @@
+import nodemailer from "nodemailer";
 import type { AreaAccesso } from "@/lib/types";
 
 // ★ ex EMAIL_MITTENTE_REPARTI del vecchio gestionale (Gmail "Invia
-// messaggi come") — qui lo stesso principio: l'email che il cliente
-// riceve arriva dall'indirizzo del reparto competente, non da un mittente
-// generico, così il cliente sa subito chi gli sta scrivendo.
-const EMAIL_MITTENTE_REPARTI: Partial<Record<AreaAccesso, string>> = {
-  "Analisi Rete": "Done Wifi Assistenza <assistenza@donewifi.it>",
-  Commerciale: "Done Wifi Commerciale <commerciale@donewifi.it>",
-  Fatturazione: "Done Wifi <servizioclienti@donewifi.it>",
+// messaggi come") — qui lo stesso principio ma via le caselle Aruba vere
+// e proprie (SMTP, non l'API Resend): ogni reparto ha una propria casella
+// con le proprie credenziali, quindi il cliente riceve davvero da
+// quell'indirizzo, non da un mittente generico "spoofato".
+const CASELLE_REPARTI: Partial<Record<AreaAccesso, { nome: string; envUser: string; envPass: string }>> = {
+  "Analisi Rete": { nome: "Done Wifi Assistenza", envUser: "SMTP_USER_ANALISI_RETE", envPass: "SMTP_PASS_ANALISI_RETE" },
+  Commerciale: { nome: "Done Wifi Commerciale", envUser: "SMTP_USER_COMMERCIALE", envPass: "SMTP_PASS_COMMERCIALE" },
+  Fatturazione: { nome: "Done Wifi", envUser: "SMTP_USER_FATTURAZIONE", envPass: "SMTP_PASS_FATTURAZIONE" },
 };
 
-export function mittenteReparto(reparto?: AreaAccesso): string | undefined {
-  return reparto ? EMAIL_MITTENTE_REPARTI[reparto] : undefined;
+function transporter(user: string, pass: string) {
+  const host = process.env.SMTP_HOST || "smtps.aruba.it";
+  const port = Number(process.env.SMTP_PORT || 465);
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
 }
 
-// ★ ex _inviaEmailChiusura() del vecchio gestionale — qui via Resend (API
-// diretta via fetch, nessuna libreria in più). Come Telegram e Google
-// Calendar: se RESEND_API_KEY non è configurata, l'invio viene saltato
-// silenziosamente, il resto del gestionale funziona lo stesso.
-export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: string; mittente?: string }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const mittente = a.mittente || process.env.RESEND_MITTENTE || "Done Wifi <notifiche@donewifi.it>";
-  if (!apiKey || !a.a) return { errore: "Invio email non configurato (RESEND_API_KEY mancante)." };
+interface CredenzialiCasella {
+  mittente: string;
+  user: string;
+  pass: string;
+}
+
+/** Credenziali della casella del reparto — o della casella di default (SMTP_USER/SMTP_PASS) se il reparto non ne ha una propria o non è specificato. */
+function credenzialiReparto(reparto?: AreaAccesso): CredenzialiCasella | null {
+  const casella = reparto ? CASELLE_REPARTI[reparto] : undefined;
+  const user = (casella ? process.env[casella.envUser] : undefined) || process.env.SMTP_USER;
+  const pass = (casella ? process.env[casella.envPass] : undefined) || process.env.SMTP_PASS;
+  if (!user || !pass) return null;
+  const nome = casella?.nome || "Done Wifi";
+  return { mittente: `"${nome}" <${user}>`, user, pass };
+}
+
+// ★ ex _inviaEmailChiusura() del vecchio gestionale — qui via SMTP Aruba
+// (nodemailer) invece di Resend: nessuna API esterna, usa direttamente le
+// caselle email aziendali già esistenti. Come Telegram e Google Calendar:
+// se le credenziali della casella non sono configurate, l'invio viene
+// segnalato come errore ma non blocca mai il resto del gestionale.
+export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: string; reparto?: AreaAccesso }) {
+  if (!a.a) return { errore: "Nessun indirizzo destinatario." };
+
+  const credenziali = credenzialiReparto(a.reparto);
+  if (!credenziali) {
+    return { errore: "Invio email non configurato (credenziali SMTP mancanti per questa casella)." };
+  }
 
   try {
-    const risposta = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: mittente,
-        to: [a.a],
-        subject: a.oggetto,
-        html: a.corpoHtml,
-      }),
+    const t = transporter(credenziali.user, credenziali.pass);
+    await t.sendMail({
+      from: credenziali.mittente,
+      to: a.a,
+      subject: a.oggetto,
+      html: a.corpoHtml,
     });
-    if (!risposta.ok) {
-      const corpo = await risposta.text();
-      return { errore: `Resend ha rifiutato l'invio: ${corpo}` };
-    }
     return { errore: null };
   } catch (err) {
     return { errore: err instanceof Error ? err.message : "Errore imprevisto nell'invio email." };

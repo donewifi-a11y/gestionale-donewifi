@@ -117,9 +117,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   caricati dai clienti nelle Richieste Clienti già lavorate; il secondo avvisa via Telegram il
   reparto competente per i Ticket ancora "Da gestire" da oltre 24h. Protetti da `CRON_SECRET`
   quando è impostata (Vercel la invia in automatico).
-- `src/lib/email.ts` — email di chiusura al cliente quando un Ticket passa a Completato via
-  rapportino, tramite Resend (`RESEND_API_KEY`); come Telegram/Google Calendar, se non configurata
-  l'invio viene saltato senza bloccare nulla.
+- `src/lib/email.ts` — email in uscita (chiusura Ticket, approvazione intervento, link Richiesta
+  Dati) via SMTP delle caselle Aruba vere (nodemailer, non un servizio esterno) — ogni reparto ha
+  le proprie credenziali (`SMTP_USER_<REPARTO>`/`SMTP_PASS_<REPARTO>`), così il cliente riceve
+  davvero dall'indirizzo del reparto competente (`assistenza@`/`commerciale@`/`servizioclienti@`),
+  con ripiego su `SMTP_USER`/`SMTP_PASS` se un reparto non ha una casella dedicata configurata;
+  come Telegram/Google Calendar, se le credenziali mancano l'invio fallisce senza bloccare il
+  resto del gestionale.
 - `src/app/portale` — ultimo pezzo pubblico ancora sul vecchio gestionale Apps Script (Portale.html
   su `area.donewifi.it`), ora qui: il cliente apre un Ticket da solo (nome + telefono/email +
   categoria, honeypot anti-spam) oppure verifica lo stato di uno esistente (numero + telefono),
@@ -185,7 +189,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
 ✅ Ricerca globale in sidebar su Ticket e Segnalazioni.
 ✅ Autocompletamento indirizzo e autofill cliente esistente in Nuovo Ticket.
 ✅ Automazioni: pulizia documenti clienti scaduti ed avviso ticket fermi, via Vercel Cron.
-✅ Email di chiusura automatica al cliente (Resend, facoltativa).
+✅ Email di chiusura automatica al cliente (SMTP Aruba, facoltativa).
 ✅ Login individuale (2026-07-31): ogni Persona può avere un accesso Supabase Auth reale
   (`persone.auth_user_id`), selezionato automaticamente al login — non serve più passare da "Tu
   sei" per il proprio account. Il controllo accessi dell'intero database (`is_active_staff()`) ora
@@ -207,10 +211,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   chi non ha accesso Tutto/Admin, scorciatoia a Vista Tecnico per chi ha ticket assegnati oggi.
 ✅ Ticket — sottocategorie (14 voci puntuali ex vecchio gestionale, es. "Assistenza: Internet
   assente", `tickets.sottocategoria`, facoltative) e cambio reparto post-creazione dal dettaglio.
-✅ Segnalazioni — il pulsante "Email" per il link Richiesta Dati ora invia davvero (Resend) da
-  `commerciale@donewifi.it` invece di aprire il client di posta personale dell'operatore
-  (`mailto:`) — stesso principio di `EMAIL_MITTENTE_REPARTI` del vecchio gestionale
-  (`src/lib/email.ts`, funzione `mittenteReparto`), pronto per estendersi agli altri reparti.
+✅ Segnalazioni — il pulsante "Email" per il link Richiesta Dati ora invia davvero (SMTP Aruba, la
+  casella vera `commerciale@donewifi.it`) invece di aprire il client di posta personale
+  dell'operatore (`mailto:`) — stesso principio di `EMAIL_MITTENTE_REPARTI` del vecchio gestionale.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

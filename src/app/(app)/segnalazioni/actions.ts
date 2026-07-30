@@ -3,7 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailRichiestaDatiSegnalazione, mittenteReparto } from "@/lib/email";
+import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
 
 // ★ invia davvero l'email (Resend) dall'indirizzo del reparto Commerciale
@@ -27,7 +27,7 @@ export async function inviaEmailRichiestaDatiSegnalazione(segnalazioneId: string
     a: segnalazione.email,
     oggetto,
     corpoHtml,
-    mittente: mittenteReparto("Commerciale"),
+    reparto: "Commerciale",
   });
   return risultato;
 }
