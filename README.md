@@ -11,7 +11,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
-   `0014_ricavi_ticket.sql` e `0015_sottocategoria_ticket.sql`, eseguendo ognuno.
+   `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql` e `0016_clienti_attivi.sql`,
+   eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -216,6 +217,11 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   dell'operatore (`mailto:`) — stesso principio di `EMAIL_MITTENTE_REPARTI` del vecchio gestionale.
   Autocompletamento anche sul campo "Via" (precompila Comune/CAP quando disponibili) e link "vedi
   su mappa" sull'indirizzo nel dettaglio.
+✅ Clienti — dati contrattuali (ex registro "Clienti Attivi" del vecchio gestionale): tariffa
+  attiva (collegata al catalogo Tariffe), canone mensile, scadenza contratto, note, modificabili
+  da Commerciale/Fatturazione/Admin (`clienti`, migrazione `0016`) — con badge "Scade tra Ngg"
+  nell'elenco quando il contratto è entro 30 giorni dalla scadenza. L'elenco resta comunque
+  derivato dai Ticket per chi non ha ancora un record proprio.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

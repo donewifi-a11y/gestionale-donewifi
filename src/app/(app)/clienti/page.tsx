@@ -1,15 +1,21 @@
 import { Users2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiBoard } from "@/components/clienti/clienti-board";
-import type { Ticket } from "@/lib/types";
+import type { ClienteAttivo, Tariffa, Ticket } from "@/lib/types";
 
 export default async function ClientiPage() {
   const supabase = await createClient();
 
-  const { data: tickets } = await supabase
-    .from("tickets")
-    .select("*")
-    .order("data_creazione", { ascending: false });
+  const [{ data: tickets }, { data: clienti }, { data: tariffe }] = await Promise.all([
+    supabase.from("tickets").select("*").order("data_creazione", { ascending: false }),
+    supabase.from("clienti").select("*"),
+    supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
+  ]);
+
+  const personaCorrente = await getPersonaCorrente(supabase);
+  const isAdmin = personaHaAccessoAdmin(personaCorrente);
+  const puoModificare = isAdmin || personaCorrente?.area_accesso === "Commerciale" || personaCorrente?.area_accesso === "Fatturazione";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -23,7 +29,12 @@ export default async function ClientiPage() {
         </div>
       </div>
 
-      <ClientiBoard tickets={(tickets as Ticket[]) ?? []} />
+      <ClientiBoard
+        tickets={(tickets as Ticket[]) ?? []}
+        clienti={(clienti as ClienteAttivo[]) ?? []}
+        tariffe={(tariffe as Tariffa[]) ?? []}
+        puoModificare={puoModificare}
+      />
     </div>
   );
 }

@@ -138,6 +138,18 @@ export interface Tariffa {
   ordine: number;
 }
 
+export interface ClienteAttivo {
+  id: string;
+  nome: string;
+  telefono: string | null;
+  email: string | null;
+  indirizzo: string | null;
+  tariffa_id: string | null;
+  canone_mensile: number | null;
+  scadenza_contratto: string | null;
+  note: string | null;
+}
+
 export interface RapportinoIntervento {
   id: string;
   ticket_id: string;
