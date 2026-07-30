@@ -35,8 +35,14 @@ export function LoginForm({ erroreIniziale }: { erroreIniziale?: string }) {
     }
 
     // ★ login individuale — se questo account è collegato a una Persona,
-    // la seleziona subito: non serve più il passaggio "Tu sei".
-    await selezionaPersonaDopoLogin();
+    // la seleziona subito: non serve più il passaggio "Tu sei". Un
+    // problema qui (rete, RLS non ancora allineata, ecc.) non deve mai
+    // impedire l'accesso: il login vero è già riuscito sopra.
+    try {
+      await selezionaPersonaDopoLogin();
+    } catch {
+      // ignorato di proposito — al peggio si sceglie "Tu sei" a mano.
+    }
 
     router.push("/");
     router.refresh();
