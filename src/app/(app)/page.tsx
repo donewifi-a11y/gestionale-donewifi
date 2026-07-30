@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2 } from "lucide-react";
+import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import type { AreaAccesso } from "@/lib/types";
@@ -44,6 +44,7 @@ export default async function MondoTicketPage() {
     { count: segnalazioniInGestione },
     { count: appuntamentiOggi },
     { count: mieiTicketOggi },
+    { data: promemoria },
   ] = await Promise.all([
     queryTicket,
     supabase
@@ -67,6 +68,12 @@ export default async function MondoTicketPage() {
           .eq("tecnico_assegnato", personaCorrenteId)
           .not("stato", "in", "(Completato,Annullato)")
       : Promise.resolve({ count: 0 }),
+    supabase
+      .from("note_calendario")
+      .select("id, testo, data_promemoria")
+      .eq("completata", false)
+      .lte("data_promemoria", oggiFine.toISOString().slice(0, 10))
+      .order("data_promemoria", { ascending: true }),
   ]);
 
   const attivi = ticketAttivi ?? [];
@@ -129,6 +136,29 @@ export default async function MondoTicketPage() {
                   {!filtratoPerReparto && (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">{t.reparto}</span>
                   )}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {promemoria && promemoria.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-warning/30 bg-warning/5 p-5 shadow-md">
+          <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
+            <StickyNote className="h-4 w-4 text-warning" strokeWidth={2.25} />
+            Promemoria di oggi e scaduti
+          </h2>
+          <div className="flex flex-col gap-1.5">
+            {promemoria.map((n) => (
+              <Link
+                key={n.id}
+                href="/calendario"
+                className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition hover:bg-warning/10"
+              >
+                <span className="truncate">{n.testo}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(`${n.data_promemoria}T00:00:00`).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
                 </span>
               </Link>
             ))}

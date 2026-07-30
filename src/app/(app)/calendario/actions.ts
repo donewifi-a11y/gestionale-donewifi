@@ -116,3 +116,43 @@ export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamen
   revalidatePath("/calendario");
   return { errore: null };
 }
+
+// ★ NUOVA — promemoria liberi nel Calendario ("richiamare il cliente X",
+// "ordinare materiale per Y"), non legati per forza a un Ticket, ripresi
+// anche in Mondo Ticket quando sono del giorno o scaduti.
+export async function creaNotaCalendario(dati: { testo: string; dataPromemoria: string; ticketId: string }) {
+  const supabase = await createClient();
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (!dati.testo.trim()) return { errore: "Il testo del promemoria è obbligatorio." };
+
+  const { error } = await supabase.from("note_calendario").insert({
+    testo: dati.testo.trim(),
+    data_promemoria: dati.dataPromemoria,
+    ticket_id: dati.ticketId || null,
+    creato_da: personaId,
+  });
+  if (error) return { errore: error.message };
+
+  revalidatePath("/calendario");
+  revalidatePath("/");
+  return { errore: null };
+}
+
+export async function completaNotaCalendario(id: string, completata: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("note_calendario").update({ completata }).eq("id", id);
+  if (error) return { errore: error.message };
+  revalidatePath("/calendario");
+  revalidatePath("/");
+  return { errore: null };
+}
+
+export async function eliminaNotaCalendario(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("note_calendario").delete().eq("id", id);
+  if (error) return { errore: error.message };
+  revalidatePath("/calendario");
+  revalidatePath("/");
+  return { errore: null };
+}

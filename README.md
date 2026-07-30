@@ -11,8 +11,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0004_appuntamenti.sql`, `0005_persone.sql`, `0006_persone_accesso.sql`,
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
-   `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql` e `0016_clienti_attivi.sql`,
-   eseguendo ognuno.
+   `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
+   `0017_note_calendario.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -226,6 +226,10 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   con l'aggiornamento riflesso anche su Google Calendar), pulsante "Pianifica appuntamento" nel
   dettaglio Ticket (apre il form già precompilato invece di doverlo cercare a mano nel menu a
   tendina) e link "vedi su mappa" sull'indirizzo.
+✅ Promemoria nel Calendario (`note_calendario`, migrazione `0017`): un appunto libero con una
+  data ("richiamare il cliente X", "ordinare materiale per Y"), non legato per forza a un Ticket
+  — appare nel Calendario insieme agli appuntamenti (evidenziato in rosso se scaduto) e ripreso in
+  Mondo Ticket in un pannello dedicato quando è del giorno o scaduto, per non doverlo cercare.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

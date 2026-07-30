@@ -138,6 +138,15 @@ export interface Tariffa {
   ordine: number;
 }
 
+export interface NotaCalendario {
+  id: string;
+  testo: string;
+  data_promemoria: string;
+  ticket_id: string | null;
+  completata: boolean;
+  creato_da: string | null;
+}
+
 export interface ClienteAttivo {
   id: string;
   nome: string;
