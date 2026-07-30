@@ -248,6 +248,13 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   IVA con campi condizionali, metodo di pagamento con mandato SEPA per l'addebito IBAN, upload
   documento d'identità + tessera sanitaria). Tutto raccolto in modo generico in
   `richieste_clienti.dettagli`, nessuna nuova migrazione necessaria.
+✅ Richiesta Dati pubblica — riportata ai campi originali di RichiestaDatiNuovoContratto.html:
+  tipologia cliente Privato/Azienda con campi condizionali (ragione sociale, PEC, SDI, legale
+  rappresentante per le aziende), telefono/email (mancavano del tutto prima), metodo di pagamento
+  con mandato SEPA, e soprattutto **4 allegati distinti** (fronte/retro documento, fronte/retro
+  tessera sanitaria) invece di un unico campo file generico che non lasciava capire quanti/quali
+  documenti caricare. Le etichette dei dettagli raccolti (`src/lib/etichette-dettagli.ts`) sono
+  ora leggibili nel gestionale invece del nome tecnico del campo.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

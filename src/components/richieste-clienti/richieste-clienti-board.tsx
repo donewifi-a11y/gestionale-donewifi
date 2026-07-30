@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { aggiornaStatoRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
+import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 
 const STATI = ["Da Lavorare", "Lavorata"];
 
@@ -166,7 +167,7 @@ function DettaglioRichiesta({
         {Object.entries(richiesta.dettagli || {}).map(([chiave, valore]) =>
           valore ? (
             <div key={chiave}>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{chiave}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichettaDettaglio(chiave)}</div>
               <div className="font-medium">{valore}</div>
             </div>
           ) : null

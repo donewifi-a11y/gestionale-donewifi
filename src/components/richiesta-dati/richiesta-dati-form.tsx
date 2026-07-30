@@ -1,12 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
+import { validaCodiceFiscale, validaPartitaIva, validaIban, validaEmail } from "@/lib/validazione";
 import type { Tariffa } from "@/lib/types";
+
+function FileUpload({ id, label, obbligatorio }: { id: string; label: string; obbligatorio?: boolean }) {
+  const [nome, setNome] = useState("");
+  return (
+    <div>
+      <Label htmlFor={id}>
+        {label}
+        {obbligatorio && " *"}
+      </Label>
+      <label
+        htmlFor={id}
+        className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground transition hover:border-primary hover:text-primary"
+      >
+        <Upload className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+        <span className="truncate">{nome || "Immagine o PDF"}</span>
+      </label>
+      <input id={id} name={id} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => setNome(e.target.files?.[0]?.name || "")} />
+    </div>
+  );
+}
 
 export function RichiestaDatiForm({
   segnalazioneId,
@@ -20,11 +40,14 @@ export function RichiestaDatiForm({
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
-  const [nomeFile, setNomeFile] = useState("");
-  const [tipologiaCliente, setTipologiaCliente] = useState("");
+  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
+  const [metodoPagamento, setMetodoPagamento] = useState<"Bonifico" | "IBAN">("Bonifico");
+  const [intestatarioDiverso, setIntestatarioDiverso] = useState(false);
+  const [tipoDocumento, setTipoDocumento] = useState("CI");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const tariffeVisibili = tariffe.filter(
-    (t) => !tipologiaCliente || t.tipologia_cliente === "Tutti" || t.tipologia_cliente === tipologiaCliente
+    (t) => t.tipologia_cliente === "Tutti" || t.tipologia_cliente === tipologiaCliente
   );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,18 +55,45 @@ export function RichiestaDatiForm({
     setErrore("");
     const dati = new FormData(e.currentTarget);
 
-    // ★ validazione formale (checksum) prima dell'invio — solo sui campi
-    // compilati: non tutte le pratiche richiedono CF/P.IVA/IBAN insieme.
-    const cf = String(dati.get("codiceFiscale") || "").trim();
-    const piva = String(dati.get("partitaIva") || "").trim();
-    const iban = String(dati.get("iban") || "").trim();
-    if (cf && !validaCodiceFiscale(cf).valido) return setErrore(validaCodiceFiscale(cf).messaggio);
-    if (piva && !validaPartitaIva(piva).valido) return setErrore(validaPartitaIva(piva).messaggio);
-    if (iban && !validaIban(iban).valido) return setErrore(validaIban(iban).messaggio);
+    if (tipologiaCliente === "Privato") {
+      const cf = String(dati.get("codiceFiscale") || "").trim();
+      if (!cf) return setErrore("Il Codice Fiscale è obbligatorio.");
+      const esito = validaCodiceFiscale(cf);
+      if (!esito.valido) return setErrore(esito.messaggio);
+    } else {
+      const piva = String(dati.get("partitaIva") || "").trim();
+      if (!piva) return setErrore("La Partita IVA è obbligatoria.");
+      const esito = validaPartitaIva(piva);
+      if (!esito.valido) return setErrore(esito.messaggio);
+      const cfAzienda = String(dati.get("codiceFiscaleAzienda") || "").trim();
+      if (cfAzienda && !validaCodiceFiscale(cfAzienda).valido) return setErrore(validaCodiceFiscale(cfAzienda).messaggio);
+    }
+
+    const email = String(dati.get("email") || "").trim();
+    if (email && !validaEmail(email).valido) return setErrore(validaEmail(email).messaggio);
+
+    if (metodoPagamento === "IBAN") {
+      const iban = String(dati.get("iban") || "").trim();
+      const esito = validaIban(iban);
+      if (!esito.valido) return setErrore(esito.messaggio);
+      if (!dati.get("mandatoSepa")) return setErrore("Devi autorizzare il mandato di addebito SEPA per procedere con l'IBAN.");
+    }
+
+    const fronteDoc = (formRef.current?.querySelector("#fronteDocumento") as HTMLInputElement)?.files?.[0];
+    if (!fronteDoc) return setErrore("Carica il fronte del documento d'identità.");
+    if (tipoDocumento !== "PASSAPORTO") {
+      const retroDoc = (formRef.current?.querySelector("#retroDocumento") as HTMLInputElement)?.files?.[0];
+      if (!retroDoc) return setErrore("Carica il retro del documento d'identità.");
+    }
+
     if (!dati.get("consenso")) return setErrore("Devi accettare l'informativa privacy per proseguire.");
 
-    setInCorso(true);
+    dati.set("tipologiaCliente", tipologiaCliente);
+    dati.set("metodoPagamento", metodoPagamento);
+    dati.set("tipoDocumento", tipoDocumento);
     dati.set("segnalazioneId", segnalazioneId);
+
+    setInCorso(true);
     try {
       const risposta = await fetch("/api/richiesta-dati", { method: "POST", body: dati });
       const risultato = await risposta.json();
@@ -67,29 +117,13 @@ export function RichiestaDatiForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+    <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
       {giaInviato && (
         <p className="flex items-start gap-2 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
           Risultano già dei dati inviati in precedenza. Puoi inviarli di nuovo per aggiornarli.
         </p>
       )}
-
-      <div>
-        <Label htmlFor="tipologiaCliente">Tipologia cliente</Label>
-        <select
-          id="tipologiaCliente"
-          name="tipologiaCliente"
-          autoFocus
-          value={tipologiaCliente}
-          onChange={(e) => setTipologiaCliente(e.target.value)}
-          className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm"
-        >
-          <option value="">Seleziona...</option>
-          <option value="Privato">Privato</option>
-          <option value="Azienda">Azienda</option>
-        </select>
-      </div>
 
       <div>
         <Label htmlFor="profiloInternet">Profilo internet richiesto</Label>
@@ -109,49 +143,117 @@ export function RichiestaDatiForm({
         )}
       </div>
 
+      <div>
+        <Label>Tipologia Cliente</Label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setTipologiaCliente("Privato")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+            👤 Privato
+          </button>
+          <button type="button" onClick={() => setTipologiaCliente("Azienda")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+            🏢 Azienda
+          </button>
+        </div>
+      </div>
+
+      {tipologiaCliente === "Privato" ? (
+        <div>
+          <Label htmlFor="codiceFiscale">Codice Fiscale *</Label>
+          <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-10 uppercase" maxLength={16} />
+        </div>
+      ) : (
+        <>
+          <div>
+            <Label htmlFor="ragioneSociale">Ragione Sociale *</Label>
+            <Input id="ragioneSociale" name="ragioneSociale" required className="mt-1 h-10" />
+          </div>
+          <div>
+            <Label htmlFor="partitaIva">Partita IVA *</Label>
+            <Input id="partitaIva" name="partitaIva" className="mt-1 h-10" maxLength={11} />
+          </div>
+          <div>
+            <Label htmlFor="codiceFiscaleAzienda">Codice Fiscale Azienda (se diverso)</Label>
+            <Input id="codiceFiscaleAzienda" name="codiceFiscaleAzienda" className="mt-1 h-10 uppercase" maxLength={16} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="pec" type="email" placeholder="PEC" className="h-10" />
+            <Input name="sdi" placeholder="Codice SDI" maxLength={7} className="h-10" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="legaleRappresentanteNome" placeholder="Nome Legale Rappresentante" className="h-10" />
+            <Input name="legaleRappresentanteCf" placeholder="CF Legale Rappresentante" className="h-10 uppercase" maxLength={16} />
+          </div>
+        </>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="codiceFiscale">Codice Fiscale</Label>
-          <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-10" />
+          <Label htmlFor="telefono">Telefono</Label>
+          <Input id="telefono" name="telefono" type="tel" className="mt-1 h-10" />
         </div>
         <div>
-          <Label htmlFor="partitaIva">Partita IVA</Label>
-          <Input id="partitaIva" name="partitaIva" className="mt-1 h-10" />
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" className="mt-1 h-10" />
         </div>
       </div>
 
       <div>
-        <Label htmlFor="iban">IBAN</Label>
-        <Input id="iban" name="iban" className="mt-1 h-10" />
+        <Label>Metodo di pagamento</Label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setMetodoPagamento("Bonifico")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${metodoPagamento === "Bonifico" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+            💳 Bonifico
+          </button>
+          <button type="button" onClick={() => setMetodoPagamento("IBAN")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${metodoPagamento === "IBAN" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+            🏦 Addebito IBAN (SDD)
+          </button>
+        </div>
       </div>
 
+      {metodoPagamento === "IBAN" && (
+        <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={intestatarioDiverso} onChange={(e) => setIntestatarioDiverso(e.target.checked)} className="h-4 w-4" />
+            Conto intestato ad altra persona
+          </label>
+          {intestatarioDiverso && (
+            <div className="grid grid-cols-2 gap-3">
+              <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-10" />
+              <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-10 uppercase" maxLength={16} />
+            </div>
+          )}
+          <div>
+            <Label htmlFor="iban">IBAN *</Label>
+            <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-10 uppercase" />
+          </div>
+          <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" name="mandatoSepa" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Autorizzo Done Wifi ad emettere, per il tramite della propria banca, richieste di incasso sul conto indicato, in conformità al mandato di addebito diretto SEPA.
+          </label>
+        </div>
+      )}
+
       <div>
-        <Label htmlFor="metodoPagamento">Metodo di pagamento</Label>
-        <select id="metodoPagamento" name="metodoPagamento" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
-          <option value="">Seleziona...</option>
-          <option value="SDD">Addebito diretto (SDD)</option>
-          <option value="Bonifico">Bonifico</option>
-          <option value="Carta">Carta</option>
+        <Label htmlFor="tipoDocumento">Tipo Documento</Label>
+        <select
+          id="tipoDocumento"
+          value={tipoDocumento}
+          onChange={(e) => setTipoDocumento(e.target.value)}
+          className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm"
+        >
+          <option value="CI">Carta d&apos;Identità</option>
+          <option value="PATENTE">Patente</option>
+          <option value="PASSAPORTO">Passaporto</option>
         </select>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <FileUpload id="fronteDocumento" label="Fronte Documento" obbligatorio />
+        {tipoDocumento !== "PASSAPORTO" && <FileUpload id="retroDocumento" label="Retro Documento" obbligatorio />}
+        <FileUpload id="fronteTesseraSanitaria" label="Fronte Tessera Sanitaria" />
+        <FileUpload id="retroTesseraSanitaria" label="Retro Tessera Sanitaria" />
+      </div>
 
       <div>
-        <Label htmlFor="documenti">Documenti (documento d&apos;identità, ecc.)</Label>
-        <label
-          htmlFor="documenti"
-          className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary hover:text-primary"
-        >
-          <Upload className="h-4 w-4 shrink-0" strokeWidth={2.25} />
-          <span className="truncate">{nomeFile || "Scegli uno o più file"}</span>
-        </label>
-        <input
-          id="documenti"
-          name="documenti"
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => setNomeFile(Array.from(e.target.files ?? []).map((f) => f.name).join(", "))}
-        />
+        <Label htmlFor="note">Note (facoltativo)</Label>
+        <textarea id="note" name="note" rows={2} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" />
       </div>
 
       <label className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -173,7 +275,7 @@ export function RichiestaDatiForm({
       )}
 
       <Button type="submit" disabled={inCorso} size="lg" className="mt-2">
-        {inCorso ? "Invio in corso…" : "Invia dati"}
+        {inCorso ? "Invio in corso…" : "Invia i miei dati"}
       </Button>
     </form>
   );

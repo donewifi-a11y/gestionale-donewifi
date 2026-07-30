@@ -20,6 +20,7 @@ import {
   inviaEmailRichiestaDatiSegnalazione,
 } from "@/app/(app)/segnalazioni/actions";
 import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
+import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
   { titolo: "Da Contattare", stato: "Da Contattare" },
@@ -390,14 +391,14 @@ function DettaglioSegnalazione({
             <div className="flex flex-col gap-1.5">
               {Object.entries(richiesta.dettagli).map(([chiave, valore]) => (
                 <div key={chiave} className="flex justify-between gap-2 text-xs">
-                  <span className="text-muted-foreground">{chiave}</span>
+                  <span className="text-muted-foreground">{etichettaDettaglio(chiave)}</span>
                   <span className="font-medium">{valore}</span>
                 </div>
               ))}
               {richiesta.documenti.length > 0 && (
                 <div className="mt-1 text-xs">
                   <span className="text-muted-foreground">Documenti: </span>
-                  {richiesta.documenti.map((d) => d.nome).join(", ")}
+                  {richiesta.documenti.map((d) => (d.tipo ? `${d.tipo} (${d.nome})` : d.nome)).join(", ")}
                 </div>
               )}
             </div>
