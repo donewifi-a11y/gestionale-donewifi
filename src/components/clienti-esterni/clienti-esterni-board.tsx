@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, RefreshCw, AlertTriangle, FileText, ChevronRight } from "lucide-react";
+import { Search, Phone, MapPin, RefreshCw, AlertTriangle, FileText, ChevronRight, Users2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { sincronizzaAnagraficaAruba, sincronizzaFattureAruba } from "@/app/(app)/clienti-esterni/actions";
+import { sincronizzaAnagraficaAruba, sincronizzaFattureAruba, type ClienteInsoluto } from "@/app/(app)/clienti-esterni/actions";
 import type { ClienteEsterno } from "@/lib/types";
 
 function nomeVisualizzato(c: ClienteEsterno): string {
@@ -16,10 +16,14 @@ export function ClientiEsterniBoard({
   clienti,
   isAdmin,
   ultimaSincronizzazione,
+  clientiAttivi,
+  insoluti,
 }: {
   clienti: ClienteEsterno[];
   isAdmin: boolean;
   ultimaSincronizzazione: string | null;
+  clientiAttivi: number;
+  insoluti: { totale: number; numeroFatture: number; clienti: ClienteInsoluto[] } | null;
 }) {
   const router = useRouter();
   const [ricerca, setRicerca] = useState("");
@@ -61,6 +65,29 @@ export function ClientiEsterniBoard({
 
   return (
     <div>
+      <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-md">
+          <Users2 className="mb-2 h-4 w-4 text-primary" strokeWidth={2.25} />
+          <div className="font-heading text-2xl font-bold tabular-nums">{clientiAttivi}</div>
+          <div className="text-xs text-muted-foreground">Clienti attivi</div>
+        </div>
+        {insoluti && insoluti.numeroFatture > 0 && (
+          <div className="col-span-2 rounded-2xl border border-critical/20 bg-critical/5 p-4 shadow-md sm:col-span-2">
+            <div className="mb-1 flex items-center gap-1.5">
+              <TriangleAlert className="h-4 w-4 text-critical" strokeWidth={2.25} />
+              <span className="text-xs font-semibold uppercase tracking-wide text-critical">Fatture insolute</span>
+            </div>
+            <div className="font-heading text-xl font-bold tabular-nums text-critical">
+              € {insoluti.totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {insoluti.numeroFatture} fatture · {insoluti.clienti.length} clienti — {insoluti.clienti.slice(0, 3).map((c) => c.nome).join(", ")}
+              {insoluti.clienti.length > 3 && " ..."}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />

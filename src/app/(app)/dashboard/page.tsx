@@ -307,7 +307,7 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
             ))}
         </Pannello>
 
-        <Pannello titolo="Ricavi per reparto (€)">
+        <Pannello titolo="Ricavi da rapportino per reparto (€)">
           {Object.entries(dati.ricaviPerReparto).map(([reparto, v]) => (
             <BarraRiga key={reparto} etichetta={reparto} conteggio={Math.round(v)} max={maxRicaviReparto} colore="bg-success" />
           ))}

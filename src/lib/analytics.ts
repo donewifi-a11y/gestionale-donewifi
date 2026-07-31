@@ -12,16 +12,41 @@ function inizioMese() {
 
 const REPARTI_ELENCO: AreaAccesso[] = ["Analisi Rete", "Commerciale", "Fatturazione"];
 
+/** ★ una risposta Supabase è limitata a 1000 righe di default — con oltre
+ * mille fatture in un mese (capita) una sola `.select()` sottostimerebbe
+ * il totale in silenzio. Pagina finché non finiscono le righe. */
+async function sommaImportoFattureDa(supabase: Supabase, dataIso: string): Promise<number> {
+  const PAGINA = 1000;
+  let offset = 0;
+  let totale = 0;
+  for (;;) {
+    const { data } = await supabase
+      .from("fatture_esterne")
+      .select("importo")
+      .gte("emissione", dataIso)
+      .range(offset, offset + PAGINA - 1);
+    const righe = data ?? [];
+    totale += righe.reduce((s, f) => s + (Number(f.importo) || 0), 0);
+    if (righe.length < PAGINA) break;
+    offset += PAGINA;
+  }
+  return totale;
+}
+
 /** ★ ex getDatiAnalyticsAmministrazione() del vecchio gestionale, semplificato:
  * niente più foglio "Clienti Attivi" separato — le acquisizioni si leggono
- * da segnalazioni (tipologia_cliente/profilo_internet, già esistenti), i
- * ricavi da tickets.importo_fatturato (nuovo campo). */
+ * da segnalazioni (tipologia_cliente/profilo_internet, già esistenti). I
+ * ricavi totali del mese vengono ora dalle fatture vere importate da
+ * Aruba (fatture_esterne) invece che da tickets.importo_fatturato — quel
+ * campo si compila solo a chiusura rapportino, quasi sempre vuoto, mai
+ * pensato per il fatturato reale dell'azienda. Il dettaglio "per reparto"
+ * resta invece dai Ticket: le fatture non hanno un reparto associato. */
 export async function getDatiAmministrazione(supabase: Supabase) {
   const inizio = inizioMese();
   const oggi = new Date();
   const giorniNelMese = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).getDate();
 
-  const [{ data: segnalazioniMese }, { data: ticketCompletatiMese }] = await Promise.all([
+  const [{ data: segnalazioniMese }, { data: ticketCompletatiMese }, ricaviFattureMese] = await Promise.all([
     supabase
       .from("segnalazioni")
       .select("stato, tipologia_cliente, profilo_internet, dati_ricevuti_at")
@@ -32,6 +57,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
       .select("reparto, importo_fatturato, aggiornato_il")
       .eq("stato", "Completato")
       .gte("aggiornato_il", inizio.toISOString()),
+    sommaImportoFattureDa(supabase, inizio.toISOString().slice(0, 10)),
   ]);
 
   const acquisizioni = segnalazioniMese ?? [];
@@ -59,7 +85,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
     }
   }
 
-  const ricaviTotali = Object.values(ricaviPerReparto).reduce((a, b) => a + b, 0);
+  const ricaviTotali = ricaviFattureMese;
 
   return {
     mese: oggi.toLocaleDateString("it-IT", { month: "long", year: "numeric" }),

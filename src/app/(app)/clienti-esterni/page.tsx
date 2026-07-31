@@ -2,6 +2,8 @@ import { Database } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
+import { getRiepilogoInsoluti } from "./actions";
+import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import type { ClienteEsterno } from "@/lib/types";
 
 // ★ "Sincronizza fatture" scarica/scrive 59mila righe: più dei 10s di
@@ -11,18 +13,19 @@ export const maxDuration = 60;
 
 export default async function ClientiEsterniPage() {
   const supabase = await createClient();
-  const { data: clienti } = await supabase
-    .from("clienti_esterni")
-    .select("*")
-    .order("cognome", { ascending: true });
+  const clientiNonOrdinati = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const clienti = [...clientiNonOrdinati].sort((a, b) => (a.cognome || "").localeCompare(b.cognome || ""));
 
   const personaCorrente = await getPersonaCorrente(supabase);
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
 
-  const ultimaSincronizzazione = (clienti ?? []).reduce<string | null>(
+  const ultimaSincronizzazione = clienti.reduce<string | null>(
     (max, c) => (!max || c.aggiornato_il > max ? c.aggiornato_il : max),
     null
   );
+
+  const clientiAttivi = clienti.filter((c) => c.contratto_attivo).length;
+  const insoluti = isAdmin ? await getRiepilogoInsoluti() : null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -39,9 +42,11 @@ export default async function ClientiEsterniPage() {
       </div>
 
       <ClientiEsterniBoard
-        clienti={(clienti as ClienteEsterno[]) ?? []}
+        clienti={clienti}
         isAdmin={isAdmin}
         ultimaSincronizzazione={ultimaSincronizzazione}
+        clientiAttivi={clientiAttivi}
+        insoluti={insoluti}
       />
     </div>
   );

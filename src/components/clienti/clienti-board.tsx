@@ -1,19 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2 } from "lucide-react";
+import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2, Database, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { salvaDatiContrattualiCliente } from "@/app/(app)/clienti/actions";
-import type { ClienteAttivo, Tariffa, Ticket } from "@/lib/types";
+import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
 function normalizzaTelefono(t: string | null) {
   return (t || "").replace(/\D/g, "").slice(-9);
 }
+
+type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "contratto_attivo" | "profilo_internet" | "id_contratto">;
 
 interface Cliente {
   chiave: string;
@@ -26,6 +29,7 @@ interface Cliente {
   primaAttivita: string;
   attivi: number;
   dati: ClienteAttivo | null;
+  esterno: ClienteEsternoRidotto | null;
 }
 
 function giorniAllaScadenza(scadenza: string | null): number | null {
@@ -38,11 +42,13 @@ export function ClientiBoard({
   tickets,
   clienti: clientiAttivi,
   tariffe,
+  clientiEsterni,
   puoModificare,
 }: {
   tickets: Ticket[];
   clienti: ClienteAttivo[];
   tariffe: Tariffa[];
+  clientiEsterni: ClienteEsternoRidotto[];
   puoModificare: boolean;
 }) {
   const [ricerca, setRicerca] = useState("");
@@ -53,6 +59,7 @@ export function ClientiBoard({
 
   const clienti = useMemo<Cliente[]>(() => {
     const mappaDati = new Map(clientiAttivi.filter((c) => c.telefono).map((c) => [normalizzaTelefono(c.telefono), c]));
+    const mappaEsterni = new Map(clientiEsterni.filter((c) => c.telefono).map((c) => [normalizzaTelefono(c.telefono), c]));
     const mappa = new Map<string, Cliente>();
     for (const t of tickets) {
       const chiave = `${t.cliente.trim().toLowerCase()}|${(t.telefono || "").replace(/\D/g, "")}`;
@@ -68,6 +75,7 @@ export function ClientiBoard({
           primaAttivita: t.data_creazione,
           attivi: 0,
           dati: mappaDati.get(normalizzaTelefono(t.telefono)) ?? null,
+          esterno: mappaEsterni.get(normalizzaTelefono(t.telefono)) ?? null,
         });
       }
       const c = mappa.get(chiave)!;
@@ -79,7 +87,7 @@ export function ClientiBoard({
     return Array.from(mappa.values()).sort(
       (a, b) => new Date(b.ultimaAttivita).getTime() - new Date(a.ultimaAttivita).getTime()
     );
-  }, [tickets, clientiAttivi]);
+  }, [tickets, clientiAttivi, clientiEsterni]);
 
   const filtrati = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
@@ -197,6 +205,32 @@ export function ClientiBoard({
               </button>
               {espanso && (
                 <div className="flex flex-col gap-3 border-t bg-muted/40 px-4 py-3">
+                  {c.esterno && (
+                    <div className="rounded-lg border bg-card p-3">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <Database className="h-3 w-3" strokeWidth={2.25} />
+                          Da Anagrafica Aruba
+                        </span>
+                        <Link href={`/clienti-esterni/${c.esterno.id}`} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                          Scheda completa
+                          <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
+                        </Link>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Contratto: </span>
+                          {c.esterno.contratto_attivo ? (
+                            <span className="font-semibold text-success">Attivo</span>
+                          ) : (
+                            <span className="font-semibold text-muted-foreground">Non attivo</span>
+                          )}
+                        </div>
+                        <div><span className="text-muted-foreground">Profilo: </span>{c.esterno.profilo_internet || "—"}</div>
+                        {c.esterno.id_contratto && <div className="col-span-2"><span className="text-muted-foreground">N. contratto: </span>{c.esterno.id_contratto}</div>}
+                      </div>
+                    </div>
+                  )}
                   {(c.dati || puoModificare) && (
                     <div className="rounded-lg border bg-card p-3">
                       <div className="mb-1.5 flex items-center justify-between">

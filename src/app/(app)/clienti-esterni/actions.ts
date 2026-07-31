@@ -256,3 +256,58 @@ export async function getTicketCollegati(telefono: string | null) {
     .limit(20);
   return data ?? [];
 }
+
+export interface ClienteInsoluto {
+  clienteId: number | null;
+  nome: string;
+  importo: number;
+  numeroFatture: number;
+}
+
+/** ★ NUOVA — prima di avere fatture_esterne non esisteva alcun modo di
+ * vedere gli insoluti nel gestionale. Aggrega per cliente (CF/PIVA),
+ * ordina per importo dovuto. */
+export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFatture: number; clienti: ClienteInsoluto[] }> {
+  const supabase = await createClient();
+  const { data: fatture } = await supabase.from("fatture_esterne").select("importo, codice_fiscale, partita_iva").eq("pagata", false);
+  const righe = fatture ?? [];
+
+  const mappa = new Map<string, { importo: number; numeroFatture: number }>();
+  for (const f of righe) {
+    const chiave = f.codice_fiscale || f.partita_iva;
+    if (!chiave) continue;
+    const cur = mappa.get(chiave) ?? { importo: 0, numeroFatture: 0 };
+    cur.importo += Number(f.importo) || 0;
+    cur.numeroFatture++;
+    mappa.set(chiave, cur);
+  }
+
+  const chiavi = Array.from(mappa.keys());
+  const [{ data: perCf }, { data: perPiva }] = chiavi.length
+    ? await Promise.all([
+        supabase.from("clienti_esterni").select("id, nome, cognome, ragionesociale, codice_fiscale, partita_iva").in("codice_fiscale", chiavi),
+        supabase.from("clienti_esterni").select("id, nome, cognome, ragionesociale, codice_fiscale, partita_iva").in("partita_iva", chiavi),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const mappaClienti = new Map<string, { id: number; nome: string }>();
+  for (const c of [...(perCf ?? []), ...(perPiva ?? [])]) {
+    const nome = c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—";
+    if (c.codice_fiscale) mappaClienti.set(c.codice_fiscale, { id: c.id, nome });
+    if (c.partita_iva) mappaClienti.set(c.partita_iva, { id: c.id, nome });
+  }
+
+  const clienti: ClienteInsoluto[] = Array.from(mappa.entries())
+    .map(([chiave, v]) => ({
+      clienteId: mappaClienti.get(chiave)?.id ?? null,
+      nome: mappaClienti.get(chiave)?.nome ?? chiave,
+      importo: v.importo,
+      numeroFatture: v.numeroFatture,
+    }))
+    .sort((a, b) => b.importo - a.importo);
+
+  return {
+    totale: clienti.reduce((s, c) => s + c.importo, 0),
+    numeroFatture: righe.length,
+    clienti,
+  };
+}

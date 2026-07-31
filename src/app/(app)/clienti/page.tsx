@@ -2,15 +2,19 @@ import { Users2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiBoard } from "@/components/clienti/clienti-board";
-import type { ClienteAttivo, Tariffa, Ticket } from "@/lib/types";
+import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
+
+type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "contratto_attivo" | "profilo_internet" | "id_contratto">;
 
 export default async function ClientiPage() {
   const supabase = await createClient();
 
-  const [{ data: tickets }, { data: clienti }, { data: tariffe }] = await Promise.all([
+  const [{ data: tickets }, { data: clienti }, { data: tariffe }, clientiEsterni] = await Promise.all([
     supabase.from("tickets").select("*").order("data_creazione", { ascending: false }),
     supabase.from("clienti").select("*"),
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
+    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, contratto_attivo, profilo_internet, id_contratto"),
   ]);
 
   const personaCorrente = await getPersonaCorrente(supabase);
@@ -34,6 +38,7 @@ export default async function ClientiPage() {
         tickets={(tickets as Ticket[]) ?? []}
         clienti={(clienti as ClienteAttivo[]) ?? []}
         tariffe={(tariffe as Tariffa[]) ?? []}
+        clientiEsterni={clientiEsterni}
         puoModificare={puoModificare}
       />
     </div>
