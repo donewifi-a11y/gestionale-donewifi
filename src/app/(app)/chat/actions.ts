@@ -98,7 +98,10 @@ export async function inviaAllegatoChat(conversazioneId: string, formData: FormD
   if (file.size > 10 * 1024 * 1024) return { errore: "Il file supera i 10 MB." };
 
   const service = createServiceClient();
-  const percorso = `chat/${conversazioneId}/${Date.now()}-${file.name}`;
+  // ★ Supabase Storage rifiuta spazi/accenti nella chiave — il nome
+  // originale resta comunque quello mostrato in chat (allegato_nome).
+  const nomeSicuro = file.name.normalize("NFKD").replace(/[^\w.-]+/g, "_");
+  const percorso = `chat/${conversazioneId}/${Date.now()}-${nomeSicuro}`;
   const { error: erroreUpload } = await service.storage.from("documenti").upload(percorso, file, { contentType: file.type });
   if (erroreUpload) return { errore: erroreUpload.message };
 
