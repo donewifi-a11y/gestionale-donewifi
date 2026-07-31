@@ -16,8 +16,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
-   `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql` e `0030_statistiche_generali_aruba.sql`,
-   eseguendo ognuno.
+   `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql`, `0030_statistiche_generali_aruba.sql`,
+   `0031_fatturato_per_periodo.sql` e `0032_tariffe_dettaglio_prezzi.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -441,6 +441,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   medio fattura, ricavo medio mensile per cliente attivo (ARPU). Calcolati con una singola funzione
   SQL aggregata (`statistiche_generali_aruba()`) invece di scaricare 57mila+ fatture via rete per
   sommarle in JS — 690ms invece di una scansione paginata completa.
+✅ Tariffe — listino prezzi reale (2026-07, migrazione `0032`): importato il listino interno
+  fornito dall'utente (IVA esclusa) con prezzo, periodo di validità, eventuale promo (prezzo
+  standard di rientro dopo la promo), vincolo contrattuale e periodicità di fatturazione
+  (`promo`, `prezzo_post_promo`, `durata_vincolo`, `periodicita_fatturazione`, `valido_dal`,
+  `valido_al` su `tariffe`). Match per nome tariffa normalizzato (case/spazi/trattini ignorati);
+  quando un codice ha più righe con periodi di validità diversi (aumenti di prezzo nel tempo),
+  si sceglie quella valida oggi, altrimenti la più recente. 159 tariffe già presenti aggiornate
+  con il prezzo reale + 34 nuove inserite (vecchi profili Satellite/ADSL/Fibra presenti nel
+  listino ma non tra i profili correnti dei clienti Aruba) — 198 tariffe totali, 193 con prezzo,
+  solo 5 rimaste senza corrispondenza nel listino (nomi "base" senza edizione specifica, es.
+  "Business 100" senza "- ed 2024/2026").
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
