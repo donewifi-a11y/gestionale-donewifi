@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
-import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, REPARTI_ELENCO } from "@/lib/analytics";
+import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
 
 // ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
@@ -81,6 +81,7 @@ export default async function DashboardPage({
   const amministrazione = isAdmin ? await getDatiAmministrazione(supabase) : null;
   const statistichePeriodo = isAdmin ? await getStatistichePeriodo(supabase, periodoInizio, oraFine) : null;
   const anagraficaAruba = isAdmin ? await getDatiAnagraficaAruba(supabase) : null;
+  const totaliGenerali = isAdmin ? await getTotaliGeneraliAruba(supabase, amministrazione?.ricaviTotali ?? 0) : null;
 
   const ticketUrgenti = listaTicket.filter((t) => t.priorita === "Urgente" && t.stato !== "Completato").length;
   const ticketNonAssegnati = listaTicket.filter((t) => !t.tecnico_assegnato && t.stato !== "Completato").length;
@@ -172,6 +173,8 @@ export default async function DashboardPage({
       {amministrazione && <SezioneAmministrazione dati={amministrazione} />}
 
       {anagraficaAruba && <SezioneAnagraficaAruba dati={anagraficaAruba} />}
+
+      {totaliGenerali && <SezioneTotaliGenerali dati={totaliGenerali} />}
     </div>
   );
 }
@@ -381,6 +384,43 @@ function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType
           ))}
         </Pannello>
       )}
+    </div>
+  );
+}
+
+function SezioneTotaliGenerali({ dati }: { dati: NonNullable<Awaited<ReturnType<typeof getTotaliGeneraliAruba>>> }) {
+  const fmtEuro = (v: number) => `€ ${v.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`;
+  const fmtPercento = (v: number) => `${v.toFixed(1)}%`;
+
+  return (
+    <div className="mt-8 border-t pt-8 print:break-before-page">
+      <div className="mb-4 flex items-center gap-2">
+        <FileStack className="h-4 w-4 text-primary" strokeWidth={2.5} />
+        <h2 className="font-heading text-lg font-bold">Totali generali</h2>
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Kpi icona={Euro} etichetta="Fatturato storico totale" valore={fmtEuro(dati.fatturatoTotale)} colore="text-success" />
+        <Kpi icona={ReceiptText} etichetta="Fatture emesse" valore={dati.numeroFatture.toLocaleString("it-IT")} colore="text-foreground" />
+        <Kpi icona={Users2} etichetta="Clienti (tutti i tempi)" valore={dati.clientiTotali.toLocaleString("it-IT")} colore="text-foreground" />
+        <Kpi
+          icona={TriangleAlert}
+          etichetta="Insoluto totale"
+          valore={fmtEuro(dati.totaleInsoluto)}
+          colore={dati.totaleInsoluto > 0 ? "text-critical" : "text-foreground"}
+        />
+      </div>
+
+      <div className="mb-4 flex items-center gap-2">
+        <Percent className="h-4 w-4 text-primary" strokeWidth={2.5} />
+        <h2 className="font-heading text-lg font-bold">Rendimenti</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Kpi icona={Percent} etichetta="Clienti ancora attivi" valore={fmtPercento(dati.tassoClientiAttivi)} colore="text-primary" />
+        <Kpi icona={Percent} etichetta="Fatture incassate" valore={fmtPercento(dati.tassoPagamento)} colore={dati.tassoPagamento >= 95 ? "text-success" : "text-warning"} />
+        <Kpi icona={Euro} etichetta="Valore medio fattura" valore={fmtEuro(dati.valoreMedioFattura)} colore="text-foreground" />
+        <Kpi icona={Euro} etichetta="Ricavo medio/cliente al mese" valore={fmtEuro(dati.arpuMensile)} colore="text-success" />
+      </div>
     </div>
   );
 }

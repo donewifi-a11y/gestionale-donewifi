@@ -299,4 +299,56 @@ export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAn
   return { clientiAttivi, fattureInsolute, andamentoFatturato: mesi, distribuzioneProfili };
 }
 
+export interface TotaliGeneraliAruba {
+  fatturatoTotale: number;
+  numeroFatture: number;
+  numeroFattureInsolute: number;
+  totaleInsoluto: number;
+  clientiTotali: number;
+  clientiAttivi: number;
+  /** ★ "rendimenti": non solo i totali, ma cosa dicono — percentuale di
+   * clienti ancora attivi sul totale mai avuto, percentuale di fatture
+   * incassate, valore medio fattura, ricavo medio mensile per cliente
+   * attivo (ARPU). */
+  tassoClientiAttivi: number;
+  tassoPagamento: number;
+  valoreMedioFattura: number;
+  arpuMensile: number;
+}
+
+/** ★ calcolato in un'unica query SQL (statistiche_generali_aruba(),
+ * migrazione 0030) invece di scaricare 57mila+ fatture via rete per
+ * sommarle — molto più veloce e senza il limite delle 1000 righe. */
+export async function getTotaliGeneraliAruba(supabase: Supabase, fatturatoMeseCorrente: number): Promise<TotaliGeneraliAruba | null> {
+  const { data, error } = await supabase.rpc("statistiche_generali_aruba").single();
+  if (error || !data) return null;
+
+  const riga = data as {
+    fatturato_totale: number | string;
+    numero_fatture: number;
+    numero_fatture_insolute: number;
+    totale_insoluto: number | string;
+    clienti_totali: number;
+    clienti_attivi: number;
+  };
+
+  const fatturatoTotale = Number(riga.fatturato_totale) || 0;
+  const numeroFatture = riga.numero_fatture ?? 0;
+  const clientiTotali = riga.clienti_totali ?? 0;
+  const clientiAttivi = riga.clienti_attivi ?? 0;
+
+  return {
+    fatturatoTotale,
+    numeroFatture,
+    numeroFattureInsolute: riga.numero_fatture_insolute ?? 0,
+    totaleInsoluto: Number(riga.totale_insoluto) || 0,
+    clientiTotali,
+    clientiAttivi,
+    tassoClientiAttivi: clientiTotali > 0 ? (clientiAttivi / clientiTotali) * 100 : 0,
+    tassoPagamento: numeroFatture > 0 ? ((numeroFatture - (riga.numero_fatture_insolute ?? 0)) / numeroFatture) * 100 : 0,
+    valoreMedioFattura: numeroFatture > 0 ? fatturatoTotale / numeroFatture : 0,
+    arpuMensile: clientiAttivi > 0 ? fatturatoMeseCorrente / clientiAttivi : 0,
+  };
+}
+
 export { REPARTI_ELENCO };

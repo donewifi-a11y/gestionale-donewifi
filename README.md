@@ -16,7 +16,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
-   `0028_tutte_le_tariffe.sql` e `0029_tariffe_iva.sql`, eseguendo ognuno.
+   `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql` e `0030_statistiche_generali_aruba.sql`,
+   eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -434,6 +435,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   per profilo (top 8). Un solo giro paginato su `clienti_esterni` per ricavare sia il conteggio
   clienti sia la distribuzione profili, invece di due scansioni separate della tabella.
   `maxDuration = 30` sulla pagina (più query paginate di quante ne servano di norma).
+✅ Dashboard — "Totali generali & Rendimenti" (2026-08, migrazione `0030`): fatturato storico totale
+  (€ 2.977.426 su 57791 fatture), clienti in tutta la storia (2690), insoluto totale, e una riga di
+  "rendimenti": % di clienti ancora attivi sul totale mai avuto, % di fatture incassate, valore
+  medio fattura, ricavo medio mensile per cliente attivo (ARPU). Calcolati con una singola funzione
+  SQL aggregata (`statistiche_generali_aruba()`) invece di scaricare 57mila+ fatture via rete per
+  sommarle in JS — 690ms invece di una scansione paginata completa.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
