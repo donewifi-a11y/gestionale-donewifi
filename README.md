@@ -13,7 +13,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
    `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
-   `0020_promozioni_tariffe.sql` e `0021_chat_interna.sql`, eseguendo ognuno.
+   `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql` e `0022_chat_letture_presenza.sql`,
+   eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -311,6 +312,14 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   filtrarli nell'interfaccia — funzione SQL `persona_corrente_id()` (`auth.uid()` → riga `persone`)
   usata dalle policy su `conversazioni`/`messaggi_chat`. Nessun badge "non letti" e nessuna notifica
   Telegram in questo primo giro (scope deciso così esplicitamente).
+✅ Chat — stato "Letto" e presenza online (2026-08, migrazione `0022`): nelle dirette, sotto
+  l'ultimo messaggio inviato compare "Consegnato" o "Letto" a seconda che l'altra persona abbia
+  aperto la conversazione dopo quel messaggio (`conversazioni_letture`, aggiornata in tempo reale
+  quando l'altro apre/tiene aperto il thread). Pallino verde/grigio online-offline accanto a ogni
+  persona nell'elenco contatti e nell'intestazione del thread, tramite la **Presence** di Supabase
+  Realtime (effimera — nessuna tabella, "online" finché una scheda del gestionale resta aperta).
+  Per i gruppi reparto, niente indicazione "letto da" in questo giro (avrebbe richiesto una UI
+  "letto da N/M" più complessa — rimandato).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

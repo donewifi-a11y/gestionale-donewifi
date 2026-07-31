@@ -122,3 +122,26 @@ export async function urlAllegatoChat(percorso: string): Promise<{ errore: strin
   if (error) return { errore: error.message, url: null };
   return { errore: null, url: data.signedUrl };
 }
+
+/** Segna la conversazione come letta ad ora — da chiamare quando si apre il thread e mentre resta aperto. */
+export async function segnaConversazioneLetta(conversazioneId: string): Promise<void> {
+  const supabase = await createClient();
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return;
+
+  await supabase
+    .from("conversazioni_letture")
+    .upsert({ conversazione_id: conversazioneId, persona_id: personaId, ultimo_letto_il: new Date().toISOString() });
+}
+
+/** Solo per le dirette: quando l'altra persona ha letto per l'ultima volta, per mostrare "Letto" sotto l'ultimo messaggio. */
+export async function getUltimaLetturaAltro(conversazioneId: string, altraPersonaId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("conversazioni_letture")
+    .select("ultimo_letto_il")
+    .eq("conversazione_id", conversazioneId)
+    .eq("persona_id", altraPersonaId)
+    .maybeSingle();
+  return data?.ultimo_letto_il ?? null;
+}

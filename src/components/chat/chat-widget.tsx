@@ -10,6 +10,8 @@ import {
   inviaMessaggio,
   inviaAllegatoChat,
   urlAllegatoChat,
+  segnaConversazioneLetta,
+  getUltimaLetturaAltro,
   type ContattoChat,
   type GruppoChat,
 } from "@/app/(app)/chat/actions";
@@ -19,6 +21,32 @@ interface Thread {
   conversazioneId: string;
   titolo: string;
   isGruppo: boolean;
+  altraPersonaId: string | null;
+}
+
+/** ★ NUOVA — canale di presenza condiviso: chiunque abbia il gestionale
+ * aperto in una scheda "si iscrive" qui, in tempo reale, senza bisogno di
+ * salvare nulla su un heartbeat lato database. */
+function useOnline(personaCorrenteId: string | null): Set<string> {
+  const [online, setOnline] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!personaCorrenteId) return;
+    const supabase = createClient();
+    const canale = supabase.channel("presenza-online", { config: { presence: { key: personaCorrenteId } } });
+    canale
+      .on("presence", { event: "sync" }, () => {
+        setOnline(new Set(Object.keys(canale.presenceState())));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") await canale.track({ dal: new Date().toISOString() });
+      });
+    return () => {
+      supabase.removeChannel(canale);
+    };
+  }, [personaCorrenteId]);
+
+  return online;
 }
 
 export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | null }) {
@@ -26,9 +54,11 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
   const [contatti, setContatti] = useState<{ persone: ContattoChat[]; gruppi: GruppoChat[] } | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
   const [messaggi, setMessaggi] = useState<MessaggioChat[]>([]);
+  const [letturaAltro, setLetturaAltro] = useState<string | null>(null);
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const fineListaRef = useRef<HTMLDivElement>(null);
+  const online = useOnline(personaCorrenteId);
 
   useEffect(() => {
     if (aperto && !contatti) getContattiChat().then(setContatti);
@@ -39,7 +69,8 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
   }, [messaggi]);
 
   // ★ un messaggio nuovo arriva qui via Realtime — sia per chi lo manda
-  // che per chi lo riceve, invece di gestire due percorsi diversi.
+  // che per chi lo riceve, invece di gestire due percorsi diversi. Se il
+  // thread resta aperto, il nuovo messaggio si segna subito come letto.
   useEffect(() => {
     if (!thread) return;
     const supabase = createClient();
@@ -48,7 +79,18 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messaggi_chat", filter: `conversazione_id=eq.${thread.conversazioneId}` },
-        (payload) => setMessaggi((prev) => [...prev, payload.new as MessaggioChat])
+        (payload) => {
+          setMessaggi((prev) => [...prev, payload.new as MessaggioChat]);
+          segnaConversazioneLetta(thread.conversazioneId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversazioni_letture", filter: `conversazione_id=eq.${thread.conversazioneId}` },
+        (payload) => {
+          const riga = payload.new as { persona_id: string; ultimo_letto_il: string };
+          if (thread.altraPersonaId && riga.persona_id === thread.altraPersonaId) setLetturaAltro(riga.ultimo_letto_il);
+        }
       )
       .subscribe();
     return () => {
@@ -56,19 +98,25 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
     };
   }, [thread]);
 
+  async function apriThread(t: Thread) {
+    setLetturaAltro(null);
+    setMessaggi(await getMessaggi(t.conversazioneId));
+    setThread(t);
+    segnaConversazioneLetta(t.conversazioneId);
+    if (t.altraPersonaId) setLetturaAltro(await getUltimaLetturaAltro(t.conversazioneId, t.altraPersonaId));
+  }
+
   async function apriDiretta(persona: ContattoChat) {
     const risultato = await getOrCreaConversazioneDiretta(persona.id);
     if (risultato.errore || !risultato.id) {
       alert(risultato.errore || "Errore imprevisto.");
       return;
     }
-    setMessaggi(await getMessaggi(risultato.id));
-    setThread({ conversazioneId: risultato.id, titolo: persona.nome, isGruppo: false });
+    await apriThread({ conversazioneId: risultato.id, titolo: persona.nome, isGruppo: false, altraPersonaId: persona.id });
   }
 
   async function apriGruppo(gruppo: GruppoChat) {
-    setMessaggi(await getMessaggi(gruppo.id));
-    setThread({ conversazioneId: gruppo.id, titolo: gruppo.reparto, isGruppo: true });
+    await apriThread({ conversazioneId: gruppo.id, titolo: gruppo.reparto, isGruppo: true, altraPersonaId: null });
   }
 
   async function inviaTesto() {
@@ -131,7 +179,15 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
             )}
-            <span className="flex-1 truncate text-sm font-bold">{thread ? thread.titolo : "Chat"}</span>
+            <span className="flex flex-1 items-center gap-1.5 truncate text-sm font-bold">
+              {thread ? thread.titolo : "Chat"}
+              {thread && !thread.isGruppo && thread.altraPersonaId && (
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${online.has(thread.altraPersonaId) ? "bg-success" : "bg-muted-foreground/40"}`}
+                  title={online.has(thread.altraPersonaId) ? "Online" : "Offline"}
+                />
+              )}
+            </span>
             <button onClick={() => { setAperto(false); setThread(null); }} className="rounded-md p-1 hover:bg-muted" aria-label="Chiudi">
               <X className="h-4 w-4" strokeWidth={2.5} />
             </button>
@@ -157,8 +213,11 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
                   <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Persone</p>
                   {contatti.persone.map((p) => (
                     <button key={p.id} onClick={() => apriDiretta(p)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
+                      <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
                         {p.nome.slice(0, 2).toUpperCase()}
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${online.has(p.id) ? "bg-success" : "bg-muted-foreground/40"}`}
+                        />
                       </span>
                       {p.nome}
                     </button>
@@ -174,8 +233,10 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
               <div className="flex-1 overflow-y-auto p-3">
                 {messaggi.length === 0 && <p className="text-center text-xs text-muted-foreground">Nessun messaggio ancora.</p>}
                 <div className="flex flex-col gap-2">
-                  {messaggi.map((m) => {
+                  {messaggi.map((m, i) => {
                     const mio = m.mittente_id === personaCorrenteId;
+                    const ultimoMio = mio && !messaggi.slice(i + 1).some((x) => x.mittente_id === personaCorrenteId);
+                    const letto = ultimoMio && !thread.isGruppo && !!letturaAltro && new Date(letturaAltro) >= new Date(m.creato_il);
                     return (
                       <div key={m.id} className={`flex flex-col ${mio ? "items-end" : "items-start"}`}>
                         {thread.isGruppo && !mio && (
@@ -190,6 +251,9 @@ export function ChatWidget({ personaCorrenteId }: { personaCorrenteId: string | 
                             </button>
                           )}
                         </div>
+                        {ultimoMio && (
+                          <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">{letto ? "Letto" : "Consegnato"}</span>
+                        )}
                       </div>
                     );
                   })}
