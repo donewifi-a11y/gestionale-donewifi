@@ -167,7 +167,7 @@ export async function cercaClientiEsistenti(query: string): Promise<ClienteEsist
       .or(
         `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
       )
-      .eq("contratto_attivo", true)
+      .eq("attivo", true)
       .limit(6),
     supabase
       .from("tickets")

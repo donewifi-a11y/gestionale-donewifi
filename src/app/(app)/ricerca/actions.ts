@@ -35,7 +35,7 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
     supabase
       .from("clienti_esterni")
       .select("id, nome, cognome, ragionesociale, telefono, comune")
-      .eq("contratto_attivo", true)
+      .eq("attivo", true)
       .or(
         `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
       )

@@ -16,7 +16,7 @@ function normalizzaTelefono(t: string | null) {
   return (t || "").replace(/\D/g, "").slice(-9);
 }
 
-type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "contratto_attivo" | "profilo_internet" | "id_contratto">;
+type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto">;
 
 interface Cliente {
   chiave: string;
@@ -220,7 +220,7 @@ export function ClientiBoard({
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <span className="text-muted-foreground">Contratto: </span>
-                          {c.esterno.contratto_attivo ? (
+                          {c.esterno.attivo ? (
                             <span className="font-semibold text-success">Attivo</span>
                           ) : (
                             <span className="font-semibold text-muted-foreground">Non attivo</span>

@@ -14,8 +14,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
    `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
    `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
-   `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql` e `0025_seed_tariffe.sql`,
-   eseguendo ognuno.
+   `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
+   `0026_clienti_attivi_da_fatturazione.sql` e `0027_completa_tariffe.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -371,25 +371,38 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   totale fatturato/insoluti a colpo d'occhio, e i Ticket del gestionale collegati allo stesso
   cliente (abbinati per telefono, ultime 9 cifre — non c'è un CF su ogni Ticket per un abbinamento
   più preciso).
-✅ Backfill dati reali da Aruba (2026-08, migrazione `0025`): **Tariffe** popolato con 15 famiglie
-  commerciali reali (dai 58 nomi di profilo grezzi in Aruba, raggruppati — es. "30hw Portabilità",
-  "30HW portabilità", "30HW nuovo" sono lo stesso piano), senza prezzo mensile (da compilare a mano,
-  non deducibile con certezza dalle fatture). **Dashboard**: "Ricavi del mese" ora dalle fatture
-  vere (`fatture_esterne`) invece di `tickets.importo_fatturato` (quasi sempre vuoto — mai pensato
-  per il fatturato reale); il pannello "per reparto" resta invece dai Ticket/rapportini, rietichettato
-  per chiarezza (le fatture non hanno un reparto associato). **Anagrafica Clienti**: KPI "Clienti
-  attivi" (contratto_attivo=true, dato reale) e pannello "Fatture insolute" (prima non esisteva
-  alcun modo di vederle nel gestionale). **Clienti (Mondo Ticket)**: quando un cliente è
-  riconosciuto nell'anagrafica Aruba (per telefono), mostra un box "Da Anagrafica Aruba" con
-  contratto/profilo reali e link alla scheda completa, accanto ai dati contrattuali inseriti a mano
-  (canone/scadenza — non deducibili da Aruba, restano manuali).
-  ★ **Bug reale trovato e corretto in questo giro**: Supabase limita ogni risposta a 1000 righe di
-  default — con 3908 clienti importati, l'elenco Anagrafica Clienti (e l'arricchimento in Clienti)
-  ne mostravano silenziosamente solo 1000, e il fatturato del mese risultava sottostimato (oltre
-  1000 fatture in certi mesi). Corretto con `fetchTuttiClientiEsterni()` (`src/lib/clienti-esterni.ts`)
-  e `sommaImportoFattureDa()` (`src/lib/analytics.ts`), entrambi paginati con `.range()`. **Se in
-  futuro si aggiunge una nuova query su una tabella che può superare 1000 righe, ricordarsi di
-  questo limite.**
+✅ Backfill dati reali da Aruba (2026-08, migrazioni `0025`-`0027`): **Tariffe** popolato con 21
+  famiglie commerciali reali (dai profili grezzi in Aruba, raggruppati — es. "30hw Portabilità",
+  "30HW portabilità", "30 Hw_2023" sono lo stesso piano; escluse le promo stagionali scadute come
+  Black Friday/Xmas/Summer, che non hanno senso in un catalogo di piani correnti), senza prezzo
+  mensile (da compilare a mano, non deducibile con certezza dalle fatture). **Dashboard**: "Ricavi
+  del mese" ora dalle fatture vere (`fatture_esterne`) invece di `tickets.importo_fatturato` (quasi
+  sempre vuoto); il pannello "per reparto" resta dai Ticket/rapportini, rietichettato per chiarezza.
+  **Anagrafica Clienti**: pannello "Fatture insolute" (prima non esisteva alcun modo di vederle).
+  **Clienti (Mondo Ticket)**: box "Da Anagrafica Aruba" quando un cliente è riconosciuto per
+  telefono, accanto ai dati contrattuali manuali (canone/scadenza — non deducibili da Aruba).
+
+  ★ **"Cliente attivo" ridefinito** (migrazione `0026`): il flag `contrattoattivo` di Aruba si è
+  rivelato inaffidabile (2909 righe segnate attive, ma solo ~1800 clienti fatturati di recente — un
+  confronto con l'utente ha confermato che il numero reale doveva stare tra 1800 e 2000). Analisi
+  sulla data dell'ultima fattura per cliente: il conteggio si appiattisce nettamente dopo 60-90
+  giorni (ciclo di fatturazione mensile/bimestrale), quindi **"attivo" ora significa "fatturato
+  negli ultimi 90 giorni"** (`clienti_esterni.attivo`, colonna calcolata da `ricalcola_clienti_attivi()`,
+  richiamata automaticamente ad ogni sincronizzazione — il vecchio flag Aruba resta come
+  `contratto_attivo`, solo per riferimento). Risultato: **1773 clienti unici attivi**.
+
+  ★★ **Due bug reali trovati e corretti in questo giro, entrambi sullo stesso tema — righe vs
+  persone/dati completi:**
+  1. Supabase limita ogni risposta a 1000 righe di default — con 3908 clienti importati, l'elenco
+     Anagrafica Clienti e il calcolo del fatturato mensile (oltre 1000 fatture in certi mesi) ne
+     mostravano/sommavano silenziosamente solo 1000. Corretto con `fetchTuttiClientiEsterni()`
+     (`src/lib/clienti-esterni.ts`) e `sommaImportoFattureDa()` (`src/lib/analytics.ts`), entrambi
+     paginati con `.range()`. **Qualunque nuova query su una tabella che può superare 1000 righe deve
+     usare questo pattern.**
+  2. La stessa prima versione della KPI "Clienti attivi" contava le **righe** con `attivo=true`
+     (2688) invece delle **persone uniche** (1773) — 288 clienti hanno più di un contratto attivo
+     insieme (es. più installazioni), quindi comparivano più volte. La KPI ora deduplica per
+     CF/PIVA prima di contare.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -32,10 +32,10 @@ export function ClientiEsterniBoard({
   const [inCorsoFatture, setInCorsoFatture] = useState(false);
   const [esito, setEsito] = useState("");
 
-  const numeroNonAttivi = useMemo(() => clienti.filter((c) => c.contratto_attivo === false).length, [clienti]);
+  const numeroNonAttivi = useMemo(() => clienti.filter((c) => !c.attivo).length, [clienti]);
 
   const filtrati = useMemo(() => {
-    const base = mostraNonAttivi ? clienti : clienti.filter((c) => c.contratto_attivo !== false);
+    const base = mostraNonAttivi ? clienti : clienti.filter((c) => c.attivo);
     const testo = ricerca.trim().toLowerCase();
     if (!testo) return base;
     return base.filter((c) =>
@@ -160,10 +160,9 @@ export function ClientiEsterniBoard({
                 )}
               </div>
             </div>
-            {c.contratto_attivo === true && (
+            {c.attivo ? (
               <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attivo</span>
-            )}
-            {c.contratto_attivo === false && (
+            ) : (
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non attivo</span>
             )}
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />

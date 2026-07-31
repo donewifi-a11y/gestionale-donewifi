@@ -24,7 +24,13 @@ export default async function ClientiEsterniPage() {
     null
   );
 
-  const clientiAttivi = clienti.filter((c) => c.contratto_attivo).length;
+  // ★ una persona può avere più righe (più contratti/installazioni con lo
+  // stesso CF/PIVA) — la KPI conta le persone uniche, non le righe, per
+  // non gonfiare il numero (es. 2688 righe attive = solo 1773 persone).
+  const chiaviClientiAttivi = new Set(
+    clienti.filter((c) => c.attivo).map((c) => c.codice_fiscale || c.partita_iva || `id:${c.id}`)
+  );
+  const clientiAttivi = chiaviClientiAttivi.size;
   const insoluti = isAdmin ? await getRiepilogoInsoluti() : null;
 
   return (

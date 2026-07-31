@@ -169,7 +169,10 @@ export interface ClienteEsterno {
   provincia: string | null;
   codice_gestionale: string | null;
   id_contratto: string | null;
+  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — inaffidabile, tenuto solo per riferimento. Per lo stato reale usare `attivo`. */
   contratto_attivo: boolean | null;
+  /** Fatturato negli ultimi 90 giorni — è questo il segnale usato ovunque nell'app per "cliente attivo". */
+  attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;
 }

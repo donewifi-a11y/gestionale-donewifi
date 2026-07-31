@@ -127,6 +127,12 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
     if (error) return { errore: error.message, sincronizzati: i };
   }
 
+  // ★ il flag "attivo" mostrato in tutta l'app non è il campo grezzo
+  // Aruba (inaffidabile, tenuto solo per riferimento) ma dedotto da chi
+  // ha davvero fatturato negli ultimi 90 giorni — va ricalcolato ogni
+  // volta che cambia l'anagrafica o le fatture.
+  await service.rpc("ricalcola_clienti_attivi");
+
   revalidatePath("/clienti-esterni");
   return { errore: null, sincronizzati: righe.length };
 }
@@ -224,6 +230,8 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
     sincronizzati += righe.length;
     offset += LIMITE_PAGINA;
   } while (offset < totale);
+
+  await service.rpc("ricalcola_clienti_attivi");
 
   revalidatePath("/clienti-esterni");
   return { errore: null, sincronizzati };

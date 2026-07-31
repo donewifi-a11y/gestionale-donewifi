@@ -5,7 +5,7 @@ import { ClientiBoard } from "@/components/clienti/clienti-board";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
-type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "contratto_attivo" | "profilo_internet" | "id_contratto">;
+type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto">;
 
 export default async function ClientiPage() {
   const supabase = await createClient();
@@ -14,7 +14,7 @@ export default async function ClientiPage() {
     supabase.from("tickets").select("*").order("data_creazione", { ascending: false }),
     supabase.from("clienti").select("*"),
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
-    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, contratto_attivo, profilo_internet, id_contratto"),
+    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, attivo, profilo_internet, id_contratto"),
   ]);
 
   const personaCorrente = await getPersonaCorrente(supabase);

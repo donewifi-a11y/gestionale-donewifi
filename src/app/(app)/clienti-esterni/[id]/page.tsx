@@ -53,10 +53,9 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-heading text-2xl font-bold tracking-tight">{nomeVisualizzato(c)}</h1>
-              {c.contratto_attivo === true && (
-                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Contratto attivo</span>
-              )}
-              {c.contratto_attivo === false && (
+              {c.attivo ? (
+                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attivo</span>
+              ) : (
                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non attivo</span>
               )}
             </div>
