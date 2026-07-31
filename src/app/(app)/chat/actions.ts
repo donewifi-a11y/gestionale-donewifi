@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
-import type { Conversazione, MessaggioChat } from "@/lib/types";
+import type { MessaggioChat } from "@/lib/types";
 
 export interface ContattoChat {
   id: string;
@@ -119,5 +119,3 @@ export async function urlAllegatoChat(percorso: string): Promise<{ errore: strin
   if (error) return { errore: error.message, url: null };
   return { errore: null, url: data.signedUrl };
 }
-
-export type { Conversazione };
