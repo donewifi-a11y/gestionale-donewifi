@@ -18,26 +18,36 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
   if (testo.length < 2) return [];
   const supabase = await createClient();
 
-  const numero = Number(testo);
+  // ★ FIX — `testo` finiva interpolato senza escaping dentro la stringa
+  // filtro di `.or()`: virgole/parentesi hanno significato speciale nella
+  // sintassi filtro di PostgREST (separano le condizioni, aprono/chiudono
+  // gruppi). Un utente che digita una virgola poteva far combinare al
+  // volo condizioni non previste sulla stessa tabella (nessuna fuga dalla
+  // RLS, ma un bug di robustezza reale — a volte anche un 400 per sintassi
+  // rotta). Le tolgo dal testo di ricerca: non servono in un nome/comune.
+  const testoSicuro = testo.replace(/[,()]/g, " ").trim();
+  if (testoSicuro.length < 2) return [];
+
+  const numero = Number(testoSicuro);
   const filtroNumero = Number.isFinite(numero) ? `,numero.eq.${numero}` : "";
 
   const [{ data: tickets }, { data: segnalazioni }, { data: clienti }] = await Promise.all([
     supabase
       .from("tickets")
       .select("id, numero, cliente, categoria, stato")
-      .or(`cliente.ilike.%${testo}%${filtroNumero}`)
+      .or(`cliente.ilike.%${testoSicuro}%${filtroNumero}`)
       .limit(8),
     supabase
       .from("segnalazioni")
       .select("id, numero, nome, comune, stato")
-      .or(`nome.ilike.%${testo}%${filtroNumero}`)
+      .or(`nome.ilike.%${testoSicuro}%${filtroNumero}`)
       .limit(8),
     supabase
       .from("clienti_esterni")
       .select("id, nome, cognome, ragionesociale, telefono, comune")
       .eq("attivo", true)
       .or(
-        `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
+        `nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%,codice_fiscale.ilike.%${testoSicuro}%`
       )
       .limit(8),
   ]);

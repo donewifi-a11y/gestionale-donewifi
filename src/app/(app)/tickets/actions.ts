@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
 import type { AreaAccesso, PrioritaTicket, StatoTicket } from "@/lib/types";
@@ -160,19 +160,25 @@ export async function cercaClientiEsistenti(query: string): Promise<ClienteEsist
   if (testo.length < 2) return [];
   const supabase = await createClient();
 
+  // ★ FIX — vedi ricercaGlobale(): virgole/parentesi non escapate nel
+  // testo di ricerca hanno significato speciale nella sintassi filtro di
+  // `.or()` di PostgREST.
+  const testoSicuro = testo.replace(/[,()]/g, " ").trim();
+  if (testoSicuro.length < 2) return [];
+
   const [{ data: esterni }, { data: daTicket }] = await Promise.all([
     supabase
       .from("clienti_esterni")
       .select("nome, cognome, ragionesociale, telefono, email, indirizzo, numero_civico, comune")
       .or(
-        `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
+        `nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%,codice_fiscale.ilike.%${testoSicuro}%`
       )
       .eq("attivo", true)
       .limit(6),
     supabase
       .from("tickets")
       .select("cliente, telefono, email, indirizzo, data_creazione")
-      .or(`cliente.ilike.%${testo}%,telefono.ilike.%${testo}%`)
+      .or(`cliente.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%`)
       .order("data_creazione", { ascending: false })
       .limit(30),
   ]);
@@ -350,10 +356,11 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
 
 export async function urlDocumentoRapportino(percorso: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato.", url: null };
+  // ★ FIX SICUREZZA — vedi urlDocumentoRichiesta(): controllava solo la
+  // sessione Auth, non `persone.attivo`, mentre sotto la service role
+  // bypassa la RLS per generare l'URL firmata.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", url: null };
 
   const service = createServiceClient();
   const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);

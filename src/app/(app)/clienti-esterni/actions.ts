@@ -305,8 +305,24 @@ export interface ClienteInsoluto {
  * ordina per importo dovuto. */
 export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFatture: number; clienti: ClienteInsoluto[] }> {
   const supabase = await createClient();
-  const { data: fatture } = await supabase.from("fatture_esterne").select("importo, codice_fiscale, partita_iva").eq("pagata", false);
-  const righe = fatture ?? [];
+
+  // ★ FIX — una `.select()` senza `.range()` è limitata a 1000 righe da
+  // Supabase/PostgREST: con le insolute ancora sotto quota il bug è muto,
+  // ma appena superano le 1000 il totale insoluti si sottostimerebbe in
+  // silenzio (stesso identico bug già trovato e corretto altrove per
+  // fatture_esterne/clienti_esterni — vedi sommaImportoFattureDa()).
+  const PAGINA = 1000;
+  const righe: { importo: number | null; codice_fiscale: string | null; partita_iva: string | null }[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("fatture_esterne")
+      .select("importo, codice_fiscale, partita_iva")
+      .eq("pagata", false)
+      .range(offset, offset + PAGINA - 1);
+    const pagina = data ?? [];
+    righe.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
 
   const mappa = new Map<string, { importo: number; numeroFatture: number }>();
   for (const f of righe) {

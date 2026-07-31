@@ -476,6 +476,32 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `.eq("pubblica", true)` aggiunto in `src/app/richiesta-dati/[id]/page.tsx` accanto al filtro
   `attivo`. Aggiunto anche `prezzo_attivazione` (costo una tantum, separato dal canone mensile) nel
   form Tariffa.
+✅ Controllo d'oro (2026-07) — audit di sicurezza e coerenza su tutto il gestionale (RLS, uso
+  service role, route pubbliche, secrets, sync Aruba, query non paginate). RLS/secrets/sync
+  risultati puliti. Bug reali trovati e corretti:
+  - 4 funzioni "URL firmata documento" (`urlAllegatoChat`, `urlDocumentoRichiesta`, `urlContratto`,
+    `urlDocumentoRapportino`) controllavano solo che ci fosse una sessione valida, non che lo staff
+    fosse ancora attivo (`persone.attivo`) — un dipendente disattivato ma con sessione ancora aperta
+    poteva ottenere comunque URL firmate verso contratti/rapportini/allegati, perché sotto si passa
+    alla service role che bypassa la RLS. Ora tutte usano `getPersonaCorrente()` (controlla
+    `attivo`); `urlAllegatoChat` verifica in più l'appartenenza alla conversazione.
+  - 3 query senza `.range()` non ancora coperte dal fix del limite delle 1000 righe (stesso bug già
+    corretto due volte su `clienti_esterni`/`fatture_esterne`): `getRiepilogoInsoluti()`
+    (`clienti-esterni/actions.ts`), il caricamento ticket di `/clienti` e i conteggi ticket/
+    segnalazioni della Dashboard — tutte e tre ora paginano.
+  - Ricerca globale e ricerca clienti nel form Ticket (`ricercaGlobale()`, `cercaClientiEsistenti()`)
+    interpolavano il testo di ricerca senza escaping nella sintassi filtro `.or()` di PostgREST:
+    una virgola o parentesi nel testo poteva alterare la combinazione dei filtri. Ora il testo viene
+    ripulito da `,()` prima di essere usato.
+  - Comparatore di ordinamento non valido in `getDatiReparto()` (`analytics.ts`) — non confrontava
+    mai `b`, quindi l'ordine dei ticket non urgenti nella lista "attivi" restava indefinito.
+  Segnalati ma non risolti in questo giro (richiedono una decisione o un intervento fuori dal
+  codice): `CRON_SECRET` va verificata impostata sull'ambiente Vercel di produzione (se assente, le
+  route cron restano raggiungibili senza autenticazione); nessun rate limiting su
+  `/api/portale/verifica-stato` e `/api/portale/apri-ticket`; 10 errori lint pre-esistenti
+  (`react-hooks/set-state-in-effect`) in `calendario-board.tsx`, `segnalazioni-board.tsx`,
+  `tickets-board.tsx` — pattern diffuso di sincronizzare stato da URL/localStorage in un
+  `useEffect`, non causa bug ma va contro la regola lint più recente.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

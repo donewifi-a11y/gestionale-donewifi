@@ -132,7 +132,11 @@ export async function getDatiReparto(supabase: Supabase, reparto: AreaAccesso) {
     completatiQuestoMese: completatiMese.length,
     ricaviQuestoMese: ricaviMese,
     caricoTecnici,
-    listaAttivi: attivi.sort((a, b) => (a.priorita === "Urgente" ? -1 : 1)).slice(0, 12),
+    // ★ FIX — il comparatore non confrontava mai `b`, quindi due ticket
+    // non urgenti si "vedevano" entrambi come maggiori l'uno dell'altro:
+    // un comparatore non valido, con ordinamento del resto della lista
+    // indefinito oltre ai primi urgenti portati in cima.
+    listaAttivi: attivi.sort((a, b) => Number(b.priorita === "Urgente") - Number(a.priorita === "Urgente")).slice(0, 12),
   };
 }
 

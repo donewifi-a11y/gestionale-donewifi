@@ -1,14 +1,17 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 
 export async function urlDocumentoRichiesta(percorso: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato.", url: null };
+  // ★ FIX SICUREZZA — controllava solo `!!user` (sessione Supabase Auth
+  // valida), non che lo staff fosse ancora attivo: `persone.attivo = false`
+  // non revoca la sessione, e sotto si passa alla service role (bypassa
+  // la RLS) per generare l'URL firmata del documento.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", url: null };
 
   const service = createServiceClient();
   const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);

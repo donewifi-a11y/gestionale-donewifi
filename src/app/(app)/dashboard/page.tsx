@@ -32,6 +32,40 @@ const PERIODI = [
   { chiave: "90", etichetta: "Ultimi 90 giorni", giorni: 90 },
 ] as const;
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// ★ FIX — la Dashboard usava `.select()` senza `.range()` per contare
+// ticket/segnalazioni attivi: limitato a 1000 righe da Supabase/PostgREST,
+// stesso bug già trovato e corretto due volte su questo progetto
+// (clienti_esterni, fatture_esterne) — pagina fin da subito anche qui.
+async function fetchTuttiTicketStato(supabase: Supabase) {
+  const PAGINA = 1000;
+  const tutti: { stato: string; priorita: string; tecnico_assegnato: string | null }[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("tickets")
+      .select("stato, priorita, tecnico_assegnato")
+      .neq("stato", "Annullato")
+      .range(offset, offset + PAGINA - 1);
+    const pagina = data ?? [];
+    tutti.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutti;
+}
+
+async function fetchTutteSegnalazioniStato(supabase: Supabase) {
+  const PAGINA = 1000;
+  const tutte: { stato: string }[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase.from("segnalazioni").select("stato").range(offset, offset + PAGINA - 1);
+    const pagina = data ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -59,21 +93,20 @@ export default async function DashboardPage({
   const settimanaFa = new Date();
   settimanaFa.setDate(settimanaFa.getDate() - 7);
 
-  const [{ data: tickets }, { data: segnalazioni }, { data: persone }, { count: appuntamentiOggi }] =
-    await Promise.all([
-      supabase.from("tickets").select("stato, priorita, tecnico_assegnato").neq("stato", "Annullato"),
-      supabase.from("segnalazioni").select("stato"),
-      supabase.from("persone").select("id, nome").eq("attivo", true),
-      supabase
-        .from("appuntamenti")
-        .select("*", { count: "exact", head: true })
-        .eq("stato", "Programmato")
-        .gte("data_ora", oggiInizio.toISOString())
-        .lte("data_ora", oggiFine.toISOString()),
-    ]);
+  const [tickets, segnalazioni, { data: persone }, { count: appuntamentiOggi }] = await Promise.all([
+    fetchTuttiTicketStato(supabase),
+    fetchTutteSegnalazioniStato(supabase),
+    supabase.from("persone").select("id, nome").eq("attivo", true),
+    supabase
+      .from("appuntamenti")
+      .select("*", { count: "exact", head: true })
+      .eq("stato", "Programmato")
+      .gte("data_ora", oggiInizio.toISOString())
+      .lte("data_ora", oggiFine.toISOString()),
+  ]);
 
-  const listaTicket = tickets ?? [];
-  const listaSegnalazioni = segnalazioni ?? [];
+  const listaTicket = tickets;
+  const listaSegnalazioni = segnalazioni;
   const listaPersone = persone ?? [];
 
   const personaCorrente = await getPersonaCorrente(supabase);

@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
 import type { Copertura, StatoSegnalazione } from "@/lib/types";
@@ -82,10 +82,11 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
 
 export async function urlContratto(percorso: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato.", url: null };
+  // ★ FIX SICUREZZA — vedi urlDocumentoRichiesta(): controllava solo la
+  // sessione Auth, non `persone.attivo`, mentre sotto la service role
+  // bypassa la RLS per generare l'URL firmata.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", url: null };
 
   const service = createServiceClient();
   const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);

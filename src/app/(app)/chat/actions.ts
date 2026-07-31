@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import type { MessaggioChat } from "@/lib/types";
 
 export interface ContattoChat {
@@ -114,8 +114,18 @@ export async function inviaAllegatoChat(conversazioneId: string, formData: FormD
 
 export async function urlAllegatoChat(percorso: string): Promise<{ errore: string | null; url: string | null }> {
   const supabase = await createClient();
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE, url: null };
+  // ★ FIX SICUREZZA — controllava solo che ci fosse un cookie persona
+  // valido, non che la persona fosse ancora attiva né che avesse accesso
+  // a QUESTA conversazione: un dipendente disattivato con sessione ancora
+  // valida, o uno staff normale che indovina/riusa un percorso, otteneva
+  // comunque l'URL firmato perché sotto si passa alla service role (che
+  // bypassa la RLS). Stesso controllo già fatto in inviaAllegatoChat().
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, url: null };
+
+  const conversazioneId = percorso.split("/")[1];
+  const { data: consentita } = await supabase.from("conversazioni").select("id").eq("id", conversazioneId).maybeSingle();
+  if (!consentita) return { errore: "Allegato non trovato o non accessibile.", url: null };
 
   const service = createServiceClient();
   const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
