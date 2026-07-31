@@ -452,6 +452,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   listino ma non tra i profili correnti dei clienti Aruba) — 198 tariffe totali, 193 con prezzo,
   solo 5 rimaste senza corrispondenza nel listino (nomi "base" senza edizione specifica, es.
   "Business 100" senza "- ed 2024/2026").
+✅ Dashboard — fatturato per periodo con crescita/decrescita (2026-07, migrazione `0031`): la
+  sezione "Statistiche per periodo" (stesso selettore 7/30/90gg + intervallo libero già in uso per
+  le statistiche ticket/SLA) ora mostra anche fatturato, numero fatture e clienti attivi del
+  periodo scelto, ciascuno con la percentuale di crescita/decrescita rispetto al periodo
+  precedente di uguale durata, più fatture insolute nel periodo e i profili con più fatture (top
+  8). Calcolato con due funzioni SQL (`statistiche_fatturato_periodo()`, `profili_per_periodo()`)
+  chiamate due volte (periodo corrente + periodo precedente) invece di scaricare le fatture via
+  rete. Verificato contro produzione: ultimi 30gg € 51.746 (+1,2%), 997 fatture (+13,9%), 947
+  clienti attivi nel periodo (+12,6%).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

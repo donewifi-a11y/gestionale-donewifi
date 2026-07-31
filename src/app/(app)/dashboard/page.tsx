@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
-import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, REPARTI_ELENCO } from "@/lib/analytics";
+import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
 
 // ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
@@ -80,6 +80,7 @@ export default async function DashboardPage({
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
   const amministrazione = isAdmin ? await getDatiAmministrazione(supabase) : null;
   const statistichePeriodo = isAdmin ? await getStatistichePeriodo(supabase, periodoInizio, oraFine) : null;
+  const confrontoFatturato = isAdmin ? await getConfrontoFatturatoPeriodo(supabase, periodoInizio, oraFine) : null;
   const anagraficaAruba = isAdmin ? await getDatiAnagraficaAruba(supabase) : null;
   const totaliGenerali = isAdmin ? await getTotaliGeneraliAruba(supabase, amministrazione?.ricaviTotali ?? 0) : null;
 
@@ -167,7 +168,13 @@ export default async function DashboardPage({
       </div>
 
       {statistichePeriodo && (
-        <SezionePeriodo dati={statistichePeriodo} periodoAttivo={periodoAttivo} da={params.da} a={params.a} />
+        <SezionePeriodo
+          dati={statistichePeriodo}
+          confronto={confrontoFatturato}
+          periodoAttivo={periodoAttivo}
+          da={params.da}
+          a={params.a}
+        />
       )}
 
       {amministrazione && <SezioneAmministrazione dati={amministrazione} />}
@@ -181,16 +188,19 @@ export default async function DashboardPage({
 
 function SezionePeriodo({
   dati,
+  confronto,
   periodoAttivo,
   da,
   a,
 }: {
   dati: NonNullable<Awaited<ReturnType<typeof getStatistichePeriodo>>>;
+  confronto: Awaited<ReturnType<typeof getConfrontoFatturatoPeriodo>> | null;
   periodoAttivo: string;
   da?: string;
   a?: string;
 }) {
   const fmtSla = (ore: number | null) => (ore === null ? "—" : ore < 24 ? `${ore} h` : `${Math.round(ore / 24)} gg`);
+  const maxProfiliPeriodo = Math.max(1, ...(confronto?.profili.map((p) => p.conteggio) ?? [1]));
 
   return (
     <div className="mt-8 border-t pt-8 print:break-before-page">
@@ -259,7 +269,7 @@ function SezionePeriodo({
         </table>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {Object.entries(dati.perPriorita).map(([priorita, d]) => (
           <div key={priorita} className="rounded-2xl border bg-card p-4 shadow-md">
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{priorita}</div>
@@ -267,6 +277,76 @@ function SezionePeriodo({
             <div className="text-xs text-muted-foreground">SLA medio · {d.campione} ticket</div>
           </div>
         ))}
+      </div>
+
+      {confronto && (
+        <>
+          <div className="mb-4 flex items-center gap-2">
+            <Euro className="h-4 w-4 text-primary" strokeWidth={2.5} />
+            <h3 className="font-heading text-base font-bold">Fatturato del periodo — vs periodo precedente</h3>
+          </div>
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KpiConfronto
+              etichetta="Fatturato"
+              valore={`€ ${confronto.corrente.fatturato.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`}
+              pct={confronto.crescita.fatturatoPct}
+            />
+            <KpiConfronto
+              etichetta="Fatture emesse"
+              valore={confronto.corrente.numeroFatture.toLocaleString("it-IT")}
+              pct={confronto.crescita.numeroFatturePct}
+            />
+            <KpiConfronto
+              etichetta="Clienti attivi nel periodo"
+              valore={confronto.corrente.clientiAttiviPeriodo.toLocaleString("it-IT")}
+              pct={confronto.crescita.clientiAttiviPct}
+            />
+          </div>
+
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border bg-card p-4 shadow-md">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fatture insolute nel periodo</div>
+              <div className={`font-heading text-xl font-bold tabular-nums ${confronto.corrente.numeroInsolute > 0 ? "text-critical" : ""}`}>
+                {confronto.corrente.numeroInsolute}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                € {confronto.corrente.totaleInsoluto.toLocaleString("it-IT", { maximumFractionDigits: 0 })} non incassati
+              </div>
+            </div>
+            <div className="rounded-2xl border bg-card p-4 shadow-md">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Periodo precedente (confronto)</div>
+              <div className="font-heading text-xl font-bold tabular-nums">
+                € {confronto.precedente.fatturato.toLocaleString("it-IT", { maximumFractionDigits: 0 })}
+              </div>
+              <div className="text-xs text-muted-foreground">{confronto.precedente.numeroFatture} fatture · durata equivalente</div>
+            </div>
+          </div>
+
+          {confronto.profili.length > 0 && (
+            <Pannello titolo="Profili con più fatture nel periodo (top 8)">
+              {confronto.profili.map((p) => (
+                <BarraRiga key={p.profilo} etichetta={p.profilo} conteggio={p.conteggio} max={maxProfiliPeriodo} colore="bg-primary" />
+              ))}
+            </Pannello>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function KpiConfronto({ etichetta, valore, pct }: { etichetta: string; valore: string; pct: number | null }) {
+  const Icona = pct === null ? Minus : pct > 0 ? TrendingUp : pct < 0 ? TrendingDown : Minus;
+  const colore = pct === null || pct === 0 ? "text-muted-foreground" : pct > 0 ? "text-success" : "text-critical";
+  const testoPct = pct === null ? "n/d" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 shadow-md">
+      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{etichetta}</div>
+      <div className="font-heading text-xl font-bold tabular-nums">{valore}</div>
+      <div className={`mt-1 flex items-center gap-1 text-xs font-semibold ${colore}`}>
+        <Icona className="h-3.5 w-3.5" strokeWidth={2.5} />
+        {testoPct} <span className="font-normal text-muted-foreground">vs periodo precedente</span>
       </div>
     </div>
   );

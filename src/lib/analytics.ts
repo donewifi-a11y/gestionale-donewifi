@@ -351,4 +351,100 @@ export async function getTotaliGeneraliAruba(supabase: Supabase, fatturatoMeseCo
   };
 }
 
+function ymd(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export interface StatistichePeriodoConfronto {
+  fatturato: number;
+  numeroFatture: number;
+  numeroInsolute: number;
+  totaleInsoluto: number;
+  clientiAttiviPeriodo: number;
+}
+
+export interface ConfrontoFatturatoPeriodo {
+  corrente: StatistichePeriodoConfronto;
+  precedente: StatistichePeriodoConfronto;
+  /** variazione percentuale corrente vs precedente — null se il periodo
+   * precedente era a zero (percentuale non significativa, es. "+∞%"). */
+  crescita: {
+    fatturatoPct: number | null;
+    numeroFatturePct: number | null;
+    clientiAttiviPct: number | null;
+  };
+  profili: { profilo: string; conteggio: number }[];
+}
+
+function rigaVuota(): StatistichePeriodoConfronto {
+  return { fatturato: 0, numeroFatture: 0, numeroInsolute: 0, totaleInsoluto: 0, clientiAttiviPeriodo: 0 };
+}
+
+function variazionePct(corrente: number, precedente: number): number | null {
+  if (precedente === 0) return corrente === 0 ? 0 : null;
+  return ((corrente - precedente) / precedente) * 100;
+}
+
+/** ★ fatturato/profili/pagamenti filtrabili per un periodo arbitrario (lo
+ * stesso già scelto dall'utente nel selettore "Statistiche per periodo"),
+ * confrontati con il periodo precedente di uguale durata per calcolare
+ * crescita/decrescita — calcolato in SQL (statistiche_fatturato_periodo() e
+ * profili_per_periodo(), migrazione 0031) invece di scaricare le fatture
+ * del periodo via rete. */
+export async function getConfrontoFatturatoPeriodo(
+  supabase: Supabase,
+  inizio: Date,
+  fine: Date
+): Promise<ConfrontoFatturatoPeriodo> {
+  const durataMs = fine.getTime() - inizio.getTime();
+  const finePrecedente = new Date(inizio.getTime() - 24 * 60 * 60 * 1000);
+  const inizioPrecedente = new Date(finePrecedente.getTime() - durataMs);
+
+  const [{ data: rigaCorrente }, { data: rigaPrecedente }, { data: profili }] = await Promise.all([
+    supabase.rpc("statistiche_fatturato_periodo", { p_inizio: ymd(inizio), p_fine: ymd(fine) }).single(),
+    supabase
+      .rpc("statistiche_fatturato_periodo", { p_inizio: ymd(inizioPrecedente), p_fine: ymd(finePrecedente) })
+      .single(),
+    supabase.rpc("profili_per_periodo", { p_inizio: ymd(inizio), p_fine: ymd(fine) }),
+  ]);
+
+  const converti = (r: unknown): StatistichePeriodoConfronto => {
+    if (!r) return rigaVuota();
+    const riga = r as {
+      fatturato: number | string;
+      numero_fatture: number;
+      numero_insolute: number;
+      totale_insoluto: number | string;
+      clienti_attivi_periodo: number;
+    };
+    return {
+      fatturato: Number(riga.fatturato) || 0,
+      numeroFatture: riga.numero_fatture ?? 0,
+      numeroInsolute: riga.numero_insolute ?? 0,
+      totaleInsoluto: Number(riga.totale_insoluto) || 0,
+      clientiAttiviPeriodo: riga.clienti_attivi_periodo ?? 0,
+    };
+  };
+
+  const corrente = converti(rigaCorrente);
+  const precedente = converti(rigaPrecedente);
+
+  return {
+    corrente,
+    precedente,
+    crescita: {
+      fatturatoPct: variazionePct(corrente.fatturato, precedente.fatturato),
+      numeroFatturePct: variazionePct(corrente.numeroFatture, precedente.numeroFatture),
+      clientiAttiviPct: variazionePct(corrente.clientiAttiviPeriodo, precedente.clientiAttiviPeriodo),
+    },
+    profili: ((profili as { profilo: string; conteggio: number }[] | null) ?? []).map((p) => ({
+      profilo: p.profilo,
+      conteggio: p.conteggio,
+    })),
+  };
+}
+
 export { REPARTI_ELENCO };
