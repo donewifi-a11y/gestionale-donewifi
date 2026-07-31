@@ -151,30 +151,55 @@ export interface ClienteEsistente {
   indirizzo: string | null;
 }
 
-// ★ ex cercaAnagraficaSuFoglio() del vecchio gestionale — qui semplificato:
-// cerca tra i Ticket già esistenti (stessa fonte usata dalla pagina
-// Clienti) invece di un foglio anagrafica separato, e precompila i campi
-// di contatto quando si apre un nuovo Ticket per un cliente già noto.
+// ★ ex cercaAnagraficaSuFoglio() del vecchio gestionale — di nuovo vero
+// dopo l'importazione dell'anagrafica Aruba: cerca prima lì (dati più
+// affidabili, aggiornati centralmente) e completa con i Ticket già
+// esistenti nel gestionale, per non perdere clienti visti solo qui.
 export async function cercaClientiEsistenti(query: string): Promise<ClienteEsistente[]> {
   const testo = query.trim();
   if (testo.length < 2) return [];
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("tickets")
-    .select("cliente, telefono, email, indirizzo, data_creazione")
-    .or(`cliente.ilike.%${testo}%,telefono.ilike.%${testo}%`)
-    .order("data_creazione", { ascending: false })
-    .limit(30);
+  const [{ data: esterni }, { data: daTicket }] = await Promise.all([
+    supabase
+      .from("clienti_esterni")
+      .select("nome, cognome, ragionesociale, telefono, email, indirizzo, numero_civico, comune")
+      .or(
+        `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
+      )
+      .eq("contratto_attivo", true)
+      .limit(6),
+    supabase
+      .from("tickets")
+      .select("cliente, telefono, email, indirizzo, data_creazione")
+      .or(`cliente.ilike.%${testo}%,telefono.ilike.%${testo}%`)
+      .order("data_creazione", { ascending: false })
+      .limit(30),
+  ]);
 
   const visti = new Set<string>();
   const risultati: ClienteEsistente[] = [];
-  for (const t of data ?? []) {
+
+  for (const c of esterni ?? []) {
+    const nomeCompleto = c.ragionesociale || [c.nome, c.cognome].filter(Boolean).join(" ");
+    if (!nomeCompleto) continue;
+    const chiave = nomeCompleto.toLowerCase();
+    if (visti.has(chiave)) continue;
+    visti.add(chiave);
+    risultati.push({
+      cliente: nomeCompleto,
+      telefono: c.telefono,
+      email: c.email,
+      indirizzo: [c.indirizzo, c.numero_civico].filter(Boolean).join(" ") + (c.comune ? `, ${c.comune}` : ""),
+    });
+  }
+
+  for (const t of daTicket ?? []) {
     const chiave = t.cliente.toLowerCase();
     if (visti.has(chiave)) continue;
     visti.add(chiave);
     risultati.push({ cliente: t.cliente, telefono: t.telefono, email: t.email, indirizzo: t.indirizzo });
-    if (risultati.length >= 6) break;
+    if (risultati.length >= 8) break;
   }
   return risultati;
 }

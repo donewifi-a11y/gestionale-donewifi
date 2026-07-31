@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati } from "../actions";
 import type { ClienteEsterno } from "@/lib/types";
@@ -30,6 +30,14 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
   const insoluti = fatture.filter((f) => !f.pagata);
   const insolutoTotale = insoluti.reduce((s, f) => s + (Number(f.importo) || 0), 0);
 
+  const indirizzoCompleto = [c.indirizzo, c.numero_civico].filter(Boolean).join(" ") + (c.comune ? `, ${c.comune}` : "");
+  const parametriNuovoTicket = new URLSearchParams({
+    cliente: nomeVisualizzato(c),
+    ...(c.telefono ? { telefono: c.telefono } : {}),
+    ...(c.email ? { email: c.email } : {}),
+    ...(indirizzoCompleto.trim() ? { indirizzo: indirizzoCompleto } : {}),
+  });
+
   return (
     <div className="mx-auto max-w-4xl">
       <Link href="/clienti-esterni" className="mb-4 flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -37,22 +45,31 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
         Anagrafica Clienti
       </Link>
 
-      <div className="mb-6 flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground">
-          {nomeVisualizzato(c).slice(0, 2).toUpperCase()}
-        </span>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-heading text-2xl font-bold tracking-tight">{nomeVisualizzato(c)}</h1>
-            {c.contratto_attivo === true && (
-              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Contratto attivo</span>
-            )}
-            {c.contratto_attivo === false && (
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non attivo</span>
-            )}
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground">
+            {nomeVisualizzato(c).slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-heading text-2xl font-bold tracking-tight">{nomeVisualizzato(c)}</h1>
+              {c.contratto_attivo === true && (
+                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Contratto attivo</span>
+              )}
+              {c.contratto_attivo === false && (
+                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non attivo</span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Dati importati dall&apos;anagrafica Aruba — aggiornati il {new Date(c.aggiornato_il).toLocaleString("it-IT")}.</p>
           </div>
-          <p className="text-sm text-muted-foreground">Dati importati dall&apos;anagrafica Aruba — aggiornati il {new Date(c.aggiornato_il).toLocaleString("it-IT")}.</p>
         </div>
+        <Link
+          href={`/tickets/nuovo?${parametriNuovoTicket.toString()}`}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Nuovo Ticket
+        </Link>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,14 +16,18 @@ import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
 
 export default function NuovoTicketPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const primoCampo = useRef<HTMLInputElement>(null);
   const fileExtraRef = useRef<HTMLInputElement>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
-  const [cliente, setCliente] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [email, setEmail] = useState("");
-  const [indirizzo, setIndirizzo] = useState("");
+  // ★ arrivando dalla scheda cliente (Anagrafica Aruba) con "Nuovo
+  // Ticket per questo cliente", i campi di contatto arrivano già pronti
+  // via query string invece di doverli ricercare/ricopiare a mano.
+  const [cliente, setCliente] = useState(() => searchParams.get("cliente") ?? "");
+  const [telefono, setTelefono] = useState(() => searchParams.get("telefono") ?? "");
+  const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
+  const [indirizzo, setIndirizzo] = useState(() => searchParams.get("indirizzo") ?? "");
   const [categoria, setCategoria] = useState<(typeof CATEGORIE_TICKET)[number]>(CATEGORIE_TICKET[0]);
   const [sottocategoria, setSottocategoria] = useState("");
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
