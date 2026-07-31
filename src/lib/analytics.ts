@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import type { AreaAccesso } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -197,6 +198,105 @@ export async function getStatistichePeriodo(supabase: Supabase, inizio: Date, fi
   }
 
   return { perReparto, perPriorita };
+}
+
+export interface DatiAnagraficaAruba {
+  clientiAttivi: number;
+  fattureInsolute: { numero: number; totale: number };
+  andamentoFatturato: { chiave: string; etichetta: string; totale: number }[];
+  distribuzioneProfili: { nome: string; conteggio: number }[];
+}
+
+/** ★ ex fogli "Clienti Attivi"/anagrafica del vecchio gestionale, qui
+ * dall'importazione Aruba (clienti_esterni/fatture_esterne) invece che
+ * da dati inseriti a mano — tutte le query paginate con `.range()`
+ * (righe potenzialmente oltre le 1000 di default). */
+export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAnagraficaAruba> {
+  const seiMesiFa = new Date();
+  seiMesiFa.setMonth(seiMesiFa.getMonth() - 5);
+  seiMesiFa.setDate(1);
+  seiMesiFa.setHours(0, 0, 0, 0);
+
+  async function fetchTutteLeFattureDa(dataIso: string): Promise<{ importo: number | null; pagata: boolean; emissione: string | null }[]> {
+    const PAGINA = 1000;
+    let offset = 0;
+    const tutte: { importo: number | null; pagata: boolean; emissione: string | null }[] = [];
+    for (;;) {
+      const { data } = await supabase
+        .from("fatture_esterne")
+        .select("importo, pagata, emissione")
+        .gte("emissione", dataIso)
+        .range(offset, offset + PAGINA - 1);
+      const righe = data ?? [];
+      tutte.push(...righe);
+      if (righe.length < PAGINA) break;
+      offset += PAGINA;
+    }
+    return tutte;
+  }
+
+  async function fetchTutteLeInsolute(): Promise<{ importo: number | null }[]> {
+    const PAGINA = 1000;
+    let offset = 0;
+    const tutte: { importo: number | null }[] = [];
+    for (;;) {
+      const { data } = await supabase.from("fatture_esterne").select("importo").eq("pagata", false).range(offset, offset + PAGINA - 1);
+      const righe = data ?? [];
+      tutte.push(...righe);
+      if (righe.length < PAGINA) break;
+      offset += PAGINA;
+    }
+    return tutte;
+  }
+
+  // ★ un solo giro su clienti_esterni (paginato) per ricavare sia il
+  // conteggio attivi unici sia la distribuzione profili, invece di due
+  // scansioni separate dell'intera tabella.
+  const [clientiEsterni, fattureSeiMesi, insolute] = await Promise.all([
+    fetchTuttiClientiEsterni<{ id: number; codice_fiscale: string | null; partita_iva: string | null; attivo: boolean; profilo_internet: string | null }>(
+      supabase,
+      "id, codice_fiscale, partita_iva, attivo, profilo_internet"
+    ),
+    fetchTutteLeFattureDa(seiMesiFa.toISOString().slice(0, 10)),
+    fetchTutteLeInsolute(),
+  ]);
+
+  const chiaviAttivi = new Set(
+    clientiEsterni.filter((c) => c.attivo).map((c) => c.codice_fiscale || c.partita_iva || `id:${c.id}`)
+  );
+  const clientiAttivi = chiaviAttivi.size;
+
+  const mesi: { chiave: string; etichetta: string; totale: number }[] = [];
+  const oggi = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(oggi.getFullYear(), oggi.getMonth() - i, 1);
+    mesi.push({ chiave: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, etichetta: d.toLocaleDateString("it-IT", { month: "short" }), totale: 0 });
+  }
+  const mappaMesi = new Map(mesi.map((m) => [m.chiave, m]));
+  for (const f of fattureSeiMesi) {
+    if (!f.emissione) continue;
+    const m = mappaMesi.get(f.emissione.slice(0, 7));
+    if (m) m.totale += Number(f.importo) || 0;
+  }
+
+  const fattureInsolute = {
+    numero: insolute.length,
+    totale: insolute.reduce((s, f) => s + (Number(f.importo) || 0), 0),
+  };
+
+  const conteggioProfili: Record<string, number> = {};
+  for (const c of clientiEsterni) {
+    if (!c.attivo) continue;
+    const nome = (c.profilo_internet || "").trim();
+    if (!nome) continue;
+    conteggioProfili[nome] = (conteggioProfili[nome] ?? 0) + 1;
+  }
+  const distribuzioneProfili = Object.entries(conteggioProfili)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([nome, conteggio]) => ({ nome, conteggio }));
+
+  return { clientiAttivi, fattureInsolute, andamentoFatturato: mesi, distribuzioneProfili };
 }
 
 export { REPARTI_ELENCO };

@@ -427,6 +427,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   questi servizi) o al netto, con anteprima live di entrambi i valori nel form. Ovunque il prezzo è
   mostrato (elenco Tariffe, form pubblico Richiesta Dati) si vede sempre il totale IVA inclusa,
   calcolato con `prezziNettoLordo()` (`src/lib/types.ts`) indipendentemente da come è stato inserito.
+✅ Dashboard — sezione "Anagrafica Clienti (Aruba)" (2026-08): nuovo pannello nella Dashboard
+  generale (`getDatiAnagraficaAruba()` in `src/lib/analytics.ts`) con dati reali invece che dedotti
+  dai Ticket: clienti attivi (deduplicati per CF/PIVA), fatture insolute (numero + importo),
+  andamento del fatturato reale ultimi 6 mesi (grafico a barre) e distribuzione dei clienti attivi
+  per profilo (top 8). Un solo giro paginato su `clienti_esterni` per ricavare sia il conteggio
+  clienti sia la distribuzione profili, invece di due scansioni separate della tabella.
+  `maxDuration = 30` sulla pagina (più query paginate di quante ne servano di norma).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

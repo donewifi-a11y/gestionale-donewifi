@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
-import { getDatiAmministrazione, getStatistichePeriodo, REPARTI_ELENCO } from "@/lib/analytics";
+import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
+
+// ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
+// migliaia di righe (clienti_esterni, fatture_esterne) — più dei 10s di
+// default per una funzione serverless.
+export const maxDuration = 30;
 
 const STATI_TICKET_ORDINE = ["Da gestire", "In lavorazione", "In attesa", "Completato"] as const;
 const COLORE_STATO_TICKET: Record<string, string> = {
@@ -75,6 +80,7 @@ export default async function DashboardPage({
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
   const amministrazione = isAdmin ? await getDatiAmministrazione(supabase) : null;
   const statistichePeriodo = isAdmin ? await getStatistichePeriodo(supabase, periodoInizio, oraFine) : null;
+  const anagraficaAruba = isAdmin ? await getDatiAnagraficaAruba(supabase) : null;
 
   const ticketUrgenti = listaTicket.filter((t) => t.priorita === "Urgente" && t.stato !== "Completato").length;
   const ticketNonAssegnati = listaTicket.filter((t) => !t.tecnico_assegnato && t.stato !== "Completato").length;
@@ -164,6 +170,8 @@ export default async function DashboardPage({
       )}
 
       {amministrazione && <SezioneAmministrazione dati={amministrazione} />}
+
+      {anagraficaAruba && <SezioneAnagraficaAruba dati={anagraficaAruba} />}
     </div>
   );
 }
@@ -319,6 +327,60 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
           ))}
         </Pannello>
       </div>
+    </div>
+  );
+}
+
+function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType<typeof getDatiAnagraficaAruba>>> }) {
+  const maxAndamento = Math.max(1, ...dati.andamentoFatturato.map((m) => m.totale));
+  const maxProfili = Math.max(1, ...dati.distribuzioneProfili.map((p) => p.conteggio));
+
+  return (
+    <div className="mt-8 border-t pt-8 print:break-before-page">
+      <div className="mb-4 flex items-center gap-2">
+        <Database className="h-4 w-4 text-primary" strokeWidth={2.5} />
+        <h2 className="font-heading text-lg font-bold">Anagrafica Clienti (Aruba)</h2>
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Kpi icona={Users2} etichetta="Clienti attivi" valore={dati.clientiAttivi} colore="text-primary" />
+        <Kpi
+          icona={ReceiptText}
+          etichetta="Fatture insolute"
+          valore={dati.fattureInsolute.numero}
+          colore={dati.fattureInsolute.numero > 0 ? "text-critical" : "text-foreground"}
+        />
+        <Kpi
+          icona={Euro}
+          etichetta="Importo insoluto"
+          valore={`€ ${dati.fattureInsolute.totale.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`}
+          colore={dati.fattureInsolute.totale > 0 ? "text-critical" : "text-foreground"}
+        />
+      </div>
+
+      <div className="mb-5 rounded-2xl border bg-card p-5 shadow-md">
+        <h3 className="mb-4 font-heading text-sm font-bold">Fatturato — ultimi 6 mesi (€)</h3>
+        <div className="flex h-24 items-end gap-2">
+          {dati.andamentoFatturato.map((m) => (
+            <div key={m.chiave} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                title={`${m.etichetta}: € ${m.totale.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`}
+                className="w-full rounded-t bg-success/70 transition hover:bg-success"
+                style={{ height: `${Math.max(4, Math.round((m.totale / maxAndamento) * 100))}%` }}
+              />
+              <span className="text-[10px] capitalize text-muted-foreground">{m.etichetta}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {dati.distribuzioneProfili.length > 0 && (
+        <Pannello titolo="Clienti attivi per profilo (top 8)">
+          {dati.distribuzioneProfili.map((p) => (
+            <BarraRiga key={p.nome} etichetta={p.nome} conteggio={p.conteggio} max={maxProfili} colore="bg-primary" />
+          ))}
+        </Pannello>
+      )}
     </div>
   );
 }
