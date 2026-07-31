@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert } from "lucide-react";
+import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
   aggiornaTariffa,
   eliminaTariffa,
   duplicaTariffa,
+  impostaSottoscrivibileTariffa,
   creaPromozione,
   aggiornaPromozione,
   eliminaPromozione,
@@ -47,9 +48,17 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
     if (!risultato.errore) router.refresh();
   }
 
+  async function toggleSottoscrivibile(t: Tariffa) {
+    const risultato = await impostaSottoscrivibileTariffa(t.id, !t.attivo);
+    if (!risultato.errore) router.refresh();
+  }
+
   // ★ come nel vecchio gestionale: avviso se una tariffa ha più promo attive insieme (rischio di sconti che si sommano per errore).
   const promoAttive = promozioni.filter((p) => statoPromozione(p) === "Attiva");
   const tariffeConPiuPromo = tariffe.filter((t) => promoAttive.filter((p) => p.tariffe_ids.includes(t.id)).length > 1);
+
+  const tariffeAttive = tariffe.filter((t) => t.attivo);
+  const tariffeNonSottoscrivibili = tariffe.filter((t) => !t.attivo);
 
   return (
     <div>
@@ -60,39 +69,30 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {tariffe.length === 0 && (
-          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna tariffa ancora. Aggiungine una sopra.</p>
+      <h2 className="mb-2 font-heading text-sm font-bold text-muted-foreground">
+        Attive ({tariffeAttive.length}) — proposte ai nuovi clienti
+      </h2>
+      <div className="mb-8 overflow-hidden rounded-2xl border bg-card shadow-sm">
+        {tariffeAttive.length === 0 && (
+          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna tariffa attiva. Aggiungine una sopra.</p>
         )}
-        {tariffe.map((t) => (
-          <div
-            key={t.id}
-            className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
-          >
-            <button onClick={() => setModifica(t)} className="flex-1 text-left">
-              <div className="font-semibold">{t.nome}</div>
-              <div className="text-xs text-muted-foreground">
-                {t.tipologia_cliente}
-                {t.velocita && ` · ${t.velocita}`}
-                {t.prezzo_mensile != null && (() => {
-                  const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
-                  return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
-                })()}
-              </div>
-            </button>
-            <div className="flex items-center gap-2">
-              {t.attivo ? (
-                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
-              ) : (
-                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivata</span>
-              )}
-              <Button size="icon" variant="ghost" title="Duplica tariffa" onClick={() => duplica(t)}>
-                <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </Button>
-            </div>
-          </div>
+        {tariffeAttive.map((t) => (
+          <RigaTariffa key={t.id} t={t} onApri={() => setModifica(t)} onDuplica={() => duplica(t)} onToggle={() => toggleSottoscrivibile(t)} />
         ))}
       </div>
+
+      {tariffeNonSottoscrivibili.length > 0 && (
+        <>
+          <h2 className="mb-2 font-heading text-sm font-bold text-muted-foreground">
+            Non più sottoscrivibili ({tariffeNonSottoscrivibili.length}) — restano per i clienti già attivi su questo piano
+          </h2>
+          <div className="mb-8 overflow-hidden rounded-2xl border bg-card opacity-80 shadow-sm">
+            {tariffeNonSottoscrivibili.map((t) => (
+              <RigaTariffa key={t.id} t={t} onApri={() => setModifica(t)} onDuplica={() => duplica(t)} onToggle={() => toggleSottoscrivibile(t)} />
+            ))}
+          </div>
+        </>
+      )}
 
       <Sheet open={nuova} onOpenChange={setNuova}>
         <SheetContent>
@@ -175,6 +175,52 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
           {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} onFatto={() => setModificaPromo(null)} />}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function RigaTariffa({
+  t,
+  onApri,
+  onDuplica,
+  onToggle,
+}: {
+  t: Tariffa;
+  onApri: () => void;
+  onDuplica: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40">
+      <button onClick={onApri} className="flex-1 text-left">
+        <div className="font-semibold">{t.nome}</div>
+        <div className="text-xs text-muted-foreground">
+          {t.tipologia_cliente}
+          {t.velocita && ` · ${t.velocita}`}
+          {t.prezzo_mensile != null && (() => {
+            const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
+            return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
+          })()}
+        </div>
+      </button>
+      <div className="flex items-center gap-2">
+        {t.attivo ? (
+          <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
+        ) : (
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non sottoscrivibile</span>
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          title={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
+          onClick={onToggle}
+        >
+          {t.attivo ? <Ban className="h-3.5 w-3.5" strokeWidth={2.25} /> : <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />}
+        </Button>
+        <Button size="icon" variant="ghost" title="Duplica tariffa" onClick={onDuplica}>
+          <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -310,7 +356,7 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
         {tariffa && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="attivo" defaultChecked={tariffa.attivo} className="h-4 w-4" />
-            Tariffa attiva (visibile ai clienti)
+            Sottoscrivibile dai nuovi clienti (se disattivi, la tariffa resta salvata per chi ce l&apos;ha già)
           </label>
         )}
         {errore && (

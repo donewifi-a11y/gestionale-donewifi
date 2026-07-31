@@ -461,6 +461,11 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   chiamate due volte (periodo corrente + periodo precedente) invece di scaricare le fatture via
   rete. Verificato contro produzione: ultimi 30gg € 51.746 (+1,2%), 997 fatture (+13,9%), 947
   clienti attivi nel periodo (+12,6%).
+✅ Tariffe — non più sottoscrivibili senza sparire (2026-07): usa il campo `attivo` già esistente
+  (nessuna migrazione nuova) ma con UI dedicata — la pagina Tariffe ora mostra due elenchi separati,
+  "Attive" (proposte ai nuovi clienti) e "Non più sottoscrivibili" (restano salvate, con prezzo e
+  storico, per chi ce l'ha già), con un toggle rapido a icona su ogni riga (`impostaSottoscrivibileTariffa()`
+  in `src/app/(app)/tariffe/actions.ts`) invece di dover aprire il form di modifica per cambiare stato.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

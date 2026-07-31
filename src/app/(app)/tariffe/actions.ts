@@ -36,6 +36,24 @@ export async function aggiornaTariffa(id: string, dati: DatiTariffa) {
   return { errore: null };
 }
 
+/** ★ toggle rapido dalla lista, senza aprire il form: una tariffa non più
+ * vendibile non va cancellata (resta nello storico/nei contratti già
+ * firmati) — si smette solo di proporla ai nuovi clienti. */
+export async function impostaSottoscrivibileTariffa(id: string, attivo: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { error } = await supabase.from("tariffe").update({ attivo }).eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
+  revalidatePath("/richiesta-dati", "layout");
+  return { errore: null };
+}
+
 export async function eliminaTariffa(id: string) {
   const supabase = await createClient();
   const {
