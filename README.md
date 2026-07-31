@@ -13,8 +13,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
    `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
-   `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql` e `0022_chat_letture_presenza.sql`,
-   eseguendo ognuno.
+   `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql` e
+   `0023_clienti_esterni_aruba.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -33,6 +33,35 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    npm run dev
    ```
    Apri `http://localhost:3000` → reindirizza a `/login`.
+
+## Anagrafica Clienti (Aruba)
+
+L'anagrafica clienti reale vive nel database MySQL del sito pubblico (mydone.it, hosting Aruba),
+non nel gestionale. Il database **non è raggiungibile direttamente** da Vercel/da fuori: Aruba
+richiede una whitelist di IP per l'accesso remoto, incompatibile con gli IP dinamici di una
+funzione serverless. La soluzione è un piccolo **ponte PHP** ospitato sullo stesso hosting Aruba
+(dove il database *è* raggiungibile), che espone via HTTPS solo i campi necessari:
+
+- File: `ponte-anagrafica.php`, caricato via FTP in `/www.mydone.it/partner/` (fuori da git — è
+  PHP, non fa parte di questo progetto Next.js; una copia di riferimento non è versionata qui,
+  se va rifatto il codice è nella cronologia di questa conversazione/chiedere a Claude).
+- Protetto da un token segreto in query string (`?secret=...`), non da login — è pubblicamente
+  raggiungibile ma inutile senza il token.
+- Restituisce `{ clienti: [...], anagrafiche: [...] }` da `md_archivio_clienti` (telefono, stato
+  contratto, profilo internet) e `anagrafiche` (dati fiscali, usata solo per completare ragione
+  sociale/P.IVA quando mancano in `md_archivio_clienti`), uniti per codice fiscale.
+- ★ **Nota encoding**: i dati sorgente sono UTF-8 salvati in colonne dichiarate con un charset
+  diverso — connettersi in `utf8mb4` produce caratteri accentati storpiati ("PortabilitÃ " invece
+  di "Portabilità", doppio-encoding). Il PHP corregge ogni valore con `iconv('UTF-8',
+  'ISO-8859-1//IGNORE', ...)` dopo la lettura. Se in futuro compaiono di nuovo caratteri storpiati,
+  il problema è lì, non nel codice Next.js.
+
+Nel gestionale, `sincronizzaAnagraficaAruba()` (`src/app/(app)/clienti-esterni/actions.ts`) chiama
+il ponte e aggiorna `clienti_esterni`. **Manuale (pulsante "Sincronizza ora", solo admin) invece di
+un cron automatico**: il piano Vercel Hobby di questo progetto permette solo 2 cron job, già
+occupati da `pulizia-documenti` e `promemoria-ticket`. Variabili d'ambiente richieste:
+`ARUBA_BRIDGE_URL` (URL del ponte PHP) e `ARUBA_BRIDGE_SECRET` (il token) — vedi
+`.env.local.example`.
 
 ## Struttura
 
@@ -320,6 +349,14 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   Realtime (effimera — nessuna tabella, "online" finché una scheda del gestionale resta aperta).
   Per i gruppi reparto, niente indicazione "letto da" in questo giro (avrebbe richiesto una UI
   "letto da N/M" più complessa — rimandato).
+✅ Anagrafica Clienti (Aruba) (2026-08, migrazione `0023`): pagina in Mondo Business (`/clienti-esterni`,
+  visibile a Commerciale/Fatturazione/Admin) con 3908 clienti importati dal database del sito
+  pubblico — telefono, indirizzo, stato contratto, profilo internet, dati fiscali. Pulsante
+  "Sincronizza ora" (solo admin, manuale — vedi sezione dedicata sopra sul perché non è un cron
+  automatico) che rilegge tutto dal ponte PHP su Aruba. Ogni cambio di profilo internet rilevato da
+  una sincronizzazione all'altra viene registrato in `clienti_esterni_storico_profilo` (trigger
+  SQL, parte da zero da questa data — il database sorgente non conservava uno storico). Sola
+  lettura dal gestionale: la fonte di verità resta Aruba.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

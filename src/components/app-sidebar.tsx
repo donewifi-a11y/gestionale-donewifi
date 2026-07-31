@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   BarChart3,
   UsersRound,
+  Database,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -94,6 +95,7 @@ export function AppSidebar({
           ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
           ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
           ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
+          ...(vedeRichieste ? [{ href: "/clienti-esterni", etichetta: "Anagrafica Clienti", icona: Database }] : []),
         ],
       },
       {

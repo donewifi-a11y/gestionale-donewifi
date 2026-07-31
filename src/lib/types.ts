@@ -153,6 +153,35 @@ export interface Promozione {
   codice: string | null;
 }
 
+export interface ClienteEsterno {
+  id: number;
+  nome: string | null;
+  cognome: string | null;
+  ragionesociale: string | null;
+  codice_fiscale: string | null;
+  partita_iva: string | null;
+  email: string | null;
+  telefono: string | null;
+  indirizzo: string | null;
+  numero_civico: string | null;
+  cap: string | null;
+  comune: string | null;
+  provincia: string | null;
+  codice_gestionale: string | null;
+  id_contratto: string | null;
+  contratto_attivo: boolean | null;
+  profilo_internet: string | null;
+  aggiornato_il: string;
+}
+
+export interface StoricoProfiloClienteEsterno {
+  id: string;
+  cliente_esterno_id: number;
+  profilo_precedente: string | null;
+  profilo_nuovo: string | null;
+  rilevato_il: string;
+}
+
 export interface Conversazione {
   id: string;
   tipo: "diretta" | "gruppo";
