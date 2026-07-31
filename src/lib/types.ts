@@ -139,6 +139,12 @@ export interface Tariffa {
   iva_inclusa: boolean;
   descrizione: string | null;
   attivo: boolean;
+  /** true = compare nella documentazione inviata al cliente (form pubblico
+   * "Richiesta Dati"); false = attiva/sottoscrivibile ma solo su
+   * trattativa diretta, non in vetrina. Non ha senso se attivo è false. */
+  pubblica: boolean;
+  /** costo una tantum di attivazione, separato dal canone mensile. */
+  prezzo_attivazione: number | null;
   ordine: number;
 }
 

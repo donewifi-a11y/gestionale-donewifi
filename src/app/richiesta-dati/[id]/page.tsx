@@ -13,12 +13,15 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
     .eq("id", id)
     .single();
 
-  // ★ catalogo tariffe attive per lo step "scegli il tuo piano" — letto qui
-  // (service role, form pubblico senza login) e passato già pronto al form.
+  // ★ catalogo tariffe attive E pubbliche per lo step "scegli il tuo piano"
+  // — letto qui (service role, form pubblico senza login) e passato già
+  // pronto al form. `pubblica = false` esclude piani sottoscrivibili solo
+  // su trattativa diretta, non pensati per comparire in vetrina.
   const { data: tariffe } = await supabase
     .from("tariffe")
     .select("*")
     .eq("attivo", true)
+    .eq("pubblica", true)
     .order("ordine", { ascending: true });
 
   if (!segnalazione) {

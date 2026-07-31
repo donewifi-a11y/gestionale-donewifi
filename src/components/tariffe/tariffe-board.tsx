@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw, Archive, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ import {
   eliminaTariffa,
   duplicaTariffa,
   impostaSottoscrivibileTariffa,
+  impostaPubblicaTariffa,
   creaPromozione,
   aggiornaPromozione,
   eliminaPromozione,
@@ -53,6 +55,11 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
     if (!risultato.errore) router.refresh();
   }
 
+  async function togglePubblica(t: Tariffa) {
+    const risultato = await impostaPubblicaTariffa(t.id, !t.pubblica);
+    if (!risultato.errore) router.refresh();
+  }
+
   // ★ come nel vecchio gestionale: avviso se una tariffa ha più promo attive insieme (rischio di sconti che si sommano per errore).
   const promoAttive = promozioni.filter((p) => statoPromozione(p) === "Attiva");
   const tariffeConPiuPromo = tariffe.filter((t) => promoAttive.filter((p) => p.tariffe_ids.includes(t.id)).length > 1);
@@ -77,22 +84,16 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
           <p className="p-5 text-center text-sm text-muted-foreground">Nessuna tariffa attiva. Aggiungine una sopra.</p>
         )}
         {tariffeAttive.map((t) => (
-          <RigaTariffa key={t.id} t={t} onApri={() => setModifica(t)} onDuplica={() => duplica(t)} onToggle={() => toggleSottoscrivibile(t)} />
+          <RigaTariffa
+            key={t.id}
+            t={t}
+            onApri={() => setModifica(t)}
+            onDuplica={() => duplica(t)}
+            onToggle={() => toggleSottoscrivibile(t)}
+            onTogglePubblica={() => togglePubblica(t)}
+          />
         ))}
       </div>
-
-      {tariffeNonSottoscrivibili.length > 0 && (
-        <>
-          <h2 className="mb-2 font-heading text-sm font-bold text-muted-foreground">
-            Non più sottoscrivibili ({tariffeNonSottoscrivibili.length}) — restano per i clienti già attivi su questo piano
-          </h2>
-          <div className="mb-8 overflow-hidden rounded-2xl border bg-card opacity-80 shadow-sm">
-            {tariffeNonSottoscrivibili.map((t) => (
-              <RigaTariffa key={t.id} t={t} onApri={() => setModifica(t)} onDuplica={() => duplica(t)} onToggle={() => toggleSottoscrivibile(t)} />
-            ))}
-          </div>
-        </>
-      )}
 
       <Sheet open={nuova} onOpenChange={setNuova}>
         <SheetContent>
@@ -175,20 +176,32 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
           {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} onFatto={() => setModificaPromo(null)} />}
         </SheetContent>
       </Sheet>
+
+      <div className="mt-10 border-t pt-6 text-center">
+        <Link
+          href="/tariffe/non-sottoscrivibili"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          <Archive className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Tariffe non più sottoscrivibili ({tariffeNonSottoscrivibili.length}) →
+        </Link>
+      </div>
     </div>
   );
 }
 
-function RigaTariffa({
+export function RigaTariffa({
   t,
   onApri,
   onDuplica,
   onToggle,
+  onTogglePubblica,
 }: {
   t: Tariffa;
   onApri: () => void;
   onDuplica: () => void;
   onToggle: () => void;
+  onTogglePubblica: () => void;
 }) {
   return (
     <div className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40">
@@ -201,13 +214,29 @@ function RigaTariffa({
             const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
             return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
           })()}
+          {t.prezzo_attivazione != null && ` · attivazione € ${t.prezzo_attivazione.toFixed(2)} una tantum`}
         </div>
       </button>
       <div className="flex items-center gap-2">
+        {t.attivo && !t.pubblica && (
+          <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning" title="Non compare nella documentazione inviata al cliente">
+            Solo trattativa diretta
+          </span>
+        )}
         {t.attivo ? (
           <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
         ) : (
           <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non sottoscrivibile</span>
+        )}
+        {t.attivo && (
+          <Button
+            size="icon"
+            variant="ghost"
+            title={t.pubblica ? "Nascondi dalla documentazione inviata al cliente" : "Mostra nella documentazione inviata al cliente"}
+            onClick={onTogglePubblica}
+          >
+            {t.pubblica ? <Eye className="h-3.5 w-3.5" strokeWidth={2.25} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={2.25} />}
+          </Button>
         )}
         <Button
           size="icon"
@@ -225,7 +254,7 @@ function RigaTariffa({
   );
 }
 
-function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => void }) {
+export function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => void }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
@@ -246,8 +275,10 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
       velocita: String(dati.get("velocita") || "").trim() || null,
       prezzo_mensile: dati.get("prezzo_mensile") ? Number(dati.get("prezzo_mensile")) : null,
       iva_inclusa: String(dati.get("iva_inclusa") || "si") === "si",
+      prezzo_attivazione: dati.get("prezzo_attivazione") ? Number(dati.get("prezzo_attivazione")) : null,
       descrizione: String(dati.get("descrizione") || "").trim() || null,
       attivo: dati.get("attivo") === "on" || !tariffa,
+      pubblica: dati.get("pubblica") === "on" || !tariffa,
       ordine: tariffa?.ordine ?? 0,
     };
 
@@ -312,7 +343,19 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
           </div>
         </div>
         <div>
-          <Label>Il prezzo inserito è</Label>
+          <Label htmlFor="prezzo_attivazione">Costo di attivazione una tantum (€)</Label>
+          <Input
+            id="prezzo_attivazione"
+            name="prezzo_attivazione"
+            type="number"
+            step="0.01"
+            defaultValue={tariffa?.prezzo_attivazione ?? ""}
+            placeholder="Es. 77,87 — lascia vuoto se nessun costo di attivazione"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label>Il prezzo mensile inserito è</Label>
           <div className="mt-1.5 flex gap-4">
             <label className="flex items-center gap-1.5 text-sm">
               <input
@@ -354,10 +397,17 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
           />
         </div>
         {tariffa && (
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="attivo" defaultChecked={tariffa.attivo} className="h-4 w-4" />
-            Sottoscrivibile dai nuovi clienti (se disattivi, la tariffa resta salvata per chi ce l&apos;ha già)
-          </label>
+          <div className="flex flex-col gap-2 rounded-md border p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="attivo" defaultChecked={tariffa.attivo} className="h-4 w-4" />
+              Sottoscrivibile dai nuovi clienti (se disattivi, la tariffa resta salvata per chi ce l&apos;ha già)
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="pubblica" defaultChecked={tariffa.pubblica} className="h-4 w-4" />
+              Compare nella documentazione inviata al cliente (se disattivi, resta sottoscrivibile ma solo su
+              trattativa diretta)
+            </label>
+          </div>
         )}
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

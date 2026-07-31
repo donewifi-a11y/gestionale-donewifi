@@ -17,7 +17,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
    `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql`, `0030_statistiche_generali_aruba.sql`,
-   `0031_fatturato_per_periodo.sql` e `0032_tariffe_dettaglio_prezzi.sql`, eseguendo ognuno.
+   `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql` e
+   `0033_tariffe_pubblica_attivazione.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -461,11 +462,20 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   chiamate due volte (periodo corrente + periodo precedente) invece di scaricare le fatture via
   rete. Verificato contro produzione: ultimi 30gg € 51.746 (+1,2%), 997 fatture (+13,9%), 947
   clienti attivi nel periodo (+12,6%).
-✅ Tariffe — non più sottoscrivibili senza sparire (2026-07): usa il campo `attivo` già esistente
-  (nessuna migrazione nuova) ma con UI dedicata — la pagina Tariffe ora mostra due elenchi separati,
-  "Attive" (proposte ai nuovi clienti) e "Non più sottoscrivibili" (restano salvate, con prezzo e
-  storico, per chi ce l'ha già), con un toggle rapido a icona su ogni riga (`impostaSottoscrivibileTariffa()`
-  in `src/app/(app)/tariffe/actions.ts`) invece di dover aprire il form di modifica per cambiare stato.
+✅ Tariffe — non più sottoscrivibili senza sparire, in pagina separata (2026-07, migrazione
+  `0033`): la pagina Tariffe mostra solo le tariffe "Attive" (proposte ai nuovi clienti), con un
+  link in fondo verso `/tariffe/non-sottoscrivibili` — pagina dedicata con lo stesso elenco/toggle
+  ma per le tariffe disattivate (restano salvate, con prezzo e storico, per chi ce l'ha già).
+  Componenti condivisi tra le due pagine (`RigaTariffa`, `FormTariffa` esportati da
+  `tariffe-board.tsx`, riusati da `tariffe-archivio-board.tsx`). Toggle rapido a icona su ogni riga
+  (`impostaSottoscrivibileTariffa()`) senza aprire il form.
+✅ Tariffe — pubblica vs solo trattativa diretta + costo di attivazione (2026-07, migrazione
+  `0033`): una tariffa attiva può non comparire nella documentazione inviata al cliente (form
+  pubblico "Richiesta Dati") pur restando sottoscrivibile — nuovo campo `pubblica` (default true),
+  toggle rapido a icona (occhio) sulla riga (`impostaPubblicaTariffa()`), filtro
+  `.eq("pubblica", true)` aggiunto in `src/app/richiesta-dati/[id]/page.tsx` accanto al filtro
+  `attivo`. Aggiunto anche `prezzo_attivazione` (costo una tantum, separato dal canone mensile) nel
+  form Tariffa.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

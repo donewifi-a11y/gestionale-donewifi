@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Promozione, Tariffa } from "@/lib/types";
 
-type DatiTariffa = Pick<Tariffa, "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "iva_inclusa" | "descrizione" | "attivo" | "ordine">;
+type DatiTariffa = Pick<
+  Tariffa,
+  "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "iva_inclusa" | "prezzo_attivazione" | "descrizione" | "attivo" | "pubblica" | "ordine"
+>;
 
 export async function creaTariffa(dati: DatiTariffa) {
   const supabase = await createClient();
@@ -17,6 +20,7 @@ export async function creaTariffa(dati: DatiTariffa) {
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
   revalidatePath("/richiesta-dati", "layout");
   return { errore: null };
 }
@@ -32,6 +36,7 @@ export async function aggiornaTariffa(id: string, dati: DatiTariffa) {
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
   revalidatePath("/richiesta-dati", "layout");
   return { errore: null };
 }
@@ -50,6 +55,26 @@ export async function impostaSottoscrivibileTariffa(id: string, attivo: boolean)
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
+  revalidatePath("/richiesta-dati", "layout");
+  return { errore: null };
+}
+
+/** ★ toggle rapido per "compare nella documentazione inviata al cliente" —
+ * indipendente da `attivo`: una tariffa può restare sottoscrivibile ma
+ * fuori dal form pubblico (venduta solo su trattativa diretta). */
+export async function impostaPubblicaTariffa(id: string, pubblica: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { error } = await supabase.from("tariffe").update({ pubblica }).eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
   revalidatePath("/richiesta-dati", "layout");
   return { errore: null };
 }
@@ -65,6 +90,7 @@ export async function eliminaTariffa(id: string) {
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
   revalidatePath("/richiesta-dati", "layout");
   return { errore: null };
 }
@@ -86,13 +112,16 @@ export async function duplicaTariffa(id: string) {
     velocita: originale.velocita,
     prezzo_mensile: originale.prezzo_mensile,
     iva_inclusa: originale.iva_inclusa,
+    prezzo_attivazione: originale.prezzo_attivazione,
     descrizione: originale.descrizione,
     attivo: false,
+    pubblica: originale.pubblica,
     ordine: originale.ordine,
   });
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
+  revalidatePath("/tariffe/non-sottoscrivibili");
   return { errore: null };
 }
 
