@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, getPersonaCorrente, impostaCookiePersona } from "@/lib/persona";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ChatWidget } from "@/components/chat/chat-widget";
 import type { Persona } from "@/lib/types";
 
 /**
@@ -89,6 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="flex-1 bg-background p-5 [background-image:radial-gradient(900px_500px_at_100%_-10%,color-mix(in_oklch,var(--primary),transparent_85%),transparent_60%),radial-gradient(700px_420px_at_-5%_100%,color-mix(in_oklch,var(--success),transparent_92%),transparent_55%)] md:p-8">
         {children}
       </main>
+      <ChatWidget personaCorrenteId={personaCorrenteId} />
     </div>
   );
 }

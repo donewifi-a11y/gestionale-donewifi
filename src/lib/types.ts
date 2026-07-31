@@ -153,6 +153,24 @@ export interface Promozione {
   codice: string | null;
 }
 
+export interface Conversazione {
+  id: string;
+  tipo: "diretta" | "gruppo";
+  persona_a_id: string | null;
+  persona_b_id: string | null;
+  reparto: AreaAccesso | null;
+}
+
+export interface MessaggioChat {
+  id: string;
+  conversazione_id: string;
+  mittente_id: string;
+  testo: string | null;
+  allegato_url: string | null;
+  allegato_nome: string | null;
+  creato_il: string;
+}
+
 export interface NotaCalendario {
   id: string;
   testo: string;

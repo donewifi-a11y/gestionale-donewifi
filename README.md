@@ -12,8 +12,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0007_appuntamenti_google.sql`, `0008_sicurezza_persone.sql`, `0009_persone_email.sql` e
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
-   `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql` e
-   `0020_promozioni_tariffe.sql`, eseguendo ognuno.
+   `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
+   `0020_promozioni_tariffe.sql` e `0021_chat_interna.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -300,6 +300,17 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
   `calendario/actions.ts`). **Clienti**: riepilogo in cima alla pagina — clienti totali, nuovi questo
   mese, andamento ultimi 6 mesi — calcolato dalla prima attività di ciascun cliente nei Ticket,
   nessuna tabella nuova.
+✅ Chat interna (2026-08, migrazione `0021`): widget flottante in basso a destra, visibile su tutte
+  le pagine autenticate, con messaggi diretti 1-a-1 e un gruppo automatico per ciascun reparto
+  (Analisi Rete/Commerciale/Fatturazione — la lista membri si calcola da `persone.reparti`, nessuna
+  tabella di iscrizione da tenere allineata). Messaggi in tempo reale via **Supabase Realtime**
+  (prima volta usato in questo progetto — `messaggi_chat` aggiunta alla pubblicazione
+  `supabase_realtime`), allegati (bucket `documenti`, stesso giro service-role/URL firmata del
+  resto del gestionale). **Qui, a differenza del resto dell'app, il controllo d'accesso è reale a
+  livello di database (RLS)**, non solo applicativo: i messaggi sono dati privati, quindi non basta
+  filtrarli nell'interfaccia — funzione SQL `persona_corrente_id()` (`auth.uid()` → riga `persone`)
+  usata dalle policy su `conversazioni`/`messaggi_chat`. Nessun badge "non letti" e nessuna notifica
+  Telegram in questo primo giro (scope deciso così esplicitamente).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
