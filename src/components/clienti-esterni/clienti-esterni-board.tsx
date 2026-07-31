@@ -23,19 +23,23 @@ export function ClientiEsterniBoard({
 }) {
   const router = useRouter();
   const [ricerca, setRicerca] = useState("");
+  const [mostraNonAttivi, setMostraNonAttivi] = useState(false);
   const [inCorsoAnagrafica, setInCorsoAnagrafica] = useState(false);
   const [inCorsoFatture, setInCorsoFatture] = useState(false);
   const [esito, setEsito] = useState("");
 
+  const numeroNonAttivi = useMemo(() => clienti.filter((c) => c.contratto_attivo === false).length, [clienti]);
+
   const filtrati = useMemo(() => {
+    const base = mostraNonAttivi ? clienti : clienti.filter((c) => c.contratto_attivo !== false);
     const testo = ricerca.trim().toLowerCase();
-    if (!testo) return clienti;
-    return clienti.filter((c) =>
+    if (!testo) return base;
+    return base.filter((c) =>
       [nomeVisualizzato(c), c.telefono, c.codice_fiscale, c.partita_iva, c.comune]
         .filter(Boolean)
         .some((v) => v!.toLowerCase().includes(testo))
     );
-  }, [clienti, ricerca]);
+  }, [clienti, ricerca, mostraNonAttivi]);
 
   async function sincronizzaAnagrafica() {
     setInCorsoAnagrafica(true);
@@ -67,6 +71,12 @@ export function ClientiEsterniBoard({
             className="h-9 w-64 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
+        {numeroNonAttivi > 0 && (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input type="checkbox" checked={mostraNonAttivi} onChange={(e) => setMostraNonAttivi(e.target.checked)} className="h-3.5 w-3.5" />
+            Mostra anche i {numeroNonAttivi} non attivi
+          </label>
+        )}
         {isAdmin && (
           <div className="flex flex-wrap items-center gap-2">
             {ultimaSincronizzazione && (
