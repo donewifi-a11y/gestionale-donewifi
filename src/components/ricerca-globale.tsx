@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Ticket, PhoneCall, Loader2 } from "lucide-react";
+import { Search, Ticket, PhoneCall, Loader2, UserRound } from "lucide-react";
 import { ricercaGlobale, type RisultatoRicerca } from "@/app/(app)/ricerca/actions";
 
 export function RicercaGlobale() {
@@ -42,7 +42,9 @@ export function RicercaGlobale() {
     setAperta(false);
     setQuery("");
     setRisultati([]);
-    router.push(r.tipo === "ticket" ? `/tickets?aperto=${r.id}` : `/segnalazioni?aperto=${r.id}`);
+    if (r.tipo === "ticket") router.push(`/tickets?aperto=${r.id}`);
+    else if (r.tipo === "segnalazione") router.push(`/segnalazioni?aperto=${r.id}`);
+    else router.push(`/clienti-esterni/${r.id}`);
   }
 
   return (
@@ -53,7 +55,7 @@ export function RicercaGlobale() {
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setAperta(true)}
-          placeholder="Cerca ticket o segnalazione..."
+          placeholder="Cerca ticket, segnalazione o cliente..."
           className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-3 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-sidebar-primary"
         />
       </div>
@@ -76,11 +78,9 @@ export function RicercaGlobale() {
                 onClick={() => vai(r)}
                 className="flex w-full items-center gap-2.5 border-t px-3 py-2.5 text-left text-xs transition first:border-t-0 hover:bg-muted"
               >
-                {r.tipo === "ticket" ? (
-                  <Ticket className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
-                ) : (
-                  <PhoneCall className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
-                )}
+                {r.tipo === "ticket" && <Ticket className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
+                {r.tipo === "segnalazione" && <PhoneCall className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
+                {r.tipo === "cliente" && <UserRound className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />}
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{r.titolo}</div>
                   <div className="truncate text-[10.5px] text-muted-foreground">{r.sottotitolo}</div>

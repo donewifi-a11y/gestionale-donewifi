@@ -3,15 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 
 export interface RisultatoRicerca {
-  tipo: "ticket" | "segnalazione";
+  tipo: "ticket" | "segnalazione" | "cliente";
   id: string;
-  numero: number;
+  numero: number | null;
   titolo: string;
   sottotitolo: string;
 }
 
 // ★ ex cercaGlobale()/cercaTicketWeb() del vecchio gestionale — un'unica
-// ricerca su Ticket e Segnalazioni, invece dei soli filtri per pagina.
+// ricerca su Ticket, Segnalazioni e (da qui) Clienti Aruba, invece dei
+// soli filtri per pagina.
 export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]> {
   const testo = query.trim();
   if (testo.length < 2) return [];
@@ -20,7 +21,7 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
   const numero = Number(testo);
   const filtroNumero = Number.isFinite(numero) ? `,numero.eq.${numero}` : "";
 
-  const [{ data: tickets }, { data: segnalazioni }] = await Promise.all([
+  const [{ data: tickets }, { data: segnalazioni }, { data: clienti }] = await Promise.all([
     supabase
       .from("tickets")
       .select("id, numero, cliente, categoria, stato")
@@ -30,6 +31,13 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
       .from("segnalazioni")
       .select("id, numero, nome, comune, stato")
       .or(`nome.ilike.%${testo}%${filtroNumero}`)
+      .limit(8),
+    supabase
+      .from("clienti_esterni")
+      .select("id, nome, cognome, ragionesociale, telefono, comune")
+      .or(
+        `nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%,codice_fiscale.ilike.%${testo}%`
+      )
       .limit(8),
   ]);
 
@@ -47,6 +55,13 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
     titolo: s.nome,
     sottotitolo: `Segnalazione #${s.numero} · ${s.comune} · ${s.stato}`,
   }));
+  const risultatiCliente: RisultatoRicerca[] = (clienti ?? []).map((c) => ({
+    tipo: "cliente",
+    id: String(c.id),
+    numero: null,
+    titolo: c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—",
+    sottotitolo: `Cliente${c.telefono ? ` · ${c.telefono}` : ""}${c.comune ? ` · ${c.comune}` : ""}`,
+  }));
 
-  return [...risultatiTicket, ...risultatiSegnalazione];
+  return [...risultatiTicket, ...risultatiSegnalazione, ...risultatiCliente];
 }
