@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import { revalidatePath } from "next/cache";
 
 async function verificaAdmin(): Promise<string | null> {
@@ -174,8 +175,11 @@ function dataItalianaAIso(v: string | null): string | null {
  * ★ NUOVA — 59mila fatture, troppe per una sola risposta del ponte PHP:
  * si scaricano a pagine (vedi ?tabella=fatture&offset=...&limite=... nel
  * ponte) e si scrivono via via, invece di tenerle tutte in memoria.
+ * Scarta le fatture il cui CF/PIVA non corrisponde a nessun cliente noto
+ * (ex clienti cessati mai rimossi da Aruba, o un'altra linea di business
+ * come l'ospitalità torri/ripetitori) — non sono clienti nostri.
  */
-export async function sincronizzaFattureAruba(): Promise<{ errore: string | null; sincronizzati: number }> {
+export async function sincronizzaFattureAruba(): Promise<{ errore: string | null; sincronizzati: number; scartate?: number }> {
   const erroreAccesso = await verificaAdmin();
   if (erroreAccesso) return { errore: erroreAccesso, sincronizzati: 0 };
 
@@ -184,10 +188,27 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
   if (!url || !segreto) return { errore: "ARUBA_BRIDGE_URL/ARUBA_BRIDGE_SECRET non configurate.", sincronizzati: 0 };
 
   const service = createServiceClient();
+
+  // ★ le fatture Aruba includono anche nominativi che non compaiono in
+  // md_archivio_clienti (ex clienti cessati mai rimossi da Aruba, o
+  // un'altra linea di business come l'ospitalità torri/ripetitori) — non
+  // sono clienti nostri, si escludono per non gonfiare fatturato/insoluti.
+  const supabase = await createClient();
+  const clientiNoti = await fetchTuttiClientiEsterni<{ codice_fiscale: string | null; partita_iva: string | null }>(
+    supabase,
+    "codice_fiscale, partita_iva"
+  );
+  const chiaviClientiNoti = new Set<string>();
+  for (const c of clientiNoti) {
+    if (c.codice_fiscale) chiaviClientiNoti.add(c.codice_fiscale.trim());
+    if (c.partita_iva) chiaviClientiNoti.add(c.partita_iva.trim());
+  }
+
   const LIMITE_PAGINA = 5000;
   let offset = 0;
   let totale = 0;
   let sincronizzati = 0;
+  let scartate = 0;
 
   do {
     let risposta: Response;
@@ -210,7 +231,7 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
     const mappaRighe = new Map<string, (typeof pagina.fatture)[number]>();
     for (const f of pagina.fatture) mappaRighe.set(`${f.codice}|${f.numero}`, f);
 
-    const righe = Array.from(mappaRighe.values()).map((f) => ({
+    const righeComplete = Array.from(mappaRighe.values()).map((f) => ({
       codice: f.codice,
       numero: f.numero,
       emissione: dataItalianaAIso(f.emissione),
@@ -224,8 +245,15 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
       aggiornato_il: new Date().toISOString(),
     }));
 
-    const { error } = await service.from("fatture_esterne").upsert(righe, { onConflict: "codice,numero" });
-    if (error) return { errore: error.message, sincronizzati };
+    const righe = righeComplete.filter(
+      (f) => (f.codice_fiscale && chiaviClientiNoti.has(f.codice_fiscale)) || (f.partita_iva && chiaviClientiNoti.has(f.partita_iva))
+    );
+    scartate += righeComplete.length - righe.length;
+
+    if (righe.length > 0) {
+      const { error } = await service.from("fatture_esterne").upsert(righe, { onConflict: "codice,numero" });
+      if (error) return { errore: error.message, sincronizzati };
+    }
 
     sincronizzati += righe.length;
     offset += LIMITE_PAGINA;
@@ -234,7 +262,7 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
   await service.rpc("ricalcola_clienti_attivi");
 
   revalidatePath("/clienti-esterni");
-  return { errore: null, sincronizzati };
+  return { errore: null, sincronizzati, scartate };
 }
 
 export async function getFattureCliente(codiceFiscale: string | null, partitaIva: string | null) {

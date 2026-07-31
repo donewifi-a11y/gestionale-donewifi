@@ -59,7 +59,11 @@ export function ClientiEsterniBoard({
     setEsito("");
     const risultato = await sincronizzaFattureAruba();
     setInCorsoFatture(false);
-    setEsito(risultato.errore || `Sincronizzate ${risultato.sincronizzati} fatture.`);
+    setEsito(
+      risultato.errore ||
+        `Sincronizzate ${risultato.sincronizzati} fatture` +
+          (risultato.scartate ? ` (${risultato.scartate} scartate, senza cliente corrispondente).` : ".")
+    );
     router.refresh();
   }
 

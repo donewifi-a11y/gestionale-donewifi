@@ -403,6 +403,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
      (2688) invece delle **persone uniche** (1773) — 288 clienti hanno più di un contratto attivo
      insieme (es. più installazioni), quindi comparivano più volte. La KPI ora deduplica per
      CF/PIVA prima di contare.
+
+✅ Fatture escluse se non di un cliente nostro (2026-08): 1181 fatture su 58972 (€ 518.837 totali)
+  non avevano nessun CF/PIVA corrispondente in `clienti_esterni` — non falsi negativi di formato
+  (verificato anche normalizzando maiuscole/spazi), ma nominativi realmente estranei all'anagrafica:
+  in parte ex clienti mai rimossi da Aruba, in parte un'altra linea di business (ospitalità
+  torri/ripetitori per radio — Radio Dimensione Suono, Radio Maria, TIM, EI Towers) mischiata per
+  errore nella stessa tabella `fatture` di Aruba. Rimosse una tantum dal database (58972 → 57791) e
+  **escluse da ora in poi** in `sincronizzaFattureAruba()` (confronta contro l'elenco clienti noti
+  prima di scrivere, altrimenti riapparirebbero al prossimo "Sincronizza fatture"). Effetto sui
+  numeri: fatturato del mese da € 113.296 a **€ 51.843** (le grandi fatture torri pesavano molto
+  più del previsto), fatture insolute da 736 a 652, clienti attivi invariato (1773 — quelle fatture
+  non contribuivano comunque, non avendo un cliente da abbinare).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
