@@ -140,3 +140,119 @@ export async function getStoricoProfiloCliente(clienteEsternoId: number) {
     .order("rilevato_il", { ascending: false });
   return data ?? [];
 }
+
+interface RigaFatturaAruba {
+  codice: string;
+  numero: string;
+  emissione: string | null;
+  scadenza: string | null;
+  importo: string | null;
+  pagata: string | null;
+  piva: string | null;
+  cfisc: string | null;
+  nominativo: string | null;
+  tipo_pag: string | null;
+}
+
+/** "24/06/2020 0:00:00" (o solo "24/06/2020") → "2020-06-24", per una colonna date. */
+function dataItalianaAIso(v: string | null): string | null {
+  const t = pulito(v);
+  if (!t) return null;
+  const [dataParte] = t.split(" ");
+  const [giorno, mese, anno] = dataParte.split("/");
+  if (!giorno || !mese || !anno) return null;
+  return `${anno.padStart(4, "0")}-${mese.padStart(2, "0")}-${giorno.padStart(2, "0")}`;
+}
+
+/**
+ * ★ NUOVA — 59mila fatture, troppe per una sola risposta del ponte PHP:
+ * si scaricano a pagine (vedi ?tabella=fatture&offset=...&limite=... nel
+ * ponte) e si scrivono via via, invece di tenerle tutte in memoria.
+ */
+export async function sincronizzaFattureAruba(): Promise<{ errore: string | null; sincronizzati: number }> {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso, sincronizzati: 0 };
+
+  const url = process.env.ARUBA_BRIDGE_URL;
+  const segreto = process.env.ARUBA_BRIDGE_SECRET;
+  if (!url || !segreto) return { errore: "ARUBA_BRIDGE_URL/ARUBA_BRIDGE_SECRET non configurate.", sincronizzati: 0 };
+
+  const service = createServiceClient();
+  const LIMITE_PAGINA = 5000;
+  let offset = 0;
+  let totale = 0;
+  let sincronizzati = 0;
+
+  do {
+    let risposta: Response;
+    try {
+      risposta = await fetch(
+        `${url}?secret=${encodeURIComponent(segreto)}&tabella=fatture&offset=${offset}&limite=${LIMITE_PAGINA}`,
+        { cache: "no-store" }
+      );
+    } catch {
+      return { errore: `Impossibile raggiungere il ponte Aruba (offset ${offset}).`, sincronizzati };
+    }
+    if (!risposta.ok) return { errore: `Ponte Aruba: HTTP ${risposta.status} (offset ${offset})`, sincronizzati };
+
+    const pagina = (await risposta.json()) as { fatture: RigaFatturaAruba[]; totale: number };
+    totale = pagina.totale;
+
+    // ★ la sorgente ha qualche doppione di (codice, numero) — dedup per
+    // chiave prima di scrivere, altrimenti l'upsert rifiuta l'intero
+    // blocco ("cannot affect row a second time").
+    const mappaRighe = new Map<string, (typeof pagina.fatture)[number]>();
+    for (const f of pagina.fatture) mappaRighe.set(`${f.codice}|${f.numero}`, f);
+
+    const righe = Array.from(mappaRighe.values()).map((f) => ({
+      codice: f.codice,
+      numero: f.numero,
+      emissione: dataItalianaAIso(f.emissione),
+      scadenza: dataItalianaAIso(f.scadenza),
+      importo: f.importo ? Number(f.importo) : null,
+      pagata: pulito(f.pagata) === "1",
+      partita_iva: pulito(f.piva),
+      codice_fiscale: pulito(f.cfisc),
+      nominativo: pulito(f.nominativo),
+      tipo_pagamento: pulito(f.tipo_pag),
+      aggiornato_il: new Date().toISOString(),
+    }));
+
+    const { error } = await service.from("fatture_esterne").upsert(righe, { onConflict: "codice,numero" });
+    if (error) return { errore: error.message, sincronizzati };
+
+    sincronizzati += righe.length;
+    offset += LIMITE_PAGINA;
+  } while (offset < totale);
+
+  revalidatePath("/clienti-esterni");
+  return { errore: null, sincronizzati };
+}
+
+export async function getFattureCliente(codiceFiscale: string | null, partitaIva: string | null) {
+  if (!codiceFiscale && !partitaIva) return [];
+  const supabase = await createClient();
+  let query = supabase.from("fatture_esterne").select("*").order("emissione", { ascending: false });
+  query = codiceFiscale ? query.eq("codice_fiscale", codiceFiscale) : query.eq("partita_iva", partitaIva!);
+  const { data } = await query;
+  return data ?? [];
+}
+
+/** ★ NUOVA — collega la scheda cliente ai Ticket del gestionale: non c'è
+ * una chiave comune affidabile (l'importazione Aruba non ha un CF su ogni
+ * Ticket), quindi si abbina per telefono, ultime 9 cifre come già fa
+ * ClientiBoard altrove nel gestionale. */
+export async function getTicketCollegati(telefono: string | null) {
+  if (!telefono) return [];
+  const ultimeCifre = telefono.replace(/\D/g, "").slice(-9);
+  if (ultimeCifre.length < 6) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tickets")
+    .select("id, numero, categoria, stato, priorita, data_creazione")
+    .ilike("telefono", `%${ultimeCifre}%`)
+    .order("data_creazione", { ascending: false })
+    .limit(20);
+  return data ?? [];
+}

@@ -13,8 +13,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0010_rapportini_tariffe_richieste.sql`, `0013_portale_approvazione.sql` e
    `0014_ricavi_ticket.sql`, `0015_sottocategoria_ticket.sql`, `0016_clienti_attivi.sql` e
    `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
-   `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql` e
-   `0023_clienti_esterni_aruba.sql`, eseguendo ognuno.
+   `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
+   `0023_clienti_esterni_aruba.sql` e `0024_fatture_esterne_aruba.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -47,21 +47,27 @@ funzione serverless. La soluzione è un piccolo **ponte PHP** ospitato sullo ste
   se va rifatto il codice è nella cronologia di questa conversazione/chiedere a Claude).
 - Protetto da un token segreto in query string (`?secret=...`), non da login — è pubblicamente
   raggiungibile ma inutile senza il token.
-- Restituisce `{ clienti: [...], anagrafiche: [...] }` da `md_archivio_clienti` (telefono, stato
-  contratto, profilo internet) e `anagrafiche` (dati fiscali, usata solo per completare ragione
-  sociale/P.IVA quando mancano in `md_archivio_clienti`), uniti per codice fiscale.
+- Modalità default: restituisce `{ clienti: [...], anagrafiche: [...] }` da `md_archivio_clienti`
+  (telefono, stato contratto, profilo internet) e `anagrafiche` (dati fiscali, usata solo per
+  completare ragione sociale/P.IVA quando mancano in `md_archivio_clienti`), uniti per codice
+  fiscale.
+- `?tabella=fatture&offset=N&limite=M`: fatture paginate (59mila righe, troppe per una sola
+  risposta) — `{ fatture: [...], totale, offset, limite }`.
 - ★ **Nota encoding**: i dati sorgente sono UTF-8 salvati in colonne dichiarate con un charset
   diverso — connettersi in `utf8mb4` produce caratteri accentati storpiati ("PortabilitÃ " invece
   di "Portabilità", doppio-encoding). Il PHP corregge ogni valore con `iconv('UTF-8',
   'ISO-8859-1//IGNORE', ...)` dopo la lettura. Se in futuro compaiono di nuovo caratteri storpiati,
   il problema è lì, non nel codice Next.js.
 
-Nel gestionale, `sincronizzaAnagraficaAruba()` (`src/app/(app)/clienti-esterni/actions.ts`) chiama
-il ponte e aggiorna `clienti_esterni`. **Manuale (pulsante "Sincronizza ora", solo admin) invece di
-un cron automatico**: il piano Vercel Hobby di questo progetto permette solo 2 cron job, già
-occupati da `pulizia-documenti` e `promemoria-ticket`. Variabili d'ambiente richieste:
-`ARUBA_BRIDGE_URL` (URL del ponte PHP) e `ARUBA_BRIDGE_SECRET` (il token) — vedi
-`.env.local.example`.
+Nel gestionale, `sincronizzaAnagraficaAruba()` e `sincronizzaFattureAruba()`
+(`src/app/(app)/clienti-esterni/actions.ts`) chiamano il ponte e aggiornano rispettivamente
+`clienti_esterni` e `fatture_esterne`. **Manuali (due pulsanti distinti, solo admin) invece di un
+cron automatico**: il piano Vercel Hobby di questo progetto permette solo 2 cron job, già occupati
+da `pulizia-documenti` e `promemoria-ticket` — due pulsanti separati (invece di uno solo) anche
+per poter rilanciare solo quello lento (fatture, ~60mila righe) senza rifare anche l'anagrafica.
+Variabili d'ambiente richieste: `ARUBA_BRIDGE_URL` (URL del ponte PHP) e `ARUBA_BRIDGE_SECRET` (il
+token) — vedi `.env.local.example`. Le fatture hanno qualche doppione di (codice, numero) nella
+sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
 
 ## Struttura
 
@@ -357,6 +363,13 @@ occupati da `pulizia-documenti` e `promemoria-ticket`. Variabili d'ambiente rich
   una sincronizzazione all'altra viene registrato in `clienti_esterni_storico_profilo` (trigger
   SQL, parte da zero da questa data — il database sorgente non conservava uno storico). Sola
   lettura dal gestionale: la fonte di verità resta Aruba.
+✅ Scheda cliente unificata + Fatture (2026-08, migrazione `0024`): ogni cliente in Anagrafica
+  Clienti apre una scheda dedicata (`/clienti-esterni/[id]`) con dati anagrafici, contratto e
+  storico profili, **58972 fatture importate** (`fatture_esterne`, pulsante "Sincronizza fatture"
+  separato — 59mila righe, troppe per un solo giro, paginato lato ponte PHP a blocchi di 5000) con
+  totale fatturato/insoluti a colpo d'occhio, e i Ticket del gestionale collegati allo stesso
+  cliente (abbinati per telefono, ultime 9 cifre — non c'è un CF su ogni Ticket per un abbinamento
+  più preciso).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

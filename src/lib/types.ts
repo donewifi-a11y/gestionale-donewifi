@@ -174,6 +174,20 @@ export interface ClienteEsterno {
   aggiornato_il: string;
 }
 
+export interface FatturaEsterna {
+  id: number;
+  codice: string;
+  numero: string;
+  emissione: string | null;
+  scadenza: string | null;
+  importo: number | null;
+  pagata: boolean | null;
+  partita_iva: string | null;
+  codice_fiscale: string | null;
+  nominativo: string | null;
+  tipo_pagamento: string | null;
+}
+
 export interface StoricoProfiloClienteEsterno {
   id: string;
   cliente_esterno_id: number;
