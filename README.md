@@ -15,7 +15,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0017_note_calendario.sql`, `0018_dettagli_extra_ticket.sql`, `0019_permessi_granulari.sql`,
    `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
-   `0026_clienti_attivi_da_fatturazione.sql` e `0027_completa_tariffe.sql`, eseguendo ognuno.
+   `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
+   `0028_tutte_le_tariffe.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -415,6 +416,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   numeri: fatturato del mese da € 113.296 a **€ 51.843** (le grandi fatture torri pesavano molto
   più del previsto), fatture insolute da 736 a 652, clienti attivi invariato (1773 — quelle fatture
   non contribuivano comunque, non avendo un cliente da abbinare).
+✅ Catalogo Tariffe completo — tutti i 153 nomi (2026-08, migrazione `0028`): su richiesta esplicita
+  dell'utente, oltre alle 21 famiglie raggruppate (`0025`/`0027`) sono state importate anche tutte
+  le varianti grezze distinte trovate in Aruba, comprese promo stagionali/edizioni annuali (Black
+  Friday, Xmas, Summer, Epic, Saldi Done...) — **164 tariffe totali**, tutte senza prezzo. Scelta
+  deliberata di non consolidare: l'utente preferisce vederle tutte e occuparsi lui stesso di
+  prezzi/consolidamento dall'interfaccia "Tariffe" (già supporta modifica/eliminazione per riga).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
