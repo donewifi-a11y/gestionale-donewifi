@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Promozione, Tariffa } from "@/lib/types";
 
-type DatiTariffa = Pick<Tariffa, "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "descrizione" | "attivo" | "ordine">;
+type DatiTariffa = Pick<Tariffa, "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "iva_inclusa" | "descrizione" | "attivo" | "ordine">;
 
 export async function creaTariffa(dati: DatiTariffa) {
   const supabase = await createClient();
@@ -67,6 +67,7 @@ export async function duplicaTariffa(id: string) {
     tipologia_cliente: originale.tipologia_cliente,
     velocita: originale.velocita,
     prezzo_mensile: originale.prezzo_mensile,
+    iva_inclusa: originale.iva_inclusa,
     descrizione: originale.descrizione,
     attivo: false,
     ordine: originale.ordine,

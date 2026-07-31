@@ -22,6 +22,7 @@ import {
   aggiornaPromozione,
   eliminaPromozione,
 } from "@/app/(app)/tariffe/actions";
+import { prezziNettoLordo } from "@/lib/types";
 import type { Promozione, Tariffa, TipoPromozione } from "@/lib/types";
 
 const TIPOLOGIE: Tariffa["tipologia_cliente"][] = ["Tutti", "Privato", "Azienda"];
@@ -73,7 +74,10 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
               <div className="text-xs text-muted-foreground">
                 {t.tipologia_cliente}
                 {t.velocita && ` · ${t.velocita}`}
-                {t.prezzo_mensile != null && ` · €${t.prezzo_mensile}/mese`}
+                {t.prezzo_mensile != null && (() => {
+                  const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
+                  return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
+                })()}
               </div>
             </button>
             <div className="flex items-center gap-2">
@@ -179,6 +183,9 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const [prezzo, setPrezzo] = useState<string>(tariffa?.prezzo_mensile != null ? String(tariffa.prezzo_mensile) : "");
+  const [ivaInclusa, setIvaInclusa] = useState(tariffa?.iva_inclusa ?? true);
+  const anteprima = prezzo && !Number.isNaN(Number(prezzo)) ? prezziNettoLordo(Number(prezzo), ivaInclusa) : null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -192,6 +199,7 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
       tipologia_cliente: String(dati.get("tipologia_cliente") || "Tutti") as Tariffa["tipologia_cliente"],
       velocita: String(dati.get("velocita") || "").trim() || null,
       prezzo_mensile: dati.get("prezzo_mensile") ? Number(dati.get("prezzo_mensile")) : null,
+      iva_inclusa: String(dati.get("iva_inclusa") || "si") === "si",
       descrizione: String(dati.get("descrizione") || "").trim() || null,
       attivo: dati.get("attivo") === "on" || !tariffa,
       ordine: tariffa?.ordine ?? 0,
@@ -246,8 +254,48 @@ function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => v
           </div>
           <div>
             <Label htmlFor="prezzo_mensile">Prezzo mensile (€)</Label>
-            <Input id="prezzo_mensile" name="prezzo_mensile" type="number" step="0.01" defaultValue={tariffa?.prezzo_mensile ?? ""} className="mt-1" />
+            <Input
+              id="prezzo_mensile"
+              name="prezzo_mensile"
+              type="number"
+              step="0.01"
+              value={prezzo}
+              onChange={(e) => setPrezzo(e.target.value)}
+              className="mt-1"
+            />
           </div>
+        </div>
+        <div>
+          <Label>Il prezzo inserito è</Label>
+          <div className="mt-1.5 flex gap-4">
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="iva_inclusa"
+                value="si"
+                checked={ivaInclusa}
+                onChange={() => setIvaInclusa(true)}
+                className="h-3.5 w-3.5"
+              />
+              IVA inclusa (22%)
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="iva_inclusa"
+                value="no"
+                checked={!ivaInclusa}
+                onChange={() => setIvaInclusa(false)}
+                className="h-3.5 w-3.5"
+              />
+              IVA esclusa
+            </label>
+          </div>
+          {anteprima && (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              → € {anteprima.netto.toFixed(2)} netto · € {anteprima.lordo.toFixed(2)} IVA inclusa
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="descrizione">Descrizione</Label>

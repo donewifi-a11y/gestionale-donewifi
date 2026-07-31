@@ -135,9 +135,20 @@ export interface Tariffa {
   tipologia_cliente: "Privato" | "Azienda" | "Tutti";
   velocita: string | null;
   prezzo_mensile: number | null;
+  /** true = prezzo_mensile è già IVA inclusa (22%); false = prezzo_mensile è al netto, l'IVA va aggiunta. */
+  iva_inclusa: boolean;
   descrizione: string | null;
   attivo: boolean;
   ordine: number;
+}
+
+export const ALIQUOTA_IVA = 0.22;
+
+/** Dato un prezzo e se è già IVA inclusa, restituisce { netto, lordo } per mostrare sempre entrambi. */
+export function prezziNettoLordo(prezzo: number, ivaInclusa: boolean): { netto: number; lordo: number } {
+  return ivaInclusa
+    ? { netto: prezzo / (1 + ALIQUOTA_IVA), lordo: prezzo }
+    : { netto: prezzo, lordo: prezzo * (1 + ALIQUOTA_IVA) };
 }
 
 export type TipoPromozione = "Sconto % / mese" | "Sconto fisso / mese" | "Mesi omaggio" | "Attivazione gratuita";

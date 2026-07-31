@@ -16,7 +16,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0020_promozioni_tariffe.sql`, `0021_chat_interna.sql`, `0022_chat_letture_presenza.sql`,
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
-   `0028_tutte_le_tariffe.sql`, eseguendo ognuno.
+   `0028_tutte_le_tariffe.sql` e `0029_tariffe_iva.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -422,6 +422,11 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Friday, Xmas, Summer, Epic, Saldi Done...) — **164 tariffe totali**, tutte senza prezzo. Scelta
   deliberata di non consolidare: l'utente preferisce vederle tutte e occuparsi lui stesso di
   prezzi/consolidamento dall'interfaccia "Tariffe" (già supporta modifica/eliminazione per riga).
+✅ IVA per Tariffa (2026-08, migrazione `0029`): ogni Tariffa ora ha `iva_inclusa` (default true) —
+  quando si inserisce il prezzo mensile si sceglie se è già IVA inclusa (22%, aliquota unica per
+  questi servizi) o al netto, con anteprima live di entrambi i valori nel form. Ovunque il prezzo è
+  mostrato (elenco Tariffe, form pubblico Richiesta Dati) si vede sempre il totale IVA inclusa,
+  calcolato con `prezziNettoLordo()` (`src/lib/types.ts`) indipendentemente da come è stato inserito.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

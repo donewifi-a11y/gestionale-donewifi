@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validaCodiceFiscale, validaPartitaIva, validaIban, validaEmail } from "@/lib/validazione";
+import { prezziNettoLordo } from "@/lib/types";
 import type { Tariffa } from "@/lib/types";
 
 function FileUpload({ id, label, obbligatorio }: { id: string; label: string; obbligatorio?: boolean }) {
@@ -134,7 +135,7 @@ export function RichiestaDatiForm({
               <option key={t.id} value={t.nome}>
                 {t.nome}
                 {t.velocita ? ` — ${t.velocita}` : ""}
-                {t.prezzo_mensile != null ? ` — €${t.prezzo_mensile}/mese` : ""}
+                {t.prezzo_mensile != null ? ` — €${prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo.toFixed(2)}/mese (IVA incl.)` : ""}
               </option>
             ))}
           </select>
