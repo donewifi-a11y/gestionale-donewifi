@@ -147,6 +147,17 @@ export async function assegnaTicket(id: string, personaId: string | null) {
   return { errore: null };
 }
 
+// ★ per il campo "Nuovo profilo desiderato" di Upgrade/Downgrade
+// (campi-ticket.ts) — prima erano 6 nomi scritti a mano, scollegati dal
+// vero catalogo Tariffe (164 voci, vedi migrazione 0028). Nomi distinti e
+// ordinati, non l'intera riga: qui basta cosa scegliere, non prezzo/IVA.
+export async function listaNomiTariffeAttive(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("tariffe").select("nome").eq("attivo", true).order("nome");
+  if (!data) return [];
+  return Array.from(new Set(data.map((t) => t.nome))).sort((a, b) => a.localeCompare(b, "it"));
+}
+
 export interface ClienteEsistente {
   cliente: string;
   telefono: string | null;

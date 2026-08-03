@@ -84,11 +84,28 @@ export const CONFIG_SOTTOCATEGORIE: Record<string, ConfigSottocategoria> = {
     campi: [
       { id: "tipo_upgrade", label: "Tipo di richiesta", tipo: "select", obbligatorio: true, opzioni: ["Upgrade (aumento velocità)", "Downgrade (riduzione velocità)"] },
       { id: "profilo_attuale", label: "Profilo attuale", tipo: "text", obbligatorio: false, placeholder: "Se lo conosci, es. Connect 50" },
+      // ★ opzioni caricate dal catalogo Tariffe reale (vedi
+      // listaNomiTariffeAttive() in tickets/actions.ts), non più una lista
+      // statica scollegata dalle 164 tariffe vere — questo array resta solo
+      // come fallback se il caricamento fallisce o il catalogo è vuoto.
       { id: "nuovo_profilo", label: "Nuovo profilo desiderato", tipo: "select", obbligatorio: true, opzioni: ["Connect 30", "Connect 50", "Connect 100", "Business 30", "Business 50", "Business 100"] },
       { id: "motivo_upgrade", label: "Motivo della richiesta", tipo: "textarea", obbligatorio: false },
     ],
   },
-  "Cambio anagrafico": {
+  Trasferimento: {
+    info: "Nessun dato da raccogliere qui: dopo la creazione, invia al cliente la pratica pubblica \"Trasferimento\" dal dettaglio del Ticket (pannello \"Invia una pratica al cliente\") — è lì che vengono chiesti indirizzo, data preferita e note.",
+    campi: [],
+  },
+  Subentro: {
+    info: "Nessun dato da raccogliere qui: dopo la creazione, invia al cliente la pratica pubblica \"Subentro\" dal dettaglio del Ticket (pannello \"Invia una pratica al cliente\") — è lì che vengono chiesti anagrafica, metodo di pagamento e documenti.",
+    campi: [],
+  },
+  "Cambio IBAN": {
+    info: "Nessun dato da raccogliere qui: dopo la creazione, invia al cliente la pratica pubblica \"Cambio IBAN\" dal dettaglio del Ticket (pannello \"Invia una pratica al cliente\").",
+    campi: [],
+  },
+  "Cambio Anagrafica": {
+    info: "Per indirizzo e dati di fatturazione usa i campi qui sotto. Per telefono/email puoi anche far compilare al cliente la pratica pubblica \"Cambio Anagrafica\" dal dettaglio del Ticket.",
     campi: [
       { id: "cosa_modificare", label: "Cosa vuoi modificare", tipo: "select", obbligatorio: true, opzioni: ["Indirizzo", "Telefono", "Email", "Dati fatturazione"] },
       { id: "nuovo_valore", label: "Nuovo valore", tipo: "text", obbligatorio: true },

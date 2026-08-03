@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Info } from "lucide-react";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
-import { creaTicket, cercaClientiEsistenti, type ClienteEsistente } from "../actions";
+import { creaTicket, cercaClientiEsistenti, listaNomiTariffeAttive, type ClienteEsistente } from "../actions";
 import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
@@ -32,8 +32,19 @@ export default function NuovoTicketPage() {
   const [sottocategoria, setSottocategoria] = useState("");
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
   const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ★ opzioni reali del catalogo Tariffe per "Nuovo profilo desiderato"
+  // (Upgrade/Downgrade) — caricate solo se serve, non ad ogni apertura del
+  // form. Se il caricamento fallisce o il catalogo è vuoto, il campo tiene
+  // comunque la lista statica di fallback definita in campi-ticket.ts.
+  const [nomiTariffe, setNomiTariffe] = useState<string[] | null>(null);
 
   const configExtra = sottocategoria ? CONFIG_SOTTOCATEGORIE[sottocategoria] : undefined;
+
+  useEffect(() => {
+    if (sottocategoria === "Upgrade/Downgrade" && nomiTariffe === null) {
+      listaNomiTariffeAttive().then((nomi) => setNomiTariffe(nomi.length > 0 ? nomi : []));
+    }
+  }, [sottocategoria, nomiTariffe]);
 
   function onCambiaCliente(v: string) {
     setCliente(v);
@@ -238,7 +249,7 @@ export default function NuovoTicketPage() {
                 {campo.tipo === "select" ? (
                   <select id={`cx_${campo.id}`} name={`cx_${campo.id}`} defaultValue="" className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
                     <option value="">-- Seleziona --</option>
-                    {campo.opzioni?.map((o) => (
+                    {(campo.id === "nuovo_profilo" && nomiTariffe && nomiTariffe.length > 0 ? nomiTariffe : campo.opzioni)?.map((o) => (
                       <option key={o} value={o}>{o}</option>
                     ))}
                   </select>

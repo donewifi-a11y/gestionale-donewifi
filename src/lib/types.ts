@@ -28,8 +28,8 @@ export const SOTTOCATEGORIE_TICKET: Record<(typeof CATEGORIE_TICKET)[number], st
     "Pianificazione installazione",
     "Ritiro Apparati",
   ],
-  Commerciale: ["Trasferimento impianto", "Nuovo contratto", "Subentro", "Upgrade/Downgrade"],
-  Amministrativa: ["Cambio anagrafico", "Disdetta", "Cambio IBAN", "Fatture non saldate"],
+  Commerciale: ["Trasferimento", "Nuovo contratto", "Subentro", "Upgrade/Downgrade"],
+  Amministrativa: ["Cambio Anagrafica", "Disdetta", "Cambio IBAN", "Fatture non saldate"],
 };
 
 export interface Ticket {

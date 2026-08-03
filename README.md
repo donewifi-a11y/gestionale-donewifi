@@ -728,6 +728,29 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `creaTicket()` accetta ora un `tecnicoAssegnato` opzionale e ritorna la riga ticket completa
   (prima solo `id, numero`) per poter passare subito al passo di pianificazione senza una query in
   più.
+✅ Revisione tipi di Ticket — collegati i due sistemi scollegati (2026-08): confrontando tutte le 14
+  sottocategorie (campi extra interni di `campi-ticket.ts` contro le 5 "pratiche" pubbliche di
+  `richieste-cliente-config.ts`) sono emerse incongruenze mai notate prima, corrette qui:
+  - **Nomi allineati**: sottocategoria "Trasferimento impianto" → **"Trasferimento"**, "Cambio
+    anagrafico" → **"Cambio Anagrafica"** — ora coincidono esattamente col nome della pratica
+    pubblica corrispondente (prima erano quasi identici ma diversi, facile scegliere quello
+    sbagliato). Rinominata solo la lista opzioni: i Ticket già creati mantengono il vecchio testo
+    salvato, nessuna migrazione necessaria (campo testo libero, non un enum).
+  - **Pannello "Invia una pratica al cliente" ora si preseleziona da solo**: nuova mappa
+    `PRATICA_PER_SOTTOCATEGORIA` in `tickets-board.tsx` — se la sottocategoria del Ticket aperto è
+    Trasferimento/Subentro/Cambio IBAN/Cambio Anagrafica/Disdetta, la pratica giusta è già scelta
+    (e marcata "consigliata" nel menu) invece di partire vuota; prima lo staff doveva sapere a
+    memoria quale delle 5 pratiche corrispondesse. Aggiunto anche `key={ticket.id}` su
+    `DettaglioTicket` così lo stato del pannello non resta quello del Ticket precedente se se ne
+    apre un altro senza chiudere la Sheet.
+  - **3 sottocategorie senza campi propri** (Trasferimento, Subentro, Cambio IBAN — tutta la
+    raccolta dati passa dal link pubblico) ora mostrano un `info` esplicito invece di apparire
+    semplicemente vuote: "invia la pratica pubblica X dal dettaglio del Ticket".
+  - **Upgrade/Downgrade collegato al catalogo Tariffe reale**: il "Nuovo profilo desiderato" leggeva
+    6 nomi scritti a mano nel codice (`Connect 30/50/100`, `Business 30/50/100`), scollegati dalle
+    tariffe vere gestite in Mondo Business. Nuova `listaNomiTariffeAttive()` (`tickets/actions.ts`)
+    legge i nomi distinti delle tariffe `attivo = true` (8 in produzione oggi) e li usa come opzioni;
+    la vecchia lista resta come fallback solo se il caricamento fallisce o il catalogo è vuoto.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

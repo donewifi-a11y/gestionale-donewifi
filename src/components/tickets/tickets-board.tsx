@@ -39,6 +39,18 @@ const PRATICHE_INVIABILI = [
   ...SLUG_RICHIESTE_CLIENTE.map((slug) => ({ slug, titolo: RICHIESTE_CLIENTE_CONFIG[slug].titolo })),
 ];
 
+// ★ collega le sottocategoria di Ticket (SOTTOCATEGORIE_TICKET) alla
+// pratica pubblica corrispondente per nome — Trasferimento/Subentro/Cambio
+// IBAN non hanno campi extra propri (vedi campi-ticket.ts) perché tutta la
+// raccolta dati passa da qui.
+const PRATICA_PER_SOTTOCATEGORIA: Record<string, (typeof PRATICHE_INVIABILI)[number]["slug"]> = {
+  Trasferimento: "trasferimento",
+  Subentro: "subentro",
+  "Cambio IBAN": "cambio-iban",
+  "Cambio Anagrafica": "cambio-anagrafica",
+  Disdetta: "disdetta",
+};
+
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
@@ -294,6 +306,7 @@ export function TicketsBoard({
         <SheetContent>
           {aperto && (
             <DettaglioTicket
+              key={aperto.id}
               ticket={aperto}
               persone={persone}
               currentPersonaId={currentPersonaId}
@@ -350,7 +363,12 @@ function DettaglioTicket({
   const [notaTesto, setNotaTesto] = useState("");
   const [invioNota, setInvioNota] = useState(false);
   const [erroreNota, setErroreNota] = useState("");
-  const [praticaScelta, setPraticaScelta] = useState("");
+  // ★ se la sottocategoria del Ticket corrisponde a una delle 5 pratiche
+  // pubbliche (vedi PRATICA_PER_SOTTOCATEGORIA), il pannello "Invia una
+  // pratica al cliente" parte già su quella invece che vuoto — i due
+  // sistemi (campi extra interni / pratiche pubbliche) erano scollegati,
+  // lo staff doveva sapere a memoria quale pratica corrispondesse.
+  const [praticaScelta, setPraticaScelta] = useState<string>(() => PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] ?? "");
   const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
   const [inCorsoReparto, setInCorsoReparto] = useState(false);
   const [esitoApprovazione, setEsitoApprovazione] = useState("");
@@ -581,7 +599,10 @@ function DettaglioTicket({
           >
             <option value="">Scegli una pratica...</option>
             {PRATICHE_INVIABILI.map((p) => (
-              <option key={p.slug} value={p.slug}>{p.titolo}</option>
+              <option key={p.slug} value={p.slug}>
+                {p.titolo}
+                {PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] === p.slug ? " (consigliata)" : ""}
+              </option>
             ))}
           </select>
           {praticaScelta && (
