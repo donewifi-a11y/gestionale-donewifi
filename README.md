@@ -18,8 +18,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
    `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql`, `0030_statistiche_generali_aruba.sql`,
    `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql`,
-   `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql` e
-   `0035_eliminazione_tariffe_solo_admin.sql`, eseguendo ognuno.
+   `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
+   `0035_eliminazione_tariffe_solo_admin.sql` e `0036_verifica_blindatura_password.sql`,
+   eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
