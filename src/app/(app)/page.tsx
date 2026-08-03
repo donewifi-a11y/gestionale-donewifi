@@ -124,7 +124,12 @@ export default async function MondoTicketPage() {
         <KpiTile icona={TriangleAlert} etichetta="Urgenti" valore={urgenti.length} colore={urgenti.length > 0 ? "text-critical" : "text-muted-foreground"} />
         <KpiTile icona={Clock} etichetta="Non presi in carico" valore={nonPresi.length} colore={nonPresi.length > 0 ? "text-warning" : "text-muted-foreground"} />
         <KpiTile icona={Gauge} etichetta="Ticket aperti" valore={attivi.length} colore="text-foreground" />
-        <KpiTile icona={CheckCircle2} etichetta="Completati oggi" valore={ticketCompletatiOggi ?? 0} colore="text-success" />
+        <KpiTile
+          icona={CheckCircle2}
+          etichetta="Completati oggi"
+          valore={ticketCompletatiOggi ?? 0}
+          colore={(ticketCompletatiOggi ?? 0) > 0 ? "text-success" : "text-muted-foreground"}
+        />
       </div>
 
       {serveAttenzione.length > 0 && (
@@ -234,7 +239,11 @@ function KpiTile({
   colore: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-md">
+    // ★ meno risalto delle AreaCard sotto (niente bordo, ombra più
+    // leggera, padding ridotto): sono numeri da leggere al volo, non
+    // moduli su cui cliccare — la gerarchia visiva deve dirlo prima
+    // ancora del contenuto.
+    <div className="rounded-2xl bg-card p-3.5 shadow-sm">
       <Icona className={`mb-2 h-4 w-4 ${colore}`} strokeWidth={2.25} />
       <div className={`font-heading text-2xl font-bold tabular-nums ${colore}`}>{valore}</div>
       <div className="text-xs text-muted-foreground">{etichetta}</div>
@@ -264,7 +273,10 @@ function AreaCard({
   badgeExtra?: string;
 }) {
   return (
-    <div className="group flex flex-col justify-between rounded-2xl border bg-card p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
+    // ★ sfondo leggermente marcato (bg-gray-50) + bordo + ombra più
+    // pronunciata delle KpiTile sopra: sono moduli cliccabili, devono
+    // "sembrare" superfici interagibili, non solo numeri da leggere.
+    <div className="group flex flex-col justify-between rounded-2xl border bg-gray-50 p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
       <Link href={href} className="flex flex-col gap-4">
         <div className="flex items-start justify-between">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
