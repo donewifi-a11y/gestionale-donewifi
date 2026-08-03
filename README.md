@@ -713,6 +713,21 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   (entrambe anagrafiche cliente) anche se dati diversi (una dai Ticket, l'altra da Aruba). Mondo
   Ticket resta con solo il flusso vero e proprio: Mondo Ticket, Ticket, Segnalazioni, Vista
   Tecnico, Archivio.
+✅ Vista Tecnico — il tecnico può aprire da solo un Ticket (2026-08): pulsante "Nuovo Ticket" in
+  cima a Vista Tecnico con due sole scelte, pensate per il campo invece del form generico completo
+  di `/tickets/nuovo` — "Nuovo contratto" (categoria Commerciale, reparto Commerciale, avvia poi un
+  appuntamento di tipo "Nuova installazione") o "Intervento in loco" (categoria Assistenza, reparto
+  Analisi Rete, appuntamento "Lavorazione tecnica"); stesse categoria/sottocategoria del form
+  normale, quindi il ticket è indistinguibile da uno creato dall'ufficio. Il ticket creato si
+  autoassegna subito al tecnico corrente (`tecnico_assegnato`, nessuna migrazione: colonna già
+  esistente) e la Sheet passa senza uscire alla pianificazione dell'appuntamento, riusando
+  `PianificaAppuntamento` di `tickets-board.tsx` (esportato, non più locale al file) con
+  `tipo_servizio` già preselezionato in base alla scelta — da lì il flusso è quello già esistente:
+  l'appuntamento pianificato compare in Vista Tecnico, "Segna completato" apre la Scheda giusta
+  (Installazione o Lavorazione tecnica, migrazione 0038) che chiude appuntamento e ticket insieme.
+  `creaTicket()` accetta ora un `tecnicoAssegnato` opzionale e ritorna la riga ticket completa
+  (prima solo `id, numero`) per poter passare subito al passo di pianificazione senza una query in
+  più.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

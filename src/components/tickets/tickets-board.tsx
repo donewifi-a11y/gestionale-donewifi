@@ -707,9 +707,21 @@ function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; d
 /** ★ NUOVA — pianifica un appuntamento senza uscire dal Ticket: mostra gli
  * slot già occupati nei prossimi 14 giorni e permette di "Assegnare e
  * fissare" in un click, tecnico e indirizzo già precompilati dal ticket. */
-function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: Persona[] }) {
+export function PianificaAppuntamento({
+  ticket,
+  persone,
+  tipoServizioIniziale = "Lavorazione tecnica",
+  apertaSubito = false,
+  tecnicoIniziale,
+}: {
+  ticket: Ticket;
+  persone: Persona[];
+  tipoServizioIniziale?: TipoServizioAppuntamento;
+  apertaSubito?: boolean;
+  tecnicoIniziale?: string;
+}) {
   const router = useRouter();
-  const [aperto, setAperto] = useState(false);
+  const [aperto, setAperto] = useState(apertaSubito);
   const [slot, setSlot] = useState<SlotOccupato[]>([]);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
@@ -796,7 +808,7 @@ function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: P
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        <select name="tipo_servizio" defaultValue="Lavorazione tecnica" className="h-8 rounded-md border bg-background px-2 text-xs">
+        <select name="tipo_servizio" defaultValue={tipoServizioIniziale} className="h-8 rounded-md border bg-background px-2 text-xs">
           {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
@@ -811,7 +823,7 @@ function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: P
             <option value="120">2 ore</option>
           </select>
         </div>
-        <select name="tecnico" defaultValue={ticket.tecnico_assegnato ?? ""} className="h-8 rounded-md border bg-background px-2 text-xs">
+        <select name="tecnico" defaultValue={tecnicoIniziale ?? ticket.tecnico_assegnato ?? ""} className="h-8 rounded-md border bg-background px-2 text-xs">
           <option value="">Nessun tecnico</option>
           {persone.map((p) => (
             <option key={p.id} value={p.id}>{p.nome}</option>

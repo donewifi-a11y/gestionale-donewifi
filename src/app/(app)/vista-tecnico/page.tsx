@@ -2,7 +2,7 @@ import { HardHat, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId } from "@/lib/persona";
 import { VistaTecnicoBoard } from "@/components/vista-tecnico/vista-tecnico-board";
-import type { Appuntamento, MaterialeMagazzino, Ticket } from "@/lib/types";
+import type { Appuntamento, MaterialeMagazzino, Persona, Ticket } from "@/lib/types";
 
 export default async function VistaTecnicoPage() {
   const supabase = await createClient();
@@ -13,7 +13,7 @@ export default async function VistaTecnicoPage() {
   const oraFine = new Date();
   oraFine.setHours(23, 59, 59, 999);
 
-  const [{ data: appuntamenti }, { data: tickets }, { data: completatiOggi }, { data: materiali }] = await Promise.all([
+  const [{ data: appuntamenti }, { data: tickets }, { data: completatiOggi }, { data: materiali }, { data: persone }] = await Promise.all([
     supabase
       .from("appuntamenti")
       .select("*")
@@ -36,6 +36,7 @@ export default async function VistaTecnicoPage() {
       .lte("aggiornato_il", oraFine.toISOString())
       .order("aggiornato_il", { ascending: false }),
     supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
+    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
   ]);
 
   return (
@@ -61,6 +62,8 @@ export default async function VistaTecnicoPage() {
           tickets={(tickets as Ticket[]) ?? []}
           completatiOggi={(completatiOggi as Ticket[]) ?? []}
           catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
+          personaId={personaId}
+          persone={(persone as Persona[]) ?? []}
         />
       )}
     </div>

@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
-import type { AreaAccesso, PrioritaTicket, StatoTicket } from "@/lib/types";
+import type { AreaAccesso, PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -22,6 +22,7 @@ export async function creaTicket(
     priorita: PrioritaTicket;
     reparto: AreaAccesso;
     dettagliExtra: Record<string, string>;
+    tecnicoAssegnato?: string;
   },
   fileExtra?: File | null
 ) {
@@ -62,8 +63,9 @@ export async function creaTicket(
       priorita: dati.priorita,
       reparto: dati.reparto,
       creato_da: personaId,
+      tecnico_assegnato: dati.tecnicoAssegnato || null,
     })
-    .select("id, numero")
+    .select("*")
     .single();
 
   if (error) return { errore: error.message };
@@ -77,7 +79,8 @@ export async function creaTicket(
   });
 
   revalidatePath("/tickets");
-  return { errore: null, id: data.id, numero: data.numero };
+  revalidatePath("/vista-tecnico");
+  return { errore: null, id: data.id, numero: data.numero, ticket: data as Ticket };
 }
 
 // ★ ex cambiaRepartoTicketWeb() del vecchio gestionale — un Ticket
