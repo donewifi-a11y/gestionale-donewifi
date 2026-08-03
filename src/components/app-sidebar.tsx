@@ -21,6 +21,7 @@ import {
   BarChart3,
   UsersRound,
   Database,
+  Wrench,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -71,6 +72,13 @@ export function AppSidebar({
   // ★ NUOVA — la sidebar è ora divisa in "mondi" (tab laterali): invece di
   // un'unica lista fino a 15 voci, ogni mondo ha le proprie 4-7 voci. Un
   // mondo compare solo se l'utente ha almeno una voce da vederci dentro.
+  //
+  // ★ RIORGANIZZATA (2026-08): Calendario e Materiali non sono Ticket —
+  // erano finiti sotto "Mondo Ticket" solo perché nuovi, senza un posto
+  // pensato apposta. Ora hanno un "Mondo Operazioni" tutto loro (strumenti
+  // da campo, non flusso ticket), e "Clienti" si sposta vicino ad
+  // "Anagrafica Clienti" in Mondo Business — sono entrambe anagrafiche
+  // cliente, stesso posto concettuale anche se dati diversi.
   const mondi: Mondo[] = useMemo(() => {
     const lista: Mondo[] = [
       {
@@ -81,11 +89,17 @@ export function AppSidebar({
           { href: "/", etichetta: "Mondo Ticket", icona: LayoutGrid, esatto: true },
           { href: "/tickets", etichetta: "Ticket", icona: Ticket },
           { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall },
-          { href: "/clienti", etichetta: "Clienti", icona: Users2 },
-          { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
           { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat },
-          { href: "/materiali", etichetta: "Materiali", icona: Boxes },
           { href: "/archivio", etichetta: "Archivio", icona: Archive },
+        ],
+      },
+      {
+        id: "operazioni",
+        etichetta: "Mondo Operazioni",
+        icona: Wrench,
+        voci: [
+          { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
+          { href: "/materiali", etichetta: "Materiali", icona: Boxes },
         ],
       },
       {
@@ -97,6 +111,7 @@ export function AppSidebar({
           ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
           ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
           ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
+          { href: "/clienti", etichetta: "Clienti", icona: Users2 },
           ...(vedeRichieste ? [{ href: "/clienti-esterni", etichetta: "Anagrafica Clienti", icona: Database }] : []),
         ],
       },

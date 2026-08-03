@@ -705,6 +705,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   moduli condivisi sotto ("Strumenti condivisi"): non hanno un reparto proprio nei dati. Ambito
   volutamente limitato alla home — sidebar e altre pagine invariate (scelta esplicita dell'utente
   tra le opzioni proposte).
+✅ Sidebar riorganizzata: nuovo "Mondo Operazioni" (2026-08): Calendario e Materiali erano finiti
+  sotto "Mondo Ticket" solo perché aggiunti di recente, pur non essendo flusso ticket — richiesto
+  esplicitamente dall'utente dopo averlo notato nell'app reale. Nuovo mondo dedicato
+  ("Mondo Operazioni", icona chiave inglese) con solo Calendario e Materiali. "Clienti" si sposta
+  da Mondo Ticket a Mondo Business, accanto ad "Anagrafica Clienti" — stesso posto concettuale
+  (entrambe anagrafiche cliente) anche se dati diversi (una dai Ticket, l'altra da Aruba). Mondo
+  Ticket resta con solo il flusso vero e proprio: Mondo Ticket, Ticket, Segnalazioni, Vista
+  Tecnico, Archivio.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
