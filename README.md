@@ -527,6 +527,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   all'altro. Applicato alla card ticket della Kanban (badge priorità) e al badge "Annullato" nel
   dettaglio ticket (`tickets-board.tsx`), e al badge di stato appuntamento nel Calendario
   (`calendario-board.tsx`). Stato non mappato → grigio neutro invece di rompere il rendering.
+✅ Skeleton loader per la Dashboard (2026-08): la Dashboard (`/dashboard` e `/dashboard/[reparto]`)
+  resta un Server Component — legge da Supabase direttamente durante il render, come tutte le
+  altre pagine del gestionale, invece di introdurre un hook client-side con fetch verso API route
+  dedicate (valutato e scartato: architettura diversa dal resto del progetto per un guadagno
+  minimo, dato che qui i dati sono già pronti al primo render). Aggiunti `dashboard/loading.tsx` e
+  `dashboard/[reparto]/loading.tsx`, mostrati automaticamente da Next.js (Suspense di routing)
+  finché i dati non sono pronti, con sagome grigie animate (`src/components/ui/skeleton.tsx`) che
+  ricalcano la struttura reale della pagina — al posto dei numeri a 0 visibili per un istante prima
+  che arrivassero i dati veri.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
