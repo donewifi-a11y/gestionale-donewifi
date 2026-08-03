@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { aggiornaStatoTicket, aggiungiNotaTicket } from "@/app/(app)/tickets/actions";
-import { cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
-import type { Appuntamento, StatoTicket, Ticket } from "@/lib/types";
+import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
+import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
+import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket } from "@/lib/types";
 
 function telefonoIntl(telefono: string) {
   return "39" + telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
@@ -27,14 +28,17 @@ export function VistaTecnicoBoard({
   appuntamenti,
   tickets,
   completatiOggi,
+  catalogoMateriali,
 }: {
   appuntamenti: Appuntamento[];
   tickets: Ticket[];
   completatiOggi: Ticket[];
+  catalogoMateriali: MaterialeMagazzino[];
 }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState<string | null>(null);
   const [ticketRapportino, setTicketRapportino] = useState<Ticket | null>(null);
+  const [appuntamentoScheda, setAppuntamentoScheda] = useState<Appuntamento | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const [invioNota, setInvioNota] = useState<string | null>(null);
 
@@ -50,16 +54,6 @@ export function VistaTecnicoBoard({
     }
     setNote((n) => ({ ...n, [ticketId]: "" }));
     router.refresh();
-  }
-
-  async function completaAppuntamento(id: string) {
-    setInCorso(id);
-    try {
-      await cambiaStatoAppuntamento(id, "Completato");
-      router.refresh();
-    } finally {
-      setInCorso(null);
-    }
   }
 
   async function avanzaTicket(t: Ticket) {
@@ -115,8 +109,7 @@ export function VistaTecnicoBoard({
               )}
               {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
               <button
-                onClick={() => completaAppuntamento(a.id)}
-                disabled={inCorso === a.id}
+                onClick={() => setAppuntamentoScheda(a)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-bold text-success"
               >
                 <Check className="h-4 w-4" strokeWidth={2.5} />
@@ -253,6 +246,46 @@ export function VistaTecnicoBoard({
                     router.refresh();
                   }}
                 />
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!appuntamentoScheda} onOpenChange={(v) => !v && setAppuntamentoScheda(null)}>
+        <SheetContent className="sm:max-w-lg">
+          {appuntamentoScheda && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{appuntamentoScheda.titolo}</SheetTitle>
+                <SheetDescription>
+                  {appuntamentoScheda.tipo_servizio === "Nuova installazione"
+                    ? "Certificato di installazione a regola d'arte."
+                    : "Rapporto di intervento in loco."}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="px-4 pb-4">
+                {appuntamentoScheda.tipo_servizio === "Nuova installazione" ? (
+                  <SchedaInstallazioneForm
+                    appuntamentoId={appuntamentoScheda.id}
+                    catalogoMateriali={catalogoMateriali}
+                    onAnnulla={() => setAppuntamentoScheda(null)}
+                    onSalvato={() => {
+                      setAppuntamentoScheda(null);
+                      router.refresh();
+                    }}
+                  />
+                ) : (
+                  <SchedaLavorazioneForm
+                    appuntamentoId={appuntamentoScheda.id}
+                    catalogoMateriali={catalogoMateriali}
+                    onAnnulla={() => setAppuntamentoScheda(null)}
+                    onSalvato={() => {
+                      setAppuntamentoScheda(null);
+                      router.refresh();
+                    }}
+                  />
+                )}
               </div>
             </>
           )}

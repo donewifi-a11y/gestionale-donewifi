@@ -1,10 +1,11 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
+import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { revalidatePath } from "next/cache";
-import type { StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
+import type { MaterialeUsato, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 
 export interface SlotOccupato {
   id: string;
@@ -195,4 +196,182 @@ export async function eliminaNotaCalendario(id: string) {
   revalidatePath("/calendario");
   revalidatePath("/");
   return { errore: null };
+}
+
+export interface DatiSchedaLavoro {
+  esito: string;
+  note: string;
+  importoFatturato: string;
+  materiali: MaterialeUsato[];
+  firmaClienteDataUrl: string;
+  firmaTecnicoDataUrl?: string;
+  // solo "Nuova installazione"
+  supporto?: string;
+  posizione?: string;
+  tipoCavo?: string;
+  metriCavo?: string;
+  bts?: string;
+  modelloCpe?: string;
+  mac?: string;
+  vlan?: string;
+  rssi?: string;
+  snr?: string;
+  router?: string;
+  pingMs?: string;
+  downloadMbps?: string;
+  uploadMbps?: string;
+  // solo "Lavorazione tecnica"
+  interventiEseguiti?: string[];
+}
+
+// ★ ex riceviCertificatoInstallazione()/riceviRapportoIntervento() del
+// vecchio gestionale — quale scheda compilare l'ha già deciso il
+// tipo_servizio scelto in fase di pianificazione (migrazione 0037), qui
+// si salva e si completa in un solo passaggio sia l'appuntamento sia,
+// se collegato, il Ticket (stesso comportamento del vecchio sistema:
+// certificare l'installazione o chiudere il rapporto intervento chiude
+// anche il Ticket). Stesso pattern di completaTicketConRapportino()
+// (tickets/actions.ts): client normale per le tabelle già scrivibili
+// dallo staff via RLS, service role solo per lo storage privato e per
+// schede_lavoro (nessuna policy insert/update pensata per lo scriverla a
+// mano fuori da questo flusso).
+export async function salvaSchedaLavoro(
+  appuntamentoId: string,
+  tipo: TipoServizioAppuntamento,
+  dati: DatiSchedaLavoro,
+  foto: File[]
+) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const { data: appuntamento } = await supabase
+    .from("appuntamenti")
+    .select("id, ticket_id, titolo, google_event_id")
+    .eq("id", appuntamentoId)
+    .single();
+  if (!appuntamento) return { errore: "Appuntamento non trovato." };
+
+  const service = createServiceClient();
+
+  const fotoSalvate: { nome: string; percorso: string }[] = [];
+  for (const file of foto) {
+    if (file.size === 0) continue;
+    const percorso = `schede/${appuntamentoId}/${Date.now()}-${file.name}`;
+    const { error } = await service.storage.from("documenti").upload(percorso, file, { contentType: file.type || "application/octet-stream" });
+    if (error) return { errore: `Errore caricamento "${file.name}": ${error.message}` };
+    fotoSalvate.push({ nome: file.name, percorso });
+  }
+
+  async function salvaFirma(dataUrl: string | undefined, suffisso: string): Promise<{ percorso: string | null; errore: string | null }> {
+    if (!dataUrl) return { percorso: null, errore: null };
+    const risposta = await fetch(dataUrl);
+    const blob = await risposta.blob();
+    const percorso = `schede/${appuntamentoId}/${suffisso}-${Date.now()}.png`;
+    const { error } = await service.storage.from("documenti").upload(percorso, blob, { contentType: "image/png" });
+    if (error) return { percorso: null, errore: `Errore salvataggio firma: ${error.message}` };
+    return { percorso, errore: null };
+  }
+
+  const firmaCliente = await salvaFirma(dati.firmaClienteDataUrl, "firma-cliente");
+  if (firmaCliente.errore) return { errore: firmaCliente.errore };
+  const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
+  if (firmaTecnico.errore) return { errore: firmaTecnico.errore };
+
+  const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
+
+  const { error: erroreScheda } = await service.from("schede_lavoro").insert({
+    appuntamento_id: appuntamentoId,
+    ticket_id: appuntamento.ticket_id,
+    tipo,
+    esito: dati.esito.trim() || null,
+    note: dati.note.trim() || null,
+    importo_fatturato: importo,
+    materiali: dati.materiali,
+    foto: fotoSalvate,
+    firma_cliente_url: firmaCliente.percorso,
+    firma_tecnico_url: firmaTecnico.percorso,
+    supporto: dati.supporto || null,
+    posizione: dati.posizione || null,
+    tipo_cavo: dati.tipoCavo || null,
+    metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
+    bts: dati.bts || null,
+    modello_cpe: dati.modelloCpe || null,
+    mac: dati.mac || null,
+    vlan: dati.vlan || null,
+    rssi: dati.rssi ? Number(dati.rssi) : null,
+    snr: dati.snr ? Number(dati.snr) : null,
+    router: dati.router || null,
+    ping_ms: dati.pingMs ? Number(dati.pingMs) : null,
+    download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
+    upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
+    interventi_eseguiti: dati.interventiEseguiti ?? [],
+    creato_da: persona.id,
+  });
+  if (erroreScheda) return { errore: erroreScheda.message };
+
+  const { error: erroreApp } = await supabase.from("appuntamenti").update({ stato: "Completato" }).eq("id", appuntamentoId);
+  if (erroreApp) return { errore: erroreApp.message };
+  if (appuntamento.google_event_id) {
+    await aggiornaEventoCalendario(appuntamento.google_event_id, { summary: `✅ ${appuntamento.titolo}` });
+  }
+
+  if (appuntamento.ticket_id) {
+    const { data: ticket } = await supabase
+      .from("tickets")
+      .select("cliente, numero, email, reparto, stato")
+      .eq("id", appuntamento.ticket_id)
+      .single();
+    if (ticket) {
+      await supabase
+        .from("tickets")
+        .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
+        .eq("id", appuntamento.ticket_id);
+      await supabase.from("storico").insert({
+        origine: "ticket",
+        riferimento_id: appuntamento.ticket_id,
+        operazione: tipo === "Nuova installazione" ? "Certificato Installazione" : "Rapporto Intervento in Loco",
+        valore_prima: ticket.stato,
+        valore_dopo: "Completato",
+        operatore_id: persona.id,
+      });
+      if (ticket.email) {
+        const { oggetto, corpoHtml } = emailChiusuraTicket(ticket.cliente, ticket.numero);
+        await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto: ticket.reparto });
+      }
+    }
+  }
+
+  revalidatePath("/calendario");
+  revalidatePath("/vista-tecnico");
+  revalidatePath("/tickets");
+  revalidatePath("/");
+  return { errore: null };
+}
+
+/** Legge una scheda già salvata (per la vista di sola lettura). */
+export async function getSchedaLavoro(appuntamentoId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("schede_lavoro").select("*").eq("appuntamento_id", appuntamentoId).maybeSingle();
+  return data;
+}
+
+/** Come getSchedaLavoro(), ma dal Ticket collegato invece che
+ * dall'appuntamento — usata nella scheda cliente/dettaglio Ticket. */
+export async function getSchedaLavoroPerTicket(ticketId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("schede_lavoro").select("*").eq("ticket_id", ticketId).maybeSingle();
+  return data;
+}
+
+/** URL firmata per una foto/firma di una scheda di lavoro (bucket privato). */
+export async function urlDocumentoScheda(percorso: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", url: null };
+
+  const service = createServiceClient();
+  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
+  if (error) return { errore: error.message, url: null };
+  return { errore: null, url: data.signedUrl };
 }

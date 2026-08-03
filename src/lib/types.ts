@@ -284,6 +284,92 @@ export interface RapportinoIntervento {
   creato_il: string;
 }
 
+export interface MaterialeMagazzino {
+  id: string;
+  nome: string;
+  prezzo_unitario: number;
+  unita_misura: string;
+  comodato_uso: boolean;
+  attivo: boolean;
+  ordine: number;
+}
+
+/** Istantanea di un materiale usato in una scheda — nome/prezzo restano
+ * quelli di quel momento anche se il catalogo cambia dopo. */
+export interface MaterialeUsato {
+  materiale_id: string | null;
+  nome: string;
+  quantita: number;
+  unita_misura: string;
+  prezzo_unitario: number;
+  comodato_uso: boolean;
+  dettagli: string | null;
+}
+
+/** ★ ex Installazione.html/InterventoLoco.html del vecchio gestionale —
+ * quale scheda aprire per completare un appuntamento si decide dal
+ * `tipo_servizio` scelto quando l'appuntamento è stato pianificato a
+ * Calendario (vedi TipoServizioAppuntamento). Un'unica tabella con
+ * colonne "solo Installazione" / "solo Lavorazione" invece di due
+ * tabelle, per non duplicare i campi comuni (materiali, foto, firme,
+ * importo, note). */
+export interface SchedaLavoro {
+  id: string;
+  appuntamento_id: string;
+  ticket_id: string | null;
+  tipo: TipoServizioAppuntamento;
+  esito: string | null;
+  note: string | null;
+  importo_fatturato: number | null;
+  materiali: MaterialeUsato[];
+  foto: { nome: string; percorso: string }[];
+  firma_cliente_url: string | null;
+  firma_tecnico_url: string | null;
+  // solo "Nuova installazione"
+  supporto: string | null;
+  posizione: string | null;
+  tipo_cavo: string | null;
+  metri_cavo: number | null;
+  bts: string | null;
+  modello_cpe: string | null;
+  mac: string | null;
+  vlan: string | null;
+  rssi: number | null;
+  snr: number | null;
+  router: string | null;
+  ping_ms: number | null;
+  download_mbps: number | null;
+  upload_mbps: number | null;
+  // solo "Lavorazione tecnica"
+  interventi_eseguiti: string[];
+  creato_da: string | null;
+  creato_il: string;
+}
+
+/** Opzioni delle select della Scheda Installazione — ex foglio
+ * "MenuInstallazione" del vecchio gestionale. Elenco fisso qui invece di
+ * una pagina di amministrazione dedicata: si può sempre scegliere "Altro"
+ * e specificare in nota, e sono valori che cambiano raramente. */
+export const OPZIONI_INSTALLAZIONE = {
+  supporto: ["Palo Esistente", "Nuovo Palo", "Staffa a L a Muro", "Zanca da Camino", "Altro"],
+  cavo: ["Cat5e FTP Outdoor", "Cat6 FTP Outdoor", "Fibra Ottica Drop", "Cat6 UTP Indoor", "Altro"],
+  cpe: ["Cambium Force 300", "MikroTik SXTsq", "Altro"],
+  router: ["TP-Link EX230V", "TP-Link Deco Mesh", "MikroTik hAP", "Router Cliente", "Altro"],
+} as const;
+
+/** Interventi rapidi selezionabili nella Scheda Lavorazione Tecnica — ex
+ * chip di InterventoLoco.html. */
+export const INTERVENTI_RAPIDI = [
+  "Riallineamento Antenna",
+  "Sostituzione Cavo",
+  "Configurazione Router",
+  "Riavvio Apparati",
+  "Problema Alimentazione",
+  "Installazione Nuova",
+] as const;
+
+export const ESITI_INTERVENTO = ["Risolto", "Parziale", "In Attesa", "Non Risolto"] as const;
+
 export const TIPI_RICHIESTA_CLIENTE = ["Cambio IBAN", "Cambio Anagrafica", "Trasferimento", "Subentro"] as const;
 export type TipoRichiestaCliente = (typeof TIPI_RICHIESTA_CLIENTE)[number];
 

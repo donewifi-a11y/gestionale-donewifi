@@ -20,7 +20,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql`,
    `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
    `0035_eliminazione_tariffe_solo_admin.sql`, `0036_verifica_blindatura_password.sql` e
-   `0037_tipo_servizio_appuntamento.sql`, eseguendo ognuno.
+   `0037_tipo_servizio_appuntamento.sql` e `0038_schede_lavoro.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -608,6 +608,33 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   titolo), oltre che nell'elenco appuntamenti del Calendario — così sa se deve fare una prima
   attivazione o un intervento su un impianto già attivo prima ancora di aprire i dettagli. Colori
   aggiunti alla mappa condivisa `StatusBadge` invece di uno stile a parte.
+✅ Schede di lavoro — Installazione vs Lavorazione tecnica (2026-08, migrazione `0038`): ex
+  `Installazione.html`/`InterventoLoco.html` del vecchio gestionale, tornate come due form
+  scelti automaticamente in Vista Tecnico dal `tipo_servizio` dell'appuntamento (migrazione 0037)
+  quando l'installatore preme "Segna completato" — niente più due pulsanti/pagine separate da
+  scegliere a mano.
+  - **Scheda Installazione**: struttura esterna, cablaggio, dati radio/CPE, collaudo (ping/down/
+    up), materiali extra, foto (struttura esterna + router/apparati interni), doppia firma
+    (cliente + tecnico) — `src/components/schede/scheda-installazione-form.tsx`.
+  - **Scheda Lavorazione Tecnica**: interventi rapidi a chip (stesse etichette del vecchio
+    sistema), materiali, esito (Risolto/Parziale/In attesa/Non risolto), firma cliente —
+    `src/components/schede/scheda-lavorazione-form.tsx`.
+  - **Catalogo Materiali** (`/materiali`, nuova voce sidebar): prezzo, unità di misura, comodato
+    d'uso gratuito — stesso pattern di Tariffe, condiviso dalle due schede tramite
+    `SelettoreMateriali` (calcolo netto/IVA inclusa con `formattaValuta()`/`ALIQUOTA_IVA`
+    esistenti, niente duplicazione).
+  - Salvare una scheda (`salvaSchedaLavoro()`) completa in un solo passaggio sia l'appuntamento
+    sia, se collegato, il Ticket (stato → Completato, evento Google Calendar aggiornato, email di
+    chiusura al cliente) — stesso comportamento del vecchio gestionale. **Sostituisce** il
+    rapportino generico solo quando il Ticket ha un appuntamento collegato (decisione esplicita
+    dell'utente); un Ticket chiuso senza passare da un appuntamento continua a usare il
+    rapportino generico esistente — mai entrambi sullo stesso Ticket.
+  - Vista di sola lettura stampabile (`SchedaVista`, stesso principio di `RapportinoVista`: niente
+    generazione PDF lato server, "Stampa/Salva PDF" del browser) mostrata nel dettaglio Ticket al
+    posto del rapportino quando esiste una scheda.
+  - Opzioni delle select della Scheda Installazione (supporto/cavo/CPE/router) sono un elenco
+    fisso in `OPZIONI_INSTALLAZIONE` (con sempre "Altro" a fondo lista) invece di una pagina di
+    amministrazione dedicata — cambiano raramente, non giustificavano altra UI per ora.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

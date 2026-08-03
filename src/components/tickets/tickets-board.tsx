@@ -25,9 +25,11 @@ import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
+import { SchedaVista } from "@/components/schede/scheda-vista";
+import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
 import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
-import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, TipoServizioAppuntamento } from "@/lib/types";
+import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
@@ -354,14 +356,20 @@ function DettaglioTicket({
   const [esitoApprovazione, setEsitoApprovazione] = useState("");
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
+  const [scheda, setScheda] = useState<SchedaLavoro | null>(null);
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
     if (ticket.stato === "Completato") {
+      // ★ un Ticket completato via appuntamento (Vista Tecnico) ha una
+      // Scheda di Installazione/Lavorazione al posto del rapportino
+      // generico — mai entrambi per lo stesso ticket.
+      getSchedaLavoroPerTicket(ticket.id).then((s) => setScheda((s as SchedaLavoro) ?? null));
       getRapportinoTicket(ticket.id).then((r) => setRapportino((r as RapportinoIntervento) ?? null));
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket non completato = nessun rapportino da caricare), non un caso separato di "derivabile durante il render".
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket non completato = nessun rapportino/scheda da caricare), non un caso separato di "derivabile durante il render".
       setRapportino(null);
+      setScheda(null);
     }
     setMostraRapportinoForm(false);
   }, [ticket.id, ticket.stato]);
@@ -497,7 +505,8 @@ function DettaglioTicket({
           />
         )}
 
-        {ticket.stato === "Completato" && rapportino && (
+        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
+        {ticket.stato === "Completato" && !scheda && rapportino && (
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
         )}
 
