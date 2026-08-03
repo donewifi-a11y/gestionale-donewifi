@@ -208,6 +208,8 @@ export interface DatiSchedaLavoro {
   // solo "Nuova installazione"
   supporto?: string;
   posizione?: string;
+  gpsLat?: number;
+  gpsLng?: number;
   tipoCavo?: string;
   metriCavo?: string;
   bts?: string;
@@ -293,6 +295,8 @@ export async function salvaSchedaLavoro(
     firma_tecnico_url: firmaTecnico.percorso,
     supporto: dati.supporto || null,
     posizione: dati.posizione || null,
+    gps_lat: dati.gpsLat ?? null,
+    gps_lng: dati.gpsLng ?? null,
     tipo_cavo: dati.tipoCavo || null,
     metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
     bts: dati.bts || null,

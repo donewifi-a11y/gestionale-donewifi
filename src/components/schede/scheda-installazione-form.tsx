@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, MapPin, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
@@ -29,10 +29,33 @@ export function SchedaInstallazioneForm({
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [materiali, setMateriali] = useState<MaterialeUsato[]>([]);
+  const [gps, setGps] = useState<{ lat: number; lng: number; precisione: number } | null>(null);
+  const [rilevandoGps, setRilevandoGps] = useState(false);
+  const [erroreGps, setErroreGps] = useState("");
   const firmaClienteRef = useRef<FirmaPadHandle>(null);
   const firmaTecnicoRef = useRef<FirmaPadHandle>(null);
   const fotoEsternaRef = useRef<HTMLInputElement>(null);
   const fotoInternaRef = useRef<HTMLInputElement>(null);
+
+  function rilevaGps() {
+    if (!navigator.geolocation) {
+      setErroreGps("Il dispositivo non supporta la geolocalizzazione.");
+      return;
+    }
+    setRilevandoGps(true);
+    setErroreGps("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude, precisione: Math.round(pos.coords.accuracy) });
+        setRilevandoGps(false);
+      },
+      (err) => {
+        setErroreGps(err.code === err.PERMISSION_DENIED ? "Permesso posizione negato — abilitalo nelle impostazioni del browser." : "Impossibile rilevare la posizione.");
+        setRilevandoGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -65,6 +88,8 @@ export function SchedaInstallazioneForm({
         firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
         supporto: String(dati.get("supporto") || ""),
         posizione: String(dati.get("posizione") || ""),
+        gpsLat: gps?.lat,
+        gpsLng: gps?.lng,
         tipoCavo: String(dati.get("tipo_cavo") || ""),
         metriCavo: String(dati.get("metri_cavo") || ""),
         bts: String(dati.get("bts") || ""),
@@ -95,6 +120,28 @@ export function SchedaInstallazioneForm({
         <Campo label="Posizione">
           <input name="posizione" placeholder="Es. Balcone, tetto, palo..." className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" />
         </Campo>
+      </div>
+
+      <div>
+        <Label>Posizione GPS precisa (facoltativa)</Label>
+        <div className="mt-1 flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={rilevaGps} disabled={rilevandoGps}>
+            <LocateFixed className="h-3.5 w-3.5" strokeWidth={2.25} />
+            {rilevandoGps ? "Rilevamento..." : gps ? "Rileva di nuovo" : "Rileva posizione GPS"}
+          </Button>
+          {gps && (
+            <a
+              href={`https://maps.google.com/?q=${gps.lat},${gps.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
+            >
+              <MapPin className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)} (±{gps.precisione}m)
+            </a>
+          )}
+        </div>
+        {erroreGps && <p className="mt-1 text-xs text-critical">{erroreGps}</p>}
       </div>
 
       <SezioneTitolo testo="Cablaggio e isolamento" />

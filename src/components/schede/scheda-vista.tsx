@@ -48,6 +48,19 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
         {isInstallazione ? (
           <>
             <Campo etichetta="Struttura esterna" valore={`${scheda.supporto || "—"}${scheda.posizione ? ` · ${scheda.posizione}` : ""}`} />
+            {scheda.gps_lat != null && scheda.gps_lng != null && (
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Posizione GPS</div>
+                <a
+                  href={`https://maps.google.com/?q=${scheda.gps_lat},${scheda.gps_lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  {scheda.gps_lat.toFixed(6)}, {scheda.gps_lng.toFixed(6)} — apri in Google Maps
+                </a>
+              </div>
+            )}
             <Campo etichetta="Cablaggio" valore={`${scheda.tipo_cavo || "—"}${scheda.metri_cavo ? ` · ${scheda.metri_cavo} m` : ""}`} />
             <Campo etichetta="Radio/CPE" valore={`${scheda.modello_cpe || "—"}${scheda.mac ? ` · MAC ${scheda.mac}` : ""}${scheda.bts ? ` · BTS ${scheda.bts}` : ""}`} />
             {(scheda.rssi != null || scheda.snr != null) && (

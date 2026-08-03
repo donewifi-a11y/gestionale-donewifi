@@ -21,7 +21,7 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
    `0035_eliminazione_tariffe_solo_admin.sql`, `0036_verifica_blindatura_password.sql` e
    `0037_tipo_servizio_appuntamento.sql`, `0038_schede_lavoro.sql` e
-   `0039_fix_ricalcola_clienti_attivi.sql`, eseguendo ognuno.
+   `0039_fix_ricalcola_clienti_attivi.sql` e `0040_gps_installazione.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -658,6 +658,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     sovrascrivendone il PIN "Tu sei" reale — non è possibile determinare quale delle Persone sia
     stata toccata né recuperare il PIN precedente (salvato solo come hash). Segnalato all'utente;
     da verificare con il team e reimpostare da `/persone` se necessario.
+✅ Posizione GPS precisa nella Scheda Installazione (2026-08, migrazione `0040`): il campo
+  "Posizione" esistente era solo testo libero (es. "Balcone, tetto") — aggiunto un pulsante "Rileva
+  posizione GPS" (`navigator.geolocation`) che cattura lat/lng/precisione dal telefono
+  dell'installatore al momento della compilazione, con link diretto a Google Maps sia nel form sia
+  nella vista di sola lettura della scheda salvata. Facoltativo, non blocca il salvataggio se il
+  browser nega il permesso o non lo supporta.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

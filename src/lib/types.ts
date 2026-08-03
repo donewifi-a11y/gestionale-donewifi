@@ -328,6 +328,8 @@ export interface SchedaLavoro {
   // solo "Nuova installazione"
   supporto: string | null;
   posizione: string | null;
+  gps_lat: number | null;
+  gps_lng: number | null;
   tipo_cavo: string | null;
   metri_cavo: number | null;
   bts: string | null;
