@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
-import type { Copertura, StatoSegnalazione } from "@/lib/types";
+import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
 
 // ★ invia davvero l'email (Resend) dall'indirizzo del reparto Commerciale
 // invece del mailto: che apriva il client di posta personale dell'operatore
@@ -79,6 +79,29 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
 
   revalidatePath("/segnalazioni");
   return { errore: null, percorso };
+}
+
+// ★ FIX — "chi/quando ha caricato il contratto" era già tracciato (voce
+// storico "Contratto caricato" con operatore_id), semplicemente mai
+// mostrato: bisognava aprire lo Storico Modifiche a parte per saperlo.
+// Non è una firma elettronica (nessuna verifica legale dell'identità di
+// chi firma il PDF fuori dal gestionale) — solo la tracciabilità di chi,
+// nel nostro staff, ha caricato quale file e quando, resa visibile nella
+// stessa scheda della Segnalazione.
+export async function getUltimoCaricamentoContratto(segnalazioneId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("storico")
+    .select("data, operatore_id, persone:operatore_id (nome)")
+    .eq("origine", "segnalazione")
+    .eq("riferimento_id", segnalazioneId)
+    .eq("operazione", "Contratto caricato")
+    .order("data", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  const persona = data.persone as unknown as { nome: string } | null;
+  return { data: data.data as string, nome: persona?.nome ?? "utente non più attivo" };
 }
 
 export async function urlContratto(percorso: string) {
@@ -180,7 +203,12 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
 // collegamento affidabile alla Segnalazione d'origine, vedi bug risolto
 // in Codice.js/_trovaRigaSegnalazionePerIdTicket), qui il ticket porta
 // segnalazione_id come FK reale fin dalla creazione.
-export async function trasmettiPerInstallazione(segnalazioneId: string) {
+// ★ FIX — il reparto del Ticket creato era fisso su "Analisi Rete" nel
+// codice, corretto per la stragrande maggioranza dei casi reali (fa
+// sempre l'installazione) ma senza modo di derogare per un'eccezione.
+// Ora è un parametro con quello stesso default, scelto da chi trasmette
+// invece che cablato.
+export async function trasmettiPerInstallazione(segnalazioneId: string, reparto: AreaAccesso = "Analisi Rete") {
   const supabase = await createClient();
   const {
     data: { user },
@@ -216,7 +244,7 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
       categoria: "Commerciale",
       problema: `Installazione da segnalazione #${segnalazione.numero}.${segnalazione.note ? " Note: " + segnalazione.note : ""}`,
       priorita: "Normale",
-      reparto: "Analisi Rete",
+      reparto,
       tipologia_cliente: segnalazione.tipologia_cliente,
       profilo_internet: segnalazione.profilo_internet,
       contratto_pdf_url: segnalazione.contratto_pdf_url,

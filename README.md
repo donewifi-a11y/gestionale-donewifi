@@ -780,10 +780,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     e scoprirlo solo aprendo la card; quelle ancora in attesa da ≥3 giorni dall'invio del link
     (`documenti_richiesti_at`) mostrano un avviso "in attesa da Ng" sullo stesso stile già in uso
     per Da Contattare/In Contatto — nessuno stato nuovo, nessuna migrazione, solo segnali visivi.
-  - **Non toccati** (segnalati nella revisione ma non bug): reparto fisso "Analisi Rete" alla
-    trasmissione (corretto per il flusso reale, valore derivato non necessario oggi); contratto
-    come solo upload PDF manuale, senza firma elettronica (richiede una scelta di fornitore esterno,
-    non una correzione di codice).
+  - **Reparto alla trasmissione, da fisso a scelto**: `trasmettiPerInstallazione()` accetta ora un
+    parametro `reparto` (default `"Analisi Rete"`, invariato per il caso normale), scelto da un
+    piccolo select comparso sopra "Trasmetti per l'installazione" — prima era cablato nel codice
+    senza modo di derogare per un'eccezione.
+  - **Tracciabilità del contratto resa visibile**: "chi ha caricato quale contratto e quando" era
+    già in `storico` (voce "Contratto caricato" con `operatore_id`), solo mai mostrato nella scheda
+    della Segnalazione — bisognava aprire l'Archivio a parte. Nuova `getUltimoCaricamentoContratto()`
+    lo recupera (join `storico.operatore_id → persone.nome`) e lo mostra sotto il contratto insieme
+    a un avviso esplicito: "upload manuale del PDF già firmato, nessuna firma elettronica integrata
+    nel gestionale" — non finge una firma elettronica che non c'è, chiarisce cosa il sistema
+    garantisce davvero. Una vera firma elettronica (verifica legale di chi firma) richiederebbe un
+    fornitore esterno a pagamento: scelta del cliente, non una correzione di codice — non implementata.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

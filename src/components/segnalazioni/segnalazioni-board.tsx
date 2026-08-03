@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
@@ -18,8 +19,10 @@ import {
   caricaContrattoSegnalazione,
   urlContratto,
   inviaEmailRichiestaDatiSegnalazione,
+  getUltimoCaricamentoContratto,
 } from "@/app/(app)/segnalazioni/actions";
-import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
+import type { AreaAccesso, RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
+import { REPARTI } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
@@ -259,6 +262,22 @@ function DettaglioSegnalazione({
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
   const [caricamentoContratto, setCaricamentoContratto] = useState(false);
   const [erroreContratto, setErroreContratto] = useState("");
+  const [infoCaricamento, setInfoCaricamento] = useState<{ nome: string; data: string } | null>(null);
+  // ★ FIX — il reparto del Ticket alla trasmissione era fisso nel codice
+  // ("Analisi Rete"); ora è una scelta con quello stesso default, per le
+  // eccezioni rare in cui l'installazione non la fa Analisi Rete.
+  const [repartoTrasmissione, setRepartoTrasmissione] = useState<AreaAccesso>("Analisi Rete");
+
+  useEffect(() => {
+    if (!contrattoUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetta lo stato derivato quando il contratto viene rimosso/non c'è, non un caso di "derivabile durante il render" (dipende da un fetch async fatto sotto).
+      setInfoCaricamento(null);
+      return;
+    }
+    getUltimoCaricamentoContratto(segnalazione.id).then((info) =>
+      setInfoCaricamento(info ? { nome: info.nome, data: info.data } : null)
+    );
+  }, [contrattoUrl, segnalazione.id]);
   const [inCorsoEmail, setInCorsoEmail] = useState(false);
   const [esitoEmail, setEsitoEmail] = useState("");
 
@@ -290,7 +309,7 @@ function DettaglioSegnalazione({
     if (!puoTrasmettere) return;
     if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
     setInCorso(true);
-    const risultato = await trasmettiPerInstallazione(segnalazione.id);
+    const risultato = await trasmettiPerInstallazione(segnalazione.id, repartoTrasmissione);
     setInCorso(false);
     if (risultato.errore || !risultato.id) {
       alert(risultato.errore || "Errore imprevisto.");
@@ -475,6 +494,14 @@ function DettaglioSegnalazione({
               </label>
             </>
           )}
+          {contrattoUrl && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {infoCaricamento
+                ? `Caricato da ${infoCaricamento.nome} il ${new Date(infoCaricamento.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                : "Caricamento tracciato in Storico Modifiche."}
+              {" — "}upload manuale del PDF già firmato, nessuna firma elettronica integrata nel gestionale.
+            </p>
+          )}
           {erroreContratto && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-critical">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
@@ -485,6 +512,21 @@ function DettaglioSegnalazione({
 
         {segnalazione.stato !== "Trasmessa" && (
           <div className="mt-2">
+            <div className="mb-2 flex items-center gap-2">
+              <Label htmlFor="repartoTrasmissione" className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                Reparto installazione
+              </Label>
+              <select
+                id="repartoTrasmissione"
+                value={repartoTrasmissione}
+                onChange={(e) => setRepartoTrasmissione(e.target.value as AreaAccesso)}
+                className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
+              >
+                {REPARTI.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
             <Button onClick={trasmetti} disabled={inCorso || !puoTrasmettere} className="w-full">
               <Rocket className="h-4 w-4" strokeWidth={2.25} />
               Trasmetti per l&apos;installazione
