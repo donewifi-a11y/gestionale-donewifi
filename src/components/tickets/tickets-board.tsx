@@ -585,7 +585,16 @@ function DettaglioTicket({
           </Button>
         )}
 
-        <PianificaAppuntamento ticket={ticket} persone={persone} />
+        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
+        sempre una prima installazione, ma il tipo di servizio non lo
+        deduceva mai da solo: il menu partiva sempre su "Lavorazione
+        tecnica" come per qualunque altro Ticket, rischiando la Scheda
+        sbagliata sul campo se chi pianifica non se ne accorgeva. */}
+        <PianificaAppuntamento
+          ticket={ticket}
+          persone={persone}
+          tipoServizioIniziale={ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
+        />
 
         <div className="border-t pt-4">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

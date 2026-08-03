@@ -138,6 +138,13 @@ export function SegnalazioniBoard({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {COLONNE.map((col) => {
           const items = filtrate.filter((s) => s.stato === col.stato);
+          // ★ FIX — "Gestione Cliente" non segnalava in nessun modo che i
+          // dati/documenti fossero già arrivati dal cliente: bisognava
+          // aprire ogni card per scoprirlo. Ora le pratiche pronte per
+          // essere trasmesse salgono in cima alla colonna.
+          if (col.stato === "Gestione Cliente") {
+            items.sort((a, b) => Number(!!b.dati_ricevuti_at) - Number(!!a.dati_ricevuti_at));
+          }
           const mostraGiorni = col.stato === "Da Contattare" || col.stato === "In Contatto";
           return (
             <div key={col.stato} className="rounded-2xl bg-muted/50 p-3">
@@ -155,6 +162,14 @@ export function SegnalazioniBoard({
                 )}
                 {items.map((s) => {
                   const giorni = giorniAperta(s.data);
+                  // ★ FIX — nessun segnale su quanto sta aspettando una
+                  // risposta del cliente dopo l'invio della Richiesta
+                  // Dati: stesso stile dell'avviso "da Ng" già in uso per
+                  // Da Contattare/In Contatto, calcolato però da
+                  // documenti_richiesti_at (quando è stato inviato il
+                  // link) invece che da s.data (creazione pratica).
+                  const inAttesaDati = col.stato === "Gestione Cliente" && !s.dati_ricevuti_at && !!s.documenti_richiesti_at;
+                  const giorniAttesa = inAttesaDati ? giorniAperta(s.documenti_richiesti_at as string) : 0;
                   return (
                     <div
                       key={s.id}
@@ -183,6 +198,22 @@ export function SegnalazioniBoard({
                           >
                             <Clock className="h-3 w-3" strokeWidth={2.5} />
                             da {giorni}g
+                          </span>
+                        )}
+                        {col.stato === "Gestione Cliente" && s.dati_ricevuti_at && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+                            <Check className="h-3 w-3" strokeWidth={2.5} />
+                            Dati ricevuti
+                          </span>
+                        )}
+                        {inAttesaDati && giorniAttesa >= 3 && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              giorniAttesa >= 7 ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
+                            }`}
+                          >
+                            <Clock className="h-3 w-3" strokeWidth={2.5} />
+                            in attesa da {giorniAttesa}g
                           </span>
                         )}
                       </div>

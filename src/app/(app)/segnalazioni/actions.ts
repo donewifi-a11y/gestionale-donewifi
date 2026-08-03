@@ -196,6 +196,16 @@ export async function trasmettiPerInstallazione(segnalazioneId: string) {
     .single();
   if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
 
+  // ★ FIX — questo controllo esisteva solo nel componente React
+  // (pulsante disabilitato finché mancano dati/contratto): chi chiamasse
+  // l'azione direttamente (o un pulsante aggiunto altrove in futuro)
+  // poteva trasmettere una pratica incompleta senza che nulla lo
+  // impedisse davvero. Ripetuto qui, unica fonte di verità.
+  const mancanti: string[] = [];
+  if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (Richiesta Dati)");
+  if (!segnalazione.contratto_pdf_url) mancanti.push("contratto firmato");
+  if (mancanti.length > 0) return { errore: `Mancano ancora: ${mancanti.join(", ")}.` };
+
   const { data: ticket, error: erroreTicket } = await supabase
     .from("tickets")
     .insert({

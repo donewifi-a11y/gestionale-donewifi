@@ -765,6 +765,25 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Nessuna migrazione: router/extender scelti finiscono in `richieste_clienti.dettagli` (jsonb) come
   gli altri campi extra, la route `/api/richiesta-dati` non è stata toccata (cattura già in automatico
   ogni campo del FormData non riservato).
+✅ Flusso Segnalazione → Installazione — 4 correzioni dalla revisione end-to-end (2026-08):
+  - **Gate di "Trasmetti per l'installazione" spostato lato server**: il controllo (dati cliente
+    completi + contratto caricato) viveva solo nel pulsante disabilitato in React —
+    `trasmettiPerInstallazione()` ora rifiuta la trasmissione anche se chiamata direttamente,
+    unica fonte di verità. Verificato contro produzione: nessuna Segnalazione già "Trasmessa"
+    sarebbe stata bloccata dal nuovo controllo.
+  - **`tipo_servizio` preselezionato su "Nuova installazione"** quando si pianifica l'appuntamento
+    di un Ticket nato da una Segnalazione (`ticket.segnalazione_id` valorizzato) — prima il menu
+    partiva sempre su "Lavorazione tecnica" come per qualunque altro Ticket, rischiando la Scheda
+    sbagliata sul campo se chi pianificava non se ne accorgeva.
+  - **Bacheca Segnalazioni, colonna "Gestione Cliente"**: le pratiche con dati/documenti già
+    ricevuti dal cliente salgono in cima (badge verde "Dati ricevuti") invece di restare mescolate
+    e scoprirlo solo aprendo la card; quelle ancora in attesa da ≥3 giorni dall'invio del link
+    (`documenti_richiesti_at`) mostrano un avviso "in attesa da Ng" sullo stesso stile già in uso
+    per Da Contattare/In Contatto — nessuno stato nuovo, nessuna migrazione, solo segnali visivi.
+  - **Non toccati** (segnalati nella revisione ma non bug): reparto fisso "Analisi Rete" alla
+    trasmissione (corretto per il flusso reale, valore derivato non necessario oggi); contratto
+    come solo upload PDF manuale, senza firma elettronica (richiede una scelta di fornitore esterno,
+    non una correzione di codice).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
