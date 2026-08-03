@@ -152,8 +152,19 @@ export async function reimpostaPasswordPersona(id: string) {
   const { error } = await service.auth.admin.updateUserById(persona.auth_user_id, { password: nuovaPassword });
   if (error) return { errore: error.message, password: null };
 
-  // ★ tenuta allineata anche la password "di conferma" del selettore "Tu sei".
-  await service.rpc("imposta_password_persona", { p_persona_id: id, p_password: nuovaPassword });
+  // ★ tenuta allineata anche la password "di conferma" del selettore "Tu
+  // sei". Non blocca l'azione principale (l'accesso vero è già stato
+  // reimpostato con successo sopra) ma l'errore va comunque segnalato,
+  // non scartato — altrimenti il PIN resterebbe silenziosamente
+  // disallineato dalla password reale.
+  const { error: erroreSincronizzaPin } = await service.rpc("imposta_password_persona", { p_persona_id: id, p_password: nuovaPassword });
+  if (erroreSincronizzaPin) {
+    return {
+      errore: null,
+      password: nuovaPassword,
+      avviso: `Accesso reimpostato, ma il PIN "Tu sei" non si è aggiornato: ${erroreSincronizzaPin.message}`,
+    };
+  }
 
   return { errore: null, password: nuovaPassword };
 }

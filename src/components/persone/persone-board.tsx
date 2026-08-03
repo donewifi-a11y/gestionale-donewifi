@@ -218,7 +218,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
-  const [reset, setReset] = useState<{ inCorso: boolean; password: string | null; errore: string | null }>({
+  const [reset, setReset] = useState<{ inCorso: boolean; password: string | null; errore: string | null; avviso?: string | null }>({
     inCorso: false,
     password: null,
     errore: null,
@@ -234,7 +234,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
   async function onReset() {
     setReset({ inCorso: true, password: null, errore: null });
     const risultato = await reimpostaPasswordPersona(persona.id);
-    setReset({ inCorso: false, password: risultato.password, errore: risultato.errore });
+    setReset({ inCorso: false, password: risultato.password, errore: risultato.errore, avviso: risultato.avviso });
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -310,6 +310,9 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
             )}
             {reset.errore && (
               <p className="mt-2 rounded-md bg-critical/10 p-2 text-xs text-critical">{reset.errore}</p>
+            )}
+            {reset.avviso && (
+              <p className="mt-2 rounded-md bg-warning/10 p-2 text-xs text-warning">{reset.avviso}</p>
             )}
           </div>
         )}

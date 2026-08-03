@@ -20,7 +20,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql`,
    `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
    `0035_eliminazione_tariffe_solo_admin.sql`, `0036_verifica_blindatura_password.sql` e
-   `0037_tipo_servizio_appuntamento.sql` e `0038_schede_lavoro.sql`, eseguendo ognuno.
+   `0037_tipo_servizio_appuntamento.sql`, `0038_schede_lavoro.sql` e
+   `0039_fix_ricalcola_clienti_attivi.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -635,6 +636,28 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - Opzioni delle select della Scheda Installazione (supporto/cavo/CPE/router) sono un elenco
     fisso in `OPZIONI_INSTALLAZIONE` (con sempre "Altro" a fondo lista) invece di una pagina di
     amministrazione dedicata — cambiano raramente, non giustificavano altra UI per ora.
+✅ Test sistematico di tutto il gestionale (2026-08) — nessun browser disponibile in sessione,
+  quindi test automatizzato invece che a occhio: raggiungibilità/protezione di ogni rotta (tutte le
+  ~20 protette bloccate correttamente per utenti non loggati, tutte le ~7 pubbliche raggiungibili),
+  validazione degli endpoint pubblici (`/api/portale/*`, con ticket di prova creato e poi rimosso),
+  ogni funzione SQL/RPC (`statistiche_generali_aruba`, `statistiche_fatturato_periodo`,
+  `profili_per_periodo`, `ricalcola_clienti_attivi`) e ogni tabella chiave verificate contro
+  produzione. Trovato e corretto un bug reale:
+  - **`ricalcola_clienti_attivi()` falliva ad ogni chiamata** (`UPDATE requires a WHERE clause` —
+    una protezione del database contro gli UPDATE non filtrati, probabilmente attivata dopo che la
+    funzione fu scritta; l'UPDATE su tutte le righe di `clienti_esterni` è intenzionale, non un
+    errore). L'errore veniva scartato in silenzio in `sincronizzaAnagraficaAruba()`/
+    `sincronizzaFattureAruba()` (`clienti-esterni/actions.ts`): il flag "cliente attivo" mostrato
+    in tutta l'app aveva smesso di aggiornarsi dopo ogni sincronizzazione, senza errori visibili.
+    Corretto con `where true` (migrazione `0039`, stesso comportamento, soddisfa la protezione) e
+    l'errore ora torna al chiamante invece di sparire. Stesso fix di robustezza applicato a
+    `reimpostaPasswordPersona()` (`persone/actions.ts`): l'errore sulla sincronizzazione del PIN
+    "Tu sei" ora torna come avviso invece di sparire.
+  - ⚠️ **Incidente durante il test**: nel verificare `imposta_password_persona()`, una query senza
+    filtro esplicito ha chiamato la funzione su una Persona presa a caso con una password di prova,
+    sovrascrivendone il PIN "Tu sei" reale — non è possibile determinare quale delle Persone sia
+    stata toccata né recuperare il PIN precedente (salvato solo come hash). Segnalato all'utente;
+    da verificare con il team e reimpostare da `/persone` se necessario.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

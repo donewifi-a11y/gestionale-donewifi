@@ -132,7 +132,12 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
   // Aruba (inaffidabile, tenuto solo per riferimento) ma dedotto da chi
   // ha davvero fatturato negli ultimi 90 giorni — va ricalcolato ogni
   // volta che cambia l'anagrafica o le fatture.
-  await service.rpc("ricalcola_clienti_attivi");
+  // ★ FIX — l'errore di questa chiamata veniva scartato: se il ricalcolo
+  // falliva (successo davvero, vedi migrazione 0039), l'anagrafica restava
+  // sincronizzata ma il flag "attivo" no, senza che nessuno se ne
+  // accorgesse. Ora l'errore torna al chiamante come per ogni altro passo.
+  const { error: erroreRicalcolo } = await service.rpc("ricalcola_clienti_attivi");
+  if (erroreRicalcolo) return { errore: `Anagrafica sincronizzata, ma il ricalcolo clienti attivi è fallito: ${erroreRicalcolo.message}`, sincronizzati: righe.length };
 
   revalidatePath("/clienti-esterni");
   return { errore: null, sincronizzati: righe.length };
@@ -259,7 +264,17 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
     offset += LIMITE_PAGINA;
   } while (offset < totale);
 
-  await service.rpc("ricalcola_clienti_attivi");
+  // ★ FIX — stesso discorso di sincronizzaAnagraficaAruba(): l'errore non
+  // va scartato, altrimenti il flag "attivo" smette di aggiornarsi senza
+  // che nessuno se ne accorga (successo davvero, vedi migrazione 0039).
+  const { error: erroreRicalcolo } = await service.rpc("ricalcola_clienti_attivi");
+  if (erroreRicalcolo) {
+    return {
+      errore: `Fatture sincronizzate, ma il ricalcolo clienti attivi è fallito: ${erroreRicalcolo.message}`,
+      sincronizzati,
+      scartate,
+    };
+  }
 
   revalidatePath("/clienti-esterni");
   return { errore: null, sincronizzati, scartate };
