@@ -696,6 +696,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   stesse credenziali già usate per la scrittura (`GOOGLE_SERVICE_ACCOUNT_EMAIL/_PRIVATE_KEY`,
   `GOOGLE_CALENDAR_ID`); se non configurate il Calendario funziona comunque, semplicemente senza
   eventi Google (stesso comportamento "non blocca mai" già in uso per la scrittura).
+✅ Mondo Ticket riorganizzato per settore (2026-08): la striscia unica di KPI e il pannello "Serve
+  attenzione ora" aggregati su tutta l'azienda diventano una colonna per settore (Analisi Rete/
+  Commerciale/Fatturazione, `REPARTI_ELENCO` di `analytics.ts`) — ognuna con i propri Urgenti/Non
+  presi in carico/Aperti/Completati oggi e i propri ticket che richiedono attenzione, invece di un
+  totale unico che mischiava i tre reparti. Chi ha un solo settore vede solo la sua colonna, un
+  admin le vede tutte affiancate (`grid-cols-3`). Segnalazioni/Calendario/Vista Tecnico restano
+  moduli condivisi sotto ("Strumenti condivisi"): non hanno un reparto proprio nei dati. Ambito
+  volutamente limitato alla home — sidebar e altre pagine invariate (scelta esplicita dell'utente
+  tra le opzioni proposte).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

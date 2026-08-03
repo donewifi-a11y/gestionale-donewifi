@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2, StickyNote } from "lucide-react";
+import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2, StickyNote, Wifi, Handshake, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
+import { REPARTI_ELENCO } from "@/lib/analytics";
 import type { AreaAccesso } from "@/lib/types";
 
 const SLUG_REPARTO: Record<string, string> = {
@@ -10,8 +11,27 @@ const SLUG_REPARTO: Record<string, string> = {
   Fatturazione: "fatturazione",
 };
 
+const ICONA_REPARTO: Record<string, typeof Wifi> = {
+  "Analisi Rete": Wifi,
+  Commerciale: Handshake,
+  Fatturazione: Receipt,
+};
+
 function etichettaReparti(reparti: AreaAccesso[]): string {
   return reparti.join(" e ");
+}
+
+interface TicketRiga {
+  id: string;
+  numero: number;
+  cliente: string;
+  categoria: string;
+  stato: string;
+  priorita: string;
+  reparto: AreaAccesso;
+  tecnico_assegnato: string | null;
+  data_creazione: string;
+  aggiornato_il: string;
 }
 
 /**
@@ -20,6 +40,14 @@ function etichettaReparti(reparti: AreaAccesso[]): string {
  * di urgenza, un pannello "serve attenzione ora" e una vista filtrata per
  * reparto per chi non ha accesso "Tutto", sullo stesso principio del
  * Centro Operativo del vecchio gestionale.
+ *
+ * ★ RIORGANIZZATA per settore (2026-08): invece di un'unica striscia di
+ * KPI aggregata su tutta l'azienda, i Ticket sono raggruppati in una
+ * colonna per settore (Analisi Rete/Commerciale/Fatturazione) — ognuna
+ * con i propri numeri e il proprio "serve attenzione ora". Chi ha un
+ * solo settore vede solo la sua colonna, un admin le vede tutte
+ * affiancate. Segnalazioni/Calendario/Vista Tecnico restano moduli
+ * condivisi sotto: non hanno un reparto proprio nei dati.
  */
 export default async function MondoTicketPage() {
   const supabase = await createClient();
@@ -28,6 +56,7 @@ export default async function MondoTicketPage() {
   const isAdmin = personaHaAccessoAdmin(personaCorrente);
   const repartiUtente: AreaAccesso[] = !isAdmin ? personaCorrente?.reparti ?? [] : [];
   const filtratoPerReparto = repartiUtente.length > 0;
+  const repartiVisibili = isAdmin ? REPARTI_ELENCO : REPARTI_ELENCO.filter((r) => repartiUtente.includes(r));
 
   const oggiInizio = new Date();
   oggiInizio.setHours(0, 0, 0, 0);
@@ -42,9 +71,17 @@ export default async function MondoTicketPage() {
     .not("stato", "in", "(Completato,Annullato)");
   if (filtratoPerReparto) queryTicket = queryTicket.in("reparto", repartiUtente);
 
+  let queryCompletatiOggi = supabase
+    .from("tickets")
+    .select("id, reparto")
+    .eq("stato", "Completato")
+    .gte("aggiornato_il", oggiInizio.toISOString())
+    .lte("aggiornato_il", oggiFine.toISOString());
+  if (filtratoPerReparto) queryCompletatiOggi = queryCompletatiOggi.in("reparto", repartiUtente);
+
   const [
     { data: ticketAttivi },
-    { count: ticketCompletatiOggi },
+    { data: completatiOggiRighe },
     { count: segnalazioniDaContattare },
     { count: segnalazioniInGestione },
     { count: appuntamentiOggi },
@@ -52,12 +89,7 @@ export default async function MondoTicketPage() {
     { data: promemoria },
   ] = await Promise.all([
     queryTicket,
-    supabase
-      .from("tickets")
-      .select("*", { count: "exact", head: true })
-      .eq("stato", "Completato")
-      .gte("aggiornato_il", oggiInizio.toISOString())
-      .lte("aggiornato_il", oggiFine.toISOString()),
+    queryCompletatiOggi,
     supabase.from("segnalazioni").select("*", { count: "exact", head: true }).eq("stato", "Da Contattare"),
     supabase.from("segnalazioni").select("*", { count: "exact", head: true }).eq("stato", "Gestione Cliente"),
     supabase
@@ -81,21 +113,28 @@ export default async function MondoTicketPage() {
       .order("data_promemoria", { ascending: true }),
   ]);
 
-  const attivi = ticketAttivi ?? [];
-  const urgenti = attivi.filter((t) => t.priorita === "Urgente");
-  const nonPresi = attivi.filter((t) => !t.tecnico_assegnato);
+  const attivi = (ticketAttivi ?? []) as TicketRiga[];
+  const completatiOggi = completatiOggiRighe ?? [];
 
-  // ★ pannello "serve attenzione ora": Urgenti + fermi da oltre 24h senza
-  // nessuno assegnato — la stessa lista che nel vecchio gestionale evitava
-  // di dover aprire la bacheca solo per capire cosa è rimasto indietro.
-  const serveAttenzione = attivi
-    .filter((t) => t.priorita === "Urgente" || (!t.tecnico_assegnato && new Date(t.data_creazione) < soglia24h))
-    .sort((a, b) => {
-      if (a.priorita === "Urgente" && b.priorita !== "Urgente") return -1;
-      if (b.priorita === "Urgente" && a.priorita !== "Urgente") return 1;
-      return new Date(a.data_creazione).getTime() - new Date(b.data_creazione).getTime();
-    })
-    .slice(0, 8);
+  // ★ pannello "serve attenzione ora" per settore: Urgenti + fermi da oltre
+  // 24h senza nessuno assegnato — la stessa lista che nel vecchio
+  // gestionale evitava di dover aprire la bacheca solo per capire cosa è
+  // rimasto indietro, ora divisa per reparto invece che unica per tutti.
+  function datiSettore(reparto: AreaAccesso) {
+    const attiviSettore = attivi.filter((t) => t.reparto === reparto);
+    const urgenti = attiviSettore.filter((t) => t.priorita === "Urgente");
+    const nonPresi = attiviSettore.filter((t) => !t.tecnico_assegnato);
+    const completati = completatiOggi.filter((t) => t.reparto === reparto);
+    const serveAttenzione = attiviSettore
+      .filter((t) => t.priorita === "Urgente" || (!t.tecnico_assegnato && new Date(t.data_creazione) < soglia24h))
+      .sort((a, b) => {
+        if (a.priorita === "Urgente" && b.priorita !== "Urgente") return -1;
+        if (b.priorita === "Urgente" && a.priorita !== "Urgente") return 1;
+        return new Date(a.data_creazione).getTime() - new Date(b.data_creazione).getTime();
+      })
+      .slice(0, 4);
+    return { attiviSettore, urgenti, nonPresi, completati, serveAttenzione };
+  }
 
   const linkDashboard = isAdmin
     ? "/dashboard"
@@ -106,7 +145,7 @@ export default async function MondoTicketPage() {
         : null;
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-6xl">
       <div className="mb-1 flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold tracking-tight">Mondo Ticket</h1>
         {linkDashboard && (
@@ -117,47 +156,14 @@ export default async function MondoTicketPage() {
         )}
       </div>
       <p className="mb-6 text-muted-foreground">
-        {filtratoPerReparto ? `Il colpo d'occhio sul reparto ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda."}
+        {filtratoPerReparto ? `Il colpo d'occhio sul settore ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda, settore per settore."}
       </p>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <KpiTile icona={TriangleAlert} etichetta="Urgenti" valore={urgenti.length} colore={urgenti.length > 0 ? "text-critical" : "text-muted-foreground"} />
-        <KpiTile icona={Clock} etichetta="Non presi in carico" valore={nonPresi.length} colore={nonPresi.length > 0 ? "text-warning" : "text-muted-foreground"} />
-        <KpiTile icona={Gauge} etichetta="Ticket aperti" valore={attivi.length} colore="text-foreground" />
-        <KpiTile
-          icona={CheckCircle2}
-          etichetta="Completati oggi"
-          valore={ticketCompletatiOggi ?? 0}
-          colore={(ticketCompletatiOggi ?? 0) > 0 ? "text-success" : "text-muted-foreground"}
-        />
+      <div className={`mb-8 grid grid-cols-1 gap-5 ${repartiVisibili.length >= 3 ? "lg:grid-cols-3" : repartiVisibili.length === 2 ? "md:grid-cols-2" : ""}`}>
+        {repartiVisibili.map((reparto) => (
+          <SezioneSettore key={reparto} reparto={reparto} dati={datiSettore(reparto)} />
+        ))}
       </div>
-
-      {serveAttenzione.length > 0 && (
-        <div className="mb-8 rounded-2xl border bg-card p-5 shadow-md">
-          <h2 className="mb-3 font-heading text-sm font-bold">Serve attenzione ora</h2>
-          <div className="flex flex-col gap-1.5">
-            {serveAttenzione.map((t) => (
-              <Link
-                key={t.id}
-                href={`/tickets?aperto=${t.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition hover:bg-muted/60"
-              >
-                <span className="truncate">
-                  <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span> — {t.cliente}
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  {t.priorita === "Urgente" && (
-                    <span className="rounded-full bg-critical/10 px-2 py-0.5 text-[10.5px] font-bold uppercase text-critical">Urgente</span>
-                  )}
-                  {!filtratoPerReparto && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">{t.reparto}</span>
-                  )}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {promemoria && promemoria.length > 0 && (
         <div className="mb-8 rounded-2xl border border-warning/30 bg-warning/5 p-5 shadow-md">
@@ -182,17 +188,8 @@ export default async function MondoTicketPage() {
         </div>
       )}
 
+      <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-wide text-muted-foreground">Strumenti condivisi</h2>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <AreaCard
-          href="/tickets"
-          icona={Ticket}
-          titolo="Ticket"
-          descrizione="Assistenza, pratiche commerciali e amministrative."
-          numero={attivi.length}
-          etichettaNumero="aperti"
-          hrefNuovo="/tickets/nuovo"
-          etichettaNuovo="Nuovo Ticket"
-        />
         <AreaCard
           href="/segnalazioni"
           icona={PhoneCall}
@@ -223,6 +220,63 @@ export default async function MondoTicketPage() {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function SezioneSettore({
+  reparto,
+  dati,
+}: {
+  reparto: AreaAccesso;
+  dati: { attiviSettore: TicketRiga[]; urgenti: TicketRiga[]; nonPresi: TicketRiga[]; completati: unknown[]; serveAttenzione: TicketRiga[] };
+}) {
+  const Icona = ICONA_REPARTO[reparto];
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 shadow-md">
+      <Link href="/tickets" className="group flex items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
+          <Icona className="h-4 w-4" strokeWidth={2.25} />
+        </div>
+        <h2 className="font-heading text-base font-bold group-hover:text-primary">{reparto}</h2>
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+      </Link>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <KpiTile icona={TriangleAlert} etichetta="Urgenti" valore={dati.urgenti.length} colore={dati.urgenti.length > 0 ? "text-critical" : "text-muted-foreground"} />
+        <KpiTile icona={Clock} etichetta="Non presi" valore={dati.nonPresi.length} colore={dati.nonPresi.length > 0 ? "text-warning" : "text-muted-foreground"} />
+        <KpiTile icona={Gauge} etichetta="Aperti" valore={dati.attiviSettore.length} colore="text-foreground" />
+        <KpiTile
+          icona={CheckCircle2}
+          etichetta="Completati oggi"
+          valore={dati.completati.length}
+          colore={dati.completati.length > 0 ? "text-success" : "text-muted-foreground"}
+        />
+      </div>
+
+      {dati.serveAttenzione.length > 0 ? (
+        <div>
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Serve attenzione ora</div>
+          <div className="flex flex-col gap-1">
+            {dati.serveAttenzione.map((t) => (
+              <Link
+                key={t.id}
+                href={`/tickets?aperto=${t.id}`}
+                className="flex items-center justify-between gap-2 rounded-lg bg-card px-2.5 py-1.5 text-sm shadow-sm transition hover:bg-muted/60"
+              >
+                <span className="truncate">
+                  <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span> — {t.cliente}
+                </span>
+                {t.priorita === "Urgente" && (
+                  <span className="shrink-0 rounded-full bg-critical/10 px-2 py-0.5 text-[10.5px] font-bold uppercase text-critical">Urgente</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground/70">Nessun ticket richiede attenzione immediata.</p>
+      )}
     </div>
   );
 }
