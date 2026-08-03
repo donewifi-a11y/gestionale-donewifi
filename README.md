@@ -596,6 +596,10 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Routing per host in `src/proxy.ts` (`DOMINI_PORTALE`), verificato con `curl -H "Host: ..."`.
   **Serve ancora, fuori dal codice**: aggiungere `area.donewifi.it` come dominio custom del
   progetto su Vercel e puntare un record DNS (CNAME) a Vercel dal pannello del registrar.
+✅ Portale — telefono ed email obbligatori (2026-08): nel form "Apri un Ticket" del Portale
+  clienti, prima bastava uno dei due (telefono O email); ora sono entrambi obbligatori — validati
+  sia in `portale-tabs.tsx` (client) sia in `api/portale/apri-ticket/route.ts` (server, quella che
+  conta davvero: l'endpoint è pubblico e chiamabile a prescindere dal form).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

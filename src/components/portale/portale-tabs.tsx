@@ -50,7 +50,7 @@ function FormApriTicket() {
     const telefono = String(dati.get("telefono") || "").trim();
     const email = String(dati.get("email") || "").trim();
     if (nome.length < 2) return setErrore("Inserisci il tuo nome.");
-    if (!telefono && !email) return setErrore("Inserisci almeno un telefono o un'email per essere ricontattato.");
+    if (!telefono || !email) return setErrore("Inserisci sia il telefono sia l'email per essere ricontattato.");
 
     setInCorso(true);
     try {
@@ -100,12 +100,12 @@ function FormApriTicket() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="telefono">Telefono</Label>
-          <Input id="telefono" name="telefono" type="tel" placeholder="Es. 340 1234567" className="mt-1 h-10" />
+          <Label htmlFor="telefono">Telefono *</Label>
+          <Input id="telefono" name="telefono" type="tel" required placeholder="Es. 340 1234567" className="mt-1 h-10" />
         </div>
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" className="mt-1 h-10" />
+          <Label htmlFor="email">Email *</Label>
+          <Input id="email" name="email" type="email" required className="mt-1 h-10" />
         </div>
       </div>
       <div>

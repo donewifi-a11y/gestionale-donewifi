@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
   if (!categoria || !REPARTO_PER_CATEGORIA[categoria]) {
     return NextResponse.json({ errore: "Seleziona il tipo di richiesta." }, { status: 400 });
   }
-  if (!telefono && !email) {
-    return NextResponse.json({ errore: "Inserisci almeno un telefono o un'email per essere ricontattato." }, { status: 400 });
+  if (!telefono || !email) {
+    return NextResponse.json({ errore: "Inserisci sia il telefono sia l'email per essere ricontattato." }, { status: 400 });
   }
 
   const supabase = createServiceClient();
