@@ -1,7 +1,7 @@
 import { Wifi, AlertTriangle } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
-import { RichiestaDatiForm } from "@/components/richiesta-dati/richiesta-dati-form";
-import type { Tariffa } from "@/lib/types";
+import { RichiestaDatiFlow } from "@/components/richiesta-dati/richiesta-dati-flow";
+import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
 
 export default async function RichiestaDatiPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,6 +23,21 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
     .eq("attivo", true)
     .eq("pubblica", true)
     .order("ordine", { ascending: true });
+
+  // ★ router/extender per lo step "Scegli il tuo piano" — dal catalogo
+  // Materiali già esistente, solo le voci Tp-link della categoria
+  // dedicata: EX141/EX520v come router, HX141 come extender mesh (vedi
+  // configuratore-piano.tsx per il perché di questo filtro).
+  const { data: apparati } = await supabase
+    .from("materiali_magazzino")
+    .select("*")
+    .eq("attivo", true)
+    .eq("categoria", "ROUTER, EXTENDER, POWER LINE, SWITCH E AP")
+    .ilike("nome", "Tp-link%")
+    .order("prezzo_unitario", { ascending: true });
+  const apparatiTpLink = (apparati as MaterialeMagazzino[]) ?? [];
+  const extender = apparatiTpLink.find((a) => a.nome.includes("HX141")) ?? null;
+  const router = apparatiTpLink.filter((a) => a.id !== extender?.id);
 
   if (!segnalazione) {
     return (
@@ -59,10 +74,12 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
             procedere con il tuo contratto.
           </p>
         </div>
-        <RichiestaDatiForm
+        <RichiestaDatiFlow
           segnalazioneId={segnalazione.id}
           giaInviato={!!segnalazione.dati_ricevuti_at}
           tariffe={(tariffe as Tariffa[]) ?? []}
+          router={router}
+          extender={extender}
         />
       </div>
     </div>

@@ -751,6 +751,20 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     tariffe vere gestite in Mondo Business. Nuova `listaNomiTariffeAttive()` (`tickets/actions.ts`)
     legge i nomi distinti delle tariffe `attivo = true` (8 in produzione oggi) e li usa come opzioni;
     la vecchia lista resta come fallback solo se il caricamento fallisce o il catalogo è vuoto.
+✅ Richiesta Dati — nuovo step "Scegli il tuo piano" prima dei dati anagrafici (2026-08): il form
+  pubblico era un'unica pagina con "Profilo internet" come tendina anonima in mezzo a CF/IBAN/
+  documenti. Ora è in 2 passi: `RichiestaDatiFlow` (`src/components/richiesta-dati/`) mostra prima
+  `ConfiguratorePiano` — Tipologia Cliente, profilo internet (tariffe `pubblica=true` filtrate per
+  tipologia), router (Incluso / Tp-link EX141 44,99€ / Tp-link EX520v 74,99€) ed extender mesh
+  opzionale (Tp-link HX141, 46,99€), con riepilogo live di canone mensile e costo una tantum
+  (attivazione + apparati, stessa regola Privato/Business di `prezzoPerTipoCliente()`) — poi, solo
+  dopo "Conferma e continua", il form esistente con anagrafica/pagamento/documenti, che mostra il
+  piano scelto in un riepilogo con link "Cambia" invece di richiederlo di nuovo. Router/extender
+  vengono dal catalogo Materiali già esistente (categoria "ROUTER, EXTENDER, POWER LINE, SWITCH E
+  AP", solo le voci Tp-link — verificato in produzione: EX141/HX141/EX520v), non una lista nuova.
+  Nessuna migrazione: router/extender scelti finiscono in `richieste_clienti.dettagli` (jsonb) come
+  gli altri campi extra, la route `/api/richiesta-dati` non è stata toccata (cattura già in automatico
+  ogni campo del FormData non riservato).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

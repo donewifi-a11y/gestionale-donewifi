@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, AlertTriangle, Upload } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Upload, PencilLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validaCodiceFiscale, validaPartitaIva, validaIban, validaEmail } from "@/lib/validazione";
-import { prezziNettoLordo } from "@/lib/types";
+import { prezziNettoLordo, formattaValuta } from "@/lib/types";
 import type { Tariffa } from "@/lib/types";
+import type { SceltaPiano } from "@/components/richiesta-dati/configuratore-piano";
 
 function FileUpload({ id, label, obbligatorio }: { id: string; label: string; obbligatorio?: boolean }) {
   const [nome, setNome] = useState("");
@@ -33,15 +34,23 @@ export function RichiestaDatiForm({
   segnalazioneId,
   giaInviato,
   tariffe,
+  sceltaPiano,
+  onCambiaPiano,
 }: {
   segnalazioneId: string;
   giaInviato: boolean;
   tariffe: Tariffa[];
+  /** ★ se il cliente è passato dal configuratore "Scegli il tuo piano",
+   * profilo/router/extender sono già decisi: qui si mostra solo il
+   * riepilogo (con un link per tornare indietro) invece di richiederli di
+   * nuovo — vedi configuratore-piano.tsx. */
+  sceltaPiano?: SceltaPiano | null;
+  onCambiaPiano?: () => void;
 }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
-  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
+  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">(sceltaPiano?.tipologiaCliente ?? "Privato");
   const [metodoPagamento, setMetodoPagamento] = useState<"Bonifico" | "IBAN">("Bonifico");
   const [intestatarioDiverso, setIntestatarioDiverso] = useState(false);
   const [tipoDocumento, setTipoDocumento] = useState("CI");
@@ -93,6 +102,13 @@ export function RichiestaDatiForm({
     dati.set("metodoPagamento", metodoPagamento);
     dati.set("tipoDocumento", tipoDocumento);
     dati.set("segnalazioneId", segnalazioneId);
+    if (sceltaPiano) {
+      dati.set("profiloInternet", sceltaPiano.tariffaNome);
+      dati.set("router", sceltaPiano.routerNome);
+      if (sceltaPiano.extenderScelto) dati.set("extenderMesh", sceltaPiano.extenderNome);
+      dati.set("costoMensile", formattaValuta(sceltaPiano.mensile));
+      dati.set("costoUnaTantum", formattaValuta(sceltaPiano.unaTantum));
+    }
 
     setInCorso(true);
     try {
@@ -126,35 +142,60 @@ export function RichiestaDatiForm({
         </p>
       )}
 
-      <div>
-        <Label htmlFor="profiloInternet">Profilo internet richiesto</Label>
-        {tariffe.length > 0 ? (
-          <select id="profiloInternet" name="profiloInternet" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
-            <option value="">Seleziona il tuo piano...</option>
-            {tariffeVisibili.map((t) => (
-              <option key={t.id} value={t.nome}>
-                {t.nome}
-                {t.velocita ? ` — ${t.velocita}` : ""}
-                {t.prezzo_mensile != null ? ` — €${prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo.toFixed(2)}/mese (IVA incl.)` : ""}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-10" />
-        )}
-      </div>
-
-      <div>
-        <Label>Tipologia Cliente</Label>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setTipologiaCliente("Privato")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
-            👤 Privato
-          </button>
-          <button type="button" onClick={() => setTipologiaCliente("Azienda")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
-            🏢 Azienda
-          </button>
+      {sceltaPiano ? (
+        <div className="rounded-xl border border-primary/30 bg-accent-soft p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-primary">Il tuo piano</p>
+            {onCambiaPiano && (
+              <button type="button" onClick={onCambiaPiano} className="flex items-center gap-1 text-xs font-semibold text-primary underline-offset-2 hover:underline">
+                <PencilLine className="h-3 w-3" strokeWidth={2.5} />
+                Cambia
+              </button>
+            )}
+          </div>
+          <p className="text-sm font-semibold">{sceltaPiano.tariffaNome}</p>
+          <p className="text-xs text-muted-foreground">
+            {tipologiaCliente} · Router: {sceltaPiano.routerNome}
+            {sceltaPiano.extenderScelto && ` · Extender mesh incluso`}
+          </p>
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Canone mensile / una tantum</span>
+            <span className="font-mono font-bold">{formattaValuta(sceltaPiano.mensile)}/mese · {formattaValuta(sceltaPiano.unaTantum)}</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div>
+            <Label htmlFor="profiloInternet">Profilo internet richiesto</Label>
+            {tariffe.length > 0 ? (
+              <select id="profiloInternet" name="profiloInternet" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+                <option value="">Seleziona il tuo piano...</option>
+                {tariffeVisibili.map((t) => (
+                  <option key={t.id} value={t.nome}>
+                    {t.nome}
+                    {t.velocita ? ` — ${t.velocita}` : ""}
+                    {t.prezzo_mensile != null ? ` — €${prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo.toFixed(2)}/mese (IVA incl.)` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-10" />
+            )}
+          </div>
+
+          <div>
+            <Label>Tipologia Cliente</Label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setTipologiaCliente("Privato")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                👤 Privato
+              </button>
+              <button type="button" onClick={() => setTipologiaCliente("Azienda")} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                🏢 Azienda
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {tipologiaCliente === "Privato" ? (
         <div>
