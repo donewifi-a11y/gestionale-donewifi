@@ -6,6 +6,7 @@ import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Tras
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Sheet,
   SheetContent,
@@ -231,13 +232,7 @@ export function CalendarioBoard({
                         </button>
                       </div>
                     ) : (
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                          a.stato === "Completato" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {a.stato}
-                      </span>
+                      <StatusBadge status={a.stato} className="shrink-0" />
                     )}
                   </div>
                 );

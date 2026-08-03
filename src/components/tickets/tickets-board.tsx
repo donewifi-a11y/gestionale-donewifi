@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -40,12 +41,6 @@ const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attes
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
-
-const COLORE_PRIORITA: Record<PrioritaTicket, string> = {
-  Urgente: "bg-critical/10 text-critical border-critical/20",
-  Normale: "bg-warning/10 text-warning border-warning/20",
-  Bassa: "bg-success/10 text-success border-success/20",
-};
 
 const STRIPE_PRIORITA: Record<PrioritaTicket, string> = {
   Urgente: "before:bg-critical",
@@ -247,9 +242,7 @@ export function TicketsBoard({
                         {t.sottocategoria && ` · ${t.sottocategoria}`}
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
-                          {t.priorita}
-                        </Badge>
+                        <StatusBadge status={t.priorita} />
                         <Badge variant="outline" className={COLORE_REPARTO[t.reparto] ?? ""}>
                           {t.reparto}
                         </Badge>
@@ -468,9 +461,7 @@ function DettaglioTicket({
       </SheetHeader>
       <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
         {ticket.stato === "Annullato" ? (
-          <Badge variant="outline" className="w-fit">
-            Annullato
-          </Badge>
+          <StatusBadge status="Annullato" className="w-fit" />
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {SEQUENZA_STATO.map((s, i) => (

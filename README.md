@@ -519,6 +519,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   "€ " + `toLocaleString()` ripetuto a mano — applicata alla tabella Fatture della scheda cliente
   Aruba (`clienti-esterni/[id]/page.tsx`: totale fatturato, totale insoluto, importo di ogni riga),
   colonna Importo allineata a destra con cifre tabulari.
+✅ Componente `StatusBadge` per i badge di stato (2026-08): nuovo `src/components/status-badge.tsx`
+  con un'unica mappa stato→colori Tailwind (Da gestire/In lavorazione/In attesa/Completato/
+  Annullato, Urgente/Normale/Bassa, stati Segnalazioni/Appuntamenti, Pagata/Insoluta,
+  Attivo/Non attivo, Programmata/Scaduta) — prima ogni componente aveva la sua combinazione di
+  classi ripetuta a mano, con lo stesso stato colorato in modo leggermente diverso da un punto
+  all'altro. Applicato alla card ticket della Kanban (badge priorità) e al badge "Annullato" nel
+  dettaglio ticket (`tickets-board.tsx`), e al badge di stato appuntamento nel Calendario
+  (`calendario-board.tsx`). Stato non mappato → grigio neutro invece di rompere il rendering.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
