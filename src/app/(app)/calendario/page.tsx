@@ -3,23 +3,65 @@ import { createClient } from "@/lib/supabase/server";
 import { CalendarioBoard } from "@/components/calendario/calendario-board";
 import type { Appuntamento, NotaCalendario } from "@/lib/types";
 
-export default async function CalendarioPage() {
-  const supabase = await createClient();
+export type VistaCalendario = "giorno" | "settimana" | "mese";
 
-  const inizioSettimanaFa = new Date();
-  inizioSettimanaFa.setDate(inizioSettimanaFa.getDate() - 7);
-  const inizioSettimanaFaData = inizioSettimanaFa.toISOString().slice(0, 10);
+function formattaData(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Lunedì della settimana che contiene `d` (domenica=0 in JS → trattata come fine settimana). */
+function lunediSettimana(d: Date): Date {
+  const l = new Date(d);
+  const giorno = l.getDay();
+  l.setDate(l.getDate() + (giorno === 0 ? -6 : 1 - giorno));
+  l.setHours(0, 0, 0, 0);
+  return l;
+}
+
+export default async function CalendarioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vista?: string; data?: string }>;
+}) {
+  const params = await searchParams;
+  const vista: VistaCalendario = params.vista === "giorno" || params.vista === "mese" ? params.vista : "settimana";
+  const dataRiferimento = params.data && /^\d{4}-\d{2}-\d{2}$/.test(params.data) ? new Date(`${params.data}T00:00:00`) : new Date();
+
+  // ★ il range da interrogare dipende dalla vista: un giorno solo, la
+  // settimana (lun-dom), o l'intera griglia del mese (incluse le code di
+  // giorni del mese precedente/successivo che riempiono la griglia).
+  let inizioRange: Date;
+  let fineRange: Date;
+  if (vista === "giorno") {
+    inizioRange = new Date(dataRiferimento);
+    fineRange = new Date(dataRiferimento);
+  } else if (vista === "settimana") {
+    inizioRange = lunediSettimana(dataRiferimento);
+    fineRange = new Date(inizioRange);
+    fineRange.setDate(fineRange.getDate() + 6);
+  } else {
+    const primoDelMese = new Date(dataRiferimento.getFullYear(), dataRiferimento.getMonth(), 1);
+    const ultimoDelMese = new Date(dataRiferimento.getFullYear(), dataRiferimento.getMonth() + 1, 0);
+    inizioRange = lunediSettimana(primoDelMese);
+    fineRange = lunediSettimana(ultimoDelMese);
+    fineRange.setDate(fineRange.getDate() + 6);
+  }
+  fineRange.setHours(23, 59, 59, 999);
+
+  const supabase = await createClient();
 
   const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }] = await Promise.all([
     supabase
       .from("appuntamenti")
       .select("*")
-      .gte("data_ora", inizioSettimanaFa.toISOString())
+      .gte("data_ora", inizioRange.toISOString())
+      .lte("data_ora", fineRange.toISOString())
       .order("data_ora", { ascending: true }),
     supabase
       .from("note_calendario")
       .select("*")
-      .gte("data_promemoria", inizioSettimanaFaData)
+      .gte("data_promemoria", formattaData(inizioRange))
+      .lte("data_promemoria", formattaData(fineRange))
       .order("data_promemoria", { ascending: true }),
     supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
     supabase
@@ -30,7 +72,7 @@ export default async function CalendarioPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
           <CalendarDays className="h-5 w-5" strokeWidth={2.25} />
@@ -46,6 +88,8 @@ export default async function CalendarioPage() {
         note={(note as NotaCalendario[]) ?? []}
         persone={persone ?? []}
         ticket={ticket ?? []}
+        vista={vista}
+        dataRiferimento={formattaData(dataRiferimento)}
       />
     </div>
   );

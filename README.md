@@ -675,6 +675,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   due colonne (`prezzoPerTipoCliente()` in `src/lib/types.ts`). `SelettoreMateriali` (usato dalle
   Schede) ha un toggle Privato/Business che decide quale dei due prezzi finisce nella riga
   aggiunta. Importati i 40 materiali/servizi del listino reale fornito dall'utente.
+✅ Calendario — grafica molto più semplice, viste Giorno/Settimana/Mese (2026-08): sostituita
+  l'unica lista cronologica infinita con tre viste scelte dall'URL (`?vista=giorno|settimana|mese`,
+  stesso pattern GET/link della Dashboard invece di stato client), con navigazione ← [periodo] →
+  e "Oggi". **Giorno**: la stessa lista di righe di prima, ma per un solo giorno. **Settimana**: 7
+  colonne Lun–Dom con appuntamenti/promemoria compatti, clic per aprire. **Mese**: griglia
+  calendario con pallini numerati (appuntamenti/promemoria) per giorno, clic su un giorno per
+  aprirlo in vista Giorno. `calendario/page.tsx` calcola il range da interrogare in base alla
+  vista scelta (solo quel giorno, la settimana, o l'intera griglia del mese comprese le code dei
+  mesi adiacenti) invece di scaricare sempre "da 7 giorni fa in poi" senza limite superiore.
+  Creazione/modifica appuntamento, promemoria e completamento invariati (stessi Sheet/azioni).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import type { Appuntamento, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
+import type { VistaCalendario } from "@/app/(app)/calendario/page";
 
 interface TicketMinimo {
   id: string;
@@ -32,36 +34,70 @@ interface TicketMinimo {
   indirizzo: string | null;
 }
 
+// ── date, sempre in orario locale (mai toISOString su una data — sposta
+// il giorno vicino alla mezzanotte, bug già capitato in questo progetto) ──
+function formattaData(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function parseData(iso: string): Date {
+  return new Date(`${iso}T00:00:00`);
+}
 function chiaveGiorno(iso: string) {
   return new Date(iso).toDateString();
 }
-
 function chiaveGiornoData(data: string) {
-  // ★ "data" (colonna date, senza ora) va interpretata come mezzanotte
-  // locale, non UTC, altrimenti finisce nel giorno sbagliato la sera.
-  return new Date(`${data}T00:00:00`).toDateString();
+  return parseData(data).toDateString();
+}
+function lunediSettimana(d: Date): Date {
+  const l = new Date(d);
+  const giorno = l.getDay();
+  l.setDate(l.getDate() + (giorno === 0 ? -6 : 1 - giorno));
+  l.setHours(0, 0, 0, 0);
+  return l;
+}
+function spostaData(dataRiferimento: Date, vista: VistaCalendario, direzione: 1 | -1): Date {
+  const d = new Date(dataRiferimento);
+  if (vista === "giorno") d.setDate(d.getDate() + direzione);
+  else if (vista === "settimana") d.setDate(d.getDate() + direzione * 7);
+  else d.setMonth(d.getMonth() + direzione);
+  return d;
+}
+function etichettaPeriodo(dataRiferimento: Date, vista: VistaCalendario): string {
+  if (vista === "giorno") {
+    return dataRiferimento.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+  if (vista === "mese") {
+    const s = dataRiferimento.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  const lunedi = lunediSettimana(dataRiferimento);
+  const domenica = new Date(lunedi);
+  domenica.setDate(domenica.getDate() + 6);
+  const stessoMese = lunedi.getMonth() === domenica.getMonth();
+  const opzInizio: Intl.DateTimeFormatOptions = stessoMese ? { day: "numeric" } : { day: "numeric", month: "short" };
+  return `${lunedi.toLocaleDateString("it-IT", opzInizio)} – ${domenica.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
-function etichettaGiorno(iso: string) {
-  const data = new Date(iso);
-  const oggi = new Date();
-  const domani = new Date();
-  domani.setDate(oggi.getDate() + 1);
-  if (chiaveGiorno(iso) === chiaveGiorno(oggi.toISOString())) return "Oggi";
-  if (chiaveGiorno(iso) === chiaveGiorno(domani.toISOString())) return "Domani";
-  return data.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
-}
+const VISTE: { chiave: VistaCalendario; etichetta: string }[] = [
+  { chiave: "giorno", etichetta: "Giorno" },
+  { chiave: "settimana", etichetta: "Settimana" },
+  { chiave: "mese", etichetta: "Mese" },
+];
 
 export function CalendarioBoard({
   appuntamenti,
   note,
   persone,
   ticket,
+  vista,
+  dataRiferimento,
 }: {
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
   persone: Persona[];
   ticket: TicketMinimo[];
+  vista: VistaCalendario;
+  dataRiferimento: string;
 }) {
   const [nuovo, setNuovo] = useState(false);
   const [nuovaNota, setNuovaNota] = useState(false);
@@ -80,23 +116,6 @@ export function CalendarioBoard({
       setNuovo(true);
     }
   }, [searchParams]);
-
-  const gruppi = useMemo(() => {
-    const mappa = new Map<string, { chiaveOrdinamento: string; appuntamenti: Appuntamento[]; note: NotaCalendario[] }>();
-    appuntamenti.forEach((a) => {
-      const k = chiaveGiorno(a.data_ora);
-      if (!mappa.has(k)) mappa.set(k, { chiaveOrdinamento: a.data_ora, appuntamenti: [], note: [] });
-      mappa.get(k)!.appuntamenti.push(a);
-    });
-    note.forEach((n) => {
-      const k = chiaveGiornoData(n.data_promemoria);
-      if (!mappa.has(k)) mappa.set(k, { chiaveOrdinamento: `${n.data_promemoria}T00:00:00`, note: [], appuntamenti: [] });
-      mappa.get(k)!.note.push(n);
-    });
-    return Array.from(mappa.entries()).sort(
-      (a, b) => new Date(a[1].chiaveOrdinamento).getTime() - new Date(b[1].chiaveOrdinamento).getTime()
-    );
-  }, [appuntamenti, note]);
 
   function trovaPersona(id: string | null) {
     return id ? persone.find((p) => p.id === id) ?? null : null;
@@ -118,133 +137,77 @@ export function CalendarioBoard({
     router.refresh();
   }
 
+  const dataRif = parseData(dataRiferimento);
+  const oggi = formattaData(new Date());
+  const dataPrec = formattaData(spostaData(dataRif, vista, -1));
+  const dataSucc = formattaData(spostaData(dataRif, vista, 1));
+
   return (
     <div>
-      <div className="mb-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setNuovaNota(true)}>
-          <NotebookPen className="h-4 w-4" strokeWidth={2.5} />
-          Nuovo Promemoria
-        </Button>
-        <Button onClick={() => setNuovo(true)}>
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Nuovo Appuntamento
-        </Button>
-      </div>
-
-      {gruppi.length === 0 && (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          Nessun appuntamento o promemoria in programma.
+      {/* ── selettore vista + navigazione data ── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+          {VISTE.map((v) => (
+            <Link
+              key={v.chiave}
+              href={`/calendario?vista=${v.chiave}&data=${dataRiferimento}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                vista === v.chiave ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {v.etichetta}
+            </Link>
+          ))}
         </div>
-      )}
 
-      <div className="flex flex-col gap-6">
-        {gruppi.map(([giorno, gruppo]) => (
-          <div key={giorno}>
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              {etichettaGiorno(gruppo.chiaveOrdinamento)}
-            </div>
-            <div className="flex flex-col gap-2">
-              {gruppo.note.map((n) => {
-                const scaduta = !n.completata && chiaveGiornoData(n.data_promemoria) !== chiaveGiorno(new Date().toISOString()) && new Date(n.data_promemoria) < new Date(new Date().toDateString());
-                return (
-                  <div
-                    key={n.id}
-                    className={`flex items-center gap-3 rounded-xl border p-3 shadow-sm ${
-                      n.completata ? "bg-muted/40 opacity-60" : scaduta ? "border-critical/30 bg-critical/5" : "border-warning/30 bg-warning/10"
-                    }`}
-                  >
-                    <StickyNote className={`h-4 w-4 shrink-0 ${n.completata ? "text-muted-foreground" : "text-warning"}`} strokeWidth={2.25} />
-                    <span className={`min-w-0 flex-1 text-sm ${n.completata ? "line-through text-muted-foreground" : ""}`}>
-                      {n.testo}
-                    </span>
-                    <button
-                      onClick={() => alternaNota(n)}
-                      title={n.completata ? "Segna da fare" : "Segna fatto"}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-success transition hover:bg-success/10"
-                    >
-                      <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={() => eliminaNota(n.id)}
-                      title="Elimina"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
-                  </div>
-                );
-              })}
-              {gruppo.appuntamenti.map((a) => {
-                const tecnico = trovaPersona(a.tecnico_id);
-                const ora = new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-                return (
-                  <div
-                    key={a.id}
-                    className={`flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm ${
-                      a.stato === "Annullato" ? "opacity-50" : ""
-                    }`}
-                  >
-                    <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-accent py-1.5 text-accent-foreground">
-                      <Clock className="h-3 w-3" strokeWidth={2.5} />
-                      <span className="text-xs font-bold">{ora}</span>
-                    </div>
-                    <button
-                      onClick={() => a.stato === "Programmato" && setModifica(a)}
-                      className="min-w-0 flex-1 text-left"
-                      disabled={a.stato !== "Programmato"}
-                    >
-                      <div className="mb-0.5 flex items-center gap-1.5">
-                        <span className="truncate font-semibold">{a.titolo}</span>
-                        <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
-                      </div>
-                      {a.indirizzo && (
-                        <a
-                          href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
-                        >
-                          <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
-                          {a.indirizzo}
-                        </a>
-                      )}
-                    </button>
-                    {tecnico && (
-                      <span
-                        title={tecnico.nome}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground"
-                      >
-                        {tecnico.nome.slice(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                    {a.stato === "Programmato" ? (
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          onClick={() => cambiaStato(a.id, "Completato")}
-                          title="Segna completato"
-                          className="flex h-7 w-7 items-center justify-center rounded-full border text-success transition hover:bg-success/10"
-                        >
-                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                        </button>
-                        <button
-                          onClick={() => cambiaStato(a.id, "Annullato")}
-                          title="Annulla"
-                          className="flex h-7 w-7 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10"
-                        >
-                          <XIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    ) : (
-                      <StatusBadge status={a.stato} className="shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        <div className="flex items-center gap-2">
+          <Link href={`/calendario?vista=${vista}&data=${dataPrec}`} className="flex h-8 w-8 items-center justify-center rounded-full border bg-card shadow-sm transition hover:bg-muted">
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
+          </Link>
+          <span className="min-w-[9rem] text-center text-sm font-bold capitalize">{etichettaPeriodo(dataRif, vista)}</span>
+          <Link href={`/calendario?vista=${vista}&data=${dataSucc}`} className="flex h-8 w-8 items-center justify-center rounded-full border bg-card shadow-sm transition hover:bg-muted">
+            <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+          </Link>
+          <Link href={`/calendario?vista=${vista}&data=${oggi}`} className="ml-1 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-sm transition hover:bg-muted">
+            Oggi
+          </Link>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setNuovaNota(true)}>
+            <NotebookPen className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Promemoria
+          </Button>
+          <Button size="sm" onClick={() => setNuovo(true)}>
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Appuntamento
+          </Button>
+        </div>
       </div>
+
+      {vista === "giorno" && (
+        <VistaGiorno
+          data={dataRif}
+          appuntamenti={appuntamenti}
+          note={note}
+          trovaPersona={trovaPersona}
+          onApri={setModifica}
+          onCambiaStato={cambiaStato}
+          onAlternaNota={alternaNota}
+          onEliminaNota={eliminaNota}
+        />
+      )}
+      {vista === "settimana" && (
+        <VistaSettimana
+          dataRiferimento={dataRif}
+          appuntamenti={appuntamenti}
+          note={note}
+          onApri={setModifica}
+        />
+      )}
+      {vista === "mese" && (
+        <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} />
+      )}
 
       <Sheet open={nuovo} onOpenChange={setNuovo}>
         <SheetContent>
@@ -271,6 +234,247 @@ export function CalendarioBoard({
           <FormNuovaNota ticket={ticket} onFatto={() => setNuovaNota(false)} />
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+// ═══════════════════════════ VISTA GIORNO ═══════════════════════════
+
+function RigaAppuntamento({
+  a,
+  tecnico,
+  onApri,
+  onCambiaStato,
+}: {
+  a: Appuntamento;
+  tecnico: Persona | null;
+  onApri: (a: Appuntamento) => void;
+  onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
+}) {
+  const ora = new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm ${a.stato === "Annullato" ? "opacity-50" : ""}`}>
+      <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-accent py-1.5 text-accent-foreground">
+        <Clock className="h-3 w-3" strokeWidth={2.5} />
+        <span className="text-xs font-bold">{ora}</span>
+      </div>
+      <button onClick={() => a.stato === "Programmato" && onApri(a)} className="min-w-0 flex-1 text-left" disabled={a.stato !== "Programmato"}>
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <span className="truncate font-semibold">{a.titolo}</span>
+          <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
+        </div>
+        {a.indirizzo && (
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+          >
+            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+            {a.indirizzo}
+          </a>
+        )}
+      </button>
+      {tecnico && (
+        <span title={tecnico.nome} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
+          {tecnico.nome.slice(0, 2).toUpperCase()}
+        </span>
+      )}
+      {a.stato === "Programmato" ? (
+        <div className="flex shrink-0 gap-1">
+          <button onClick={() => onCambiaStato(a.id, "Completato")} title="Segna completato" className="flex h-7 w-7 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
+            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+          <button onClick={() => onCambiaStato(a.id, "Annullato")} title="Annulla" className="flex h-7 w-7 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
+            <XIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+        </div>
+      ) : (
+        <StatusBadge status={a.stato} className="shrink-0" />
+      )}
+    </div>
+  );
+}
+
+function RigaNota({ n, onAlterna, onElimina }: { n: NotaCalendario; onAlterna: (n: NotaCalendario) => void; onElimina: (id: string) => void }) {
+  const scaduta = !n.completata && chiaveGiornoData(n.data_promemoria) !== chiaveGiorno(new Date().toISOString()) && new Date(n.data_promemoria) < new Date(new Date().toDateString());
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border p-3 shadow-sm ${n.completata ? "bg-muted/40 opacity-60" : scaduta ? "border-critical/30 bg-critical/5" : "border-warning/30 bg-warning/10"}`}>
+      <StickyNote className={`h-4 w-4 shrink-0 ${n.completata ? "text-muted-foreground" : "text-warning"}`} strokeWidth={2.25} />
+      <span className={`min-w-0 flex-1 text-sm ${n.completata ? "line-through text-muted-foreground" : ""}`}>{n.testo}</span>
+      <button onClick={() => onAlterna(n)} title={n.completata ? "Segna da fare" : "Segna fatto"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
+        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+      </button>
+      <button onClick={() => onElimina(n.id)} title="Elimina" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
+        <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+}
+
+function VistaGiorno({
+  data,
+  appuntamenti,
+  note,
+  trovaPersona,
+  onApri,
+  onCambiaStato,
+  onAlternaNota,
+  onEliminaNota,
+}: {
+  data: Date;
+  appuntamenti: Appuntamento[];
+  note: NotaCalendario[];
+  trovaPersona: (id: string | null) => Persona | null;
+  onApri: (a: Appuntamento) => void;
+  onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
+  onAlternaNota: (n: NotaCalendario) => void;
+  onEliminaNota: (id: string) => void;
+}) {
+  const chiave = data.toDateString();
+  const appuntamentiGiorno = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave);
+  const noteGiorno = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave);
+
+  if (appuntamentiGiorno.length === 0 && noteGiorno.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+        Nessun appuntamento o promemoria per questo giorno.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {noteGiorno.map((n) => (
+        <RigaNota key={n.id} n={n} onAlterna={onAlternaNota} onElimina={onEliminaNota} />
+      ))}
+      {appuntamentiGiorno.map((a) => (
+        <RigaAppuntamento key={a.id} a={a} tecnico={trovaPersona(a.tecnico_id)} onApri={onApri} onCambiaStato={onCambiaStato} />
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════ VISTA SETTIMANA ═══════════════════════════
+
+const GIORNI_SETTIMANA = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
+function VistaSettimana({
+  dataRiferimento,
+  appuntamenti,
+  note,
+  onApri,
+}: {
+  dataRiferimento: Date;
+  appuntamenti: Appuntamento[];
+  note: NotaCalendario[];
+  onApri: (a: Appuntamento) => void;
+}) {
+  const lunedi = lunediSettimana(dataRiferimento);
+  const giorni = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(lunedi);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const oggiChiave = new Date().toDateString();
+
+  return (
+    <div className="grid grid-cols-7 gap-2 overflow-x-auto">
+      {giorni.map((d, i) => {
+        const chiave = d.toDateString();
+        const isOggi = chiave === oggiChiave;
+        const appts = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave);
+        const noteGiorno = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave);
+        return (
+          <div key={i} className={`min-w-0 rounded-2xl border p-2 ${isOggi ? "border-primary/40 bg-primary/5" : "bg-card"}`}>
+            <div className={`mb-2 text-center text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
+              {GIORNI_SETTIMANA[i]} <span className="tabular-nums">{d.getDate()}</span>
+            </div>
+            <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+              {noteGiorno.map((n) => (
+                <div key={n.id} className={`rounded-md border px-1.5 py-1 text-[11px] ${n.completata ? "opacity-50 line-through" : "border-warning/30 bg-warning/10"}`}>
+                  <StickyNote className="mr-1 inline h-2.5 w-2.5" strokeWidth={2.5} />
+                  {n.testo}
+                </div>
+              ))}
+              {appts.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => a.stato === "Programmato" && onApri(a)}
+                  className={`rounded-md border-l-2 bg-muted/50 px-1.5 py-1 text-left text-[11px] transition hover:bg-muted ${
+                    a.stato === "Annullato" ? "border-l-muted-foreground opacity-50" : a.stato === "Completato" ? "border-l-success" : "border-l-primary"
+                  }`}
+                >
+                  <div className="font-bold tabular-nums">{new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
+                  <div className="truncate">{a.titolo}</div>
+                </button>
+              ))}
+              {appts.length === 0 && noteGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════ VISTA MESE ═══════════════════════════
+
+function VistaMese({
+  dataRiferimento,
+  appuntamenti,
+  note,
+}: {
+  dataRiferimento: Date;
+  appuntamenti: Appuntamento[];
+  note: NotaCalendario[];
+}) {
+  const primoDelMese = new Date(dataRiferimento.getFullYear(), dataRiferimento.getMonth(), 1);
+  const inizioGriglia = lunediSettimana(primoDelMese);
+  const giorni = Array.from({ length: 42 }).map((_, i) => {
+    const d = new Date(inizioGriglia);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const oggiChiave = new Date().toDateString();
+  const meseCorrente = dataRiferimento.getMonth();
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {GIORNI_SETTIMANA.map((g) => (
+          <div key={g} className="pb-1 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            {g}
+          </div>
+        ))}
+        {giorni.map((d, i) => {
+          const chiave = d.toDateString();
+          const isOggi = chiave === oggiChiave;
+          const fuoriMese = d.getMonth() !== meseCorrente;
+          const nAppuntamenti = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave && a.stato !== "Annullato").length;
+          const nNote = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave && !n.completata).length;
+          return (
+            <Link
+              key={i}
+              href={`/calendario?vista=giorno&data=${formattaData(d)}`}
+              className={`flex min-h-20 flex-col items-center gap-1 rounded-xl border p-1.5 transition hover:border-primary/40 ${
+                fuoriMese ? "bg-muted/30 opacity-50" : "bg-card"
+              }`}
+            >
+              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold tabular-nums ${isOggi ? "bg-primary text-primary-foreground" : ""}`}>
+                {d.getDate()}
+              </span>
+              <div className="flex flex-wrap justify-center gap-0.5">
+                {nAppuntamenti > 0 && (
+                  <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">{nAppuntamenti}</span>
+                )}
+                {nNote > 0 && <span className="rounded-full bg-warning/15 px-1.5 text-[10px] font-bold text-warning">{nNote}</span>}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
