@@ -61,10 +61,10 @@ const COLORE_REPARTO: Record<string, string> = {
 
 const CHIAVE_FILTRI = "ticketsFiltri";
 
-const COLONNE: { titolo: string; stati: StatoTicket[] }[] = [
-  { titolo: "Da Lavorare", stati: ["Da gestire"] },
-  { titolo: "In Verifica", stati: ["In lavorazione", "In attesa"] },
-  { titolo: "Lavorata", stati: ["Completato"] },
+const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
+  { titolo: "Da Lavorare", stati: ["Da gestire"], vuoto: "Nessun ticket da lavorare al momento" },
+  { titolo: "In Verifica", stati: ["In lavorazione", "In attesa"], vuoto: "Nessun ticket in verifica al momento" },
+  { titolo: "Lavorata", stati: ["Completato"], vuoto: "Nessun ticket lavorato al momento" },
 ];
 
 function iniziali(persona: Persona) {
@@ -222,8 +222,8 @@ export function TicketsBoard({
               </div>
               <div className="flex flex-col gap-2">
                 {items.length === 0 && (
-                  <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                    Nessun ticket.
+                  <div className="flex items-center justify-center px-4 py-8 text-center text-xs text-muted-foreground/70">
+                    {col.vuoto}
                   </div>
                 )}
                 {items.map((t) => {

@@ -186,7 +186,7 @@ export default async function DashboardPage({
 
         <Pannello titolo="Carico per tecnico" className="md:col-span-2">
           {caricoTecnici.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nessuna persona attiva. Aggiungile in &quot;Persone&quot;.</p>
+            <p className="py-4 text-center text-sm text-muted-foreground/70">Nessuna persona attiva. Aggiungile in &quot;Persone&quot;.</p>
           )}
           {caricoTecnici.map(({ persona, conteggio }) => (
             <BarraRiga
@@ -355,13 +355,14 @@ function SezionePeriodo({
             </div>
           </div>
 
-          {confronto.profili.length > 0 && (
-            <Pannello titolo="Profili con più fatture nel periodo (top 8)">
-              {confronto.profili.map((p) => (
-                <BarraRiga key={p.profilo} etichetta={p.profilo} conteggio={p.conteggio} max={maxProfiliPeriodo} colore="bg-primary" />
-              ))}
-            </Pannello>
-          )}
+          <Pannello titolo="Profili con più fatture nel periodo (top 8)">
+            {confronto.profili.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground/70">Nessuna fattura nel periodo selezionato.</p>
+            )}
+            {confronto.profili.map((p) => (
+              <BarraRiga key={p.profilo} etichetta={p.profilo} conteggio={p.conteggio} max={maxProfiliPeriodo} colore="bg-primary" />
+            ))}
+          </Pannello>
         </>
       )}
     </div>
@@ -424,6 +425,9 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Pannello titolo="Acquisizioni per tipologia">
+          {Object.values(dati.perTipologia).every((v) => v === 0) && (
+            <p className="py-4 text-center text-sm text-muted-foreground/70">Nessuna acquisizione questo mese.</p>
+          )}
           {Object.entries(dati.perTipologia)
             .filter(([, v]) => v > 0)
             .map(([tipo, v]) => (
@@ -490,13 +494,14 @@ function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType
         </div>
       </div>
 
-      {dati.distribuzioneProfili.length > 0 && (
-        <Pannello titolo="Clienti attivi per profilo (top 8)">
-          {dati.distribuzioneProfili.map((p) => (
-            <BarraRiga key={p.nome} etichetta={p.nome} conteggio={p.conteggio} max={maxProfili} colore="bg-primary" />
-          ))}
-        </Pannello>
-      )}
+      <Pannello titolo="Clienti attivi per profilo (top 8)">
+        {dati.distribuzioneProfili.length === 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground/70">Nessun cliente attivo con un profilo assegnato.</p>
+        )}
+        {dati.distribuzioneProfili.map((p) => (
+          <BarraRiga key={p.nome} etichetta={p.nome} conteggio={p.conteggio} max={maxProfili} colore="bg-primary" />
+        ))}
+      </Pannello>
     </div>
   );
 }

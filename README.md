@@ -507,6 +507,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   escapate in `vista-tecnico/page.tsx`, un'altra istanza dello stesso pattern URL→stato in
   `calendario-board.tsx`) sono stati commentati/corretti caso per caso invece di essere ignorati in
   blocco — ognuno con una riga di commento che spiega perché l'effetto è corretto lì.
+✅ Empty state nella Kanban Ticket e nei moduli Dashboard (2026-08): quando una colonna della
+  Kanban (`tickets-board.tsx`) o un pannello a barre della Dashboard non ha righe da mostrare, ora
+  compare un piccolo testo centrato e in grigio chiaro invece di uno spazio vuoto — messaggio
+  specifico per contesto (es. "Nessun ticket in verifica al momento", "Nessuna fattura nel periodo
+  selezionato") invece di un generico "Nessun ticket.". I pannelli "Profili con più fatture nel
+  periodo" e "Clienti attivi per profilo" prima sparivano del tutto se vuoti — ora restano visibili
+  con il loro empty state, così la sezione non "salta" a seconda dei dati.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
