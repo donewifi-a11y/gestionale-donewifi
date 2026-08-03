@@ -97,14 +97,19 @@ export function TicketsBoard({
     const id = searchParams.get("aperto");
     if (!id) return;
     const trovato = tickets.find((t) => t.id === id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con l'URL (?aperto=id), stesso caso di segnalazioni-board.tsx.
     if (trovato) setAperto(trovato);
   }, [searchParams, tickets]);
 
   // ★ filtri ricordati per utente/browser (stessa idea già applicata su
   // Hub Ticket nel gestionale precedente): non si riparte mai da zero.
+  // Letto in un effetto e non nel lazy initializer perché il componente è
+  // renderizzato anche lato server, dove localStorage non esiste — vedi
+  // stesso ragionamento in segnalazioni-board.tsx.
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFStato(s.stato || "");
       setFCategoria(s.categoria || "");
       setFPriorita(s.priorita || "");
@@ -362,6 +367,7 @@ function DettaglioTicket({
     if (ticket.stato === "Completato") {
       getRapportinoTicket(ticket.id).then((r) => setRapportino((r as RapportinoIntervento) ?? null));
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket non completato = nessun rapportino da caricare), non un caso separato di "derivabile durante il render".
       setRapportino(null);
     }
     setMostraRapportinoForm(false);

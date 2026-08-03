@@ -69,11 +69,19 @@ export function SegnalazioniBoard({
     const id = searchParams.get("aperto");
     if (!id) return;
     const trovata = segnalazioni.find((s) => s.id === id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con l'URL (?aperto=id), non deriva da props/stato locale: è il caso d'uso "external system" per cui useEffect è corretto.
     if (trovata) setAperta(trovata);
   }, [searchParams, segnalazioni]);
 
   useEffect(() => {
+    // ★ letto in un effetto (non nel lazy initializer di useState) perché
+    // su Next.js questo componente viene renderizzato anche lato server,
+    // dove `localStorage` non esiste: leggerlo nell'initializer darebbe
+    // un valore diverso tra render server e client → mismatch di
+    // idratazione. Rimandarlo a un effetto (post-mount, solo client) è il
+    // pattern corretto qui, anche se il lint lo segnala.
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSoloMie(JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}").soloMie ?? false);
     } catch {}
     setPronto(true);

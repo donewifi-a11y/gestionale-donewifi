@@ -33,7 +33,8 @@ export default async function MondoTicketPage() {
   oggiInizio.setHours(0, 0, 0, 0);
   const oggiFine = new Date();
   oggiFine.setHours(23, 59, 59, 999);
-  const soglia24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const soglia24h = new Date();
+  soglia24h.setTime(soglia24h.getTime() - 24 * 60 * 60 * 1000);
 
   let queryTicket = supabase
     .from("tickets")

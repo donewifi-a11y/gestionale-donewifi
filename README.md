@@ -495,13 +495,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     ripulito da `,()` prima di essere usato.
   - Comparatore di ordinamento non valido in `getDatiReparto()` (`analytics.ts`) — non confrontava
     mai `b`, quindi l'ordine dei ticket non urgenti nella lista "attivi" restava indefinito.
-  Segnalati ma non risolti in questo giro (richiedono una decisione o un intervento fuori dal
-  codice): `CRON_SECRET` va verificata impostata sull'ambiente Vercel di produzione (se assente, le
-  route cron restano raggiungibili senza autenticazione); nessun rate limiting su
-  `/api/portale/verifica-stato` e `/api/portale/apri-ticket`; 10 errori lint pre-esistenti
-  (`react-hooks/set-state-in-effect`) in `calendario-board.tsx`, `segnalazioni-board.tsx`,
-  `tickets-board.tsx` — pattern diffuso di sincronizzare stato da URL/localStorage in un
-  `useEffect`, non causa bug ma va contro la regola lint più recente.
+  Segnalati ma non risolti (richiedono una decisione o un intervento fuori dal codice):
+  `CRON_SECRET` va verificata impostata sull'ambiente Vercel di produzione (se assente, le route
+  cron restano raggiungibili senza autenticazione); nessun rate limiting su
+  `/api/portale/verifica-stato` e `/api/portale/apri-ticket`.
+✅ `npm run lint` a zero errori (2026-08): i 10 errori pre-esistenti (`react-hooks/set-state-in-effect`
+  in `calendario-board.tsx`, `segnalazioni-board.tsx`, `tickets-board.tsx` — sincronizzare stato da
+  URL/localStorage in un `useEffect`, un pattern legittimo qui: derivare durante il render
+  romperebbe l'idratazione SSR per le letture da `localStorage`) più 4 errori che il primo giro di
+  audit non aveva mostrato per intero (`Date.now()` impuro in un Server Component, virgolette non
+  escapate in `vista-tecnico/page.tsx`, un'altra istanza dello stesso pattern URL→stato in
+  `calendario-board.tsx`) sono stati commentati/corretti caso per caso invece di essere ignorati in
+  blocco — ognuno con una riga di commento che spiega perché l'effetto è corretto lì.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

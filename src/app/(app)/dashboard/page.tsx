@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, Timer, Printer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, Timer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, REPARTI_ELENCO } from "@/lib/analytics";

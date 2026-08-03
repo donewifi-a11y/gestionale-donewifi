@@ -73,6 +73,7 @@ export function CalendarioBoard({
   useEffect(() => {
     const idTicket = searchParams.get("nuovoTicket");
     if (idTicket) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con l'URL (?nuovoTicket=id), stesso caso di segnalazioni-board.tsx/tickets-board.tsx.
       setTicketPreselezionato(idTicket);
       setNuovo(true);
     }
@@ -292,6 +293,7 @@ function FormNuovoAppuntamento({
   const [ticketId, setTicketId] = useState(ticketIniziale || "");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la prop ticketIniziale quando cambia dopo il mount (es. riapertura del form con un altro ticket preselezionato), non è derivabile durante il render.
     if (ticketIniziale) setTicketId(ticketIniziale);
   }, [ticketIniziale]);
 

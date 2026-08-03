@@ -52,7 +52,7 @@ export default async function VistaTecnicoPage() {
       {!personaId ? (
         <div className="flex items-start gap-2 rounded-xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
-          Seleziona prima "Tu sei" dal menu in basso a sinistra per vedere i tuoi appuntamenti e ticket.
+          Seleziona prima &quot;Tu sei&quot; dal menu in basso a sinistra per vedere i tuoi appuntamenti e ticket.
         </div>
       ) : (
         <VistaTecnicoBoard
