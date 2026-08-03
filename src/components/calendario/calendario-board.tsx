@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import type { Appuntamento, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
+import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
 
 interface TicketMinimo {
@@ -89,6 +90,7 @@ export function CalendarioBoard({
   note,
   persone,
   ticket,
+  eventiGoogle,
   vista,
   dataRiferimento,
 }: {
@@ -96,6 +98,7 @@ export function CalendarioBoard({
   note: NotaCalendario[];
   persone: Persona[];
   ticket: TicketMinimo[];
+  eventiGoogle: EventoGoogleCalendario[];
   vista: VistaCalendario;
   dataRiferimento: string;
 }) {
@@ -190,6 +193,7 @@ export function CalendarioBoard({
           data={dataRif}
           appuntamenti={appuntamenti}
           note={note}
+          eventiGoogle={eventiGoogle}
           trovaPersona={trovaPersona}
           onApri={setModifica}
           onCambiaStato={cambiaStato}
@@ -202,11 +206,12 @@ export function CalendarioBoard({
           dataRiferimento={dataRif}
           appuntamenti={appuntamenti}
           note={note}
+          eventiGoogle={eventiGoogle}
           onApri={setModifica}
         />
       )}
       {vista === "mese" && (
-        <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} />
+        <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} eventiGoogle={eventiGoogle} />
       )}
 
       <Sheet open={nuovo} onOpenChange={setNuovo}>
@@ -313,10 +318,47 @@ function RigaNota({ n, onAlterna, onElimina }: { n: NotaCalendario; onAlterna: (
   );
 }
 
+// ★ eventi letti da Google Calendar (non creati da qui, quindi senza
+// tipo_servizio/ticket collegato): sola lettura, un badge "Google" per
+// distinguerli a colpo d'occhio dagli Appuntamenti veri del gestionale.
+function chiaveGiornoEvento(e: EventoGoogleCalendario) {
+  return e.tuttoIlGiorno ? chiaveGiornoData(e.inizio) : chiaveGiorno(e.inizio);
+}
+
+function RigaEventoGoogle({ e }: { e: EventoGoogleCalendario }) {
+  const ora = e.tuttoIlGiorno ? "Tutto il giorno" : new Date(e.inizio).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-dashed bg-muted/30 p-3">
+      <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-muted py-1.5 text-muted-foreground">
+        <CalendarClock className="h-3 w-3" strokeWidth={2.5} />
+        <span className="text-center text-[10px] font-bold leading-tight">{ora}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <span className="truncate font-semibold">{e.titolo}</span>
+          <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">Google</span>
+        </div>
+        {e.indirizzo && (
+          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+            {e.indirizzo}
+          </span>
+        )}
+      </div>
+      {e.link && (
+        <a href={e.link} target="_blank" rel="noopener noreferrer" title="Apri in Google Calendar" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary">
+          <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </a>
+      )}
+    </div>
+  );
+}
+
 function VistaGiorno({
   data,
   appuntamenti,
   note,
+  eventiGoogle,
   trovaPersona,
   onApri,
   onCambiaStato,
@@ -326,6 +368,7 @@ function VistaGiorno({
   data: Date;
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
+  eventiGoogle: EventoGoogleCalendario[];
   trovaPersona: (id: string | null) => Persona | null;
   onApri: (a: Appuntamento) => void;
   onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
@@ -335,8 +378,9 @@ function VistaGiorno({
   const chiave = data.toDateString();
   const appuntamentiGiorno = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave);
   const noteGiorno = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave);
+  const eventiGiorno = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave);
 
-  if (appuntamentiGiorno.length === 0 && noteGiorno.length === 0) {
+  if (appuntamentiGiorno.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
         Nessun appuntamento o promemoria per questo giorno.
@@ -352,6 +396,9 @@ function VistaGiorno({
       {appuntamentiGiorno.map((a) => (
         <RigaAppuntamento key={a.id} a={a} tecnico={trovaPersona(a.tecnico_id)} onApri={onApri} onCambiaStato={onCambiaStato} />
       ))}
+      {eventiGiorno.map((e) => (
+        <RigaEventoGoogle key={e.id} e={e} />
+      ))}
     </div>
   );
 }
@@ -364,11 +411,13 @@ function VistaSettimana({
   dataRiferimento,
   appuntamenti,
   note,
+  eventiGoogle,
   onApri,
 }: {
   dataRiferimento: Date;
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
+  eventiGoogle: EventoGoogleCalendario[];
   onApri: (a: Appuntamento) => void;
 }) {
   const lunedi = lunediSettimana(dataRiferimento);
@@ -386,6 +435,7 @@ function VistaSettimana({
         const isOggi = chiave === oggiChiave;
         const appts = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave);
         const noteGiorno = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave);
+        const eventiGiorno = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave);
         return (
           <div key={i} className={`min-w-0 rounded-2xl border p-2 ${isOggi ? "border-primary/40 bg-primary/5" : "bg-card"}`}>
             <div className={`mb-2 text-center text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
@@ -410,7 +460,13 @@ function VistaSettimana({
                   <div className="truncate">{a.titolo}</div>
                 </button>
               ))}
-              {appts.length === 0 && noteGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
+              {eventiGiorno.map((e) => (
+                <div key={e.id} className="rounded-md border border-dashed bg-muted/40 px-1.5 py-1 text-[11px] text-muted-foreground">
+                  <div className="font-bold tabular-nums">{e.tuttoIlGiorno ? "Tutto il giorno" : new Date(e.inizio).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
+                  <div className="truncate">{e.titolo}</div>
+                </div>
+              ))}
+              {appts.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
             </div>
           </div>
         );
@@ -425,10 +481,12 @@ function VistaMese({
   dataRiferimento,
   appuntamenti,
   note,
+  eventiGoogle,
 }: {
   dataRiferimento: Date;
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
+  eventiGoogle: EventoGoogleCalendario[];
 }) {
   const primoDelMese = new Date(dataRiferimento.getFullYear(), dataRiferimento.getMonth(), 1);
   const inizioGriglia = lunediSettimana(primoDelMese);
@@ -454,6 +512,7 @@ function VistaMese({
           const fuoriMese = d.getMonth() !== meseCorrente;
           const nAppuntamenti = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave && a.stato !== "Annullato").length;
           const nNote = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave && !n.completata).length;
+          const nEventi = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave).length;
           return (
             <Link
               key={i}
@@ -470,6 +529,7 @@ function VistaMese({
                   <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">{nAppuntamenti}</span>
                 )}
                 {nNote > 0 && <span className="rounded-full bg-warning/15 px-1.5 text-[10px] font-bold text-warning">{nNote}</span>}
+                {nEventi > 0 && <span className="rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">{nEventi}</span>}
               </div>
             </Link>
           );

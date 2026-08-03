@@ -83,6 +83,58 @@ export async function creaEventoCalendario(dati: {
   }
 }
 
+export interface EventoGoogleCalendario {
+  id: string;
+  titolo: string;
+  indirizzo: string | null;
+  inizio: string;
+  fine: string;
+  tuttoIlGiorno: boolean;
+  link: string | null;
+}
+
+// ★ NUOVA — finora il calendario Google era solo una copia in sola
+// scrittura di ciò che si creava qui dentro (creaEventoCalendario). Il
+// calendario "Done | Appuntamenti" ha però anche eventi inseriti
+// direttamente su Google (non dal gestionale): questa funzione li legge
+// per mostrarli nel Calendario insieme agli Appuntamenti veri, invece di
+// lasciarli visibili solo aprendo Google Calendar a parte. Sola lettura:
+// non hanno un tipo_servizio/ticket collegato, non si possono
+// modificare/completare da qui.
+export async function listaEventiGoogleCalendario(inizio: Date, fine: Date): Promise<EventoGoogleCalendario[]> {
+  const c = client();
+  if (!c) return [];
+
+  try {
+    const { data } = await c.calendar.events.list({
+      calendarId: c.calendarId,
+      timeMin: inizio.toISOString(),
+      timeMax: fine.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 250,
+    });
+
+    return (data.items ?? [])
+      .filter((e) => e.id && e.status !== "cancelled")
+      .map((e) => {
+        const tuttoIlGiorno = !e.start?.dateTime;
+        return {
+          id: e.id!,
+          titolo: e.summary || "(senza titolo)",
+          indirizzo: e.location || null,
+          inizio: e.start?.dateTime || e.start?.date || inizio.toISOString(),
+          fine: e.end?.dateTime || e.end?.date || fine.toISOString(),
+          tuttoIlGiorno,
+          link: e.htmlLink || null,
+        };
+      });
+  } catch (err) {
+    console.error("Google Calendar: lettura eventi fallita", err);
+    return [];
+  }
+}
+
 export async function aggiornaEventoCalendario(
   eventoId: string,
   campi: {

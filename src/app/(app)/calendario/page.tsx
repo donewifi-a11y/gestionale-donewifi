@@ -1,9 +1,14 @@
 import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CalendarioBoard } from "@/components/calendario/calendario-board";
+import { listaEventiGoogleCalendario } from "@/lib/google-calendar";
 import type { Appuntamento, NotaCalendario } from "@/lib/types";
 
 export type VistaCalendario = "giorno" | "settimana" | "mese";
+
+// ★ la vista Mese può interrogare Google Calendar su un range di 6
+// settimane — più margine dei 10s di default di una funzione serverless.
+export const maxDuration = 30;
 
 function formattaData(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -50,7 +55,7 @@ export default async function CalendarioPage({
 
   const supabase = await createClient();
 
-  const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }] = await Promise.all([
+  const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }, eventiGoogleGrezzi] = await Promise.all([
     supabase
       .from("appuntamenti")
       .select("*")
@@ -69,7 +74,15 @@ export default async function CalendarioPage({
       .select("id, numero, cliente, indirizzo")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
+    listaEventiGoogleCalendario(inizioRange, fineRange),
   ]);
+
+  // ★ un Appuntamento creato da qui è ANCHE un evento sullo stesso
+  // calendario Google (google_event_id) — va escluso dagli eventi Google
+  // letti sopra, altrimenti comparirebbe due volte (come Appuntamento e
+  // come evento Google separato).
+  const idEventiGiaCollegati = new Set((appuntamenti ?? []).map((a) => a.google_event_id).filter(Boolean));
+  const eventiGoogle = eventiGoogleGrezzi.filter((e) => !idEventiGiaCollegati.has(e.id));
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -88,6 +101,7 @@ export default async function CalendarioPage({
         note={(note as NotaCalendario[]) ?? []}
         persone={persone ?? []}
         ticket={ticket ?? []}
+        eventiGoogle={eventiGoogle}
         vista={vista}
         dataRiferimento={formattaData(dataRiferimento)}
       />

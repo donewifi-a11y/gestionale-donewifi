@@ -685,6 +685,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   vista scelta (solo quel giorno, la settimana, o l'intera griglia del mese comprese le code dei
   mesi adiacenti) invece di scaricare sempre "da 7 giorni fa in poi" senza limite superiore.
   Creazione/modifica appuntamento, promemoria e completamento invariati (stessi Sheet/azioni).
+✅ Calendario — importa anche gli eventi già su Google "Done | Appuntamenti" (2026-08): finora
+  `src/lib/google-calendar.ts` era solo in scrittura (ogni Appuntamento creato qui diventava un
+  evento Google, ma non il contrario). Nuova `listaEventiGoogleCalendario()` legge dallo stesso
+  calendario gli eventi nel range visualizzato e li mostra nelle tre viste insieme agli
+  Appuntamenti veri — badge tratteggiato "Google", sola lettura (niente tipo_servizio/ticket
+  collegato, non modificabili da qui), con link per aprirli su Google Calendar. Gli Appuntamenti
+  già creati dal gestionale (che finiscono anche loro su quello stesso calendario) vengono esclusi
+  dalla lettura via `google_event_id`, altrimenti comparirebbero due volte. Nessuna migrazione:
+  stesse credenziali già usate per la scrittura (`GOOGLE_SERVICE_ACCOUNT_EMAIL/_PRIVATE_KEY`,
+  `GOOGLE_CALENDAR_ID`); se non configurate il Calendario funziona comunque, semplicemente senza
+  eventi Google (stesso comportamento "non blocca mai" già in uso per la scrittura).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
