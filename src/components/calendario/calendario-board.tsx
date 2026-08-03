@@ -22,7 +22,8 @@ import {
   completaNotaCalendario,
   eliminaNotaCalendario,
 } from "@/app/(app)/calendario/actions";
-import type { Appuntamento, NotaCalendario, Persona } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
+import type { Appuntamento, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 
 interface TicketMinimo {
   id: string;
@@ -192,7 +193,10 @@ export function CalendarioBoard({
                       className="min-w-0 flex-1 text-left"
                       disabled={a.stato !== "Programmato"}
                     >
-                      <div className="truncate font-semibold">{a.titolo}</div>
+                      <div className="mb-0.5 flex items-center gap-1.5">
+                        <span className="truncate font-semibold">{a.titolo}</span>
+                        <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
+                      </div>
                       {a.indirizzo && (
                         <a
                           href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
@@ -314,6 +318,7 @@ function FormNuovoAppuntamento({
       tecnicoId: String(dati.get("tecnico") || ""),
       ticketId,
       note: String(dati.get("note") || ""),
+      tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
     });
     setInCorso(false);
     if (risultato.errore) {
@@ -331,6 +336,23 @@ function FormNuovoAppuntamento({
         <SheetDescription>Programma un’installazione o una visita.</SheetDescription>
       </SheetHeader>
       <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+        <div>
+          <Label htmlFor="tipo_servizio">Tipo di servizio *</Label>
+          <select
+            id="tipo_servizio"
+            name="tipo_servizio"
+            required
+            defaultValue="Lavorazione tecnica"
+            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Decide come l&apos;installatore vede l&apos;appuntamento in Vista Tecnico.
+          </p>
+        </div>
         <div>
           <Label htmlFor="ticket">Ticket collegato (facoltativo)</Label>
           <select
@@ -431,6 +453,7 @@ function FormModificaAppuntamento({
       durataMinuti: Number(dati.get("durata") || 60),
       tecnicoId: String(dati.get("tecnico") || ""),
       note: String(dati.get("note") || ""),
+      tipoServizio: String(dati.get("tipo_servizio") || appuntamento.tipo_servizio) as TipoServizioAppuntamento,
     });
     setInCorso(false);
     if (risultato.errore) {
@@ -448,6 +471,20 @@ function FormModificaAppuntamento({
         <SheetDescription>Cambia data, ora, tecnico o dettagli.</SheetDescription>
       </SheetHeader>
       <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+        <div>
+          <Label htmlFor="tipo_servizio-m">Tipo di servizio *</Label>
+          <select
+            id="tipo_servizio-m"
+            name="tipo_servizio"
+            required
+            defaultValue={appuntamento.tipo_servizio}
+            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <Label htmlFor="titolo-m">Titolo *</Label>
           <Input id="titolo-m" name="titolo" required autoFocus defaultValue={appuntamento.titolo} className="mt-1" />

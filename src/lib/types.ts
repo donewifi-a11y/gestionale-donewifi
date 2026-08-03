@@ -78,6 +78,12 @@ export interface Segnalazione {
 
 export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";
 
+/** Cosa deve fare l'installatore sul posto: prima attivazione di un
+ * cliente, o intervento su un impianto già attivo. Scelto quando si
+ * pianifica l'appuntamento a Calendario. */
+export type TipoServizioAppuntamento = "Nuova installazione" | "Lavorazione tecnica";
+export const TIPI_SERVIZIO_APPUNTAMENTO: TipoServizioAppuntamento[] = ["Nuova installazione", "Lavorazione tecnica"];
+
 export interface Appuntamento {
   id: string;
   ticket_id: string | null;
@@ -88,6 +94,7 @@ export interface Appuntamento {
   tecnico_id: string | null;
   note: string | null;
   stato: StatoAppuntamento;
+  tipo_servizio: TipoServizioAppuntamento;
   creato_da: string | null;
   google_event_id: string | null;
 }

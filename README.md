@@ -19,8 +19,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql`, `0030_statistiche_generali_aruba.sql`,
    `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql`,
    `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
-   `0035_eliminazione_tariffe_solo_admin.sql` e `0036_verifica_blindatura_password.sql`,
-   eseguendo ognuno.
+   `0035_eliminazione_tariffe_solo_admin.sql`, `0036_verifica_blindatura_password.sql` e
+   `0037_tipo_servizio_appuntamento.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -600,6 +600,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   clienti, prima bastava uno dei due (telefono O email); ora sono entrambi obbligatori — validati
   sia in `portale-tabs.tsx` (client) sia in `api/portale/apri-ticket/route.ts` (server, quella che
   conta davvero: l'endpoint è pubblico e chiamabile a prescindere dal form).
+✅ Tipo di servizio sull'appuntamento — Nuova installazione vs Lavorazione tecnica (2026-08,
+  migrazione `0037`): quando si pianifica un appuntamento a Calendario (sia dal Calendario stesso,
+  sia dal pulsante "Pianifica appuntamento" dentro un Ticket), ora si sceglie anche il tipo di
+  servizio — nuovo campo `appuntamenti.tipo_servizio` (enum, default `Lavorazione tecnica`). È
+  quello che l'installatore vede subito nella sua scheda in Vista Tecnico (badge accanto al
+  titolo), oltre che nell'elenco appuntamenti del Calendario — così sa se deve fare una prima
+  attivazione o un intervento su un impianto già attivo prima ancora di aprire i dettagli. Colori
+  aggiunti alla mappa condivisa `StatusBadge` invece di uno stile a parte.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

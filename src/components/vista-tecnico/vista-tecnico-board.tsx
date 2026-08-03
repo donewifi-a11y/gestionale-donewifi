@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { aggiornaStatoTicket, aggiungiNotaTicket } from "@/app/(app)/tickets/actions";
 import { cambiaStatoAppuntamento } from "@/app/(app)/calendario/actions";
@@ -97,7 +98,10 @@ export function VistaTecnicoBoard({
                 <Clock className="h-4 w-4" strokeWidth={2.5} />
                 {new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
               </div>
-              <div className="mb-1 text-lg font-semibold">{a.titolo}</div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="text-lg font-semibold">{a.titolo}</span>
+                <StatusBadge status={a.tipo_servizio} />
+              </div>
               {a.indirizzo && (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}

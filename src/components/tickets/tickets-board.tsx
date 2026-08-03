@@ -27,8 +27,8 @@ import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
 import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
-import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET } from "@/lib/types";
+import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, TipoServizioAppuntamento } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 
@@ -727,6 +727,7 @@ function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: P
       tecnicoId: String(dati.get("tecnico") || ""),
       ticketId: ticket.id,
       note: "",
+      tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
     });
     setInCorso(false);
     if (risultato.errore) return setErrore(risultato.errore);
@@ -786,6 +787,11 @@ function PianificaAppuntamento({ ticket, persone }: { ticket: Ticket; persone: P
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        <select name="tipo_servizio" defaultValue="Lavorazione tecnica" className="h-8 rounded-md border bg-background px-2 text-xs">
+          {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
         <div className="grid grid-cols-3 gap-2">
           <input type="date" name="data" required className="h-8 rounded-md border bg-background px-2 text-xs" />
           <input type="time" name="ora" required className="h-8 rounded-md border bg-background px-2 text-xs" />

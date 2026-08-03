@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { revalidatePath } from "next/cache";
-import type { StatoAppuntamento } from "@/lib/types";
+import type { StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 
 export interface SlotOccupato {
   id: string;
@@ -43,6 +43,7 @@ export async function creaAppuntamento(dati: {
   tecnicoId: string;
   ticketId: string;
   note: string;
+  tipoServizio: TipoServizioAppuntamento;
 }) {
   const supabase = await createClient();
   const {
@@ -72,6 +73,7 @@ export async function creaAppuntamento(dati: {
     tecnico_id: dati.tecnicoId || null,
     ticket_id: dati.ticketId || null,
     note: dati.note || null,
+    tipo_servizio: dati.tipoServizio,
     creato_da: personaId,
     google_event_id: googleEventId,
   });
@@ -86,7 +88,15 @@ export async function creaAppuntamento(dati: {
 // ricreare da zero per cambiare data/ora/tecnico.
 export async function modificaAppuntamento(
   id: string,
-  dati: { titolo: string; indirizzo: string; dataOra: string; durataMinuti: number; tecnicoId: string; note: string }
+  dati: {
+    titolo: string;
+    indirizzo: string;
+    dataOra: string;
+    durataMinuti: number;
+    tecnicoId: string;
+    note: string;
+    tipoServizio: TipoServizioAppuntamento;
+  }
 ) {
   const supabase = await createClient();
   const {
@@ -105,6 +115,7 @@ export async function modificaAppuntamento(
       durata_minuti: dati.durataMinuti,
       tecnico_id: dati.tecnicoId || null,
       note: dati.note || null,
+      tipo_servizio: dati.tipoServizio,
     })
     .eq("id", id);
   if (error) return { errore: error.message };

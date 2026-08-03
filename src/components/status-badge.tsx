@@ -30,6 +30,10 @@ const STILI_STATO: Record<string, string> = {
   // Appuntamenti
   Programmato: "bg-primary/10 text-primary border-primary/20",
 
+  // Appuntamenti — tipo di servizio (cosa fa l'installatore sul posto)
+  "Nuova installazione": "bg-accent text-accent-foreground border-accent",
+  "Lavorazione tecnica": "bg-warning/10 text-warning border-warning/20",
+
   // Fatture
   Pagata: "bg-success/10 text-success border-success/20",
   Insoluta: "bg-critical/10 text-critical border-critical/20",
