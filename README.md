@@ -581,6 +581,21 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     client normale: protette in tempo reale dalla RLS (`is_active_staff()` controlla `attivo` ad
     ogni query), non un buco sfruttabile — a differenza dei casi con service role, dove l'app era
     l'unica barriera.
+✅ Fix critico: quasi tutte le rotte pubbliche erano bloccate dal proxy di autenticazione (2026-08):
+  scoperto lavorando sull'esposizione del Portale su `area.donewifi.it` — `src/proxy.ts` elencava
+  come pubbliche solo `/login` e `/richiesta-dati`, quindi un visitatore SENZA login veniva
+  rimandato a `/login` anche su Portale clienti (`/portale` + `/api/portale/*`), Disdetta,
+  Richiesta Cliente, Approvazione intervento via email, Privacy — e persino sui cron job
+  (`/api/cron/*`, che Vercel Cron chiama senza sessione utente: probabilmente non hanno mai
+  eseguito con successo). Di fatto quasi tutte le funzionalità "senza login" costruite in questa
+  sessione erano irraggiungibili dal pubblico a cui erano rivolte. Aggiunte tutte le rotte mancanti
+  a `ROTTE_PUBBLICHE`, verificato con curl (prima 307 verso /login, ora 200/405 corretti) che ogni
+  rotta pubblica sia raggiungibile e che `/tickets` (interna) resti protetta.
+✅ Portale clienti su `area.donewifi.it` (2026-08): su questo host la radice `/` mostra subito il
+  Portale (`/portale`) invece della home interna — un cliente non deve conoscere l'URL `/portale`.
+  Routing per host in `src/proxy.ts` (`DOMINI_PORTALE`), verificato con `curl -H "Host: ..."`.
+  **Serve ancora, fuori dal codice**: aggiungere `area.donewifi.it` come dominio custom del
+  progetto su Vercel e puntare un record DNS (CNAME) a Vercel dal pannello del registrar.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
