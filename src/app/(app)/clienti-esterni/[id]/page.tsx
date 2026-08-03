@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati } from "../actions";
+import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
 
 function nomeVisualizzato(c: ClienteEsterno): string {
@@ -130,9 +131,9 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
             Fatture ({fatture.length})
           </h2>
           <div className="flex gap-4 text-xs">
-            <span className="flex items-center gap-1"><Euro className="h-3 w-3" strokeWidth={2.5} /><span className="text-muted-foreground">Totale: </span><span className="font-semibold">€ {fatturatoTotale.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</span></span>
+            <span className="flex items-center gap-1"><Euro className="h-3 w-3" strokeWidth={2.5} /><span className="text-muted-foreground">Totale: </span><span className="font-semibold tabular-nums">{formattaValuta(fatturatoTotale)}</span></span>
             {insoluti.length > 0 && (
-              <span className="text-critical"><span className="font-semibold">{insoluti.length}</span> insolute · € {insolutoTotale.toLocaleString("it-IT", { minimumFractionDigits: 2 })}</span>
+              <span className="text-critical"><span className="font-semibold">{insoluti.length}</span> insolute · <span className="tabular-nums">{formattaValuta(insolutoTotale)}</span></span>
             )}
           </div>
         </div>
@@ -155,7 +156,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
                     <td className="py-1.5 font-mono text-xs">{f.numero}</td>
                     <td className="py-1.5">{f.emissione ? new Date(f.emissione).toLocaleDateString("it-IT") : "—"}</td>
                     <td className="py-1.5">{f.scadenza ? new Date(f.scadenza).toLocaleDateString("it-IT") : "—"}</td>
-                    <td className="py-1.5 text-right tabular-nums">€ {Number(f.importo ?? 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-1.5 text-right tabular-nums">{formattaValuta(f.importo)}</td>
                     <td className="py-1.5 text-right">
                       {f.pagata ? (
                         <span className="rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">Pagata</span>

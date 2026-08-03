@@ -514,6 +514,11 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   selezionato") invece di un generico "Nessun ticket.". I pannelli "Profili con più fatture nel
   periodo" e "Clienti attivi per profilo" prima sparivano del tutto se vuoti — ora restano visibili
   con il loro empty state, così la sezione non "salta" a seconda dei dati.
+✅ Formattazione valuta standardizzata (2026-08): nuova `formattaValuta()` (`src/lib/types.ts`),
+  un unico `Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })` invece di
+  "€ " + `toLocaleString()` ripetuto a mano — applicata alla tabella Fatture della scheda cliente
+  Aruba (`clienti-esterni/[id]/page.tsx`: totale fatturato, totale insoluto, importo di ogni riga),
+  colonna Importo allineata a destra con cifre tabulari.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

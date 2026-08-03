@@ -157,6 +157,16 @@ export function prezziNettoLordo(prezzo: number, ivaInclusa: boolean): { netto: 
     : { netto: prezzo, lordo: prezzo * (1 + ALIQUOTA_IVA) };
 }
 
+// ★ formattazione valuta standard per tutto il gestionale — un unico
+// Intl.NumberFormat invece di "€ " + toLocaleString() ripetuto (e a volte
+// disallineato: valori diversi arrotondavano/spaziavano in modo diverso)
+// in ogni componente che mostra un importo.
+const FORMATO_VALUTA = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+
+export function formattaValuta(valore: number | null | undefined): string {
+  return FORMATO_VALUTA.format(Number(valore) || 0);
+}
+
 export type TipoPromozione = "Sconto % / mese" | "Sconto fisso / mese" | "Mesi omaggio" | "Attivazione gratuita";
 
 export interface Promozione {
