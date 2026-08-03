@@ -287,11 +287,22 @@ export interface RapportinoIntervento {
 export interface MaterialeMagazzino {
   id: string;
   nome: string;
+  categoria: string | null;
+  descrizione: string | null;
+  /** Prezzo per cliente Privato, IVA inclusa — vedi prezzoPerTipoCliente(). */
   prezzo_unitario: number;
   unita_misura: string;
   comodato_uso: boolean;
   attivo: boolean;
   ordine: number;
+}
+
+/** Regola prezzi del listino Materiali/Servizi: il prezzo salvato è
+ * sempre quello per un cliente Privato (IVA già inclusa). Un cliente
+ * Business paga lo stesso importo trattato come imponibile + IVA 22% —
+ * quindi una cifra più alta per lo stesso materiale. */
+export function prezzoPerTipoCliente(prezzoPrivato: number, tipo: "Privato" | "Business"): number {
+  return tipo === "Business" ? prezzoPrivato * (1 + ALIQUOTA_IVA) : prezzoPrivato;
 }
 
 /** Istantanea di un materiale usato in una scheda — nome/prezzo restano

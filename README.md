@@ -21,7 +21,8 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql`,
    `0035_eliminazione_tariffe_solo_admin.sql`, `0036_verifica_blindatura_password.sql` e
    `0037_tipo_servizio_appuntamento.sql`, `0038_schede_lavoro.sql` e
-   `0039_fix_ricalcola_clienti_attivi.sql` e `0040_gps_installazione.sql`, eseguendo ognuno.
+   `0039_fix_ricalcola_clienti_attivi.sql`, `0040_gps_installazione.sql` e
+   `0041_materiali_categoria_prezzi.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -664,6 +665,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   dell'installatore al momento della compilazione, con link diretto a Google Maps sia nel form sia
   nella vista di sola lettura della scheda salvata. Facoltativo, non blocca il salvataggio se il
   browser nega il permesso o non lo supporta.
+✅ Catalogo Materiali — categoria, descrizione, prezzi Privato/Business (2026-08, migrazione
+  `0041`): il listino non è più solo "materiali fisici per installazioni" ma un listino
+  servizi/prodotti completo (trasferimenti, attivazioni, variazioni, interventi tecnici, WLINK,
+  materiali, router/switch/AP, CPE) — nuovi campi `categoria` (raggruppa la lista, con datalist
+  delle categorie già usate) e `descrizione` facoltativa. Regola prezzi: il prezzo salvato è
+  sempre quello per un cliente **Privato** (IVA inclusa); un cliente **Business** paga lo stesso
+  importo trattato come imponibile + IVA 22% aggiunta in fattura — un solo prezzo per riga, non
+  due colonne (`prezzoPerTipoCliente()` in `src/lib/types.ts`). `SelettoreMateriali` (usato dalle
+  Schede) ha un toggle Privato/Business che decide quale dei due prezzi finisce nella riga
+  aggiunta. Importati i 40 materiali/servizi del listino reale fornito dall'utente.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

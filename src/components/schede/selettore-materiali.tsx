@@ -3,15 +3,24 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formattaValuta, ALIQUOTA_IVA } from "@/lib/types";
+import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
+
+type TipoCliente = "Privato" | "Business";
 
 /** ★ ex tabella materiali di Installazione.html/InterventoLoco.html —
  * stessa UI per entrambe le schede, invece di duplicarla: seleziona un
  * materiale dal catalogo, quantità, un campo dettagli libero (sostituisce
  * i campi dinamici per categoria del vecchio gestionale — MAC/tipologia
  * per le antenne, voltaggio per gli alimentatori — con un solo campo
- * generico invece di una lista di casi speciali da mantenere). */
+ * generico invece di una lista di casi speciali da mantenere).
+ *
+ * ★ prezzi: il catalogo salva sempre il prezzo per un cliente Privato
+ * (IVA inclusa) — un cliente Business paga lo stesso importo trattato
+ * come imponibile + IVA 22% (prezzoPerTipoCliente(), src/lib/types.ts).
+ * Il tipo cliente scelto qui decide quale dei due finisce effettivamente
+ * nella riga aggiunta: il prezzo salvato in MaterialeUsato è già quello
+ * definitivo, niente ricalcoli IVA da fare dopo. */
 export function SelettoreMateriali({
   catalogo,
   valore,
@@ -24,6 +33,7 @@ export function SelettoreMateriali({
   const [selezionato, setSelezionato] = useState("");
   const [quantita, setQuantita] = useState("1");
   const [dettagli, setDettagli] = useState("");
+  const [tipoCliente, setTipoCliente] = useState<TipoCliente>("Privato");
 
   const catalogoAttivo = catalogo.filter((m) => m.attivo);
 
@@ -32,6 +42,8 @@ export function SelettoreMateriali({
     const qta = Number(quantita);
     if (!materiale || !qta || qta <= 0) return;
 
+    const prezzo = materiale.comodato_uso ? 0 : prezzoPerTipoCliente(materiale.prezzo_unitario, tipoCliente);
+
     onChange([
       ...valore,
       {
@@ -39,9 +51,9 @@ export function SelettoreMateriali({
         nome: materiale.nome,
         quantita: qta,
         unita_misura: materiale.unita_misura,
-        prezzo_unitario: materiale.comodato_uso ? 0 : materiale.prezzo_unitario,
+        prezzo_unitario: prezzo,
         comodato_uso: materiale.comodato_uso,
-        dettagli: dettagli.trim() || null,
+        dettagli: [dettagli.trim() || null, materiale.comodato_uso ? null : tipoCliente].filter(Boolean).join(" · ") || null,
       },
     ]);
     setSelezionato("");
@@ -53,11 +65,28 @@ export function SelettoreMateriali({
     onChange(valore.filter((_, idx) => idx !== i));
   }
 
-  const totaleNetto = valore.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
-  const totaleLordo = totaleNetto * (1 + ALIQUOTA_IVA);
+  const totale = valore.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
   return (
     <div>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs font-semibold text-muted-foreground">Prezzi per:</span>
+        <div className="flex overflow-hidden rounded-md border">
+          {(["Privato", "Business"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTipoCliente(t)}
+              className={`px-2.5 py-1 text-xs font-semibold transition ${
+                tipoCliente === t ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           value={selezionato}
@@ -67,7 +96,7 @@ export function SelettoreMateriali({
           <option value="">Seleziona materiale...</option>
           {catalogoAttivo.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.nome} — {m.comodato_uso ? "comodato d'uso" : `€${m.prezzo_unitario.toFixed(2)}/${m.unita_misura}`}
+              {m.nome} — {m.comodato_uso ? "comodato d'uso" : `${formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, tipoCliente))}/${m.unita_misura}`}
             </option>
           ))}
         </select>
@@ -123,9 +152,8 @@ export function SelettoreMateriali({
               ))}
             </tbody>
           </table>
-          <div className="flex justify-end gap-3 border-t bg-muted/30 p-2 text-xs">
-            <span>Netto: <b>{formattaValuta(totaleNetto)}</b></span>
-            <span>IVA incl.: <b>{formattaValuta(totaleLordo)}</b></span>
+          <div className="flex justify-end border-t bg-muted/30 p-2 text-xs">
+            <span>Totale: <b>{formattaValuta(totale)}</b></span>
           </div>
         </div>
       )}

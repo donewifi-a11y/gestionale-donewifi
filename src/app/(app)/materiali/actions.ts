@@ -6,7 +6,7 @@ import type { MaterialeMagazzino } from "@/lib/types";
 
 type DatiMateriale = Pick<
   MaterialeMagazzino,
-  "nome" | "prezzo_unitario" | "unita_misura" | "comodato_uso" | "attivo" | "ordine"
+  "nome" | "categoria" | "descrizione" | "prezzo_unitario" | "unita_misura" | "comodato_uso" | "attivo" | "ordine"
 >;
 
 export async function creaMateriale(dati: DatiMateriale) {
