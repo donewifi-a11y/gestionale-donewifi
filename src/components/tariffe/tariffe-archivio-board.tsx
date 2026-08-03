@@ -7,7 +7,7 @@ import { impostaSottoscrivibileTariffa, impostaPubblicaTariffa, duplicaTariffa }
 import { RigaTariffa, FormTariffa } from "@/components/tariffe/tariffe-board";
 import type { Tariffa } from "@/lib/types";
 
-export function TariffeArchivioBoard({ tariffe }: { tariffe: Tariffa[] }) {
+export function TariffeArchivioBoard({ tariffe, isAdmin }: { tariffe: Tariffa[]; isAdmin: boolean }) {
   const router = useRouter();
   const [modifica, setModifica] = useState<Tariffa | null>(null);
 
@@ -46,7 +46,7 @@ export function TariffeArchivioBoard({ tariffe }: { tariffe: Tariffa[] }) {
 
       <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
-          {modifica && <FormTariffa tariffa={modifica} onFatto={() => setModifica(null)} />}
+          {modifica && <FormTariffa tariffa={modifica} isAdmin={isAdmin} onFatto={() => setModifica(null)} />}
         </SheetContent>
       </Sheet>
     </div>

@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { ArrowLeft, Archive } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { TariffeArchivioBoard } from "@/components/tariffe/tariffe-archivio-board";
 import type { Tariffa } from "@/lib/types";
 
 export default async function TariffeNonSottoscrivibiliPage() {
   const supabase = await createClient();
-  const { data: tariffe } = await supabase
-    .from("tariffe")
-    .select("*")
-    .eq("attivo", false)
-    .order("ordine", { ascending: true });
+  const [{ data: tariffe }, persona] = await Promise.all([
+    supabase.from("tariffe").select("*").eq("attivo", false).order("ordine", { ascending: true }),
+    getPersonaCorrente(supabase),
+  ]);
+  const isAdmin = personaHaAccessoAdmin(persona);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -31,7 +32,7 @@ export default async function TariffeNonSottoscrivibiliPage() {
         </div>
       </div>
 
-      <TariffeArchivioBoard tariffe={(tariffe as Tariffa[]) ?? []} />
+      <TariffeArchivioBoard tariffe={(tariffe as Tariffa[]) ?? []} isAdmin={isAdmin} />
     </div>
   );
 }

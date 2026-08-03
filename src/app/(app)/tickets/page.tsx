@@ -6,14 +6,35 @@ import { Button } from "@/components/ui/button";
 import { TicketsBoard } from "@/components/tickets/tickets-board";
 import type { Ticket } from "@/lib/types";
 
+// ★ FIX — la Kanban Ticket esclude solo "Annullato": la colonna "Lavorata"
+// mostra TUTTI i ticket completati dall'inizio dell'attività, senza limite
+// temporale. Una `.select()` senza `.range()` è limitata a 1000 righe da
+// Supabase/PostgREST — stesso bug già trovato e corretto due volte su
+// questo progetto (clienti_esterni, fatture_esterne). Pagina fin da
+// subito invece di aspettare che il troncamento diventi visibile.
+export const maxDuration = 30;
+
+async function fetchTuttiTicketNonAnnullati(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Ticket[]> {
+  const PAGINA = 1000;
+  const tutti: Ticket[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("tickets")
+      .select("*")
+      .neq("stato", "Annullato")
+      .order("data_creazione", { ascending: false })
+      .range(offset, offset + PAGINA - 1);
+    const pagina = (data as Ticket[] | null) ?? [];
+    tutti.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutti;
+}
+
 export default async function TicketsPage() {
   const supabase = await createClient();
 
-  const { data: tickets } = await supabase
-    .from("tickets")
-    .select("*")
-    .neq("stato", "Annullato")
-    .order("data_creazione", { ascending: false });
+  const tickets = await fetchTuttiTicketNonAnnullati(supabase);
 
   const { data: persone } = await supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true);
   const personaCorrenteId = await getPersonaCorrenteId();

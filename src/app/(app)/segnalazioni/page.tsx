@@ -4,21 +4,53 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId } from "@/lib/persona";
 import { Button } from "@/components/ui/button";
 import { SegnalazioniBoard } from "@/components/segnalazioni/segnalazioni-board";
-import type { Segnalazione } from "@/lib/types";
+import type { RichiestaCliente, Segnalazione } from "@/lib/types";
+
+// ★ FIX — la Kanban Segnalazioni non ha filtro di stato: la colonna
+// "Trasmessa" accumula tutte le segnalazioni trasmesse dall'inizio
+// dell'attività, senza limite temporale. Una `.select()` senza `.range()`
+// è limitata a 1000 righe da Supabase/PostgREST — stesso bug già trovato
+// e corretto due volte su questo progetto.
+export const maxDuration = 30;
+
+async function fetchTutteSegnalazioni(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Segnalazione[]> {
+  const PAGINA = 1000;
+  const tutte: Segnalazione[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("segnalazioni")
+      .select("*")
+      .order("data", { ascending: false })
+      .range(offset, offset + PAGINA - 1);
+    const pagina = (data as Segnalazione[] | null) ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
+}
+
+async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createClient>>): Promise<RichiestaCliente[]> {
+  const PAGINA = 1000;
+  const tutte: RichiestaCliente[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("richieste_clienti")
+      .select("*")
+      .order("data", { ascending: false })
+      .range(offset, offset + PAGINA - 1);
+    const pagina = (data as RichiestaCliente[] | null) ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
+}
 
 export default async function SegnalazioniPage() {
   const supabase = await createClient();
   const personaCorrenteId = await getPersonaCorrenteId();
 
-  const { data: segnalazioni } = await supabase
-    .from("segnalazioni")
-    .select("*")
-    .order("data", { ascending: false });
-
-  const { data: richieste } = await supabase
-    .from("richieste_clienti")
-    .select("*")
-    .order("data", { ascending: false });
+  const segnalazioni = await fetchTutteSegnalazioni(supabase);
+  const richieste = await fetchTutteRichieste(supabase);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -43,8 +75,8 @@ export default async function SegnalazioniPage() {
       </div>
 
       <SegnalazioniBoard
-        segnalazioni={(segnalazioni as Segnalazione[]) ?? []}
-        richieste={richieste ?? []}
+        segnalazioni={segnalazioni}
+        richieste={richieste}
         currentPersonaId={personaCorrenteId ?? ""}
       />
     </div>

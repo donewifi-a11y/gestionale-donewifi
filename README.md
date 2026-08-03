@@ -17,8 +17,9 @@ Sostituisce progressivamente il gestionale precedente (Google Apps Script), che 
    `0023_clienti_esterni_aruba.sql`, `0024_fatture_esterne_aruba.sql`, `0025_seed_tariffe.sql`,
    `0026_clienti_attivi_da_fatturazione.sql`, `0027_completa_tariffe.sql` e
    `0028_tutte_le_tariffe.sql`, `0029_tariffe_iva.sql`, `0030_statistiche_generali_aruba.sql`,
-   `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql` e
-   `0033_tariffe_pubblica_attivazione.sql`, eseguendo ognuno.
+   `0031_fatturato_per_periodo.sql`, `0032_tariffe_dettaglio_prezzi.sql`,
+   `0033_tariffe_pubblica_attivazione.sql`, `0034_blinda_grant_funzioni_definer.sql` e
+   `0035_eliminazione_tariffe_solo_admin.sql`, eseguendo ognuno.
    **`0011` e `0012` (login individuale) vanno applicate con cautela — vedi sezione dedicata
    sotto**, non di seguito come le altre: `0012` da sola blocca l'accesso a chiunque se applicata
    prima di aver collegato almeno una Persona a un login vero.
@@ -536,6 +537,49 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   finché i dati non sono pronti, con sagome grigie animate (`src/components/ui/skeleton.tsx`) che
   ricalcano la struttura reale della pagina — al posto dei numeri a 0 visibili per un istante prima
   che arrivassero i dati veri.
+✅ Controllo d'oro esteso a tutto il gestionale (2026-08) — audit sistematico (non a campione) su
+  quattro fronti in parallelo: paginazione/query, autorizzazione di ogni Server Action, le 33
+  migrazioni SQL/RLS, logica di business. Trovati e corretti:
+  - **Critico** — `imposta_password_persona()` (migrazione 0006, `security definer`) era concessa
+    a `authenticated` senza NESSUN controllo interno su chi chiama: qualunque utente loggato (anche
+    non admin) poteva invocarla via RPC con l'id di un'ALTRA persona — incluso un admin — e
+    resettarne la password/PIN del selettore "Tu sei", impersonandola. Il controllo "solo admin"
+    esisteva solo lato applicazione (`verificaAdmin()` in `persone/actions.ts`), mai imposto dal
+    database — e l'app non ha mai avuto bisogno del grant a `authenticated` (chiama la funzione
+    sempre tramite la service role). Migrazione `0034`: revocato il grant, concesso solo a
+    `service_role`. Stessa blindatura per `ricalcola_clienti_attivi()` (impatto minore: nessuna
+    fuga di dati, solo un ricalcolo pesante invocabile da chiunque invece che solo dall'admin).
+  - 2 funzioni che passano alla service role (bypassa la RLS) con lo stesso controllo insufficiente
+    già trovato e corretto nell'audit precedente per le "URL firmate": `caricaContrattoSegnalazione()`
+    e `completaTicketConRapportino()` verificavano solo un cookie persona valido, non `attivo` —
+    ora usano `getPersonaCorrente()`. (`inviaAllegatoChat()`, segnalata dall'audit, verificato che è
+    già al sicuro: il controllo di appartenenza alla conversazione passa dal client normale, quindi
+    dalla RLS reale.)
+  - 6 query senza `.range()` non ancora coperte dai fix precedenti, sullo stesso bug (troncamento
+    silenzioso a 1000 righe): Archivio (ticket chiusi + segnalazioni trasmesse, senza limite
+    temporale — il caso più a rischio in assoluto), la Kanban Ticket principale, la Kanban
+    Segnalazioni, Richieste Clienti, e `getStatistichePeriodo()` (periodo scelto liberamente
+    dall'utente in Dashboard). Volumi attuali ancora piccoli (1 ticket, 3 segnalazioni in
+    produzione: il gestionale è appena partito) quindi nessun dato è mai stato davvero troncato —
+    fix preventivo, stesso principio già applicato altrove nel progetto.
+  - Eliminare una Tariffa o una Promozione era permesso a qualsiasi membro dello staff attivo, sia
+    in app che via RLS (scelta della migrazione 0010/0020 originale) — su decisione esplicita
+    dell'utente, ristretto a solo Admin: migrazione `0035` toglie la policy DELETE per il client
+    normale (stesso approccio già usato per `persone`), `eliminaTariffa()`/`eliminaPromozione()`
+    verificano `personaHaAccessoAdmin()` e passano dalla service role; il pulsante Elimina è
+    nascosto in UI ai non-admin.
+  - Verificato pulito (nessuna azione necessaria): logica di business (`analytics.ts`, definizione
+    "cliente attivo", calcolo IVA, coerenza `pubblica`/`attivo` sulle Tariffe — nessun bug di
+    correttezza trovato); copertura RLS su tutte le ~20 tabelle; nessuna policy duplicata/conflittuale;
+    nessuna colonna/tabella referenziata prima di essere creata nelle 33 migrazioni.
+  - Segnalato ma non risolto (rischio teorico, non un bug): un vincolo `unique` aggiunto in `0008`
+    su una tabella già popolata — se all'epoca del deploy esistevano già righe duplicate la
+    migrazione sarebbe fallita; non verificabile a posteriori e comunque già applicata con successo
+    in produzione, note per migrazioni future dello stesso tipo. ~15 funzioni di lettura verificano
+    solo `getPersonaCorrenteId()` (senza `attivo`) o nessun controllo applicativo, ma usano tutte il
+    client normale: protette in tempo reale dalla RLS (`is_active_staff()` controlla `attivo` ad
+    ogni query), non un buco sfruttabile — a differenza dei casi con service role, dove l'app era
+    l'unica barriera.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

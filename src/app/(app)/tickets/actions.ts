@@ -254,12 +254,14 @@ export async function completaTicketConRapportino(
   foto: File[]
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX SICUREZZA — controllava solo un cookie persona valido, non che
+  // lo staff fosse ancora attivo: sotto si passa alla service role per
+  // caricare foto/firma e scrivere il rapportino, che bypassa la RLS.
+  // Stesso pattern già corretto per le funzioni "URL firmata documento" e
+  // per caricaContrattoSegnalazione().
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
   if (!dati.esito.trim()) return { errore: "L'esito dell'intervento è obbligatorio." };
 
   const service = createServiceClient();

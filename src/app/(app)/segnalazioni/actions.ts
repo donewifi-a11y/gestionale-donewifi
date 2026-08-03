@@ -44,12 +44,13 @@ export async function inviaEmailRichiestaDatiSegnalazione(segnalazioneId: string
 // e a scadenza breve.
 export async function caricaContrattoSegnalazione(segnalazioneId: string, formData: FormData) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX SICUREZZA — controllava solo che ci fosse un cookie persona
+  // valido (getPersonaCorrenteId), non che lo staff fosse ancora attivo:
+  // sotto si passa alla service role per l'upload, che bypassa la RLS.
+  // Stesso pattern già corretto per le funzioni "URL firmata documento".
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { errore: "Nessun file selezionato." };

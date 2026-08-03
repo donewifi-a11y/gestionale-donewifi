@@ -1,14 +1,17 @@
 import { Tags } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { TariffeBoard } from "@/components/tariffe/tariffe-board";
 import type { Promozione, Tariffa } from "@/lib/types";
 
 export default async function TariffePage() {
   const supabase = await createClient();
-  const [{ data: tariffe }, { data: promozioni }] = await Promise.all([
+  const [{ data: tariffe }, { data: promozioni }, persona] = await Promise.all([
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
     supabase.from("promozioni").select("*").order("da", { ascending: false }),
+    getPersonaCorrente(supabase),
   ]);
+  const isAdmin = personaHaAccessoAdmin(persona);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -24,7 +27,7 @@ export default async function TariffePage() {
         </div>
       </div>
 
-      <TariffeBoard tariffe={(tariffe as Tariffa[]) ?? []} promozioni={(promozioni as Promozione[]) ?? []} />
+      <TariffeBoard tariffe={(tariffe as Tariffa[]) ?? []} promozioni={(promozioni as Promozione[]) ?? []} isAdmin={isAdmin} />
     </div>
   );
 }

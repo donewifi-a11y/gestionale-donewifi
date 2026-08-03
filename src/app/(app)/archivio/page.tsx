@@ -3,20 +3,53 @@ import { createClient } from "@/lib/supabase/server";
 import { ArchivioBoard } from "@/components/archivio/archivio-board";
 import type { Segnalazione, Ticket } from "@/lib/types";
 
+// ★ FIX — l'Archivio accumula per definizione TUTTI i ticket chiusi e
+// tutte le Segnalazioni trasmesse dall'inizio dell'attività, senza limite
+// temporale: è il caso più probabile per sforare le 1000 righe che
+// Supabase/PostgREST tronca in silenzio da una `.select()` senza
+// `.range()` — stesso bug già trovato e corretto due volte su questo
+// progetto (clienti_esterni, fatture_esterne).
+export const maxDuration = 30;
+
+async function fetchTicketArchivio(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Ticket[]> {
+  const PAGINA = 1000;
+  const tutti: Ticket[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("tickets")
+      .select("*")
+      .in("stato", ["Completato", "Annullato"])
+      .order("data_creazione", { ascending: false })
+      .range(offset, offset + PAGINA - 1);
+    const pagina = (data as Ticket[] | null) ?? [];
+    tutti.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutti;
+}
+
+async function fetchSegnalazioniArchivio(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Segnalazione[]> {
+  const PAGINA = 1000;
+  const tutte: Segnalazione[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("segnalazioni")
+      .select("*")
+      .eq("stato", "Trasmessa")
+      .order("data", { ascending: false })
+      .range(offset, offset + PAGINA - 1);
+    const pagina = (data as Segnalazione[] | null) ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
+}
+
 export default async function ArchivioPage() {
   const supabase = await createClient();
 
-  const { data: tickets } = await supabase
-    .from("tickets")
-    .select("*")
-    .in("stato", ["Completato", "Annullato"])
-    .order("data_creazione", { ascending: false });
-
-  const { data: segnalazioni } = await supabase
-    .from("segnalazioni")
-    .select("*")
-    .eq("stato", "Trasmessa")
-    .order("data", { ascending: false });
+  const tickets = await fetchTicketArchivio(supabase);
+  const segnalazioni = await fetchSegnalazioniArchivio(supabase);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -30,7 +63,7 @@ export default async function ArchivioPage() {
         </div>
       </div>
 
-      <ArchivioBoard tickets={(tickets as Ticket[]) ?? []} segnalazioni={(segnalazioni as Segnalazione[]) ?? []} />
+      <ArchivioBoard tickets={tickets} segnalazioni={segnalazioni} />
     </div>
   );
 }

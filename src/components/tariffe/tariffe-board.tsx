@@ -38,7 +38,7 @@ function statoPromozione(promo: Promozione): "Attiva" | "Programmata" | "Scaduta
   return "Attiva";
 }
 
-export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; promozioni: Promozione[] }) {
+export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariffa[]; promozioni: Promozione[]; isAdmin: boolean }) {
   const router = useRouter();
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Tariffa | null>(null);
@@ -103,7 +103,7 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
 
       <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
-          {modifica && <FormTariffa tariffa={modifica} onFatto={() => setModifica(null)} />}
+          {modifica && <FormTariffa tariffa={modifica} isAdmin={isAdmin} onFatto={() => setModifica(null)} />}
         </SheetContent>
       </Sheet>
 
@@ -173,7 +173,7 @@ export function TariffeBoard({ tariffe, promozioni }: { tariffe: Tariffa[]; prom
 
       <Sheet open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
         <SheetContent>
-          {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} onFatto={() => setModificaPromo(null)} />}
+          {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} isAdmin={isAdmin} onFatto={() => setModificaPromo(null)} />}
         </SheetContent>
       </Sheet>
 
@@ -254,7 +254,7 @@ export function RigaTariffa({
   );
 }
 
-export function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: () => void }) {
+export function FormTariffa({ tariffa, isAdmin = false, onFatto }: { tariffa?: Tariffa; isAdmin?: boolean; onFatto: () => void }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
@@ -419,8 +419,8 @@ export function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: 
           <Button type="submit" disabled={inCorso} className="flex-1">
             {inCorso ? "Salvataggio..." : tariffa ? "Salva modifiche" : "Aggiungi"}
           </Button>
-          {tariffa && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina}>
+          {tariffa && isAdmin && (
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)">
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           )}
@@ -433,10 +433,12 @@ export function FormTariffa({ tariffa, onFatto }: { tariffa?: Tariffa; onFatto: 
 function FormPromozione({
   tariffe,
   promozione,
+  isAdmin = false,
   onFatto,
 }: {
   tariffe: Tariffa[];
   promozione?: Promozione;
+  isAdmin?: boolean;
   onFatto: () => void;
 }) {
   const router = useRouter();
@@ -542,8 +544,8 @@ function FormPromozione({
           <Button type="submit" disabled={inCorso} className="flex-1">
             {inCorso ? "Salvataggio..." : promozione ? "Salva modifiche" : "Aggiungi"}
           </Button>
-          {promozione && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina}>
+          {promozione && isAdmin && (
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)">
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           )}

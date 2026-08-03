@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { Promozione, Tariffa } from "@/lib/types";
 
@@ -79,14 +80,17 @@ export async function impostaPubblicaTariffa(id: string, pubblica: boolean) {
   return { errore: null };
 }
 
+// ★ eliminare una Tariffa è un'azione da Admin, non da qualsiasi membro
+// dello staff — riguarda i prezzi venduti ai clienti. La RLS (migrazione
+// 0035) non concede più DELETE al client normale: passa dalla service
+// role, con il controllo admin fatto qui.
 export async function eliminaTariffa(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return { errore: "Solo un amministratore può eliminare una tariffa." };
 
-  const { error } = await supabase.from("tariffe").delete().eq("id", id);
+  const service = createServiceClient();
+  const { error } = await service.from("tariffe").delete().eq("id", id);
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");
@@ -157,14 +161,14 @@ export async function aggiornaPromozione(id: string, dati: DatiPromozione) {
   return { errore: null };
 }
 
+// ★ stesso discorso di eliminaTariffa(): solo Admin, passa dalla service role.
 export async function eliminaPromozione(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return { errore: "Solo un amministratore può eliminare una promozione." };
 
-  const { error } = await supabase.from("promozioni").delete().eq("id", id);
+  const service = createServiceClient();
+  const { error } = await service.from("promozioni").delete().eq("id", id);
   if (error) return { errore: error.message };
 
   revalidatePath("/tariffe");

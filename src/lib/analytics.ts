@@ -151,14 +151,24 @@ export interface StatistichePeriodo {
  * l'ultimo cambio, quindi il completamento per i ticket Completato)
  * invece che rileggere lo Storico Modifiche riga per riga. */
 export async function getStatistichePeriodo(supabase: Supabase, inizio: Date, fine: Date): Promise<StatistichePeriodo> {
-  const { data } = await supabase
-    .from("tickets")
-    .select("reparto, stato, priorita, data_creazione, aggiornato_il")
-    .neq("stato", "Annullato")
-    .gte("data_creazione", inizio.toISOString())
-    .lte("data_creazione", fine.toISOString());
-
-  const righe = data ?? [];
+  // ★ FIX — il periodo è scelto liberamente dall'utente (anche "tutto
+  // l'anno" via l'intervallo custom): senza `.range()` una `.select()` è
+  // limitata a 1000 righe da Supabase/PostgREST — stesso bug già trovato
+  // e corretto due volte su questo progetto.
+  const PAGINA = 1000;
+  const righe: { reparto: string; stato: string; priorita: string; data_creazione: string; aggiornato_il: string }[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await supabase
+      .from("tickets")
+      .select("reparto, stato, priorita, data_creazione, aggiornato_il")
+      .neq("stato", "Annullato")
+      .gte("data_creazione", inizio.toISOString())
+      .lte("data_creazione", fine.toISOString())
+      .range(offset, offset + PAGINA - 1);
+    const pagina = data ?? [];
+    righe.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
 
   const perReparto: StatistichePeriodo["perReparto"] = {} as StatistichePeriodo["perReparto"];
   for (const r of REPARTI_ELENCO) perReparto[r] = { aperti: 0, completati: 0, urgenti: 0, slaOreMedia: null, slaCampione: 0 };
