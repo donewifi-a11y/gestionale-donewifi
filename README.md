@@ -848,6 +848,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   il Ticket creato dal campo è ora identico, dati compresi, a uno creato dall'ufficio. Il banner
   `CampiMancanti` resta come rete di sicurezza generica (altre sottocategoria, o eventuali gap
   futuri), non serve più localmente qui.
+✅ Promemoria automatico per Richiesta Dati senza risposta (2026-08): dalla revisione del flusso
+  Segnalazione→Installazione era emerso che nessun promemoria fosse collegato all'invio della
+  Richiesta Dati — una pratica "Gestione Cliente" con link mandato ma senza risposta del cliente
+  restava silenziosa finché uno staff non se ne accorgeva scorrendo la bacheca (il badge "in attesa
+  da Ng" è solo visivo). Il piano Vercel di questo progetto è Hobby (limite 2 cron job, già entrambi
+  occupati da `pulizia-documenti` e `promemoria-ticket`) — niente terzo cron: il controllo si
+  aggiunge dentro `promemoria-ticket` (`src/app/api/cron/promemoria-ticket/route.ts`), che ora
+  interroga anche `segnalazioni` (stato `Gestione Cliente`, `dati_ricevuti_at` nullo,
+  `documenti_richiesti_at` più vecchio di 3 giorni — stessa soglia del badge nella bacheca) e manda
+  un avviso Telegram al reparto Commerciale con l'elenco. Verificato contro produzione: la query
+  intercetta correttamente le 2 pratiche reali già ferme dal 2026-07-30.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
