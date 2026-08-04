@@ -24,17 +24,27 @@ export function RichiestaDatiFlow({
 }) {
   const [sceltaPiano, setSceltaPiano] = useState<SceltaPiano | null>(null);
 
-  if (!sceltaPiano) {
-    return <ConfiguratorePiano tariffe={tariffe} router={router} extender={extender} onConferma={setSceltaPiano} />;
-  }
-
+  // ★ FIX — prima i due passi erano rami di un `if` che smontava/rimontava
+  // interamente il form: tornare indietro con "Cambia" per correggere il
+  // piano svuotava CF/telefono/IBAN/ecc. già scritti dal cliente. Qui
+  // RichiestaDatiForm resta sempre montato (solo nascosto via CSS finché
+  // non si conferma un piano), così i suoi input non controllati
+  // mantengono il valore digitato indipendentemente da quante volte si va
+  // avanti e indietro tra i due passi.
   return (
-    <RichiestaDatiForm
-      segnalazioneId={segnalazioneId}
-      giaInviato={giaInviato}
-      tariffe={tariffe}
-      sceltaPiano={sceltaPiano}
-      onCambiaPiano={() => setSceltaPiano(null)}
-    />
+    <>
+      <div className={sceltaPiano ? "hidden" : ""}>
+        <ConfiguratorePiano tariffe={tariffe} router={router} extender={extender} onConferma={setSceltaPiano} />
+      </div>
+      <div className={sceltaPiano ? "" : "hidden"}>
+        <RichiestaDatiForm
+          segnalazioneId={segnalazioneId}
+          giaInviato={giaInviato}
+          tariffe={tariffe}
+          sceltaPiano={sceltaPiano}
+          onCambiaPiano={() => setSceltaPiano(null)}
+        />
+      </div>
+    </>
   );
 }

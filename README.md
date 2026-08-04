@@ -792,6 +792,50 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     nel gestionale" — non finge una firma elettronica che non c'è, chiarisce cosa il sistema
     garantisce davvero. Una vera firma elettronica (verifica legale di chi firma) richiederebbe un
     fornitore esterno a pagamento: scelta del cliente, non una correzione di codice — non implementata.
+✅ Controllo d'oro — tutti i 13 punti (codice) corretti (2026-08): 4 audit paralleli in sola lettura su
+  tutto il gestionale (sicurezza/permessi, integrità dati/query, moduli non ancora rivisti, regressioni
+  recenti) hanno trovato 14 punti; tutti quelli risolvibili da codice sono stati corretti in un solo giro:
+  - **Sicurezza**: `creaTicket()` controllava solo il cookie di sessione, non se la Persona fosse
+    ancora `attivo`, prima di usare la service role per l'upload di un allegato — stesso bug già
+    corretto altrove, qui rimasto scoperto (fix: `getPersonaCorrente(supabase)` invece di
+    `getPersonaCorrenteId()`). Vista Tecnico aveva lo stesso rischio nel suo nuovo flusso
+    "Nuovo Ticket" self-service, risolto transitivamente dallo stesso fix (chiama `creaTicket()`).
+    `/api/cron/*` ora **fallisce chiuso** (401) in produzione se `CRON_SECRET` non è impostato, invece
+    di lasciar passare la richiesta — **verificare che `CRON_SECRET` sia impostato su Vercel prima del
+    prossimo deploy, altrimenti i due cron (pulizia documenti, promemoria ticket) si disattivano**.
+    `/api/portale/verifica-stato` (numero ticket + telefono, unico punto pubblico con ID indovinabile)
+    ha ora un rate limit in memoria per IP (8 tentativi/5 minuti — non perfetto su serverless, si azzera
+    ad ogni cold start, ma alza comunque il costo di un tentativo automatizzato senza bisogno di
+    infrastruttura esterna). Token di approvazione intervento (`/api/approva/[token]`) ora scade dopo
+    30 giorni se mai usato (prima: valido per sempre).
+  - **Integrità dati**: `salvaSchedaLavoro()` non controllava l'errore dell'update sul Ticket prima di
+    scrivere lo storico e mandare l'email di chiusura al cliente — un fallimento silenzioso poteva far
+    dire "intervento concluso" al cliente mentre il Ticket restava al vecchio stato. `getDatiAmministrazione()`/
+    `getDatiReparto()` (`src/lib/analytics.ts`, nuovo helper `fetchTuttoPaginato()`) e `getFattureCliente()`
+    (`clienti-esterni/actions.ts`) non paginavano — stesso bug del limite 1000 righe già corretto più
+    volte in questo progetto, stragglers rimasti in Dashboard Amministrazione e nello storico fatture
+    di un singolo cliente.
+  - **Dati d'ingresso**: Materiali e Tariffe accettavano prezzi negativi (solo `min="0"` lato HTML,
+    aggirabile) — validazione server-side aggiunta in entrambi gli `actions.ts` (verificato: 0 prezzi
+    negativi già in produzione, nessun dato da correggere a mano).
+  - **Sincronizzazione Aruba**: un fallimento a metà upsert (nessuna transazione, a blocchi) lasciava
+    dati anagrafica/fatture parzialmente aggiornati con solo un errore generico come segnale — i
+    messaggi d'errore ora dicono esplicitamente quante righe sono state scritte prima dell'interruzione
+    e che i dati sono parzialmente aggiornati, mostrati in giallo invece che come testo neutro.
+  - **Chiarezza per chi legge la Dashboard**: il pannello "Ricavi da rapportino per reparto" (quasi
+    sempre vicino a zero per come è popolato, mai stato pensato come fatturato reale) ora ha una nota
+    esplicita che rimanda a "Ricavi del mese" per il numero vero.
+  - **Coerenza dati**: nuova migrazione `0042_backfill_sottocategorie_rinominate.sql` per i Ticket
+    creati prima del rinomino "Trasferimento impianto"/"Cambio anagrafico" di ieri (verificato: 0 righe
+    da aggiornare in produzione oggi, ma da applicare comunque per correttezza/ambienti futuri).
+  - **UX**: il percorso rapido "Nuovo Ticket" di Vista Tecnico ora avvisa esplicitamente (sia subito
+    dopo la creazione sia riaprendo il Ticket, nuovo componente `CampiMancanti` in `tickets-board.tsx`,
+    generico per qualunque sottocategoria) quando mancano campi obbligatori saltati per restare rapidi
+    sul campo. `RichiestaDatiFlow` non smonta più `RichiestaDatiForm` quando si torna a "Scegli il tuo
+    piano" — prima "Cambia" perdeva CF/telefono/IBAN già scritti dal cliente.
+  - **Non nel codice**: "vera" firma elettronica del contratto (richiede un fornitore esterno a
+    pagamento, decisione del cliente non del codice — la tracciabilità di chi/quando è comunque ora
+    visibile, vedi sopra).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2 } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -566,6 +566,7 @@ function DettaglioTicket({
         {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
           <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
         )}
+        {ticket.sottocategoria && <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />}
         {ticket.contratto_pdf_url && (
           <Button
             size="sm"
@@ -693,6 +694,26 @@ function Campo({ etichetta, valore }: { etichetta: string; valore: string }) {
     </div>
   );
 }
+// ★ FIX — il percorso rapido "Nuovo Ticket" di Vista Tecnico crea Ticket
+// "Nuovo contratto"/altre sottocategoria con campi extra obbligatori senza
+// raccoglierli (form ridotto apposta per restare rapido sul campo), e
+// finora nulla segnalava che mancassero — l'ufficio se ne accorgeva solo
+// aprendo il Ticket e notando l'assenza. Banner generico, vale per
+// qualunque sottocategoria con campi obbligatori non ancora compilati, non
+// solo per quella nata da Vista Tecnico.
+function CampiMancanti({ sottocategoria, dettagli }: { sottocategoria: string; dettagli: Record<string, string> }) {
+  const config = CONFIG_SOTTOCATEGORIE[sottocategoria];
+  if (!config) return null;
+  const mancanti = config.campi.filter((c) => c.obbligatorio && c.tipo !== "file" && !dettagli?.[c.id]?.trim());
+  if (mancanti.length === 0) return null;
+  return (
+    <p className="flex items-start gap-1.5 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+      Campi obbligatori per &quot;{sottocategoria}&quot; ancora da completare: {mancanti.map((c) => c.label).join(", ")}.
+    </p>
+  );
+}
+
 function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; dettagli: Record<string, string> }) {
   const config = CONFIG_SOTTOCATEGORIE[sottocategoria];
 

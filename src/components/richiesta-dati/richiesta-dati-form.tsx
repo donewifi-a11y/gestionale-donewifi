@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, Upload, PencilLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,16 @@ export function RichiestaDatiForm({
   const [intestatarioDiverso, setIntestatarioDiverso] = useState(false);
   const [tipoDocumento, setTipoDocumento] = useState("CI");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // ★ FIX — questo componente ora resta montato quando si torna al passo
+  // "Scegli il tuo piano" (vedi richiesta-dati-flow.tsx, per non perdere i
+  // dati già scritti), quindi lo `useState` iniziale sopra non basta più a
+  // recepire una tipologia diversa se il cliente cambia scelta e riconferma:
+  // va risincronizzato ad ogni nuova conferma del piano.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con `sceltaPiano`, di proprietà del componente padre (richiesta-dati-flow.tsx), non derivabile durante il render di questo componente.
+    if (sceltaPiano) setTipologiaCliente(sceltaPiano.tipologiaCliente);
+  }, [sceltaPiano]);
 
   const tariffeVisibili = tariffe.filter(
     (t) => t.tipologia_cliente === "Tutti" || t.tipologia_cliente === tipologiaCliente

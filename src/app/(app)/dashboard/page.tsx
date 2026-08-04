@@ -436,6 +436,16 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
         </Pannello>
 
         <Pannello titolo="Ricavi da rapportino per reparto (€)">
+          {/* ★ FIX — importo_fatturato si compila solo a chiusura rapportino,
+          quasi sempre vuoto: senza questo avviso, un responsabile poteva
+          leggere cifre vicine allo zero come "il reparto ha fatturato quasi
+          nulla" invece che "non è il numero giusto da guardare". Il
+          fatturato reale è nel riquadro "Ricavi del mese" sopra, dalle
+          fatture Aruba vere. */}
+          <p className="-mt-1 mb-1 text-[11px] text-muted-foreground">
+            Solo l&apos;importo segnato a mano in chiusura rapportino, quasi sempre vuoto — non è il fatturato reale
+            del reparto (quello è in &quot;Ricavi del mese&quot; sopra).
+          </p>
           {Object.entries(dati.ricaviPerReparto).map(([reparto, v]) => (
             <BarraRiga key={reparto} etichetta={reparto} conteggio={Math.round(v)} max={maxRicaviReparto} colore="bg-success" />
           ))}

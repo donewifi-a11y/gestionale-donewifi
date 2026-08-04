@@ -10,12 +10,22 @@ type DatiTariffa = Pick<
   "nome" | "tipologia_cliente" | "velocita" | "prezzo_mensile" | "iva_inclusa" | "prezzo_attivazione" | "descrizione" | "attivo" | "pubblica" | "ordine"
 >;
 
+// ★ FIX — stesso controllo mancante di Materiali: nessuna validazione
+// server-side sui prezzi, solo `min="0"` sull'input HTML.
+function erroreValidazioneTariffa(dati: DatiTariffa): string | null {
+  if (dati.prezzo_mensile != null && (!Number.isFinite(dati.prezzo_mensile) || dati.prezzo_mensile < 0)) return "Il canone mensile non può essere negativo.";
+  if (dati.prezzo_attivazione != null && (!Number.isFinite(dati.prezzo_attivazione) || dati.prezzo_attivazione < 0)) return "Il costo di attivazione non può essere negativo.";
+  return null;
+}
+
 export async function creaTariffa(dati: DatiTariffa) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
+  const erroreValidazione = erroreValidazioneTariffa(dati);
+  if (erroreValidazione) return { errore: erroreValidazione };
 
   const { error } = await supabase.from("tariffe").insert(dati);
   if (error) return { errore: error.message };
@@ -32,6 +42,8 @@ export async function aggiornaTariffa(id: string, dati: DatiTariffa) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
+  const erroreValidazione = erroreValidazioneTariffa(dati);
+  if (erroreValidazione) return { errore: erroreValidazione };
 
   const { error } = await supabase.from("tariffe").update(dati).eq("id", id);
   if (error) return { errore: error.message };

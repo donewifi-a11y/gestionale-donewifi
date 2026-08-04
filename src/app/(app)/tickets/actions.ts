@@ -27,12 +27,17 @@ export async function creaTicket(
   fileExtra?: File | null
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX SICUREZZA — controllava solo getPersonaCorrenteId() (il cookie
+  // firmato, valido fino a 1 anno), non se la Persona fosse ancora
+  // attivo, prima di usare sotto la service role per l'upload
+  // dell'allegato (bypassa la RLS). Stesso identico bug già corretto per
+  // completaTicketConRapportino() e caricaContrattoSegnalazione() —
+  // rimasto scoperto qui. Un dipendente disattivato con cookie ancora
+  // valido poteva continuare a creare Ticket e scrivere nello storage
+  // privato.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
 
   // ★ i campi extra per sottocategoria (ex CONFIG_CATEGORIE) possono
   // includere un allegato (foto apparati, allegato contabile) — caricato

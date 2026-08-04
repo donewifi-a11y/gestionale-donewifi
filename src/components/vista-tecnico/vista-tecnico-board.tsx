@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { RapportinoForm } from "@/components/tickets/rapportino";
 import { PianificaAppuntamento } from "@/components/tickets/tickets-board";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
+import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import type { Appuntamento, MaterialeMagazzino, Persona, StatoTicket, Ticket } from "@/lib/types";
 
 // ★ NUOVO — il tecnico può aprire da solo un Ticket per un "Nuovo
@@ -153,6 +154,17 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
                 <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.25} />
                 Ticket #{ticketCreato.numero} creato e assegnato a te.
               </p>
+              {/* ★ FIX — questo percorso rapido non raccoglie i campi extra
+              obbligatori della sottocategoria (velocità sul campo, il form
+              completo è /tickets/nuovo) — prima nulla lo segnalava, l'ufficio
+              lo scopriva solo aprendo il Ticket. */}
+              {(CONFIG_SOTTOCATEGORIE[tipo]?.campi.some((c) => c.obbligatorio)) && (
+                <p className="flex items-start gap-1.5 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  Alcuni campi di &quot;{tipo}&quot; non sono stati raccolti qui (percorso rapido) — l&apos;ufficio
+                  dovrà completarli aprendo il Ticket.
+                </p>
+              )}
               <PianificaAppuntamento
                 ticket={ticketCreato}
                 persone={persone}

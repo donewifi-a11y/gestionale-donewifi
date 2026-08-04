@@ -34,6 +34,26 @@ async function sommaImportoFattureDa(supabase: Supabase, dataIso: string): Promi
   return totale;
 }
 
+/** ★ FIX — stesso bug di `sommaImportoFattureDa()` sopra, qui rimasto
+ * scoperto: `segnalazioniMese`/`ticketCompletatiMese` non paginavano,
+ * quindi in un mese con oltre 1000 righe le KPI di Amministrazione
+ * (acquisizioni, ricavi per reparto, completati, andamento giornaliero)
+ * si sarebbero silenziosamente sottostimate — lo stesso tipo di bug che
+ * ha già causato un fatturato mostrato sbagliato in produzione. */
+async function fetchTuttoPaginato<T>(
+  query: (offset: number, limite: number) => PromiseLike<{ data: T[] | null }>
+): Promise<T[]> {
+  const PAGINA = 1000;
+  const tutte: T[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    const { data } = await query(offset, PAGINA);
+    const pagina = data ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
+}
+
 /** ★ ex getDatiAnalyticsAmministrazione() del vecchio gestionale, semplificato:
  * niente più foglio "Clienti Attivi" separato — le acquisizioni si leggono
  * da segnalazioni (tipologia_cliente/profilo_internet, già esistenti). I
@@ -47,22 +67,25 @@ export async function getDatiAmministrazione(supabase: Supabase) {
   const oggi = new Date();
   const giorniNelMese = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).getDate();
 
-  const [{ data: segnalazioniMese }, { data: ticketCompletatiMese }, ricaviFattureMese] = await Promise.all([
-    supabase
-      .from("segnalazioni")
-      .select("stato, tipologia_cliente, profilo_internet, dati_ricevuti_at")
-      .eq("stato", "Trasmessa")
-      .gte("aggiornato_il", inizio.toISOString()),
-    supabase
-      .from("tickets")
-      .select("reparto, importo_fatturato, aggiornato_il")
-      .eq("stato", "Completato")
-      .gte("aggiornato_il", inizio.toISOString()),
+  const [acquisizioni, completati, ricaviFattureMese] = await Promise.all([
+    fetchTuttoPaginato((offset, limite) =>
+      supabase
+        .from("segnalazioni")
+        .select("stato, tipologia_cliente, profilo_internet, dati_ricevuti_at")
+        .eq("stato", "Trasmessa")
+        .gte("aggiornato_il", inizio.toISOString())
+        .range(offset, offset + limite - 1)
+    ),
+    fetchTuttoPaginato((offset, limite) =>
+      supabase
+        .from("tickets")
+        .select("reparto, importo_fatturato, aggiornato_il")
+        .eq("stato", "Completato")
+        .gte("aggiornato_il", inizio.toISOString())
+        .range(offset, offset + limite - 1)
+    ),
     sommaImportoFattureDa(supabase, inizio.toISOString().slice(0, 10)),
   ]);
-
-  const acquisizioni = segnalazioniMese ?? [];
-  const completati = ticketCompletatiMese ?? [];
 
   const perTipologia: Record<string, number> = { Privato: 0, Azienda: 0, "Non specificato": 0 };
   const perProfilo: Record<string, number> = {};
@@ -106,14 +129,28 @@ export async function getDatiAmministrazione(supabase: Supabase) {
 export async function getDatiReparto(supabase: Supabase, reparto: AreaAccesso) {
   const inizio = inizioMese();
 
-  const [{ data: ticketsAttivi }, { data: ticketCompletatiMese }, { data: persone }] = await Promise.all([
-    supabase.from("tickets").select("id, numero, cliente, priorita, stato, tecnico_assegnato").eq("reparto", reparto).neq("stato", "Completato").neq("stato", "Annullato"),
-    supabase.from("tickets").select("importo_fatturato, tecnico_assegnato").eq("reparto", reparto).eq("stato", "Completato").gte("aggiornato_il", inizio.toISOString()),
+  const [attivi, completatiMese, { data: persone }] = await Promise.all([
+    fetchTuttoPaginato((offset, limite) =>
+      supabase
+        .from("tickets")
+        .select("id, numero, cliente, priorita, stato, tecnico_assegnato")
+        .eq("reparto", reparto)
+        .neq("stato", "Completato")
+        .neq("stato", "Annullato")
+        .range(offset, offset + limite - 1)
+    ),
+    fetchTuttoPaginato((offset, limite) =>
+      supabase
+        .from("tickets")
+        .select("importo_fatturato, tecnico_assegnato")
+        .eq("reparto", reparto)
+        .eq("stato", "Completato")
+        .gte("aggiornato_il", inizio.toISOString())
+        .range(offset, offset + limite - 1)
+    ),
     supabase.from("persone").select("id, nome").eq("attivo", true),
   ]);
 
-  const attivi = ticketsAttivi ?? [];
-  const completatiMese = ticketCompletatiMese ?? [];
   const listaPersone = persone ?? [];
 
   const ricaviMese = completatiMese.reduce((s, t) => s + (Number(t.importo_fatturato) || 0), 0);

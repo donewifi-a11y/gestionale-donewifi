@@ -327,10 +327,18 @@ export async function salvaSchedaLavoro(
       .eq("id", appuntamento.ticket_id)
       .single();
     if (ticket) {
-      await supabase
+      // ★ FIX — questo update non controllava l'errore prima di scrivere lo
+      // storico e mandare l'email di chiusura al cliente: se falliva (RLS,
+      // vincolo, rete), il cliente riceveva comunque "il tuo intervento è
+      // concluso" e lo storico diceva "Completato", mentre il Ticket
+      // restava al vecchio stato senza importo_fatturato (usato dai ricavi
+      // per reparto in Dashboard) — un disallineamento silenzioso tra
+      // quello detto al cliente e lo stato reale del Ticket.
+      const { error: erroreTicket } = await supabase
         .from("tickets")
         .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
         .eq("id", appuntamento.ticket_id);
+      if (erroreTicket) return { errore: erroreTicket.message };
       await supabase.from("storico").insert({
         origine: "ticket",
         riferimento_id: appuntamento.ticket_id,

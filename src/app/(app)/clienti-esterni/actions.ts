@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import { revalidatePath } from "next/cache";
+import type { FatturaEsterna } from "@/lib/types";
 
 async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
@@ -125,7 +126,12 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
   for (let i = 0; i < righe.length; i += DIMENSIONE_BLOCCO) {
     const blocco = righe.slice(i, i + DIMENSIONE_BLOCCO);
     const { error } = await service.from("clienti_esterni").upsert(blocco, { onConflict: "id" });
-    if (error) return { errore: error.message, sincronizzati: i };
+    // ★ FIX — segnalare esplicitamente che si tratta di una sincronizzazione
+    // PARZIALE: senza transazione (upsert a blocchi), i blocchi già scritti
+    // restano tali anche se uno successivo fallisce — prima l'unico segnale
+    // era un messaggio d'errore generico, indistinguibile da un fallimento
+    // totale, senza dire che i dati sono ora in uno stato misto vecchio/nuovo.
+    if (error) return { errore: `Sincronizzazione interrotta dopo ${i} clienti su ${righe.length}: ${error.message}. Anagrafica parzialmente aggiornata — riprova per completarla.`, sincronizzati: i };
   }
 
   // ★ il flag "attivo" mostrato in tutta l'app non è il campo grezzo
@@ -223,9 +229,16 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
         { cache: "no-store" }
       );
     } catch {
-      return { errore: `Impossibile raggiungere il ponte Aruba (offset ${offset}).`, sincronizzati };
+      return {
+        errore: `Impossibile raggiungere il ponte Aruba (offset ${offset}). ${sincronizzati > 0 ? `Fatture parzialmente aggiornate (${sincronizzati} scritte) — riprova per completare.` : ""}`,
+        sincronizzati,
+      };
     }
-    if (!risposta.ok) return { errore: `Ponte Aruba: HTTP ${risposta.status} (offset ${offset})`, sincronizzati };
+    if (!risposta.ok)
+      return {
+        errore: `Ponte Aruba: HTTP ${risposta.status} (offset ${offset}). ${sincronizzati > 0 ? `Fatture parzialmente aggiornate (${sincronizzati} scritte) — riprova per completare.` : ""}`,
+        sincronizzati,
+      };
 
     const pagina = (await risposta.json()) as { fatture: RigaFatturaAruba[]; totale: number };
     totale = pagina.totale;
@@ -257,7 +270,11 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
 
     if (righe.length > 0) {
       const { error } = await service.from("fatture_esterne").upsert(righe, { onConflict: "codice,numero" });
-      if (error) return { errore: error.message, sincronizzati };
+      if (error)
+        return {
+          errore: `Sincronizzazione interrotta dopo ${sincronizzati} fatture: ${error.message}. Dati parzialmente aggiornati — riprova per completare.`,
+          sincronizzati,
+        };
     }
 
     sincronizzati += righe.length;
@@ -280,13 +297,24 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
   return { errore: null, sincronizzati, scartate };
 }
 
+// ★ FIX — nessuna paginazione: un cliente con oltre 1000 fatture (storico
+// lungo, fatturazione frequente) avrebbe visto lo storico troncato in
+// silenzio, stesso bug già corretto altrove in questo file (vedi il loop
+// `.range()` poco sotto per l'import da Aruba).
 export async function getFattureCliente(codiceFiscale: string | null, partitaIva: string | null) {
   if (!codiceFiscale && !partitaIva) return [];
   const supabase = await createClient();
-  let query = supabase.from("fatture_esterne").select("*").order("emissione", { ascending: false });
-  query = codiceFiscale ? query.eq("codice_fiscale", codiceFiscale) : query.eq("partita_iva", partitaIva!);
-  const { data } = await query;
-  return data ?? [];
+  const PAGINA = 1000;
+  const tutte: FatturaEsterna[] = [];
+  for (let offset = 0; ; offset += PAGINA) {
+    let query = supabase.from("fatture_esterne").select("*").order("emissione", { ascending: false });
+    query = codiceFiscale ? query.eq("codice_fiscale", codiceFiscale) : query.eq("partita_iva", partitaIva!);
+    const { data } = await query.range(offset, offset + PAGINA - 1);
+    const pagina = (data as FatturaEsterna[] | null) ?? [];
+    tutte.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+  return tutte;
 }
 
 /** ★ NUOVA — collega la scheda cliente ai Ticket del gestionale: non c'è

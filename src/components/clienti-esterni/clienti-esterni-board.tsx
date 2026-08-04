@@ -31,6 +31,7 @@ export function ClientiEsterniBoard({
   const [inCorsoAnagrafica, setInCorsoAnagrafica] = useState(false);
   const [inCorsoFatture, setInCorsoFatture] = useState(false);
   const [esito, setEsito] = useState("");
+  const [esitoErrore, setEsitoErrore] = useState(false);
 
   const numeroNonAttivi = useMemo(() => clienti.filter((c) => !c.attivo).length, [clienti]);
 
@@ -50,6 +51,7 @@ export function ClientiEsterniBoard({
     setEsito("");
     const risultato = await sincronizzaAnagraficaAruba();
     setInCorsoAnagrafica(false);
+    setEsitoErrore(!!risultato.errore);
     setEsito(risultato.errore || `Sincronizzati ${risultato.sincronizzati} clienti.`);
     router.refresh();
   }
@@ -59,6 +61,7 @@ export function ClientiEsterniBoard({
     setEsito("");
     const risultato = await sincronizzaFattureAruba();
     setInCorsoFatture(false);
+    setEsitoErrore(!!risultato.errore);
     setEsito(
       risultato.errore ||
         `Sincronizzate ${risultato.sincronizzati} fatture` +
@@ -128,7 +131,13 @@ export function ClientiEsterniBoard({
       </div>
 
       {esito && (
-        <p className="mb-4 rounded-lg bg-muted/60 p-2.5 text-sm text-muted-foreground">{esito}</p>
+        <p
+          className={`mb-4 rounded-lg p-2.5 text-sm ${
+            esitoErrore ? "bg-warning/10 text-warning" : "bg-muted/60 text-muted-foreground"
+          }`}
+        >
+          {esito}
+        </p>
       )}
 
       {clienti.length === 0 && (
