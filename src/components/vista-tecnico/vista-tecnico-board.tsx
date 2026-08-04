@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, AlertTriangle } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,16 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
   const [telefono, setTelefono] = useState("");
   const [indirizzo, setIndirizzo] = useState("");
   const [note, setNote] = useState("");
+  // ★ FIX — prima questo percorso rapido creava il Ticket con
+  // `dettagliExtra: {}`, saltando i campi obbligatori della sottocategoria
+  // (es. Tipologia Cliente/indirizzo attivazione/ripetitore/velocità per
+  // "Nuovo contratto") — l'ufficio doveva accorgersene aprendo il Ticket e
+  // completarli a mano. Ora li raccoglie qui, stessa configurazione
+  // (CONFIG_SOTTOCATEGORIE) usata dal form completo /tickets/nuovo, così il
+  // Ticket è completo fin dalla creazione anche passando dal percorso
+  // rapido di Vista Tecnico.
+  const [campiExtra, setCampiExtra] = useState<Record<string, string>>({});
+  const [fileExtraCampo, setFileExtraCampo] = useState<File | null>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [ticketCreato, setTicketCreato] = useState<Ticket | null>(null);
@@ -72,9 +82,19 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
     setTelefono("");
     setIndirizzo("");
     setNote("");
+    setCampiExtra({});
+    setFileExtraCampo(null);
     setErrore("");
     setTicketCreato(null);
   }
+
+  function scegliTipo(t: TipoRichiestaRapida) {
+    setTipo(t);
+    setCampiExtra({});
+    setFileExtraCampo(null);
+  }
+
+  const configExtra = tipo ? CONFIG_SOTTOCATEGORIE[tipo] : undefined;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,22 +103,35 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
       setErrore("Il nome del cliente è obbligatorio.");
       return;
     }
+    for (const campo of configExtra?.campi ?? []) {
+      if (campo.obbligatorio && campo.tipo === "file" && !fileExtraCampo) {
+        setErrore(`Il campo "${campo.label}" è obbligatorio.`);
+        return;
+      }
+      if (campo.obbligatorio && campo.tipo !== "file" && !(campiExtra[campo.id] || "").trim()) {
+        setErrore(`Il campo "${campo.label}" è obbligatorio.`);
+        return;
+      }
+    }
     setErrore("");
     setInCorso(true);
     const config = CONFIG_RICHIESTA_RAPIDA[tipo];
-    const risultato = await creaTicket({
-      cliente: cliente.trim(),
-      telefono,
-      email: "",
-      indirizzo,
-      categoria: config.categoria,
-      sottocategoria: tipo,
-      problema: note,
-      priorita: "Normale",
-      reparto: config.reparto,
-      dettagliExtra: {},
-      tecnicoAssegnato: personaId,
-    });
+    const risultato = await creaTicket(
+      {
+        cliente: cliente.trim(),
+        telefono,
+        email: "",
+        indirizzo,
+        categoria: config.categoria,
+        sottocategoria: tipo,
+        problema: note,
+        priorita: "Normale",
+        reparto: config.reparto,
+        dettagliExtra: campiExtra,
+        tecnicoAssegnato: personaId,
+      },
+      fileExtraCampo
+    );
     setInCorso(false);
     if (risultato.errore || !risultato.ticket) {
       setErrore(risultato.errore || "Errore nella creazione del ticket.");
@@ -134,7 +167,7 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setTipo(t)}
+                    onClick={() => scegliTipo(t)}
                     className="flex items-start gap-3 rounded-xl border p-3.5 text-left transition hover:border-primary hover:bg-accent-soft/40"
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -154,17 +187,6 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
                 <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.25} />
                 Ticket #{ticketCreato.numero} creato e assegnato a te.
               </p>
-              {/* ★ FIX — questo percorso rapido non raccoglie i campi extra
-              obbligatori della sottocategoria (velocità sul campo, il form
-              completo è /tickets/nuovo) — prima nulla lo segnalava, l'ufficio
-              lo scopriva solo aprendo il Ticket. */}
-              {(CONFIG_SOTTOCATEGORIE[tipo]?.campi.some((c) => c.obbligatorio)) && (
-                <p className="flex items-start gap-1.5 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  Alcuni campi di &quot;{tipo}&quot; non sono stati raccolti qui (percorso rapido) — l&apos;ufficio
-                  dovrà completarli aprendo il Ticket.
-                </p>
-              )}
               <PianificaAppuntamento
                 ticket={ticketCreato}
                 persone={persone}
@@ -191,6 +213,66 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
                 <Label htmlFor="vt-indirizzo">Indirizzo</Label>
                 <IndirizzoAutocomplete id="vt-indirizzo" name="indirizzo" value={indirizzo} onChange={setIndirizzo} className="mt-1" />
               </div>
+
+              {configExtra && (
+                <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-accent-soft/40 p-3.5">
+                  {configExtra.info && (
+                    <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+                      {configExtra.info}
+                    </p>
+                  )}
+                  {configExtra.campi.map((campo) => (
+                    <div key={campo.id}>
+                      <Label htmlFor={`vt-cx-${campo.id}`}>
+                        {campo.label}
+                        {campo.obbligatorio && " *"}
+                      </Label>
+                      {campo.tipo === "select" ? (
+                        <select
+                          id={`vt-cx-${campo.id}`}
+                          value={campiExtra[campo.id] || ""}
+                          onChange={(e) => setCampiExtra((c) => ({ ...c, [campo.id]: e.target.value }))}
+                          className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+                        >
+                          <option value="">-- Seleziona --</option>
+                          {campo.opzioni?.map((o) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                      ) : campo.tipo === "textarea" ? (
+                        <Textarea
+                          id={`vt-cx-${campo.id}`}
+                          value={campiExtra[campo.id] || ""}
+                          onChange={(e) => setCampiExtra((c) => ({ ...c, [campo.id]: e.target.value }))}
+                          placeholder={campo.placeholder}
+                          rows={2}
+                          className="mt-1"
+                        />
+                      ) : campo.tipo === "file" ? (
+                        <input
+                          id={`vt-cx-${campo.id}`}
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setFileExtraCampo(e.target.files?.[0] ?? null)}
+                          className="mt-1 block w-full text-xs"
+                        />
+                      ) : (
+                        <Input
+                          id={`vt-cx-${campo.id}`}
+                          type={campo.tipo}
+                          value={campiExtra[campo.id] || ""}
+                          onChange={(e) => setCampiExtra((c) => ({ ...c, [campo.id]: e.target.value }))}
+                          placeholder={campo.placeholder}
+                          className="mt-1"
+                        />
+                      )}
+                      {campo.hint && <p className="mt-1 text-[11px] text-muted-foreground">{campo.hint}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="vt-note">Note</Label>
                 <Textarea id="vt-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="mt-1" />

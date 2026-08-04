@@ -828,14 +828,26 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - **Coerenza dati**: nuova migrazione `0042_backfill_sottocategorie_rinominate.sql` per i Ticket
     creati prima del rinomino "Trasferimento impianto"/"Cambio anagrafico" di ieri (verificato: 0 righe
     da aggiornare in produzione oggi, ma da applicare comunque per correttezza/ambienti futuri).
-  - **UX**: il percorso rapido "Nuovo Ticket" di Vista Tecnico ora avvisa esplicitamente (sia subito
-    dopo la creazione sia riaprendo il Ticket, nuovo componente `CampiMancanti` in `tickets-board.tsx`,
-    generico per qualunque sottocategoria) quando mancano campi obbligatori saltati per restare rapidi
-    sul campo. `RichiestaDatiFlow` non smonta più `RichiestaDatiForm` quando si torna a "Scegli il tuo
-    piano" — prima "Cambia" perdeva CF/telefono/IBAN già scritti dal cliente.
+  - **UX**: il percorso rapido "Nuovo Ticket" di Vista Tecnico avvisa (sia subito dopo la creazione sia
+    riaprendo il Ticket, nuovo componente `CampiMancanti` in `tickets-board.tsx`, generico per
+    qualunque sottocategoria) quando mancano campi obbligatori — vedi sotto, per "Nuovo contratto"/
+    "Intervento in loco" non dovrebbe più succedere. `RichiestaDatiFlow` non smonta più
+    `RichiestaDatiForm` quando si torna a "Scegli il tuo piano" — prima "Cambia" perdeva
+    CF/telefono/IBAN già scritti dal cliente.
   - **Non nel codice**: "vera" firma elettronica del contratto (richiede un fornitore esterno a
     pagamento, decisione del cliente non del codice — la tracciabilità di chi/quando è comunque ora
     visibile, vedi sopra).
+✅ Vista Tecnico "Nuovo Ticket" raccoglie davvero i campi obbligatori (2026-08, seguito del controllo
+  d'oro): il percorso rapido creava il Ticket con `dettagliExtra: {}`, saltando Tipologia
+  Cliente/indirizzo di attivazione/ripetitore/velocità massima ("Nuovo contratto") o
+  disponibilità/data preferita ("Intervento in loco") — l'ufficio doveva accorgersene aprendo il
+  Ticket e completarli a mano, il banner `CampiMancanti` li segnalava ma non li raccoglieva.
+  `NuovoTicketTecnico` ora renderizza dinamicamente `CONFIG_SOTTOCATEGORIE[tipo].campi` (stessa
+  configurazione del form completo `/tickets/nuovo`, stesso pattern select/text/textarea/file),
+  valida i campi obbligatori prima di inviare e passa `dettagliExtra` compilato a `creaTicket()` —
+  il Ticket creato dal campo è ora identico, dati compresi, a uno creato dall'ufficio. Il banner
+  `CampiMancanti` resta come rete di sicurezza generica (altre sottocategoria, o eventuali gap
+  futuri), non serve più localmente qui.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
