@@ -3,6 +3,8 @@ import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAle
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { REPARTI_ELENCO } from "@/lib/analytics";
+import { ChatPanel } from "@/components/chat/chat-panel";
+import { TodoPanel } from "@/components/todo/todo-panel";
 import type { AreaAccesso } from "@/lib/types";
 
 const SLUG_REPARTO: Record<string, string> = {
@@ -185,6 +187,18 @@ export default async function MondoTicketPage() {
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ★ NUOVA — chat e to-do personali come riquadri fissi qui invece di
+      pulsanti flottanti sempre in vista su ogni pagina ("troppi pulsanti
+      in giro", segnalato esplicitamente) — restano comunque richiamabili
+      come pop-up da qualunque sezione tramite i due pulsanti in fondo
+      alla sidebar. Stesso componente, due contesti diversi. */}
+      {personaCorrenteId && (
+        <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <ChatPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
+          <TodoPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
         </div>
       )}
 

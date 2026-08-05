@@ -22,6 +22,8 @@ import {
   UsersRound,
   Database,
   Wrench,
+  MessageCircle,
+  ListChecks,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -48,12 +50,16 @@ export function AppSidebar({
   personaCorrenteId,
   personaAmministratore,
   personaReparti,
+  onApriChat,
+  onApriTodo,
 }: {
   email: string;
   persone: Persona[];
   personaCorrenteId: string | null;
   personaAmministratore: boolean;
   personaReparti: AreaAccesso[];
+  onApriChat?: () => void;
+  onApriTodo?: () => void;
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
@@ -210,6 +216,28 @@ export function AppSidebar({
       </div>
 
       <div className="border-t border-sidebar-border px-4 py-4">
+        {personaCorrenteId && (onApriChat || onApriTodo) && (
+          <div className="mb-3 flex gap-2">
+            {onApriChat && (
+              <button
+                onClick={onApriChat}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Chat
+              </button>
+            )}
+            {onApriTodo && (
+              <button
+                onClick={onApriTodo}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <ListChecks className="h-3.5 w-3.5" strokeWidth={2.25} />
+                To-Do
+              </button>
+            )}
+          </div>
+        )}
         <PersonaSwitcher persone={persone} personaCorrenteId={personaCorrenteId} />
         <div className="mb-3 leading-tight">
           {(isAdmin || personaReparti.length > 0) && (

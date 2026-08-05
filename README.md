@@ -880,16 +880,29 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   richiesta esplicita per passare ai to-do personali, da chiudere in un secondo momento.
 ✅ To-do personali (2026-08): un "angolo" privato per ciascuna Persona, richiesto esplicitamente —
   cose da fare proprie, non legate a Ticket/Segnalazioni/Calendario e non condivise con nessun altro.
-  Stesso pattern architetturale della chat interna: widget flottante sempre visibile
-  (`TodoWidget`, angolo opposto rispetto alla chat — chat in basso a destra, to-do in basso a
-  sinistra) e, soprattutto, **RLS reale** sulla nuova tabella `todo_personali` (migrazione
-  `0043_todo_personali.sql`, da applicare via SQL Editor) invece del solito controllo solo
-  applicativo: riusa la stessa `persona_corrente_id()` già definita per la chat (migrazione `0021`),
-  nessuna nuova funzione. Un utente non può vedere né toccare i to-do di un altro nemmeno interrogando
+  Stesso pattern architetturale della chat interna, e soprattutto **RLS reale** sulla nuova tabella
+  `todo_personali` (migrazione `0043_todo_personali.sql`, da applicare via SQL Editor) invece del
+  solito controllo solo applicativo: riusa la stessa `persona_corrente_id()` già definita per la chat
+  (migrazione `0021`), nessuna nuova funzione. Un utente non può vedere né toccare i to-do di un altro
+  nemmeno interrogando
   la tabella direttamente via REST — dati personali, stesso livello di protezione dei messaggi chat.
   Niente Realtime qui (a differenza della chat): un solo proprietario per lista, basta un refresh dopo
   ogni azione. Azioni: `getTodoPersonali`/`creaTodoPersonale`/`completaTodoPersonale`/
   `eliminaTodoPersonale` (`src/app/(app)/todo/actions.ts`).
+✅ Chat e To-Do: da pulsanti flottanti a riquadri + pop-up richiamabile (2026-08, seguito immediato):
+  "troppi pulsanti in giro", segnalato esplicitamente — prima chat e to-do erano due pulsanti circolari
+  sempre visibili, uno per angolo, su ogni pagina. Refactor: il contenuto di entrambi è stato estratto
+  dal proprio widget flottante in un componente puro riutilizzabile (`ChatPanel`/`TodoPanel`, prop
+  `variant: "popup" | "riquadro"`), usato in due punti diversi:
+  - **Riquadri fissi in home** (`src/app/(app)/page.tsx`, "Mondo Ticket"): chat e to-do compaiono per
+    intero, sempre visibili, appena sotto i Promemoria — non serve più aprire nulla per vederli.
+  - **Pop-up richiamabile da ogni sezione**: due pulsanti compatti in fondo alla sidebar ("Chat" /
+    "To-Do", sopra il selettore Persona) al posto dei due FAB permanenti — aprono lo stesso pannello
+    come overlay, uno alla volta (nuovo stato condiviso in `AppShell`, `src/components/app-shell.tsx`,
+    che ora sostituisce il rendering diretto di sidebar+contenuto+widget in `layout.tsx`). Chiuso di
+    default, compare solo quando richiamato, invece di occupare permanentemente un angolo dello
+    schermo su ogni pagina.
+  Nessuna migrazione, nessuna modifica ai dati — solo dove/come viene mostrato lo stesso contenuto.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
