@@ -875,7 +875,21 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Storage (contratti PDF, foto documenti d'identità, foto/firme rapportini) non sono righe di
   database — `pg_dump` non li tocca, restano protetti solo dall'infrastruttura Supabase stessa.
   **Per ripristinare** un dump: `gunzip -c backup-donewifi-AAAA-MM-GG.sql.gz | psql "$SUPABASE_DB_URL"`
-  (scaricando prima l'artifact dalla tab Actions del repository).
+  (scaricando prima l'artifact dalla tab Actions del repository). **Da riprendere**: il primo run è
+  fallito due volte (password non percent-encoded nel secret, poi da verificare) — messo in pausa su
+  richiesta esplicita per passare ai to-do personali, da chiudere in un secondo momento.
+✅ To-do personali (2026-08): un "angolo" privato per ciascuna Persona, richiesto esplicitamente —
+  cose da fare proprie, non legate a Ticket/Segnalazioni/Calendario e non condivise con nessun altro.
+  Stesso pattern architetturale della chat interna: widget flottante sempre visibile
+  (`TodoWidget`, angolo opposto rispetto alla chat — chat in basso a destra, to-do in basso a
+  sinistra) e, soprattutto, **RLS reale** sulla nuova tabella `todo_personali` (migrazione
+  `0043_todo_personali.sql`, da applicare via SQL Editor) invece del solito controllo solo
+  applicativo: riusa la stessa `persona_corrente_id()` già definita per la chat (migrazione `0021`),
+  nessuna nuova funzione. Un utente non può vedere né toccare i to-do di un altro nemmeno interrogando
+  la tabella direttamente via REST — dati personali, stesso livello di protezione dei messaggi chat.
+  Niente Realtime qui (a differenza della chat): un solo proprietario per lista, basta un refresh dopo
+  ogni azione. Azioni: `getTodoPersonali`/`creaTodoPersonale`/`completaTodoPersonale`/
+  `eliminaTodoPersonale` (`src/app/(app)/todo/actions.ts`).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

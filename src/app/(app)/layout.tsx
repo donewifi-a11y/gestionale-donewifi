@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId, getPersonaCorrente, impostaCookiePersona } from "@/lib/persona";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat/chat-widget";
+import { TodoWidget } from "@/components/todo/todo-widget";
 import type { Persona } from "@/lib/types";
 
 /**
@@ -91,6 +92,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <ChatWidget personaCorrenteId={personaCorrenteId} />
+      <TodoWidget personaCorrenteId={personaCorrenteId} />
     </div>
   );
 }

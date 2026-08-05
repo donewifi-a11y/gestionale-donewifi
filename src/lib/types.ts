@@ -251,6 +251,15 @@ export interface MessaggioChat {
   creato_il: string;
 }
 
+export interface TodoPersonale {
+  id: string;
+  persona_id: string;
+  testo: string;
+  fatto: boolean;
+  creato_il: string;
+  completato_il: string | null;
+}
+
 export interface NotaCalendario {
   id: string;
   testo: string;
