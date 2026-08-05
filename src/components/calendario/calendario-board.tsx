@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink } from "lucide-react";
@@ -48,6 +48,22 @@ function chiaveGiorno(iso: string) {
 }
 function chiaveGiornoData(data: string) {
   return parseData(data).toDateString();
+}
+// ★ FIX — VistaSettimana (×7 celle) e VistaMese (×42 celle) rifiltravano
+// da zero l'intero array di appuntamenti/note/eventi per ogni cella, ad
+// ogni render, con la stessa logica di raggruppamento incollata due volte
+// (tre contando VistaGiorno). Un solo passaggio sui dati (qui) invece di
+// N passaggi ripetuti, con lookup O(1) per cella invece di un `.filter()`
+// sull'intero array.
+function raggruppaPerGiorno<T>(items: T[], chiaveDi: (item: T) => string): Map<string, T[]> {
+  const mappa = new Map<string, T[]>();
+  for (const item of items) {
+    const chiave = chiaveDi(item);
+    const lista = mappa.get(chiave);
+    if (lista) lista.push(item);
+    else mappa.set(chiave, [item]);
+  }
+  return mappa;
 }
 function lunediSettimana(d: Date): Date {
   const l = new Date(d);
@@ -427,15 +443,18 @@ function VistaSettimana({
     return d;
   });
   const oggiChiave = new Date().toDateString();
+  const appuntamentiPerGiorno = useMemo(() => raggruppaPerGiorno(appuntamenti, (a) => chiaveGiorno(a.data_ora)), [appuntamenti]);
+  const notePerGiorno = useMemo(() => raggruppaPerGiorno(note, (n) => chiaveGiornoData(n.data_promemoria)), [note]);
+  const eventiPerGiorno = useMemo(() => raggruppaPerGiorno(eventiGoogle, chiaveGiornoEvento), [eventiGoogle]);
 
   return (
     <div className="grid grid-cols-7 gap-2 overflow-x-auto">
       {giorni.map((d, i) => {
         const chiave = d.toDateString();
         const isOggi = chiave === oggiChiave;
-        const appts = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave);
-        const noteGiorno = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave);
-        const eventiGiorno = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave);
+        const appts = appuntamentiPerGiorno.get(chiave) ?? [];
+        const noteGiorno = notePerGiorno.get(chiave) ?? [];
+        const eventiGiorno = eventiPerGiorno.get(chiave) ?? [];
         return (
           <div key={i} className={`min-w-0 rounded-2xl border p-2 ${isOggi ? "border-primary/40 bg-primary/5" : "bg-card"}`}>
             <div className={`mb-2 text-center text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
@@ -497,6 +516,9 @@ function VistaMese({
   });
   const oggiChiave = new Date().toDateString();
   const meseCorrente = dataRiferimento.getMonth();
+  const appuntamentiPerGiorno = useMemo(() => raggruppaPerGiorno(appuntamenti, (a) => chiaveGiorno(a.data_ora)), [appuntamenti]);
+  const notePerGiorno = useMemo(() => raggruppaPerGiorno(note, (n) => chiaveGiornoData(n.data_promemoria)), [note]);
+  const eventiPerGiorno = useMemo(() => raggruppaPerGiorno(eventiGoogle, chiaveGiornoEvento), [eventiGoogle]);
 
   return (
     <div>
@@ -510,9 +532,9 @@ function VistaMese({
           const chiave = d.toDateString();
           const isOggi = chiave === oggiChiave;
           const fuoriMese = d.getMonth() !== meseCorrente;
-          const nAppuntamenti = appuntamenti.filter((a) => chiaveGiorno(a.data_ora) === chiave && a.stato !== "Annullato").length;
-          const nNote = note.filter((n) => chiaveGiornoData(n.data_promemoria) === chiave && !n.completata).length;
-          const nEventi = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave).length;
+          const nAppuntamenti = (appuntamentiPerGiorno.get(chiave) ?? []).filter((a) => a.stato !== "Annullato").length;
+          const nNote = (notePerGiorno.get(chiave) ?? []).filter((n) => !n.completata).length;
+          const nEventi = (eventiPerGiorno.get(chiave) ?? []).length;
           return (
             <Link
               key={i}

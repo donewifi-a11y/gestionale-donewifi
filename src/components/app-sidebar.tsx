@@ -219,15 +219,21 @@ export function AppSidebar({
         </nav>
       </div>
 
-      <div className="border-t border-sidebar-border px-4 py-4">
-        {personaCorrenteId && (onApriChat || onApriTodo) && (
-          <div className="mb-3 flex gap-2">
+      {/* ★ FIX — pulsanti Chat/To-Do poco scoperti (11px, in fondo, sotto
+      la navigazione, nessun segnale oltre al badge): ora più grandi, con
+      sfondo pieno invece di solo bordo (visibili anche senza hover) e
+      un'etichetta di sezione sopra, stesso trattamento della navigazione
+      principale invece di un dettaglio secondario facile da non notare. */}
+      {personaCorrenteId && (onApriChat || onApriTodo) && (
+        <div className="border-t border-sidebar-border px-2.5 pb-1 pt-3">
+          <div className="mb-1.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">Strumenti</div>
+          <div className="flex gap-2">
             {onApriChat && (
               <button
                 onClick={onApriChat}
-                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sidebar-accent/60 py-2.5 text-xs font-bold text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
-                <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
+                <MessageCircle className="h-4 w-4" strokeWidth={2.25} />
                 Chat
                 {nonLettiChat > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
@@ -239,9 +245,9 @@ export function AppSidebar({
             {onApriTodo && (
               <button
                 onClick={onApriTodo}
-                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sidebar-accent/60 py-2.5 text-xs font-bold text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
-                <ListChecks className="h-3.5 w-3.5" strokeWidth={2.25} />
+                <ListChecks className="h-4 w-4" strokeWidth={2.25} />
                 To-Do
                 {todoDaFare > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
@@ -251,7 +257,9 @@ export function AppSidebar({
               </button>
             )}
           </div>
-        )}
+        </div>
+      )}
+      <div className="border-t border-sidebar-border px-4 py-4">
         <PersonaSwitcher persone={persone} personaCorrenteId={personaCorrenteId} />
         <div className="mb-3 leading-tight">
           {(isAdmin || personaReparti.length > 0) && (

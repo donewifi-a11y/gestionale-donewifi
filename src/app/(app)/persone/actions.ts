@@ -184,12 +184,13 @@ export async function getAttivitaPersona(id: string): Promise<AttivitaPersona[]>
   if (erroreAccesso) return [];
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("storico")
     .select("id, data, origine, operazione, valore_dopo")
     .eq("operatore_id", id)
     .order("data", { ascending: false })
     .limit(10);
+  if (error) console.error("getAttivitaPersona:", error.message);
   return data ?? [];
 }
 

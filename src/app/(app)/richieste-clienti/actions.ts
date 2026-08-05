@@ -1,7 +1,8 @@
 "use server";
 
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente } from "@/lib/persona";
+import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
 
 export async function urlDocumentoRichiesta(percorso: string) {
@@ -13,10 +14,7 @@ export async function urlDocumentoRichiesta(percorso: string) {
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato.", url: null };
 
-  const service = createServiceClient();
-  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) return { errore: error.message, url: null };
-  return { errore: null, url: data.signedUrl };
+  return urlFirmataDocumento(percorso);
 }
 
 export async function aggiornaStatoRichiestaCliente(id: string, nuovoStato: string) {

@@ -33,6 +33,8 @@ import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, Rapporti
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
+import { useToast } from "@/components/ui/toast";
+import { usePersistedState } from "@/lib/use-persisted-state";
 
 const PRATICHE_INVIABILI = [
   { slug: "disdetta" as const, titolo: "Disdetta contratto" },
@@ -92,13 +94,19 @@ export function TicketsBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [ricerca, setRicerca] = useState("");
-  const [fStato, setFStato] = useState("");
-  const [fCategoria, setFCategoria] = useState("");
-  const [fPriorita, setFPriorita] = useState("");
-  const [fReparto, setFReparto] = useState("");
-  const [soloMiei, setSoloMiei] = useState(false);
+  // ★ FIX — filtri ricordati per utente/browser (stessa idea già applicata
+  // su Hub Ticket nel gestionale precedente): lettura/scrittura ora in
+  // usePersistedState() (src/lib/use-persisted-state.ts), estratto da qui
+  // e da segnalazioni-board.tsx dove la stessa logica era duplicata quasi
+  // identica.
+  const [filtri, aggiornaFiltri] = usePersistedState(CHIAVE_FILTRI, {
+    stato: "",
+    categoria: "",
+    priorita: "",
+    reparto: "",
+    soloMiei: false,
+  });
   const [aperto, setAperto] = useState<Ticket | null>(null);
-  const [pronto, setPronto] = useState(false);
 
   // ★ apre direttamente un ticket via ?aperto=<id> — usato dalla ricerca
   // globale e dal link "vai al ticket" dopo aver trasmesso una Segnalazione.
@@ -110,45 +118,20 @@ export function TicketsBoard({
     if (trovato) setAperto(trovato);
   }, [searchParams, tickets]);
 
-  // ★ filtri ricordati per utente/browser (stessa idea già applicata su
-  // Hub Ticket nel gestionale precedente): non si riparte mai da zero.
-  // Letto in un effetto e non nel lazy initializer perché il componente è
-  // renderizzato anche lato server, dove localStorage non esiste — vedi
-  // stesso ragionamento in segnalazioni-board.tsx.
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFStato(s.stato || "");
-      setFCategoria(s.categoria || "");
-      setFPriorita(s.priorita || "");
-      setFReparto(s.reparto || "");
-      setSoloMiei(!!s.soloMiei);
-    } catch {}
-    setPronto(true);
-  }, []);
-  useEffect(() => {
-    if (!pronto) return;
-    localStorage.setItem(
-      CHIAVE_FILTRI,
-      JSON.stringify({ stato: fStato, categoria: fCategoria, priorita: fPriorita, reparto: fReparto, soloMiei })
-    );
-  }, [fStato, fCategoria, fPriorita, fReparto, soloMiei, pronto]);
-
   const filtrati = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
     return tickets
       .filter(
         (t) =>
-          (!fStato || t.stato === fStato) &&
-          (!fCategoria || t.categoria === fCategoria) &&
-          (!fPriorita || t.priorita === fPriorita) &&
-          (!fReparto || t.reparto === fReparto) &&
-          (!soloMiei || t.tecnico_assegnato === currentPersonaId) &&
+          (!filtri.stato || t.stato === filtri.stato) &&
+          (!filtri.categoria || t.categoria === filtri.categoria) &&
+          (!filtri.priorita || t.priorita === filtri.priorita) &&
+          (!filtri.reparto || t.reparto === filtri.reparto) &&
+          (!filtri.soloMiei || t.tecnico_assegnato === currentPersonaId) &&
           (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
       )
       .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
-  }, [tickets, fStato, fCategoria, fPriorita, fReparto, soloMiei, currentPersonaId, ricerca]);
+  }, [tickets, filtri, currentPersonaId, ricerca]);
 
   function trovaPersona(id: string | null) {
     return id ? persone.find((p) => p.id === id) ?? null : null;
@@ -187,28 +170,24 @@ export function TicketsBoard({
             className="h-9 w-48 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
-        <Select value={fStato} onChange={setFStato} placeholder="Tutti gli stati" options={SEQUENZA_STATO} />
-        <Select value={fCategoria} onChange={setFCategoria} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} />
-        <Select value={fPriorita} onChange={setFPriorita} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} />
-        <Select value={fReparto} onChange={setFReparto} placeholder="Tutti i reparti" options={[...REPARTI]} />
+        <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} />
+        <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} />
+        <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} />
+        <Select value={filtri.reparto} onChange={(v) => aggiornaFiltri({ reparto: v })} placeholder="Tutti i reparti" options={[...REPARTI]} />
         <Button
           size="sm"
-          variant={soloMiei ? "default" : "outline"}
-          onClick={() => setSoloMiei((v) => !v)}
+          variant={filtri.soloMiei ? "default" : "outline"}
+          onClick={() => aggiornaFiltri({ soloMiei: !filtri.soloMiei })}
         >
           <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
           Solo i miei
         </Button>
-        {(fStato || fCategoria || fPriorita || fReparto || soloMiei || ricerca) && (
+        {(filtri.stato || filtri.categoria || filtri.priorita || filtri.reparto || filtri.soloMiei || ricerca) && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
-              setFStato("");
-              setFCategoria("");
-              setFPriorita("");
-              setFReparto("");
-              setSoloMiei(false);
+              aggiornaFiltri({ stato: "", categoria: "", priorita: "", reparto: "", soloMiei: false });
               setRicerca("");
             }}
           >
@@ -358,6 +337,7 @@ function DettaglioTicket({
   onCambiato: (t: Ticket) => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [inCorso, setInCorso] = useState(false);
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
@@ -382,8 +362,8 @@ function DettaglioTicket({
       // ★ un Ticket completato via appuntamento (Vista Tecnico) ha una
       // Scheda di Installazione/Lavorazione al posto del rapportino
       // generico — mai entrambi per lo stesso ticket.
-      getSchedaLavoroPerTicket(ticket.id).then((s) => setScheda((s as SchedaLavoro) ?? null));
-      getRapportinoTicket(ticket.id).then((r) => setRapportino((r as RapportinoIntervento) ?? null));
+      getSchedaLavoroPerTicket(ticket.id).then(setScheda);
+      getRapportinoTicket(ticket.id).then(setRapportino);
     } else {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket non completato = nessun rapportino/scheda da caricare), non un caso separato di "derivabile durante il render".
       setRapportino(null);
@@ -415,7 +395,7 @@ function DettaglioTicket({
     const risultato = await cambiaRepartoTicket(ticket.id, nuovo, ticket.reparto);
     setInCorsoReparto(false);
     if (risultato.errore) {
-      alert(risultato.errore);
+      toast(risultato.errore);
       return;
     }
     onCambiato({ ...ticket, reparto: nuovo });
@@ -575,7 +555,7 @@ function DettaglioTicket({
             onClick={async () => {
               const risultato = await urlContratto(ticket.contratto_pdf_url!);
               if (risultato.errore || !risultato.url) {
-                alert(risultato.errore || "Errore imprevisto.");
+                toast(risultato.errore || "Errore imprevisto.");
                 return;
               }
               window.open(risultato.url, "_blank", "noopener,noreferrer");
@@ -716,13 +696,14 @@ function CampiMancanti({ sottocategoria, dettagli }: { sottocategoria: string; d
 
 function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; dettagli: Record<string, string> }) {
   const config = CONFIG_SOTTOCATEGORIE[sottocategoria];
+  const toast = useToast();
 
   async function apriAllegato() {
     const percorso = dettagli._allegato;
     if (!percorso) return;
     const risultato = await urlDocumentoRapportino(percorso);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");

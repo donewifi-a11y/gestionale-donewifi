@@ -24,6 +24,9 @@ import {
 import type { AreaAccesso, RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 import { REPARTI } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
+import { useToast } from "@/components/ui/toast";
+import { usePersistedState } from "@/lib/use-persisted-state";
+import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
   { titolo: "Da Contattare", stato: "Da Contattare" },
@@ -61,9 +64,12 @@ export function SegnalazioniBoard({
   currentPersonaId: string;
 }) {
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
-  const [soloMie, setSoloMie] = useState(false);
+  // ★ FIX — filtri ricordati per utente/browser: lettura/scrittura ora in
+  // usePersistedState() (src/lib/use-persisted-state.ts), estratto da qui
+  // e da tickets-board.tsx dove la stessa logica era duplicata quasi
+  // identica (i commenti si citavano a vicenda riconoscendolo).
+  const [filtri, aggiornaFiltri] = usePersistedState(CHIAVE_FILTRI, { soloMie: false });
   const [ricerca, setRicerca] = useState("");
-  const [pronto, setPronto] = useState(false);
   const searchParams = useSearchParams();
 
   // ★ apre direttamente una segnalazione via ?aperto=<id> — usato dalla
@@ -76,36 +82,18 @@ export function SegnalazioniBoard({
     if (trovata) setAperta(trovata);
   }, [searchParams, segnalazioni]);
 
-  useEffect(() => {
-    // ★ letto in un effetto (non nel lazy initializer di useState) perché
-    // su Next.js questo componente viene renderizzato anche lato server,
-    // dove `localStorage` non esiste: leggerlo nell'initializer darebbe
-    // un valore diverso tra render server e client → mismatch di
-    // idratazione. Rimandarlo a un effetto (post-mount, solo client) è il
-    // pattern corretto qui, anche se il lint lo segnala.
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSoloMie(JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}").soloMie ?? false);
-    } catch {}
-    setPronto(true);
-  }, []);
-  useEffect(() => {
-    if (!pronto) return;
-    localStorage.setItem(CHIAVE_FILTRI, JSON.stringify({ soloMie }));
-  }, [soloMie, pronto]);
-
   const filtrate = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
     return segnalazioni.filter(
       (s) =>
-        (!soloMie || s.operatore_id === currentPersonaId) &&
+        (!filtri.soloMie || s.operatore_id === currentPersonaId) &&
         (!testo ||
           s.nome.toLowerCase().includes(testo) ||
           s.telefono.includes(testo) ||
           s.comune.toLowerCase().includes(testo) ||
           String(s.numero).includes(testo))
     );
-  }, [segnalazioni, soloMie, currentPersonaId, ricerca]);
+  }, [segnalazioni, filtri.soloMie, currentPersonaId, ricerca]);
 
   return (
     <div>
@@ -119,16 +107,16 @@ export function SegnalazioniBoard({
             className="h-9 w-56 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
-        <Button size="sm" variant={soloMie ? "default" : "outline"} onClick={() => setSoloMie((v) => !v)}>
+        <Button size="sm" variant={filtri.soloMie ? "default" : "outline"} onClick={() => aggiornaFiltri({ soloMie: !filtri.soloMie })}>
           <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
           Solo le mie
         </Button>
-        {(soloMie || ricerca) && (
+        {(filtri.soloMie || ricerca) && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
-              setSoloMie(false);
+              aggiornaFiltri({ soloMie: false });
               setRicerca("");
             }}
           >
@@ -257,6 +245,7 @@ function DettaglioSegnalazione({
   onChiudi: () => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [inCorso, setInCorso] = useState(false);
   const [copiato, setCopiato] = useState(false);
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
@@ -312,7 +301,7 @@ function DettaglioSegnalazione({
     const risultato = await trasmettiPerInstallazione(segnalazione.id, repartoTrasmissione);
     setInCorso(false);
     if (risultato.errore || !risultato.id) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     onChiudi();
@@ -355,7 +344,7 @@ function DettaglioSegnalazione({
     if (!contrattoUrl) return;
     const risultato = await urlContratto(contrattoUrl);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");
@@ -419,7 +408,7 @@ function DettaglioSegnalazione({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#25b063] text-white">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-md ${COLORE_WHATSAPP.badge}`}>
                   <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
                 </span>
                 WhatsApp

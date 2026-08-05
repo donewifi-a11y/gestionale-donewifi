@@ -152,12 +152,29 @@ export default async function DashboardPage({
         <EsportaPdfButton />
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Kpi icona={TriangleAlert} etichetta="Ticket Urgenti" valore={ticketUrgenti} colore="text-critical" />
-        <Kpi icona={Clock} etichetta="Non assegnati" valore={ticketNonAssegnati} colore="text-warning" />
-        <Kpi icona={CalendarCheck2} etichetta="Appuntamenti oggi" valore={appuntamentiOggi ?? 0} colore="text-primary" />
-        <Kpi icona={Gauge} etichetta="Ticket attivi" valore={listaTicket.filter((t) => t.stato !== "Completato").length} colore="text-foreground" />
-      </div>
+      {(() => {
+        const ticketAttivi = listaTicket.filter((t) => t.stato !== "Completato").length;
+        return (
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Kpi
+              icona={TriangleAlert}
+              etichetta="Ticket Urgenti"
+              valore={ticketUrgenti}
+              colore="text-critical"
+              contesto={ticketAttivi > 0 ? `${Math.round((ticketUrgenti / ticketAttivi) * 100)}% degli attivi` : undefined}
+            />
+            <Kpi
+              icona={Clock}
+              etichetta="Non assegnati"
+              valore={ticketNonAssegnati}
+              colore="text-warning"
+              contesto={ticketAttivi > 0 ? `${Math.round((ticketNonAssegnati / ticketAttivi) * 100)}% degli attivi` : undefined}
+            />
+            <Kpi icona={CalendarCheck2} etichetta="Appuntamenti oggi" valore={appuntamentiOggi ?? 0} colore="text-primary" />
+            <Kpi icona={Gauge} etichetta="Ticket attivi" valore={ticketAttivi} colore="text-foreground" />
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Pannello titolo="Ticket per stato">
@@ -558,17 +575,27 @@ function Kpi({
   etichetta,
   valore,
   colore,
+  contesto,
 }: {
   icona: typeof Gauge;
   etichetta: string;
   valore: number | string;
   colore: string;
+  /** ★ FIX — questi KPI erano numeri grezzi senza nessun modo di giudicare
+   * se fossero normali o un problema (es. "7 urgenti" — tanti o pochi?).
+   * Non esiste uno storico di questi conteggi da confrontare con ieri
+   * (sono istantanee, non serie temporali salvate) — la soluzione onesta
+   * qui è dare un contesto proporzionale con dati già in mano (es. "su 42
+   * attivi") invece di inventare un confronto storico che richiederebbe
+   * una tabella nuova. */
+  contesto?: string;
 }) {
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-md">
       <Icona className={`mb-2 h-4 w-4 ${colore}`} strokeWidth={2.25} />
       <div className="font-heading text-2xl font-bold tabular-nums">{valore}</div>
       <div className="text-xs text-muted-foreground">{etichetta}</div>
+      {contesto && <div className="mt-1 text-[10px] text-muted-foreground/70">{contesto}</div>}
     </div>
   );
 }

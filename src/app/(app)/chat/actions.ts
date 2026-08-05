@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { urlFirmataDocumento } from "@/lib/documenti";
 import type { MessaggioChat } from "@/lib/types";
 
 export interface ContattoChat {
@@ -138,12 +139,13 @@ export async function getOrCreaConversazioneDiretta(altraPersonaId: string): Pro
 
 export async function getMessaggi(conversazioneId: string): Promise<MessaggioChat[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messaggi_chat")
     .select("*")
     .eq("conversazione_id", conversazioneId)
     .order("creato_il", { ascending: true })
     .limit(200);
+  if (error) console.error("getMessaggi:", error.message);
   return data ?? [];
 }
 
@@ -203,13 +205,11 @@ export async function urlAllegatoChat(percorso: string): Promise<{ errore: strin
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, url: null };
 
   const conversazioneId = percorso.split("/")[1];
-  const { data: consentita } = await supabase.from("conversazioni").select("id").eq("id", conversazioneId).maybeSingle();
+  const { data: consentita, error: erroreLettura } = await supabase.from("conversazioni").select("id").eq("id", conversazioneId).maybeSingle();
+  if (erroreLettura) console.error("urlAllegatoChat:", erroreLettura.message);
   if (!consentita) return { errore: "Allegato non trovato o non accessibile.", url: null };
 
-  const service = createServiceClient();
-  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) return { errore: error.message, url: null };
-  return { errore: null, url: data.signedUrl };
+  return urlFirmataDocumento(percorso);
 }
 
 /** Segna la conversazione come letta ad ora — da chiamare quando si apre il thread e mentre resta aperto. */
@@ -226,11 +226,12 @@ export async function segnaConversazioneLetta(conversazioneId: string): Promise<
 /** Solo per le dirette: quando l'altra persona ha letto per l'ultima volta, per mostrare "Letto" sotto l'ultimo messaggio. */
 export async function getUltimaLetturaAltro(conversazioneId: string, altraPersonaId: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("conversazioni_letture")
     .select("ultimo_letto_il")
     .eq("conversazione_id", conversazioneId)
     .eq("persona_id", altraPersonaId)
     .maybeSingle();
+  if (error) console.error("getUltimaLetturaAltro:", error.message);
   return data?.ultimo_letto_il ?? null;
 }

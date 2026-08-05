@@ -350,7 +350,7 @@ export function FormTariffa({ tariffa, isAdmin = false, onFatto }: { tariffa?: T
             type="number"
             step="0.01"
             defaultValue={tariffa?.prezzo_attivazione ?? ""}
-            placeholder="Es. 77,87 — lascia vuoto se nessun costo di attivazione"
+            placeholder="Es. 77.87 — lascia vuoto se nessun costo di attivazione"
             className="mt-1"
           />
         </div>

@@ -9,6 +9,7 @@ import { riapriTicket } from "@/app/(app)/archivio/actions";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { RapportinoVista } from "@/components/tickets/rapportino";
+import { useToast } from "@/components/ui/toast";
 import type { RapportinoIntervento, Segnalazione, Ticket } from "@/lib/types";
 
 type Voce =
@@ -126,13 +127,14 @@ export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; se
 
 function DettaglioTicket({ ticket }: { ticket: Ticket }) {
   const router = useRouter();
+  const toast = useToast();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
 
   useEffect(() => {
     if (ticket.stato === "Completato") {
-      getRapportinoTicket(ticket.id).then((r) => setRapportino((r as RapportinoIntervento) ?? null));
+      getRapportinoTicket(ticket.id).then(setRapportino);
     }
   }, [ticket.id, ticket.stato]);
 
@@ -153,7 +155,7 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
     if (!ticket.contratto_pdf_url) return;
     const risultato = await urlContratto(ticket.contratto_pdf_url);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");

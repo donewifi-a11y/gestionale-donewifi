@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { Users, AlertTriangle } from "lucide-react";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { UtentiBoard } from "@/components/utenti/utenti-board";
@@ -41,6 +42,19 @@ export default async function UtentiPage() {
           <p className="text-sm text-muted-foreground">Chi ha accesso al gestionale e con quale ruolo.</p>
         </div>
       </div>
+
+      {/* ★ FIX — vedi la nota gemella in /persone: le due pagine si
+      sovrapponevano senza nessun rimando, un admin doveva già sapere
+      quale usare per assumere qualcuno. */}
+      <p className="mb-4 flex items-start gap-2 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+        Sistema precedente, ad account condivisi — per un nuovo membro dello staff usa{" "}
+        <Link href="/persone" className="font-semibold underline-offset-2 hover:underline">
+          Persone
+        </Link>{" "}
+        (login individuale, propria password e reparti). Questa pagina resta solo per gli account
+        condivisi non ancora migrati.
+      </p>
 
       <UtentiBoard staff={(staff as StaffCompleto[]) ?? []} currentUserId={user.id} />
     </div>

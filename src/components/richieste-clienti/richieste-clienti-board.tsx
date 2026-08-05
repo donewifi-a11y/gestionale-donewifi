@@ -16,6 +16,7 @@ import {
 import { aggiornaStatoRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
+import { useToast } from "@/components/ui/toast";
 
 const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 
@@ -117,6 +118,7 @@ function DettaglioRichiesta({
   onCambiata: (r: RichiestaCliente) => void;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [inCorso, setInCorso] = useState(false);
 
   async function cambiaStato(nuovo: string) {
@@ -134,7 +136,7 @@ function DettaglioRichiesta({
   async function apriDocumento(percorso: string) {
     const risultato = await urlDocumentoRichiesta(percorso);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");

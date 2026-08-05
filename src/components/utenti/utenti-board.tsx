@@ -141,7 +141,7 @@ function FormNuovoUtente({ onFatto }: { onFatto: () => void }) {
         </div>
         <div>
           <Label htmlFor="password">Password iniziale *</Label>
-          <Input id="password" name="password" type="text" required minLength={6} className="mt-1" />
+          <Input id="password" name="password" type="password" required minLength={6} className="mt-1" />
         </div>
         <div>
           <Label htmlFor="area_accesso">Ruolo</Label>

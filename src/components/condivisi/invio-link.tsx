@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MessageCircle, Mail, Copy, Check } from "lucide-react";
+import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 
 // ★ stesso pattern già usato per il link "Richiesta Dati" su Segnalazioni —
 // estratto qui per essere riusabile anche da Richieste Clienti e Disdetta,
@@ -41,7 +42,7 @@ export function InvioLinkCliente({
           aria-disabled={!telefonoIntl}
           className={`flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40 ${!telefonoIntl ? "pointer-events-none opacity-40" : ""}`}
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#25b063] text-white">
+          <span className={`flex h-6 w-6 items-center justify-center rounded-md ${COLORE_WHATSAPP.badge}`}>
             <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
           </span>
           WhatsApp

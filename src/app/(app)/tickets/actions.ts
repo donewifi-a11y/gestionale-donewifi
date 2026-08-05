@@ -4,7 +4,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
-import type { AreaAccesso, PrioritaTicket, StatoTicket, Ticket } from "@/lib/types";
+import { urlFirmataDocumento } from "@/lib/documenti";
+import type { AreaAccesso, PrioritaTicket, RapportinoIntervento, StatoTicket, Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -158,7 +159,8 @@ export async function assegnaTicket(id: string, personaId: string | null) {
 // ordinati, non l'intera riga: qui basta cosa scegliere, non prezzo/IVA.
 export async function listaNomiTariffeAttive(): Promise<string[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tariffe").select("nome").eq("attivo", true).order("nome");
+  const { data, error } = await supabase.from("tariffe").select("nome").eq("attivo", true).order("nome");
+  if (error) console.error("listaNomiTariffeAttive:", error.message);
   if (!data) return [];
   return Array.from(new Set(data.map((t) => t.nome))).sort((a, b) => a.localeCompare(b, "it"));
 }
@@ -254,10 +256,11 @@ export async function aggiungiNotaTicket(ticketId: string, testo: string) {
   return { errore: null, nota: data };
 }
 
-export async function getRapportinoTicket(ticketId: string) {
+export async function getRapportinoTicket(ticketId: string): Promise<RapportinoIntervento | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("rapportini_intervento").select("*").eq("ticket_id", ticketId).maybeSingle();
-  return data;
+  const { data, error } = await supabase.from("rapportini_intervento").select("*").eq("ticket_id", ticketId).maybeSingle();
+  if (error) console.error("getRapportinoTicket:", error.message);
+  return (data as RapportinoIntervento | null) ?? null;
 }
 
 // ★ Rapportino di chiusura intervento (ex Installazione/Lavorazione/
@@ -383,8 +386,5 @@ export async function urlDocumentoRapportino(percorso: string) {
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato.", url: null };
 
-  const service = createServiceClient();
-  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) return { errore: error.message, url: null };
-  return { errore: null, url: data.signedUrl };
+  return urlFirmataDocumento(percorso);
 }

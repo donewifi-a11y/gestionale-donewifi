@@ -7,6 +7,7 @@ import { OnlineProvider } from "@/components/chat/online-context";
 import { ChatDataProvider, useChatData } from "@/components/chat/chat-data-context";
 import { TodoWidget } from "@/components/todo/todo-widget";
 import { TodoDataProvider, useTodoData } from "@/components/todo/todo-data-context";
+import { ToastProvider } from "@/components/ui/toast";
 import type { AreaAccesso, Persona } from "@/lib/types";
 
 /** ★ NUOVA — la sidebar da sola non basta più a contenere lo stato di "chat
@@ -37,21 +38,23 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <OnlineProvider personaCorrenteId={personaCorrenteId}>
-      <ChatDataProvider personaCorrenteId={personaCorrenteId}>
-        <TodoDataProvider personaCorrenteId={personaCorrenteId}>
-          <AppShellCorpo
-            email={email}
-            persone={persone}
-            personaCorrenteId={personaCorrenteId}
-            personaAmministratore={personaAmministratore}
-            personaReparti={personaReparti}
-          >
-            {children}
-          </AppShellCorpo>
-        </TodoDataProvider>
-      </ChatDataProvider>
-    </OnlineProvider>
+    <ToastProvider>
+      <OnlineProvider personaCorrenteId={personaCorrenteId}>
+        <ChatDataProvider personaCorrenteId={personaCorrenteId}>
+          <TodoDataProvider personaCorrenteId={personaCorrenteId}>
+            <AppShellCorpo
+              email={email}
+              persone={persone}
+              personaCorrenteId={personaCorrenteId}
+              personaAmministratore={personaAmministratore}
+              personaReparti={personaReparti}
+            >
+              {children}
+            </AppShellCorpo>
+          </TodoDataProvider>
+        </ChatDataProvider>
+      </OnlineProvider>
+    </ToastProvider>
   );
 }
 

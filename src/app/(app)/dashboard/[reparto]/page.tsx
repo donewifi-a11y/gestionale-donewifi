@@ -41,7 +41,18 @@ export default async function DashboardRepartoPage({ params }: { params: Promise
         <Kpi icona={TriangleAlert} etichetta="Urgenti" valore={dati.urgenti} colore="text-critical" />
         <Kpi icona={Clock} etichetta="Non assegnati" valore={dati.nonAssegnati} colore="text-warning" />
         <Kpi icona={CheckCircle2} etichetta="Completati mese" valore={dati.completatiQuestoMese} colore="text-success" />
-        <Kpi icona={Euro} etichetta="Ricavi mese" valore={`€ ${dati.ricaviQuestoMese.toLocaleString("it-IT")}`} colore="text-success" />
+        {/* ★ FIX — stesso avviso già aggiunto alla Dashboard generale
+        (dashboard/page.tsx): questo importo viene da tickets.importo_fatturato,
+        compilato solo a chiusura rapportino, quasi sempre vuoto — non è il
+        fatturato reale del reparto. Il fix era già scritto per l'altra
+        pagina, mancava solo di applicarlo anche qui. */}
+        <Kpi
+          icona={Euro}
+          etichetta="Ricavi mese"
+          valore={`€ ${dati.ricaviQuestoMese.toLocaleString("it-IT")}`}
+          colore="text-success"
+          nota="Solo da rapportino, quasi sempre vuoto — non il fatturato reale."
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -90,17 +101,20 @@ function Kpi({
   etichetta,
   valore,
   colore,
+  nota,
 }: {
   icona: typeof Gauge;
   etichetta: string;
   valore: number | string;
   colore: string;
+  nota?: string;
 }) {
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-md">
       <Icona className={`mb-2 h-4 w-4 ${colore}`} strokeWidth={2.25} />
       <div className="font-heading text-2xl font-bold tabular-nums">{valore}</div>
       <div className="text-xs text-muted-foreground">{etichetta}</div>
+      {nota && <div className="mt-1 text-[10px] leading-snug text-muted-foreground/70">{nota}</div>}
     </div>
   );
 }

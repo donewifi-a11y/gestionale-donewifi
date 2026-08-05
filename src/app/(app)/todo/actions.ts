@@ -16,12 +16,20 @@ export async function getTodoPersonali(): Promise<TodoPersonale[]> {
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return [];
 
-  const { data } = await supabase
+  // ★ FIX — l'errore non veniva controllato: un guasto reale (rete,
+  // permessi) produceva una lista vuota indistinguibile da "nessun to-do",
+  // invece di un errore visibile. Loggato lato server (i getter di sola
+  // lettura non hanno un canale `{ errore }` verso il chiamante come le
+  // azioni di scrittura — cambiarlo qui richiederebbe aggiornare anche
+  // TodoDataProvider e ogni consumatore; il log è il minimo che rende il
+  // guasto visibile, invece di scomparire in silenzio).
+  const { data, error } = await supabase
     .from("todo_personali")
     .select("*")
     .eq("persona_id", personaId)
     .order("fatto", { ascending: true })
     .order("creato_il", { ascending: true });
+  if (error) console.error("getTodoPersonali:", error.message);
   return (data as TodoPersonale[]) ?? [];
 }
 

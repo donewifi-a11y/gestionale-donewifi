@@ -933,6 +933,44 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - **To-Do: modifica testo** (nuova `modificaTodoPersonale()`) — prima un refuso richiedeva
     cancellare e riscrivere, ora c'è una matita che apre modifica inline.
   - **To-Do: conferma prima di eliminare** — il cestino chiede conferma invece di cancellare subito.
+✅ Controllo d'oro #2 — software/UX/UI, tutti i 19 punti corretti (2026-08): 3 audit paralleli (qualità
+  codice/architettura, flussi UX end-to-end, coerenza UI/design system — quest'ultima solo a livello
+  di codice, nessun browser disponibile) hanno trovato 19 punti; tutti corretti in un solo giro.
+  - **`alert()` → toast**: 14 popup nativi del browser (il peggiore: 4 nella chat da sola) sostituiti
+    da un `ToastProvider`/`useToast()` condiviso (`src/components/ui/toast.tsx`, montato in
+    `AppShell`) — non bloccante, coerente con lo stile di errore inline già in uso ovunque altro.
+  - **Riquadri Chat/To-Do**: altezza `h-[min(…, Nvh)]` invece di fissa in pixel — non tagliano più su
+    schermi bassi/orizzontali.
+  - **Dashboard per reparto**: aggiunto lo stesso avviso "non è il fatturato reale" già presente sulla
+    Dashboard generale ma dimenticato qui.
+  - **~15 azioni di sola lettura**: errore Supabase non più scartato in silenzio (loggato lato
+    server) — un guasto reale non sembra più "nessun dato".
+  - **Cast non tipizzati**: `getRapportinoTicket`/`getSchedaLavoroPerTicket` dichiarano ora il tipo di
+    ritorno vero (i 3 cast `as` nei chiamanti sono spariti, non più necessari); i due `as unknown as`
+    sui join Supabase (contratto Segnalazione, pagina Approva) sostituiti da un'interfaccia dichiarata
+    esplicitamente invece di "fidati e basta".
+  - **Calendario**: nuovo `raggruppaPerGiorno()` condiviso + `useMemo` in VistaSettimana/VistaMese —
+    non rifiltrano più l'intero array ad ogni cella/render.
+  - **Filtri persistiti**: nuovo hook `usePersistedState()` (`src/lib/use-persisted-state.ts`) al
+    posto della stessa logica localStorage duplicata quasi identica in tickets-board.tsx e
+    segnalazioni-board.tsx (i commenti si citavano a vicenda riconoscendolo).
+  - **URL firmate**: nuovo `urlFirmataDocumento()` (`src/lib/documenti.ts`) al posto dello stesso
+    `createSignedUrl(percorso, 3600)` incollato in 5 file di azioni diverse.
+  - **Dashboard**: "Ticket Urgenti"/"Non assegnati" mostrano ora anche la percentuale sugli attivi
+    (es. "13% degli attivi") — niente storico salvato da confrontare con ieri, ma un contesto onesto
+    con i dati già disponibili invece di un confronto storico inventato.
+  - **Persone vs Utenti**: le due pagine ora si rimandano a vicenda con una nota, invece di
+    sovrapporsi senza nessun collegamento.
+  - **Chat**: stato online/offline ora anche in testo visibile (prima solo colore + `title`, che sui
+    telefoni non compare mai).
+  - **Chat/To-Do**: bozza non inviata salvata in sessionStorage — chiudere il pop-up per sbaglio non
+    perde più il testo scritto (stesso principio di WhatsApp Web, non un popup di conferma in più).
+  - **Home**: i due riquadri con `bg-gray-50` fisso ora usano `bg-muted` (segue la modalità scura).
+  - **Tariffe**: placeholder del prezzo corretto a `77.87` (il campo accetta solo il punto).
+  - **Persone/Utenti**: il campo password nei form ora è `type="password"`, non più in chiaro.
+  - **Sidebar**: pulsanti Chat/To-Do più grandi, sfondo pieno invece di solo bordo, etichetta
+    "Strumenti" — prima 11px e facili da non notare.
+  - **Colori WhatsApp**: consolidati in `src/lib/colori-brand.ts` invece di 3 hex letterali duplicati.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

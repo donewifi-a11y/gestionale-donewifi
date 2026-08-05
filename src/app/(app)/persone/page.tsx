@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { UserCircle } from "lucide-react";
+import Link from "next/link";
+import { UserCircle, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { PersoneBoard } from "@/components/persone/persone-board";
@@ -47,6 +48,22 @@ export default async function PersonePage() {
           </p>
         </div>
       </div>
+
+      {/* ★ FIX — "Persone" e "Utenti" gestiscono entrambe l'accesso, con
+      nomi simili e nessun rimando tra loro: chi assume qualcuno di nuovo
+      doveva già sapere quale delle due usare. Per un nuovo membro dello
+      staff, è sempre qui: "Utenti" è il vecchio sistema ad account
+      condivisi, non promosso più in menu, ancora raggiungibile solo per
+      chi lo conosce già. */}
+      <p className="mb-4 flex items-start gap-2 rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+        Per aggiungere un nuovo membro dello staff è sempre da qui: login individuale, password e
+        reparti propri. La pagina{" "}
+        <Link href="/utenti" className="font-semibold text-primary underline-offset-2 hover:underline">
+          Utenti
+        </Link>{" "}
+        è il vecchio sistema ad account condivisi, mantenuto solo per compatibilità.
+      </p>
 
       <PersoneBoard persone={persone} />
     </div>

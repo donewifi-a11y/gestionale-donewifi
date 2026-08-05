@@ -247,7 +247,7 @@ function SezioneSettore({
 }) {
   const Icona = ICONA_REPARTO[reparto];
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 shadow-md">
+    <div className="flex flex-col gap-4 rounded-2xl border bg-muted p-4 shadow-md">
       <Link href="/tickets" className="group flex items-center gap-2.5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
           <Icona className="h-4 w-4" strokeWidth={2.25} />
@@ -341,10 +341,10 @@ function AreaCard({
   badgeExtra?: string;
 }) {
   return (
-    // ★ sfondo leggermente marcato (bg-gray-50) + bordo + ombra più
+    // ★ sfondo leggermente marcato (bg-muted) + bordo + ombra più
     // pronunciata delle KpiTile sopra: sono moduli cliccabili, devono
     // "sembrare" superfici interagibili, non solo numeri da leggere.
-    <div className="group flex flex-col justify-between rounded-2xl border bg-gray-50 p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
+    <div className="group flex flex-col justify-between rounded-2xl border bg-muted p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40">
       <Link href={href} className="flex flex-col gap-4">
         <div className="flex items-start justify-between">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">

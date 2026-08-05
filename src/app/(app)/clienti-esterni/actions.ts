@@ -151,11 +151,12 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
 
 export async function getStoricoProfiloCliente(clienteEsternoId: number) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clienti_esterni_storico_profilo")
     .select("*")
     .eq("cliente_esterno_id", clienteEsternoId)
     .order("rilevato_il", { ascending: false });
+  if (error) console.error("getStoricoProfiloCliente:", error.message);
   return data ?? [];
 }
 
@@ -309,7 +310,8 @@ export async function getFattureCliente(codiceFiscale: string | null, partitaIva
   for (let offset = 0; ; offset += PAGINA) {
     let query = supabase.from("fatture_esterne").select("*").order("emissione", { ascending: false });
     query = codiceFiscale ? query.eq("codice_fiscale", codiceFiscale) : query.eq("partita_iva", partitaIva!);
-    const { data } = await query.range(offset, offset + PAGINA - 1);
+    const { data, error } = await query.range(offset, offset + PAGINA - 1);
+    if (error) console.error("getFattureCliente:", error.message);
     const pagina = (data as FatturaEsterna[] | null) ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -327,12 +329,13 @@ export async function getTicketCollegati(telefono: string | null) {
   if (ultimeCifre.length < 6) return [];
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("tickets")
     .select("id, numero, categoria, stato, priorita, data_creazione")
     .ilike("telefono", `%${ultimeCifre}%`)
     .order("data_creazione", { ascending: false })
     .limit(20);
+  if (error) console.error("getTicketCollegati:", error.message);
   return data ?? [];
 }
 
@@ -357,11 +360,12 @@ export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFa
   const PAGINA = 1000;
   const righe: { importo: number | null; codice_fiscale: string | null; partita_iva: string | null }[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("fatture_esterne")
       .select("importo, codice_fiscale, partita_iva")
       .eq("pagata", false)
       .range(offset, offset + PAGINA - 1);
+    if (error) console.error("getRiepilogoInsoluti:", error.message);
     const pagina = data ?? [];
     righe.push(...pagina);
     if (pagina.length < PAGINA) break;

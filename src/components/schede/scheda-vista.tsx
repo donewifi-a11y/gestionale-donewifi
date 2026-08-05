@@ -5,6 +5,7 @@ import { Printer, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlDocumentoScheda } from "@/app/(app)/calendario/actions";
 import { formattaValuta } from "@/lib/types";
+import { useToast } from "@/components/ui/toast";
 import type { SchedaLavoro } from "@/lib/types";
 
 /** Vista di sola lettura di una Scheda di Installazione o Lavorazione
@@ -13,6 +14,7 @@ import type { SchedaLavoro } from "@/lib/types";
 export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
   const [urlFirmaCliente, setUrlFirmaCliente] = useState<string | null>(null);
   const [urlFirmaTecnico, setUrlFirmaTecnico] = useState<string | null>(null);
+  const toast = useToast();
 
   async function mostraFirma(percorso: string, setUrl: (u: string) => void) {
     const risultato = await urlDocumentoScheda(percorso);
@@ -22,7 +24,7 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
   async function apriAllegato(percorso: string) {
     const risultato = await urlDocumentoScheda(percorso);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");

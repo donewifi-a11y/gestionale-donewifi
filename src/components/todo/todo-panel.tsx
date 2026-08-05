@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ListChecks, X, Plus, Trash2, Pencil, Check } from "lucide-react";
 import { useTodoData } from "@/components/todo/todo-data-context";
 import type { TodoPersonale } from "@/lib/types";
@@ -21,10 +21,33 @@ export function TodoPanel({
   variant?: "popup" | "riquadro";
 }) {
   const { todo, aggiungi, completa, modifica, elimina } = useTodoData();
+  // ★ FIX — chiudere il pop-up a metà scrittura smontava il componente e
+  // perdeva il testo del nuovo to-do senza avviso. Stessa soluzione della
+  // chat: bozza salvata in sessionStorage invece di un conferma-prima-di-
+  // chiudere invasivo.
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [inModifica, setInModifica] = useState<string | null>(null);
+
+  // ★ letto in un effetto, non nel lazy initializer di useState — questo
+  // componente viene renderizzato anche lato server, dove sessionStorage
+  // non esiste: leggerlo nell'initializer darebbe un valore diverso tra
+  // render server e client, con conseguente mismatch di idratazione
+  // sull'input (stesso ragionamento già applicato ai filtri persistiti).
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ripristina una bozza da sessionStorage, non disponibile lato server: va per forza in un effetto post-mount.
+      setTesto(sessionStorage.getItem("todo-bozza") || "");
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (testo) sessionStorage.setItem("todo-bozza", testo);
+      else sessionStorage.removeItem("todo-bozza");
+    } catch {}
+  }, [testo]);
 
   async function onAggiungi(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +74,9 @@ export function TodoPanel({
 
   const daFare = (todo ?? []).filter((t) => !t.fatto);
   const fatti = (todo ?? []).filter((t) => t.fatto);
-  const dimensioni = variant === "popup" ? "h-[420px] w-72" : "h-[420px] w-full";
+  // ★ FIX — vedi chat-panel.tsx: altezza fissa in pixel poteva tagliare la
+  // lista su schermi bassi/orizzontali. `min(…, Nvh)` si adatta.
+  const dimensioni = variant === "popup" ? "h-[min(420px,80vh)] w-72" : "h-[min(420px,70vh)] w-full";
 
   return (
     <div className={`flex ${dimensioni} flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl`}>

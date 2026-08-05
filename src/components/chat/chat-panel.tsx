@@ -5,6 +5,7 @@ import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText } from 
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/components/chat/online-context";
 import { useChatData } from "@/components/chat/chat-data-context";
+import { useToast } from "@/components/ui/toast";
 import {
   getOrCreaConversazioneDiretta,
   getMessaggi,
@@ -55,6 +56,7 @@ export function ChatPanel({
   variant?: "popup" | "riquadro";
 }) {
   const { persone, gruppi, pronto, ricarica } = useChatData();
+  const toast = useToast();
   const [thread, setThread] = useState<Thread | null>(null);
   const [messaggi, setMessaggi] = useState<MessaggioChat[]>([]);
   const [letturaAltro, setLetturaAltro] = useState<string | null>(null);
@@ -78,6 +80,31 @@ export function ChatPanel({
   useEffect(() => {
     fineListaRef.current?.scrollIntoView({ block: "end" });
   }, [messaggi]);
+
+  // ★ FIX — chiudere il pop-up a metà messaggio (per sbaglio, o per
+  // aprire il pop-up To-Do dallo stesso pulsante sidebar) smontava
+  // ChatPanel del tutto e perdeva il testo scritto senza nessun avviso.
+  // Bozza salvata per conversazione in sessionStorage invece di un
+  // conferma-prima-di-chiudere invasivo — stesso principio di WhatsApp
+  // Web, non un popup in più da dover gestire.
+  useEffect(() => {
+    if (!thread) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con `thread` (si chiude/cambia dall'esterno), non derivabile durante il render.
+      setTesto("");
+      return;
+    }
+    try {
+      setTesto(sessionStorage.getItem(`chat-bozza-${thread.conversazioneId}`) || "");
+    } catch {}
+  }, [thread]);
+
+  useEffect(() => {
+    if (!thread) return;
+    try {
+      if (testo) sessionStorage.setItem(`chat-bozza-${thread.conversazioneId}`, testo);
+      else sessionStorage.removeItem(`chat-bozza-${thread.conversazioneId}`);
+    } catch {}
+  }, [testo, thread]);
 
   // ★ un messaggio nuovo arriva qui via Realtime — sia per chi lo manda
   // che per chi lo riceve, invece di gestire due percorsi diversi. Se il
@@ -127,7 +154,7 @@ export function ChatPanel({
     if (!conversazioneId) {
       const risultato = await getOrCreaConversazioneDiretta(persona.id);
       if (risultato.errore || !risultato.id) {
-        alert(risultato.errore || "Errore imprevisto.");
+        toast(risultato.errore || "Errore imprevisto.");
         return;
       }
       conversazioneId = risultato.id;
@@ -145,7 +172,7 @@ export function ChatPanel({
     const risultato = await inviaMessaggio(thread.conversazioneId, testo);
     setInCorso(false);
     if (risultato.errore) {
-      alert(risultato.errore);
+      toast(risultato.errore);
       return;
     }
     setTesto("");
@@ -160,13 +187,13 @@ export function ChatPanel({
     const risultato = await inviaAllegatoChat(thread.conversazioneId, dati);
     setInCorso(false);
     e.target.value = "";
-    if (risultato.errore) alert(risultato.errore);
+    if (risultato.errore) toast(risultato.errore);
   }
 
   async function apriAllegato(percorso: string) {
     const risultato = await urlAllegatoChat(percorso);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");
@@ -179,7 +206,12 @@ export function ChatPanel({
 
   if (!personaCorrenteId) return null;
 
-  const dimensioni = variant === "popup" ? "h-[480px] w-80" : "h-[420px] w-full";
+  // ★ FIX — altezza fissa in pixel (480px/420px): su un telefono con
+  // schermo basso o in orizzontale poteva tagliare la lista messaggi o
+  // spingere il campo di scrittura fuori dallo schermo. `min(…, Nvh)`
+  // resta all'altezza piena su schermi normali ma si adatta a quelli
+  // bassi invece di sforare.
+  const dimensioni = variant === "popup" ? "h-[min(480px,85vh)] w-80" : "h-[min(420px,70vh)] w-full";
 
   // ★ FIX — prima l'elenco era sempre "a chi scrivo" in ordine alfabetico,
   // senza distinguere conversazioni in corso da contatti mai sentiti.
@@ -210,11 +242,16 @@ export function ChatPanel({
         <span className="flex flex-1 items-center gap-1.5 truncate text-sm font-bold">
           <MessageCircle className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
           {thread ? thread.titolo : "Chat"}
+          {/* ★ FIX — solo un pallino colorato con `title` non basta: i
+          tooltip `title` non compaiono sui dispositivi touch, quindi su
+          telefono lo stato online/offline era di fatto solo colore, senza
+          alternativa accessibile. Etichetta testuale sempre visibile,
+          non solo al passaggio del mouse. */}
           {thread && !thread.isGruppo && thread.altraPersonaId && (
-            <span
-              className={`h-2 w-2 shrink-0 rounded-full ${online.has(thread.altraPersonaId) ? "bg-success" : "bg-muted-foreground/40"}`}
-              title={online.has(thread.altraPersonaId) ? "Online" : "Offline"}
-            />
+            <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium normal-case text-muted-foreground">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${online.has(thread.altraPersonaId) ? "bg-success" : "bg-muted-foreground/40"}`} />
+              {online.has(thread.altraPersonaId) ? "Online" : "Offline"}
+            </span>
           )}
         </span>
         {onChiudi && (

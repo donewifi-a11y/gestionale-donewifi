@@ -194,7 +194,7 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
         <SelettoreAccesso />
         <div>
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non attivare il login ora" className="mt-1" />
+          <Input id="password" name="password" type="password" placeholder="lascia vuoto per non attivare il login ora" className="mt-1" />
           <p className="mt-1 text-xs text-muted-foreground">
             Con un&apos;email e una password, questa persona ottiene un accesso individuale reale (login diretto,
             non più solo un account condiviso + scelta &quot;Tu sei&quot;).
@@ -285,7 +285,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
               ? "Nuova password di accesso (lascia vuoto per non cambiarla)"
               : "Password (per attivare il login individuale)"}
           </Label>
-          <Input id="password" name="password" type="text" placeholder="lascia vuoto per non cambiarla" className="mt-1" />
+          <Input id="password" name="password" type="password" placeholder="lascia vuoto per non cambiarla" className="mt-1" />
           {!persona.ha_login && (
             <p className="mt-1 text-xs text-muted-foreground">
               Serve anche l&apos;email qui sopra: con entrambe, questa persona ottiene un login diretto.

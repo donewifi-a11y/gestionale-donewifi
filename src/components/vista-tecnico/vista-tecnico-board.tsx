@@ -17,6 +17,8 @@ import { PianificaAppuntamento } from "@/components/tickets/tickets-board";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
+import { useToast } from "@/components/ui/toast";
+import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 import type { Appuntamento, MaterialeMagazzino, Persona, StatoTicket, Ticket } from "@/lib/types";
 
 // ★ NUOVO — il tecnico può aprire da solo un Ticket per un "Nuovo
@@ -327,6 +329,7 @@ export function VistaTecnicoBoard({
   const [appuntamentoScheda, setAppuntamentoScheda] = useState<Appuntamento | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const [invioNota, setInvioNota] = useState<string | null>(null);
+  const toast = useToast();
 
   async function inviaNota(ticketId: string) {
     const testo = (note[ticketId] || "").trim();
@@ -335,7 +338,7 @@ export function VistaTecnicoBoard({
     const risultato = await aggiungiNotaTicket(ticketId, testo);
     setInvioNota(null);
     if (risultato.errore) {
-      alert(risultato.errore);
+      toast(risultato.errore);
       return;
     }
     setNote((n) => ({ ...n, [ticketId]: "" }));
@@ -463,7 +466,7 @@ export function VistaTecnicoBoard({
                       href={`https://wa.me/${telefonoIntl(t.telefono)}?text=${encodeURIComponent(`Ciao ${t.cliente}, sono il tecnico Done Wifi in arrivo per il tuo intervento.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25b063]/10 py-3 text-sm font-bold text-[#1a8046]"
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold ${COLORE_WHATSAPP.bottoneSoft}`}
                     >
                       <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
                       WhatsApp

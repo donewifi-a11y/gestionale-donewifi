@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
+import { useToast } from "@/components/ui/toast";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
 
 export function RapportinoForm({
@@ -123,6 +124,7 @@ export function RapportinoForm({
 
 export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: RapportinoIntervento; importoFatturato?: number | null }) {
   const [urlFirma, setUrlFirma] = useState<string | null>(null);
+  const toast = useToast();
 
   async function mostraFirma() {
     if (!rapportino.firma_url) return;
@@ -133,7 +135,7 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
   async function apriFoto(percorso: string) {
     const risultato = await urlDocumentoRapportino(percorso);
     if (risultato.errore || !risultato.url) {
-      alert(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     window.open(risultato.url, "_blank", "noopener,noreferrer");

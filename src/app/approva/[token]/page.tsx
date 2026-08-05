@@ -2,17 +2,27 @@ import { AlertTriangle, Wifi } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
 import { ConfermaBottone } from "@/components/approva/conferma-bottone";
 
+// ★ FIX — forma del join dichiarata esplicitamente invece del doppio cast
+// `as unknown as`: token_approvazione.ticket_id è l'unica FK verso
+// tickets (migrazione 0013), quindi l'embed è sempre un oggetto singolo,
+// mai un array.
+interface RigaTokenApprovazione {
+  ticket_id: string;
+  tickets: { numero: number; cliente: string; categoria: string } | null;
+}
+
 export default async function ApprovaPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createServiceClient();
 
-  const { data: riga } = await supabase
+  const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select("ticket_id, tickets(numero, cliente, categoria)")
     .eq("token", token)
     .maybeSingle();
+  if (error) console.error("ApprovaPage:", error.message);
 
-  const ticket = riga?.tickets as unknown as { numero: number; cliente: string; categoria: string } | undefined;
+  const ticket = (riga as unknown as RigaTokenApprovazione | null)?.tickets ?? undefined;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[oklch(0.22_0.035_255)] p-6">

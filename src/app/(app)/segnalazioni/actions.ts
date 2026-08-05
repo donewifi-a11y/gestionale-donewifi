@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
+import { urlFirmataDocumento } from "@/lib/documenti";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
 
 // ★ invia davvero l'email (Resend) dall'indirizzo del reparto Commerciale
@@ -88,9 +89,20 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
 // chi firma il PDF fuori dal gestionale) — solo la tracciabilità di chi,
 // nel nostro staff, ha caricato quale file e quando, resa visibile nella
 // stessa scheda della Segnalazione.
+// ★ FIX — forma del join dichiarata esplicitamente invece di un doppio
+// cast `as unknown as` che si limitava a "fidati": l'unica FK tra storico
+// e persone è storico_operatore_id_fkey (verificato nelle migrazioni), la
+// relazione è sempre a un solo oggetto, mai un array — questa interfaccia
+// lo rende esplicito invece di aggirare il controllo dei tipi.
+interface RigaStoricoContratto {
+  data: string;
+  operatore_id: string | null;
+  persone: { nome: string } | null;
+}
+
 export async function getUltimoCaricamentoContratto(segnalazioneId: string) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("storico")
     .select("data, operatore_id, persone:operatore_id (nome)")
     .eq("origine", "segnalazione")
@@ -99,9 +111,10 @@ export async function getUltimoCaricamentoContratto(segnalazioneId: string) {
     .order("data", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) console.error("getUltimoCaricamentoContratto:", error.message);
   if (!data) return null;
-  const persona = data.persone as unknown as { nome: string } | null;
-  return { data: data.data as string, nome: persona?.nome ?? "utente non più attivo" };
+  const riga = data as unknown as RigaStoricoContratto;
+  return { data: riga.data, nome: riga.persone?.nome ?? "utente non più attivo" };
 }
 
 export async function urlContratto(percorso: string) {
@@ -112,10 +125,7 @@ export async function urlContratto(percorso: string) {
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato.", url: null };
 
-  const service = createServiceClient();
-  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) return { errore: error.message, url: null };
-  return { errore: null, url: data.signedUrl };
+  return urlFirmataDocumento(percorso);
 }
 
 export async function creaSegnalazione(dati: {

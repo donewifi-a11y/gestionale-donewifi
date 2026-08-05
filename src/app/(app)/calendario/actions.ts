@@ -4,8 +4,9 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
+import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
-import type { MaterialeUsato, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
+import type { MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 
 export interface SlotOccupato {
   id: string;
@@ -25,13 +26,14 @@ export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
   const tra14gg = new Date(oggi);
   tra14gg.setDate(tra14gg.getDate() + 14);
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("appuntamenti")
     .select("id, titolo, data_ora, durata_minuti, tecnico_id")
     .eq("stato", "Programmato")
     .gte("data_ora", oggi.toISOString())
     .lte("data_ora", tra14gg.toISOString())
     .order("data_ora", { ascending: true });
+  if (error) console.error("getSlotOccupatiProssimi:", error.message);
 
   return data ?? [];
 }
@@ -362,18 +364,24 @@ export async function salvaSchedaLavoro(
 }
 
 /** Legge una scheda già salvata (per la vista di sola lettura). */
-export async function getSchedaLavoro(appuntamentoId: string) {
+export async function getSchedaLavoro(appuntamentoId: string): Promise<SchedaLavoro | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("schede_lavoro").select("*").eq("appuntamento_id", appuntamentoId).maybeSingle();
-  return data;
+  // ★ FIX — tipo di ritorno dichiarato esplicitamente invece di lasciare
+  // che i chiamanti compensassero con un `as SchedaLavoro` (tickets-board.tsx):
+  // se lo schema si disallinea dall'interfaccia, ora è qui che si vede,
+  // non in un cast a valle che finge di sapere già la forma giusta.
+  const { data, error } = await supabase.from("schede_lavoro").select("*").eq("appuntamento_id", appuntamentoId).maybeSingle();
+  if (error) console.error("getSchedaLavoro:", error.message);
+  return (data as SchedaLavoro | null) ?? null;
 }
 
 /** Come getSchedaLavoro(), ma dal Ticket collegato invece che
  * dall'appuntamento — usata nella scheda cliente/dettaglio Ticket. */
-export async function getSchedaLavoroPerTicket(ticketId: string) {
+export async function getSchedaLavoroPerTicket(ticketId: string): Promise<SchedaLavoro | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("schede_lavoro").select("*").eq("ticket_id", ticketId).maybeSingle();
-  return data;
+  const { data, error } = await supabase.from("schede_lavoro").select("*").eq("ticket_id", ticketId).maybeSingle();
+  if (error) console.error("getSchedaLavoroPerTicket:", error.message);
+  return (data as SchedaLavoro | null) ?? null;
 }
 
 /** URL firmata per una foto/firma di una scheda di lavoro (bucket privato). */
@@ -382,8 +390,5 @@ export async function urlDocumentoScheda(percorso: string) {
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato.", url: null };
 
-  const service = createServiceClient();
-  const { data, error } = await service.storage.from("documenti").createSignedUrl(percorso, 3600);
-  if (error) return { errore: error.message, url: null };
-  return { errore: null, url: data.signedUrl };
+  return urlFirmataDocumento(percorso);
 }
