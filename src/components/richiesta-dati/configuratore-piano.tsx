@@ -6,6 +6,24 @@ import { Button } from "@/components/ui/button";
 import { prezziNettoLordo, prezzoPerTipoCliente, formattaValuta } from "@/lib/types";
 import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
 
+/** Didascalia e caratteristiche mostrate sotto ai router del catalogo Materiali —
+ * testo statico (le schede prodotto TP-Link non sono in tabella) mappato per nome. */
+function infoRouter(nome: string): { etichetta: string; caratteristiche: string[] } | null {
+  if (nome.includes("EX141")) {
+    return {
+      etichetta: "Router Standard",
+      caratteristiche: ["Wi-Fi 6 dual-band fino a 1500 Mbps", "1 porta Gigabit LAN", "Compatibile EasyMesh"],
+    };
+  }
+  if (nome.includes("EX520")) {
+    return {
+      etichetta: "Router PRO",
+      caratteristiche: ["Wi-Fi 6 dual-band fino a 3000 Mbps", "3 porte Gigabit LAN", "VoIP integrato", "Compatibile EasyMesh"],
+    };
+  }
+  return null;
+}
+
 export interface SceltaPiano {
   tipologiaCliente: "Privato" | "Azienda";
   tariffaNome: string;
@@ -39,7 +57,7 @@ export function ConfiguratorePiano({
 }) {
   const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
   const [tariffaId, setTariffaId] = useState("");
-  const [routerId, setRouterId] = useState("incluso");
+  const [routerId, setRouterId] = useState(() => router[0]?.id ?? "");
   const [extenderScelto, setExtenderScelto] = useState(false);
 
   const tipoPrezzo = tipologiaCliente === "Azienda" ? "Business" : "Privato";
@@ -49,7 +67,7 @@ export function ConfiguratorePiano({
     [tariffe, tipologiaCliente]
   );
   const tariffaScelta = tariffeVisibili.find((t) => t.id === tariffaId) ?? null;
-  const routerScelto = routerId === "incluso" ? null : (router.find((r) => r.id === routerId) ?? null);
+  const routerScelto = router.find((r) => r.id === routerId) ?? null;
 
   const prezzoRouter = routerScelto ? prezzoPerTipoCliente(routerScelto.prezzo_unitario, tipoPrezzo) : 0;
   const prezzoExtender = extender && extenderScelto ? prezzoPerTipoCliente(extender.prezzo_unitario, tipoPrezzo) : 0;
@@ -121,10 +139,14 @@ export function ConfiguratorePiano({
                   <span className="block font-semibold">{t.nome}</span>
                   {t.velocita && <span className="block text-xs text-muted-foreground">{t.velocita}</span>}
                 </span>
-                {t.prezzo_mensile != null && (
+                {t.prezzo_mensile != null && t.prezzo_mensile > 0 ? (
                   <span className="shrink-0 font-mono text-sm font-bold text-primary">
                     {formattaValuta(prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo)}/mese
                   </span>
+                ) : (
+                  t.descrizione && (
+                    <span className="shrink-0 text-right text-xs font-semibold text-primary">{t.descrizione}</span>
+                  )
                 )}
               </button>
             ))}
@@ -139,27 +161,36 @@ export function ConfiguratorePiano({
             Router
           </p>
           <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setRouterId("incluso")}
-              className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${routerId === "incluso" ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
-            >
-              <span className="font-semibold">Incluso nel canone</span>
-              <span className="shrink-0 text-xs font-bold text-success">Nessun costo</span>
-            </button>
-            {router.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setRouterId(r.id)}
-                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${routerId === r.id ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
-              >
-                <span className="font-semibold">{r.nome}</span>
-                <span className="shrink-0 font-mono text-xs font-bold text-primary">
-                  {formattaValuta(prezzoPerTipoCliente(r.prezzo_unitario, tipoPrezzo))} una tantum
-                </span>
-              </button>
-            ))}
+            {router.map((r) => {
+              const info = infoRouter(r.nome);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRouterId(r.id)}
+                  className={`flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-left text-sm transition ${routerId === r.id ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span>
+                      <span className="font-semibold">{r.nome}</span>
+                      {info && <span className="ml-1.5 text-xs font-medium text-muted-foreground">— {info.etichetta}</span>}
+                    </span>
+                    <span className="shrink-0 font-mono text-xs font-bold text-primary">
+                      {formattaValuta(prezzoPerTipoCliente(r.prezzo_unitario, tipoPrezzo))} una tantum
+                    </span>
+                  </span>
+                  {info && (
+                    <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {info.caratteristiche.map((c) => (
+                        <li key={c} className="before:mr-1 before:content-['•']">
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

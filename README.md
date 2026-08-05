@@ -971,6 +971,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - **Sidebar**: pulsanti Chat/To-Do più grandi, sfondo pieno invece di solo bordo, etichetta
     "Strumenti" — prima 11px e facili da non notare.
   - **Colori WhatsApp**: consolidati in `src/lib/colori-brand.ts` invece di 3 hex letterali duplicati.
+✅ Configuratore piano e Richiesta Dati — revisione (2026-08-05): il router non ha più l'opzione
+  "Incluso nel canone" (non esiste davvero un router gratuito nei piani attuali), è preselezionato
+  sul più economico e ogni modello mostra una didascalia ("Router Standard"/"Router PRO") e alcune
+  caratteristiche tecniche (`infoRouter()` in `configuratore-piano.tsx`). La tariffa Buy & Go (a
+  consumo, senza canone fisso) non mostra più "€0,00/mese": mostra invece la sua `descrizione`
+  ("Tariffa a consumo, pensata per le seconde case"). Il modulo Dati e documenti ha ora quasi tutti
+  i campi obbligatori (telefono, email, PEC/SDI/legale rappresentante per le aziende, intestatario
+  IBAN se diverso, tessera sanitaria fronte/retro) — restano facoltative solo le Note — e una nuova
+  sezione "Indirizzo di installazione" precompilata dai dati della Segnalazione ma modificabile dal
+  cliente per farla riverificare prima dell'installazione (aggiorna `segnalazioni.via/civico/comune/cap`
+  se cambiato, stesso principio già usato per telefono/email).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

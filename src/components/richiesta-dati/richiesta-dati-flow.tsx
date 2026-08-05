@@ -15,12 +15,14 @@ export function RichiestaDatiFlow({
   tariffe,
   router,
   extender,
+  indirizzo,
 }: {
   segnalazioneId: string;
   giaInviato: boolean;
   tariffe: Tariffa[];
   router: MaterialeMagazzino[];
   extender: MaterialeMagazzino | null;
+  indirizzo?: { via: string; civico: string; comune: string; cap: string };
 }) {
   const [sceltaPiano, setSceltaPiano] = useState<SceltaPiano | null>(null);
 
@@ -43,6 +45,7 @@ export function RichiestaDatiFlow({
           tariffe={tariffe}
           sceltaPiano={sceltaPiano}
           onCambiaPiano={() => setSceltaPiano(null)}
+          indirizzo={indirizzo}
         />
       </div>
     </>

@@ -99,6 +99,13 @@ export async function POST(request: NextRequest) {
   };
   if (dettagli.telefono) aggiornamentoSegnalazione.telefono = dettagli.telefono;
   if (dettagli.email) aggiornamentoSegnalazione.email = dettagli.email;
+  // ★ l'indirizzo di installazione viene riverificato dal cliente in questo
+  // step (vedi richiesta-dati-form.tsx) — se corretto rispetto a quello
+  // raccolto in Segnalazione, va aggiornato qui.
+  if (dettagli.via) aggiornamentoSegnalazione.via = dettagli.via;
+  if (dettagli.civico) aggiornamentoSegnalazione.civico = dettagli.civico;
+  if (dettagli.comune) aggiornamentoSegnalazione.comune = dettagli.comune;
+  if (dettagli.cap) aggiornamentoSegnalazione.cap = dettagli.cap;
 
   const { error: erroreUpdate } = await supabase
     .from("segnalazioni")

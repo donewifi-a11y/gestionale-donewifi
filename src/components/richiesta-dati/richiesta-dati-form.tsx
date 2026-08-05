@@ -36,6 +36,7 @@ export function RichiestaDatiForm({
   tariffe,
   sceltaPiano,
   onCambiaPiano,
+  indirizzo,
 }: {
   segnalazioneId: string;
   giaInviato: boolean;
@@ -46,6 +47,9 @@ export function RichiestaDatiForm({
    * nuovo — vedi configuratore-piano.tsx. */
   sceltaPiano?: SceltaPiano | null;
   onCambiaPiano?: () => void;
+  /** Indirizzo già raccolto in fase di Segnalazione — precompilato qui perché il
+   * cliente lo riverifichi/corregga: verrà usato per l'installazione. */
+  indirizzo?: { via: string; civico: string; comune: string; cap: string };
 }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
@@ -86,17 +90,49 @@ export function RichiestaDatiForm({
       const esito = validaPartitaIva(piva);
       if (!esito.valido) return setErrore(esito.messaggio);
       const cfAzienda = String(dati.get("codiceFiscaleAzienda") || "").trim();
-      if (cfAzienda && !validaCodiceFiscale(cfAzienda).valido) return setErrore(validaCodiceFiscale(cfAzienda).messaggio);
+      if (!cfAzienda) return setErrore("Il Codice Fiscale Azienda è obbligatorio.");
+      if (!validaCodiceFiscale(cfAzienda).valido) return setErrore(validaCodiceFiscale(cfAzienda).messaggio);
+      const pec = String(dati.get("pec") || "").trim();
+      if (!pec) return setErrore("La PEC è obbligatoria.");
+      if (!validaEmail(pec).valido) return setErrore("La PEC inserita non è valida.");
+      const sdi = String(dati.get("sdi") || "").trim();
+      if (!sdi) return setErrore("Il Codice SDI è obbligatorio.");
+      const legaleNome = String(dati.get("legaleRappresentanteNome") || "").trim();
+      if (!legaleNome) return setErrore("Il nome del Legale Rappresentante è obbligatorio.");
+      const legaleCf = String(dati.get("legaleRappresentanteCf") || "").trim();
+      if (!legaleCf) return setErrore("Il CF del Legale Rappresentante è obbligatorio.");
+      if (!validaCodiceFiscale(legaleCf).valido) return setErrore(validaCodiceFiscale(legaleCf).messaggio);
     }
 
+    const telefono = String(dati.get("telefono") || "").trim();
+    if (!telefono) return setErrore("Il telefono è obbligatorio.");
+
     const email = String(dati.get("email") || "").trim();
-    if (email && !validaEmail(email).valido) return setErrore(validaEmail(email).messaggio);
+    if (!email) return setErrore("L'email è obbligatoria.");
+    if (!validaEmail(email).valido) return setErrore(validaEmail(email).messaggio);
+
+    const via = String(dati.get("via") || "").trim();
+    if (!via) return setErrore("L'indirizzo di installazione (via/piazza) è obbligatorio.");
+    const civico = String(dati.get("civico") || "").trim();
+    if (!civico) return setErrore("Il civico dell'indirizzo di installazione è obbligatorio.");
+    const comune = String(dati.get("comune") || "").trim();
+    if (!comune) return setErrore("Il comune dell'indirizzo di installazione è obbligatorio.");
+    const cap = String(dati.get("cap") || "").trim();
+    if (!cap) return setErrore("Il CAP dell'indirizzo di installazione è obbligatorio.");
+    if (!/^\d{5}$/.test(cap)) return setErrore("Il CAP deve essere composto da 5 cifre.");
 
     if (metodoPagamento === "IBAN") {
       const iban = String(dati.get("iban") || "").trim();
       const esito = validaIban(iban);
       if (!esito.valido) return setErrore(esito.messaggio);
       if (!dati.get("mandatoSepa")) return setErrore("Devi autorizzare il mandato di addebito SEPA per procedere con l'IBAN.");
+      if (intestatarioDiverso) {
+        const nomeIntestatario = String(dati.get("ibanIntestatarioNome") || "").trim();
+        if (!nomeIntestatario) return setErrore("Il nome dell'intestatario del conto è obbligatorio.");
+        const cfIntestatario = String(dati.get("ibanIntestatarioCf") || "").trim();
+        if (!cfIntestatario) return setErrore("Il Codice Fiscale dell'intestatario del conto è obbligatorio.");
+        if (!validaCodiceFiscale(cfIntestatario).valido) return setErrore(validaCodiceFiscale(cfIntestatario).messaggio);
+      }
     }
 
     const fronteDoc = (formRef.current?.querySelector("#fronteDocumento") as HTMLInputElement)?.files?.[0];
@@ -105,6 +141,10 @@ export function RichiestaDatiForm({
       const retroDoc = (formRef.current?.querySelector("#retroDocumento") as HTMLInputElement)?.files?.[0];
       if (!retroDoc) return setErrore("Carica il retro del documento d'identità.");
     }
+    const fronteTessera = (formRef.current?.querySelector("#fronteTesseraSanitaria") as HTMLInputElement)?.files?.[0];
+    if (!fronteTessera) return setErrore("Carica il fronte della tessera sanitaria.");
+    const retroTessera = (formRef.current?.querySelector("#retroTesseraSanitaria") as HTMLInputElement)?.files?.[0];
+    if (!retroTessera) return setErrore("Carica il retro della tessera sanitaria.");
 
     if (!dati.get("consenso")) return setErrore("Devi accettare l'informativa privacy per proseguire.");
 
@@ -184,7 +224,11 @@ export function RichiestaDatiForm({
                   <option key={t.id} value={t.nome}>
                     {t.nome}
                     {t.velocita ? ` — ${t.velocita}` : ""}
-                    {t.prezzo_mensile != null ? ` — €${prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo.toFixed(2)}/mese (IVA incl.)` : ""}
+                    {t.prezzo_mensile != null && t.prezzo_mensile > 0
+                      ? ` — €${prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo.toFixed(2)}/mese (IVA incl.)`
+                      : t.descrizione
+                        ? ` — ${t.descrizione}`
+                        : ""}
                   </option>
                 ))}
               </select>
@@ -223,28 +267,65 @@ export function RichiestaDatiForm({
             <Input id="partitaIva" name="partitaIva" className="mt-1 h-10" maxLength={11} />
           </div>
           <div>
-            <Label htmlFor="codiceFiscaleAzienda">Codice Fiscale Azienda (se diverso)</Label>
+            <Label htmlFor="codiceFiscaleAzienda">Codice Fiscale Azienda *</Label>
             <Input id="codiceFiscaleAzienda" name="codiceFiscaleAzienda" className="mt-1 h-10 uppercase" maxLength={16} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input name="pec" type="email" placeholder="PEC" className="h-10" />
-            <Input name="sdi" placeholder="Codice SDI" maxLength={7} className="h-10" />
+            <div>
+              <Label htmlFor="pec">PEC *</Label>
+              <Input id="pec" name="pec" type="email" className="mt-1 h-10" />
+            </div>
+            <div>
+              <Label htmlFor="sdi">Codice SDI *</Label>
+              <Input id="sdi" name="sdi" maxLength={7} className="mt-1 h-10" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input name="legaleRappresentanteNome" placeholder="Nome Legale Rappresentante" className="h-10" />
-            <Input name="legaleRappresentanteCf" placeholder="CF Legale Rappresentante" className="h-10 uppercase" maxLength={16} />
+            <div>
+              <Label htmlFor="legaleRappresentanteNome">Nome Legale Rappresentante *</Label>
+              <Input id="legaleRappresentanteNome" name="legaleRappresentanteNome" className="mt-1 h-10" />
+            </div>
+            <div>
+              <Label htmlFor="legaleRappresentanteCf">CF Legale Rappresentante *</Label>
+              <Input id="legaleRappresentanteCf" name="legaleRappresentanteCf" className="mt-1 h-10 uppercase" maxLength={16} />
+            </div>
           </div>
         </>
       )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="telefono">Telefono</Label>
+          <Label htmlFor="telefono">Telefono *</Label>
           <Input id="telefono" name="telefono" type="tel" className="mt-1 h-10" />
         </div>
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email *</Label>
           <Input id="email" name="email" type="email" className="mt-1 h-10" />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-sm font-semibold">Indirizzo di installazione *</p>
+        <p className="mb-2 text-xs text-muted-foreground">Verifica che l&apos;indirizzo sia corretto: verrà usato per l&apos;installazione.</p>
+        <div className="grid grid-cols-[1fr_100px] gap-3">
+          <div>
+            <Label htmlFor="via">Via/Piazza *</Label>
+            <Input id="via" name="via" defaultValue={indirizzo?.via ?? ""} className="mt-1 h-10" />
+          </div>
+          <div>
+            <Label htmlFor="civico">Civico *</Label>
+            <Input id="civico" name="civico" defaultValue={indirizzo?.civico ?? ""} className="mt-1 h-10" />
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="comune">Comune *</Label>
+            <Input id="comune" name="comune" defaultValue={indirizzo?.comune ?? ""} className="mt-1 h-10" />
+          </div>
+          <div>
+            <Label htmlFor="cap">CAP *</Label>
+            <Input id="cap" name="cap" defaultValue={indirizzo?.cap ?? ""} maxLength={5} className="mt-1 h-10" />
+          </div>
         </div>
       </div>
 
@@ -268,8 +349,14 @@ export function RichiestaDatiForm({
           </label>
           {intestatarioDiverso && (
             <div className="grid grid-cols-2 gap-3">
-              <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-10" />
-              <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-10 uppercase" maxLength={16} />
+              <div>
+                <Label htmlFor="ibanIntestatarioNome">Nome Cognome intestatario *</Label>
+                <Input id="ibanIntestatarioNome" name="ibanIntestatarioNome" className="mt-1 h-10" />
+              </div>
+              <div>
+                <Label htmlFor="ibanIntestatarioCf">CF intestatario *</Label>
+                <Input id="ibanIntestatarioCf" name="ibanIntestatarioCf" className="mt-1 h-10 uppercase" maxLength={16} />
+              </div>
             </div>
           )}
           <div>
@@ -299,8 +386,8 @@ export function RichiestaDatiForm({
       <div className="grid grid-cols-2 gap-3">
         <FileUpload id="fronteDocumento" label="Fronte Documento" obbligatorio />
         {tipoDocumento !== "PASSAPORTO" && <FileUpload id="retroDocumento" label="Retro Documento" obbligatorio />}
-        <FileUpload id="fronteTesseraSanitaria" label="Fronte Tessera Sanitaria" />
-        <FileUpload id="retroTesseraSanitaria" label="Retro Tessera Sanitaria" />
+        <FileUpload id="fronteTesseraSanitaria" label="Fronte Tessera Sanitaria" obbligatorio />
+        <FileUpload id="retroTesseraSanitaria" label="Retro Tessera Sanitaria" obbligatorio />
       </div>
 
       <div>

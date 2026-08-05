@@ -9,7 +9,7 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
 
   const { data: segnalazione } = await supabase
     .from("segnalazioni")
-    .select("id, nome, dati_ricevuti_at")
+    .select("id, nome, dati_ricevuti_at, via, civico, comune, cap")
     .eq("id", id)
     .single();
 
@@ -80,6 +80,12 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
           tariffe={(tariffe as Tariffa[]) ?? []}
           router={router}
           extender={extender}
+          indirizzo={{
+            via: segnalazione.via ?? "",
+            civico: segnalazione.civico ?? "",
+            comune: segnalazione.comune ?? "",
+            cap: segnalazione.cap ?? "",
+          }}
         />
       </div>
     </div>
