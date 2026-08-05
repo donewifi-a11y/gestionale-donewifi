@@ -52,6 +52,8 @@ export function AppSidebar({
   personaReparti,
   onApriChat,
   onApriTodo,
+  nonLettiChat = 0,
+  todoDaFare = 0,
 }: {
   email: string;
   persone: Persona[];
@@ -60,6 +62,8 @@ export function AppSidebar({
   personaReparti: AreaAccesso[];
   onApriChat?: () => void;
   onApriTodo?: () => void;
+  nonLettiChat?: number;
+  todoDaFare?: number;
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
@@ -221,19 +225,29 @@ export function AppSidebar({
             {onApriChat && (
               <button
                 onClick={onApriChat}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
                 Chat
+                {nonLettiChat > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                    {nonLettiChat}
+                  </span>
+                )}
               </button>
             )}
             {onApriTodo && (
               <button
                 onClick={onApriTodo}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sidebar-border py-1.5 text-[11px] font-semibold text-sidebar-foreground/75 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <ListChecks className="h-3.5 w-3.5" strokeWidth={2.25} />
                 To-Do
+                {todoDaFare > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                    {todoDaFare}
+                  </span>
+                )}
               </button>
             )}
           </div>

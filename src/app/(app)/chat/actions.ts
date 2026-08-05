@@ -7,28 +7,107 @@ import type { MessaggioChat } from "@/lib/types";
 export interface ContattoChat {
   id: string;
   nome: string;
+  conversazioneId: string | null;
+  ultimoTesto: string | null;
+  ultimoAllegatoNome: string | null;
+  ultimoCreatoIl: string | null;
+  nonLetti: number;
 }
 
 export interface GruppoChat {
   id: string;
   reparto: string;
+  ultimoTesto: string | null;
+  ultimoAllegatoNome: string | null;
+  ultimoCreatoIl: string | null;
+  nonLetti: number;
 }
 
-/** Persone con cui aprire una diretta (tutte tranne sé stessi) + i gruppi reparto visibili (RLS già li filtra). */
-export async function getContattiChat(): Promise<{ persone: ContattoChat[]; gruppi: GruppoChat[] }> {
+interface AnteprimaConversazione {
+  ultimoTesto: string | null;
+  ultimoAllegatoNome: string | null;
+  ultimoCreatoIl: string | null;
+  nonLetti: number;
+}
+
+/** ★ FIX — prima questa funzione tornava solo "a chi puoi scrivere" (elenco
+ * piatto di persone/gruppi): niente anteprima dell'ultimo messaggio, niente
+ * indicatore di non letti, la chat ripartiva sempre da zero invece di
+ * mostrare le conversazioni già in corso. Ora calcola anche quello, in 3
+ * query invece di N+1 (tutte le conversazioni visibili via RLS, tutte le
+ * letture proprie, tutti i messaggi di quelle conversazioni), aggregando
+ * qui in JS — volume tipico (poche decine di conversazioni per un team di
+ * questa dimensione) troppo piccolo per giustificare una funzione SQL
+ * dedicata. */
+export async function getContattiChat(): Promise<{ persone: ContattoChat[]; gruppi: GruppoChat[]; nonLettiTotali: number }> {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { persone: [], gruppi: [] };
+  if (!personaId) return { persone: [], gruppi: [], nonLettiTotali: 0 };
 
-  const [{ data: persone }, { data: gruppi }] = await Promise.all([
+  const [{ data: persone }, { data: conversazioni }, { data: letture }] = await Promise.all([
     supabase.from("persone").select("id, nome").eq("attivo", true).neq("id", personaId).order("nome"),
-    supabase.from("conversazioni").select("id, reparto").eq("tipo", "gruppo"),
+    supabase.from("conversazioni").select("*"),
+    supabase.from("conversazioni_letture").select("conversazione_id, ultimo_letto_il").eq("persona_id", personaId),
   ]);
 
-  return {
-    persone: persone ?? [],
-    gruppi: (gruppi ?? []).map((g) => ({ id: g.id, reparto: g.reparto as string })),
-  };
+  const conversazioniList = conversazioni ?? [];
+  const idConversazioni = conversazioniList.map((c) => c.id);
+  const { data: messaggi } =
+    idConversazioni.length > 0
+      ? await supabase
+          .from("messaggi_chat")
+          .select("conversazione_id, mittente_id, testo, allegato_nome, creato_il")
+          .in("conversazione_id", idConversazioni)
+          .order("creato_il", { ascending: true })
+      : { data: [] as { conversazione_id: string; mittente_id: string; testo: string | null; allegato_nome: string | null; creato_il: string }[] };
+
+  const letturaPerConv = new Map((letture ?? []).map((l) => [l.conversazione_id, l.ultimo_letto_il]));
+  const ultimoPerConv = new Map<string, { testo: string | null; allegato_nome: string | null; creato_il: string }>();
+  const nonLettiPerConv = new Map<string, number>();
+  for (const m of messaggi ?? []) {
+    // ★ i messaggi arrivano ordinati per data crescente: l'ultimo che
+    // sovrascrive la mappa, per ciascuna conversazione, è sempre il più
+    // recente — non serve un ordinamento separato "prendi solo l'ultimo".
+    ultimoPerConv.set(m.conversazione_id, { testo: m.testo, allegato_nome: m.allegato_nome, creato_il: m.creato_il });
+    if (m.mittente_id !== personaId) {
+      const mieaLettura = letturaPerConv.get(m.conversazione_id);
+      if (!mieaLettura || new Date(m.creato_il) > new Date(mieaLettura)) {
+        nonLettiPerConv.set(m.conversazione_id, (nonLettiPerConv.get(m.conversazione_id) ?? 0) + 1);
+      }
+    }
+  }
+
+  const conversazionePerAltraPersona = new Map<string, (typeof conversazioniList)[number]>();
+  for (const c of conversazioniList) {
+    if (c.tipo === "diretta") {
+      const altra = c.persona_a_id === personaId ? c.persona_b_id : c.persona_a_id;
+      if (altra) conversazionePerAltraPersona.set(altra, c);
+    }
+  }
+
+  function anteprima(conversazioneId: string | undefined): AnteprimaConversazione {
+    if (!conversazioneId) return { ultimoTesto: null, ultimoAllegatoNome: null, ultimoCreatoIl: null, nonLetti: 0 };
+    const ultimo = ultimoPerConv.get(conversazioneId);
+    return {
+      ultimoTesto: ultimo?.testo ?? null,
+      ultimoAllegatoNome: ultimo?.allegato_nome ?? null,
+      ultimoCreatoIl: ultimo?.creato_il ?? null,
+      nonLetti: nonLettiPerConv.get(conversazioneId) ?? 0,
+    };
+  }
+
+  const persone2: ContattoChat[] = (persone ?? []).map((p) => {
+    const conv = conversazionePerAltraPersona.get(p.id);
+    return { id: p.id, nome: p.nome, conversazioneId: conv?.id ?? null, ...anteprima(conv?.id) };
+  });
+
+  const gruppi2: GruppoChat[] = conversazioniList
+    .filter((c) => c.tipo === "gruppo")
+    .map((c) => ({ id: c.id, reparto: c.reparto as string, ...anteprima(c.id) }));
+
+  const nonLettiTotali = [...nonLettiPerConv.values()].reduce((s, n) => s + n, 0);
+
+  return { persone: persone2, gruppi: gruppi2, nonLettiTotali };
 }
 
 /** Trova (o crea al primo utilizzo) la conversazione diretta con un'altra persona. */

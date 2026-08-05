@@ -57,3 +57,15 @@ export async function eliminaTodoPersonale(id: string): Promise<{ errore: string
   if (error) return { errore: error.message };
   return { errore: null };
 }
+
+// ★ FIX — non si poteva correggere il testo di un to-do già creato, solo
+// completarlo o eliminarlo: un refuso costringeva a cancellare e riscrivere.
+export async function modificaTodoPersonale(id: string, testo: string): Promise<{ errore: string | null }> {
+  const supabase = await createClient();
+  const testoPulito = testo.trim();
+  if (!testoPulito) return { errore: "Il testo non può essere vuoto." };
+
+  const { error } = await supabase.from("todo_personali").update({ testo: testoPulito }).eq("id", id);
+  if (error) return { errore: error.message };
+  return { errore: null };
+}

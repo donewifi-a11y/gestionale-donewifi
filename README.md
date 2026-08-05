@@ -916,6 +916,23 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   nome del canale include ora un suffisso univoco per istanza (`useId()`) così il client non le
   fonde in una sola sottoscrizione — lì, a differenza della presenza, ogni istanza vuole restare
   indipendente, non condivisa.
+✅ Chat e To-Do — dalla revisione funzionale richiesta esplicitamente, prodotto completato (2026-08):
+  - **Stato condiviso tra riquadro e pop-up** (il problema di fondo dietro quasi tutti gli altri):
+    nuovi `ChatDataProvider`/`TodoDataProvider` (montati una sola volta in `AppShell`, come
+    `OnlineProvider`) invece di ogni istanza con il proprio stato locale — completare un to-do o
+    leggere un messaggio in un punto si riflette subito ovunque, nessun disallineamento.
+  - **Badge non letti/da fare sui due pulsanti in sidebar**: il conteggio to-do (perso nel passaggio
+    dal vecchio pulsante flottante) è tornato, e la chat ne ha uno nuovo (prima non esisteva alcun
+    indicatore di messaggi non letti).
+  - **Chat: elenco "conversazioni" invece di solo "a chi scrivo"** — `getContattiChat()`
+    (`src/app/(app)/chat/actions.ts`) calcola ora anche anteprima dell'ultimo messaggio, orario e
+    conteggio non letti per ciascun contatto/gruppo (3 query, aggregate in JS — volume del team
+    troppo piccolo per giustificare una funzione SQL dedicata), e l'elenco si ordina non letti prima,
+    poi per recenza, chi non ha mai scritto per ultimo. Verificato lo shape delle query contro i dati
+    reali di produzione (5 conversazioni, 4 messaggi).
+  - **To-Do: modifica testo** (nuova `modificaTodoPersonale()`) — prima un refuso richiedeva
+    cancellare e riscrivere, ora c'è una matita che apre modifica inline.
+  - **To-Do: conferma prima di eliminare** — il cestino chiede conferma invece di cancellare subito.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

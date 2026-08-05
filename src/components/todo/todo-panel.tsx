@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ListChecks, X, Plus, Trash2 } from "lucide-react";
-import { getTodoPersonali, creaTodoPersonale, completaTodoPersonale, eliminaTodoPersonale } from "@/app/(app)/todo/actions";
+import { useState } from "react";
+import { ListChecks, X, Plus, Trash2, Pencil, Check } from "lucide-react";
+import { useTodoData } from "@/components/todo/todo-data-context";
 import type { TodoPersonale } from "@/lib/types";
 
 /** ★ ESTRATTO — contenuto dei to-do personali, separato dal "come" viene
  * mostrato: prima un pulsante flottante sempre in vista, ora un pop-up
  * richiamabile dalla sidebar (`TodoWidget`) o un riquadro fisso in home
  * (`variant="riquadro"`). Stesso contenuto, stesso principio già applicato
- * alla chat (vedi chat-panel.tsx). */
+ * alla chat (vedi chat-panel.tsx). Stato condiviso via `useTodoData()`:
+ * riquadro e pop-up restano sincronizzati tra loro. */
 export function TodoPanel({
   personaCorrenteId,
   onChiudi,
@@ -19,39 +20,31 @@ export function TodoPanel({
   onChiudi?: () => void;
   variant?: "popup" | "riquadro";
 }) {
-  const [todo, setTodo] = useState<TodoPersonale[] | null>(null);
+  const { todo, aggiungi, completa, modifica, elimina } = useTodoData();
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const [inModifica, setInModifica] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!todo) getTodoPersonali().then(setTodo);
-  }, [todo]);
-
-  async function aggiungi(e: React.FormEvent) {
+  async function onAggiungi(e: React.FormEvent) {
     e.preventDefault();
     if (!testo.trim() || inCorso) return;
     setInCorso(true);
     setErrore("");
-    const risultato = await creaTodoPersonale(testo);
+    const errore = await aggiungi(testo);
     setInCorso(false);
-    if (risultato.errore || !risultato.todo) {
-      setErrore(risultato.errore || "Errore imprevisto.");
+    if (errore) {
+      setErrore(errore);
       return;
     }
-    setTodo((t) => [...(t ?? []), risultato.todo as TodoPersonale]);
     setTesto("");
   }
 
-  async function toggle(item: TodoPersonale) {
-    const nuovoFatto = !item.fatto;
-    setTodo((t) => (t ?? []).map((x) => (x.id === item.id ? { ...x, fatto: nuovoFatto } : x)));
-    await completaTodoPersonale(item.id, nuovoFatto);
-  }
-
-  async function elimina(id: string) {
-    setTodo((t) => (t ?? []).filter((x) => x.id !== id));
-    await eliminaTodoPersonale(id);
+  function onElimina(id: string) {
+    // ★ FIX — prima cancellava subito al clic, senza conferma: un tocco di
+    // troppo sul cestino perdeva il to-do senza possibilità di annullare.
+    if (!confirm("Eliminare questo to-do?")) return;
+    elimina(id);
   }
 
   if (!personaCorrenteId) return null;
@@ -83,7 +76,20 @@ export function TodoPanel({
         )}
         <div className="flex flex-col gap-1.5">
           {daFare.map((item) => (
-            <RigaTodo key={item.id} item={item} onToggle={() => toggle(item)} onElimina={() => elimina(item.id)} />
+            <RigaTodo
+              key={item.id}
+              item={item}
+              inModifica={inModifica === item.id}
+              onToggle={() => completa(item)}
+              onElimina={() => onElimina(item.id)}
+              onAvviaModifica={() => setInModifica(item.id)}
+              onSalvaModifica={async (nuovoTesto) => {
+                const errore = await modifica(item.id, nuovoTesto);
+                if (!errore) setInModifica(null);
+                return errore;
+              }}
+              onAnnullaModifica={() => setInModifica(null)}
+            />
           ))}
         </div>
         {fatti.length > 0 && (
@@ -92,13 +98,26 @@ export function TodoPanel({
               Completati ({fatti.length})
             </p>
             {fatti.map((item) => (
-              <RigaTodo key={item.id} item={item} onToggle={() => toggle(item)} onElimina={() => elimina(item.id)} />
+              <RigaTodo
+                key={item.id}
+                item={item}
+                inModifica={inModifica === item.id}
+                onToggle={() => completa(item)}
+                onElimina={() => onElimina(item.id)}
+                onAvviaModifica={() => setInModifica(item.id)}
+                onSalvaModifica={async (nuovoTesto) => {
+                  const errore = await modifica(item.id, nuovoTesto);
+                  if (!errore) setInModifica(null);
+                  return errore;
+                }}
+                onAnnullaModifica={() => setInModifica(null)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      <form onSubmit={aggiungi} className="flex items-center gap-1.5 border-t p-2.5">
+      <form onSubmit={onAggiungi} className="flex items-center gap-1.5 border-t p-2.5">
         <input
           value={testo}
           onChange={(e) => setTesto(e.target.value)}
@@ -119,7 +138,51 @@ export function TodoPanel({
   );
 }
 
-function RigaTodo({ item, onToggle, onElimina }: { item: TodoPersonale; onToggle: () => void; onElimina: () => void }) {
+function RigaTodo({
+  item,
+  inModifica,
+  onToggle,
+  onElimina,
+  onAvviaModifica,
+  onSalvaModifica,
+  onAnnullaModifica,
+}: {
+  item: TodoPersonale;
+  inModifica: boolean;
+  onToggle: () => void;
+  onElimina: () => void;
+  onAvviaModifica: () => void;
+  onSalvaModifica: (nuovoTesto: string) => Promise<string | null>;
+  onAnnullaModifica: () => void;
+}) {
+  const [bozza, setBozza] = useState(item.testo);
+
+  if (inModifica) {
+    return (
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await onSalvaModifica(bozza);
+        }}
+        className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-1.5 py-1"
+      >
+        <input
+          autoFocus
+          value={bozza}
+          onChange={(e) => setBozza(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && onAnnullaModifica()}
+          className="h-6 flex-1 rounded border bg-background px-1.5 text-xs"
+        />
+        <button type="submit" className="shrink-0 rounded p-0.5 text-success hover:bg-success/10" aria-label="Salva">
+          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+        </button>
+        <button type="button" onClick={onAnnullaModifica} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted" aria-label="Annulla">
+          <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+        </button>
+      </form>
+    );
+  }
+
   return (
     <div className="group flex items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-muted/50">
       <button
@@ -132,6 +195,13 @@ function RigaTodo({ item, onToggle, onElimina }: { item: TodoPersonale; onToggle
         {item.fatto && <span className="text-[10px] leading-none">✓</span>}
       </button>
       <span className={`flex-1 break-words text-xs ${item.fatto ? "text-muted-foreground line-through" : ""}`}>{item.testo}</span>
+      <button
+        onClick={onAvviaModifica}
+        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition hover:text-primary group-hover:opacity-100"
+        aria-label="Modifica"
+      >
+        <Pencil className="h-3 w-3" strokeWidth={2.25} />
+      </button>
       <button
         onClick={onElimina}
         className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition hover:text-critical group-hover:opacity-100"

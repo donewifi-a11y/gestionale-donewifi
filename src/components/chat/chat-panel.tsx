@@ -4,8 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/components/chat/online-context";
+import { useChatData } from "@/components/chat/chat-data-context";
 import {
-  getContattiChat,
   getOrCreaConversazioneDiretta,
   getMessaggi,
   inviaMessaggio,
@@ -25,6 +25,21 @@ interface Thread {
   altraPersonaId: string | null;
 }
 
+function anteprimaTesto(testo: string | null, allegatoNome: string | null): string {
+  if (testo) return testo;
+  if (allegatoNome) return `📎 ${allegatoNome}`;
+  return "Nessun messaggio ancora";
+}
+
+function oraBreve(iso: string): string {
+  const d = new Date(iso);
+  const oggi = new Date();
+  const stessoGiorno = d.toDateString() === oggi.toDateString();
+  return stessoGiorno
+    ? d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+}
+
 /** ★ ESTRATTO — contenuto della chat, separato dal "come" viene mostrato
  * (prima solo un pulsante flottante sempre in vista, "troppi pulsanti in
  * giro" secondo l'utente). Lo stesso contenuto ora serve sia il pop-up
@@ -39,7 +54,7 @@ export function ChatPanel({
   onChiudi?: () => void;
   variant?: "popup" | "riquadro";
 }) {
-  const [contatti, setContatti] = useState<{ persone: ContattoChat[]; gruppi: GruppoChat[] } | null>(null);
+  const { persone, gruppi, pronto, ricarica } = useChatData();
   const [thread, setThread] = useState<Thread | null>(null);
   const [messaggi, setMessaggi] = useState<MessaggioChat[]>([]);
   const [letturaAltro, setLetturaAltro] = useState<string | null>(null);
@@ -59,10 +74,6 @@ export function ChatPanel({
   // payload resta invariato, cambia solo il nome usato per evitare la
   // deduplicazione.
   const istanzaId = useId();
-
-  useEffect(() => {
-    if (!contatti) getContattiChat().then(setContatti);
-  }, [contatti]);
 
   useEffect(() => {
     fineListaRef.current?.scrollIntoView({ block: "end" });
@@ -102,17 +113,26 @@ export function ChatPanel({
     setLetturaAltro(null);
     setMessaggi(await getMessaggi(t.conversazioneId));
     setThread(t);
-    segnaConversazioneLetta(t.conversazioneId);
+    await segnaConversazioneLetta(t.conversazioneId);
+    // ★ FIX — senza questa chiamata esplicita, il badge "non letti"
+    // sull'altra istanza (o sul pulsante in sidebar) restava indietro
+    // finché non arrivava l'evento Realtime della lettura — un attimo di
+    // ritardo evitabile, visto che qui sappiamo già che è cambiato.
+    ricarica();
     if (t.altraPersonaId) setLetturaAltro(await getUltimaLetturaAltro(t.conversazioneId, t.altraPersonaId));
   }
 
   async function apriDiretta(persona: ContattoChat) {
-    const risultato = await getOrCreaConversazioneDiretta(persona.id);
-    if (risultato.errore || !risultato.id) {
-      alert(risultato.errore || "Errore imprevisto.");
-      return;
+    let conversazioneId = persona.conversazioneId;
+    if (!conversazioneId) {
+      const risultato = await getOrCreaConversazioneDiretta(persona.id);
+      if (risultato.errore || !risultato.id) {
+        alert(risultato.errore || "Errore imprevisto.");
+        return;
+      }
+      conversazioneId = risultato.id;
     }
-    await apriThread({ conversazioneId: risultato.id, titolo: persona.nome, isGruppo: false, altraPersonaId: persona.id });
+    await apriThread({ conversazioneId, titolo: persona.nome, isGruppo: false, altraPersonaId: persona.id });
   }
 
   async function apriGruppo(gruppo: GruppoChat) {
@@ -154,12 +174,30 @@ export function ChatPanel({
 
   function nomeMittente(mittenteId: string): string {
     if (mittenteId === personaCorrenteId) return "Tu";
-    return contatti?.persone.find((p) => p.id === mittenteId)?.nome ?? "—";
+    return persone.find((p) => p.id === mittenteId)?.nome ?? "—";
   }
 
   if (!personaCorrenteId) return null;
 
   const dimensioni = variant === "popup" ? "h-[480px] w-80" : "h-[420px] w-full";
+
+  // ★ FIX — prima l'elenco era sempre "a chi scrivo" in ordine alfabetico,
+  // senza distinguere conversazioni in corso da contatti mai sentiti.
+  // Ordine: prima chi ha messaggi non letti, poi le conversazioni più
+  // recenti, infine chi non ha ancora una conversazione (alfabetico, come
+  // prima) — così le chat attive emergono subito invece di dover
+  // ricordare a memoria con chi si stava parlando.
+  function ordina<T extends { nonLetti: number; ultimoCreatoIl: string | null }>(righe: T[]): T[] {
+    return [...righe].sort((a, b) => {
+      if (a.nonLetti !== b.nonLetti) return b.nonLetti - a.nonLetti;
+      if (a.ultimoCreatoIl && b.ultimoCreatoIl) return new Date(b.ultimoCreatoIl).getTime() - new Date(a.ultimoCreatoIl).getTime();
+      if (a.ultimoCreatoIl) return -1;
+      if (b.ultimoCreatoIl) return 1;
+      return 0;
+    });
+  }
+  const gruppiOrdinati = ordina(gruppi);
+  const personeOrdinate = ordina(persone);
 
   return (
     <div className={`flex ${dimensioni} flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl`}>
@@ -188,23 +226,34 @@ export function ChatPanel({
 
       {!thread && (
         <div className="flex-1 overflow-y-auto p-2">
-          {contatti && contatti.gruppi.length > 0 && (
+          {gruppiOrdinati.length > 0 && (
             <>
               <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Gruppi reparto</p>
-              {contatti.gruppi.map((g) => (
+              {gruppiOrdinati.map((g) => (
                 <button key={g.id} onClick={() => apriGruppo(g)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                     <Users className="h-3.5 w-3.5" strokeWidth={2.25} />
                   </span>
-                  {g.reparto}
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate ${g.nonLetti > 0 ? "font-bold" : ""}`}>{g.reparto}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{anteprimaTesto(g.ultimoTesto, g.ultimoAllegatoNome)}</span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {g.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(g.ultimoCreatoIl)}</span>}
+                    {g.nonLetti > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {g.nonLetti}
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))}
             </>
           )}
-          {contatti && contatti.persone.length > 0 && (
+          {personeOrdinate.length > 0 && (
             <>
               <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Persone</p>
-              {contatti.persone.map((p) => (
+              {personeOrdinate.map((p) => (
                 <button key={p.id} onClick={() => apriDiretta(p)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
                   <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
                     {p.nome.slice(0, 2).toUpperCase()}
@@ -212,12 +261,25 @@ export function ChatPanel({
                       className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${online.has(p.id) ? "bg-success" : "bg-muted-foreground/40"}`}
                     />
                   </span>
-                  {p.nome}
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate ${p.nonLetti > 0 ? "font-bold" : ""}`}>{p.nome}</span>
+                    {p.conversazioneId && (
+                      <span className="block truncate text-xs text-muted-foreground">{anteprimaTesto(p.ultimoTesto, p.ultimoAllegatoNome)}</span>
+                    )}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {p.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(p.ultimoCreatoIl)}</span>}
+                    {p.nonLetti > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {p.nonLetti}
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))}
             </>
           )}
-          {!contatti && <p className="p-3 text-center text-xs text-muted-foreground">Caricamento...</p>}
+          {!pronto && <p className="p-3 text-center text-xs text-muted-foreground">Caricamento...</p>}
         </div>
       )}
 
