@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useOnline } from "@/components/chat/online-context";
 import {
   getContattiChat,
   getOrCreaConversazioneDiretta,
@@ -22,31 +23,6 @@ interface Thread {
   titolo: string;
   isGruppo: boolean;
   altraPersonaId: string | null;
-}
-
-/** ★ NUOVA — canale di presenza condiviso: chiunque abbia il gestionale
- * aperto in una scheda "si iscrive" qui, in tempo reale, senza bisogno di
- * salvare nulla su un heartbeat lato database. */
-function useOnline(personaCorrenteId: string | null): Set<string> {
-  const [online, setOnline] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!personaCorrenteId) return;
-    const supabase = createClient();
-    const canale = supabase.channel("presenza-online", { config: { presence: { key: personaCorrenteId } } });
-    canale
-      .on("presence", { event: "sync" }, () => {
-        setOnline(new Set(Object.keys(canale.presenceState())));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") await canale.track({ dal: new Date().toISOString() });
-      });
-    return () => {
-      supabase.removeChannel(canale);
-    };
-  }, [personaCorrenteId]);
-
-  return online;
 }
 
 /** ★ ESTRATTO — contenuto della chat, separato dal "come" viene mostrato
@@ -70,7 +46,19 @@ export function ChatPanel({
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const fineListaRef = useRef<HTMLDivElement>(null);
-  const online = useOnline(personaCorrenteId);
+  const online = useOnline();
+  // ★ FIX — ChatPanel può essere montata due volte insieme (riquadro fisso
+  // in home + pop-up dalla sidebar): se l'utente apre la STESSA
+  // conversazione in entrambe, due `.channel()` con lo stesso nome
+  // otterrebbero lo stesso oggetto canale già sottoscritto dal client
+  // Realtime di Supabase (li deduplica per nome) — stesso crash già
+  // risolto per il canale di presenza. Qui, a differenza della presenza,
+  // ogni istanza vuole la propria sottoscrizione indipendente (non c'è un
+  // dato condiviso da mettere in comune), quindi basta un suffisso univoco
+  // per istanza nel nome del canale — il filtro `conversazione_id` nel
+  // payload resta invariato, cambia solo il nome usato per evitare la
+  // deduplicazione.
+  const istanzaId = useId();
 
   useEffect(() => {
     if (!contatti) getContattiChat().then(setContatti);
@@ -87,7 +75,7 @@ export function ChatPanel({
     if (!thread) return;
     const supabase = createClient();
     const canale = supabase
-      .channel(`chat-${thread.conversazioneId}`)
+      .channel(`chat-${thread.conversazioneId}-${istanzaId.replace(/\W/g, "")}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messaggi_chat", filter: `conversazione_id=eq.${thread.conversazioneId}` },
@@ -108,7 +96,7 @@ export function ChatPanel({
     return () => {
       supabase.removeChannel(canale);
     };
-  }, [thread]);
+  }, [thread, istanzaId]);
 
   async function apriThread(t: Thread) {
     setLetturaAltro(null);

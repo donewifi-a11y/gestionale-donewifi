@@ -903,6 +903,19 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     default, compare solo quando richiamato, invece di occupare permanentemente un angolo dello
     schermo su ogni pagina.
   Nessuna migrazione, nessuna modifica ai dati — solo dove/come viene mostrato lo stesso contenuto.
+✅ FIX — crash aprendo la chat dopo il refactor sopra (2026-08, segnalato dall'utente con screenshot
+  console): `ChatPanel` può ora essere montata due volte insieme (riquadro fisso in home + pop-up),
+  ma il client Realtime di Supabase deduplica i canali per nome — la seconda istanza otteneva lo
+  stesso canale di presenza `presenza-online` già sottoscritto dalla prima, e chiamarci sopra
+  `.on("presence", ...)` dopo `.subscribe()` lancia un errore fatale che mandava in crash l'intera
+  pagina ("This page couldn't load"). Fix: la sottoscrizione di presenza si fa ora una sola volta,
+  in un `OnlineProvider` condiviso (`src/components/chat/online-context.tsx`, montato in
+  `AppShell`) — le due `ChatPanel` leggono lo stato online da lì invece di iscriversi ciascuna per
+  conto proprio. Stesso rischio, individuato preventivamente e corretto, anche sul canale
+  messaggi per-conversazione: se la stessa conversazione viene aperta in entrambe le istanze, il
+  nome del canale include ora un suffisso univoco per istanza (`useId()`) così il client non le
+  fonde in una sola sottoscrizione — lì, a differenza della presenza, ogni istanza vuole restare
+  indipendente, non condivisa.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
