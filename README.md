@@ -982,6 +982,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   sezione "Indirizzo di installazione" precompilata dai dati della Segnalazione ma modificabile dal
   cliente per farla riverificare prima dell'installazione (aggiorna `segnalazioni.via/civico/comune/cap`
   se cambiato, stesso principio già usato per telefono/email).
+✅ Richiesta Dati — allegati più veloci e leggeri (2026-08-05): le foto di documento/tessera
+  sanitaria (spesso 4-8MB dirette da fotocamera) vengono ridimensionate lato client (max 1920px sul
+  lato lungo, JPEG qualità 0.8, `comprimiImmagine()` in `richiesta-dati-form.tsx`) prima di essere
+  caricate — tenuto l'originale solo se la compressione non porta a un file più piccolo (PDF, o
+  immagini già leggere). I 4 allegati vengono inoltre caricati in parallelo invece che uno alla
+  volta. Corretto anche il crash "Unexpected token 'R' ... is not valid JSON" che capitava
+  inviando 4 foto ad alta risoluzione: era la pagina d'errore HTML di Vercel per corpo della
+  richiesta troppo grande (limite ~4.5MB) — i file ora vengono caricati dal browser direttamente su
+  Supabase Storage con un signed upload URL invece di passare per il corpo della richiesta.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

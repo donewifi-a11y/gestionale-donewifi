@@ -18,6 +18,33 @@ const ETICHETTE_FILE: Record<string, string> = {
   retroTesseraSanitaria: "Retro tessera sanitaria",
 };
 
+/** ★ le foto da fotocamera/smartphone arrivano spesso a 4-8MB l'una: caricarle
+ * così com'sono è lento e pesa inutilmente sullo storage, per un documento
+ * che deve solo restare leggibile. Ridimensiona al lato lungo massimo e
+ * ricomprime in JPEG — se il risultato non è più piccolo dell'originale (già
+ * un PDF o un'immagine già leggera) tiene l'originale invece di peggiorarlo. */
+async function comprimiImmagine(file: File, latoMax = 1920, qualita = 0.8): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scala = Math.min(1, latoMax / Math.max(bitmap.width, bitmap.height));
+    const larghezza = Math.round(bitmap.width * scala);
+    const altezza = Math.round(bitmap.height * scala);
+    const canvas = document.createElement("canvas");
+    canvas.width = larghezza;
+    canvas.height = altezza;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, larghezza, altezza);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", qualita));
+    if (!blob || blob.size >= file.size) return file;
+    const nomeCompresso = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], nomeCompresso, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 /** ★ FIX — i documenti non passano più nel corpo di /api/richiesta-dati: 4
  * foto ad alta risoluzione (documento + tessera sanitaria, ora entrambi
  * obbligatori) superano facilmente il limite di ~4.5MB per le funzioni
@@ -27,16 +54,18 @@ const ETICHETTE_FILE: Record<string, string> = {
  * Supabase con un signed upload URL — la route resta solo per i dati
  * anagrafici (testo, pochi KB) e riceve solo il percorso già caricato. */
 async function caricaDocumento(file: File, segnalazioneId: string, campo: string): Promise<{ nome: string; percorso: string; tipo: string }> {
+  const fileDaCaricare = await comprimiImmagine(file);
+
   const rispostaUrl = await fetch("/api/richiesta-dati/upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ segnalazioneId, nomeFile: file.name }),
+    body: JSON.stringify({ segnalazioneId, nomeFile: fileDaCaricare.name }),
   });
   const risultatoUrl = await rispostaUrl.json();
   if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || `Errore preparazione upload "${file.name}".`);
 
   const supabase = createClient();
-  const { error } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+  const { error } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, fileDaCaricare);
   if (error) throw new Error(`Errore caricamento "${file.name}": ${error.message}`);
 
   return { nome: file.name, percorso: risultatoUrl.percorso, tipo: ETICHETTE_FILE[campo] ?? campo };
@@ -196,10 +225,12 @@ export function RichiestaDatiForm({
     setInCorso(true);
     setFase("Caricamento documenti…");
     try {
-      const documenti: { nome: string; percorso: string; tipo: string }[] = [];
-      for (const [campo, file] of Object.entries(fileSelezionati)) {
-        documenti.push(await caricaDocumento(file, segnalazioneId, campo));
-      }
+      // ★ i 4 allegati vengono compressi e caricati in parallelo invece che
+      // uno alla volta: la parte più lenta dell'invio (rete, non CPU) si
+      // sovrappone tra i file invece di sommarsi.
+      const documenti = await Promise.all(
+        Object.entries(fileSelezionati).map(([campo, file]) => caricaDocumento(file, segnalazioneId, campo))
+      );
 
       setFase("Invio dati…");
       const corpo: Record<string, string> = {};
