@@ -991,6 +991,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   inviando 4 foto ad alta risoluzione: era la pagina d'errore HTML di Vercel per corpo della
   richiesta troppo grande (limite ~4.5MB) — i file ora vengono caricati dal browser direttamente su
   Supabase Storage con un signed upload URL invece di passare per il corpo della richiesta.
+✅ Segnalazioni — flusso a step (2026-08-05): i 4 pulsanti di stato (cliccabili tutti insieme, in
+  qualunque ordine) sono sostituiti da un indicatore di avanzamento in sola lettura più un solo
+  pulsante con l'azione del passo attuale ("Ho contattato il cliente" → "Avvia Gestione Cliente"),
+  con un link "Torna a…" per correggere un errore. Il pannello Contratto compare solo da Gestione
+  Cliente in poi, "Trasmetti per l'installazione" solo a Gestione Cliente — prima comparivano
+  sempre, anche prima di aver contattato il cliente. Nuovo avviso nella Chat interna (oltre al
+  Telegram già esistente) quando arrivano dati/documenti dal cliente: va nel gruppo Commerciale
+  (visto anche dagli amministratori), inviato da una Persona dedicata "Sistema" (creata inattiva,
+  quindi mai selezionabile come assegnatario in nessun form — `src/lib/chat.ts`, chiamato da
+  `api/richiesta-dati/route.ts`).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

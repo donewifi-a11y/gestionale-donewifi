@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -289,6 +289,16 @@ function DettaglioSegnalazione({
     }
   }
 
+  // ★ FIX — i 4 pulsanti di stato comparivano tutti insieme, cliccabili in
+  // qualunque ordine: nessun segnale su cosa fare dopo, e permetteva di
+  // saltare step ("Trasmessa" senza mai essere passati da "Gestione
+  // Cliente"). Ora resta un indicatore di avanzamento (sola lettura) più
+  // un solo pulsante con l'azione del passo attuale, come da flusso reale:
+  // contatta il cliente → avvia Gestione Cliente/manda la Richiesta Dati →
+  // (attesa dati/documenti, verificati sotto) → carica il contratto e
+  // trasmetti. "Indietro" resta disponibile per correggere un errore.
+  const indiceCorrente = COLONNE.findIndex((c) => c.stato === segnalazione.stato);
+
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
   if (!contrattoUrl) mancanti.push("contratto firmato");
@@ -360,21 +370,51 @@ function DettaglioSegnalazione({
       </SheetHeader>
 
       <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
-        <div className="flex flex-wrap gap-1.5">
-          {COLONNE.map((c) => (
+        <div>
+          <div className="flex items-center gap-1">
+            {COLONNE.map((c, i) => (
+              <div key={c.stato} className="flex flex-1 items-center gap-1">
+                <div
+                  className={`flex h-6 flex-1 items-center justify-center gap-1 rounded-full px-1.5 text-center text-[10px] font-semibold leading-none ${
+                    i === indiceCorrente
+                      ? "bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
+                      : i < indiceCorrente
+                        ? "bg-success/15 text-success"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {i < indiceCorrente && <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={3} />}
+                  <span className="truncate">{c.titolo}</span>
+                </div>
+                {i < COLONNE.length - 1 && (
+                  <div className={`h-0.5 w-2 shrink-0 rounded ${i < indiceCorrente ? "bg-success/40" : "bg-muted"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {segnalazione.stato === "Da Contattare" && (
+            <Button onClick={() => cambiaStato("In Contatto")} disabled={inCorso} className="mt-3 w-full">
+              <PhoneCall className="h-4 w-4" strokeWidth={2.25} />
+              Ho contattato il cliente
+            </Button>
+          )}
+          {segnalazione.stato === "In Contatto" && (
+            <Button onClick={() => cambiaStato("Gestione Cliente")} disabled={inCorso} className="mt-3 w-full">
+              <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
+              Avvia Gestione Cliente
+            </Button>
+          )}
+          {indiceCorrente > 0 && segnalazione.stato !== "Trasmessa" && (
             <button
-              key={c.stato}
+              type="button"
               disabled={inCorso}
-              onClick={() => cambiaStato(c.stato)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                c.stato === segnalazione.stato
-                  ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:border-primary/40"
-              }`}
+              onClick={() => cambiaStato(COLONNE[indiceCorrente - 1].stato)}
+              className="mt-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
             >
-              {c.titolo}
+              ← Torna a &ldquo;{COLONNE[indiceCorrente - 1].titolo}&rdquo;
             </button>
-          ))}
+          )}
         </div>
 
         <Campo etichetta="Telefono" valore={segnalazione.telefono} />
@@ -458,6 +498,7 @@ function DettaglioSegnalazione({
           </div>
         )}
 
+        {indiceCorrente >= 2 && (
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -498,8 +539,9 @@ function DettaglioSegnalazione({
             </p>
           )}
         </div>
+        )}
 
-        {segnalazione.stato !== "Trasmessa" && (
+        {segnalazione.stato === "Gestione Cliente" && (
           <div className="mt-2">
             <div className="mb-2 flex items-center gap-2">
               <Label htmlFor="repartoTrasmissione" className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

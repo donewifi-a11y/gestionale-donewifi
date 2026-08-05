@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
+import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
 
 const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloInternet", "consenso", "documenti"]);
@@ -110,6 +111,14 @@ export async function POST(request: NextRequest) {
       (tipologiaCliente ? `\nTipologia: ${tipologiaCliente}` : "") +
       (profiloInternet ? `\nProfilo: ${profiloInternet}` : "") +
       `\n\nApri il gestionale per i dettagli.`
+  );
+
+  // ★ stesso evento, anche nella Chat interna (gruppo Commerciale — vede
+  // anche chi è amministratore) invece del solo Telegram: chi lavora la
+  // pratica se ne accorge da dove lavora già ogni giorno.
+  await inviaMessaggioChatSistema(
+    "Commerciale",
+    `📋 Nuovi dati ricevuti da ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Verifica i documenti e procedi con il contratto.`
   );
 
   return NextResponse.json({ ok: true });
