@@ -859,6 +859,23 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `documenti_richiesti_at` più vecchio di 3 giorni — stessa soglia del badge nella bacheca) e manda
   un avviso Telegram al reparto Commerciale con l'elenco. Verificato contro produzione: la query
   intercetta correttamente le 2 pratiche reali già ferme dal 2026-07-30.
+✅ Backup database automatico via GitHub Actions (2026-08): verificato nel pannello Supabase — progetto
+  sul piano **Free**, "Last backup: No backups", nessuna rete di sicurezza attiva sui dati reali
+  (Ticket, Segnalazioni, Anagrafica Aruba, fatture, persone...). Niente cron Vercel (limite 2 sul
+  piano Hobby, già occupati) e nessun upgrade Supabase richiesto: nuovo workflow
+  `.github/workflows/backup-database.yml`, gira ogni notte alle 03:00 UTC (gratuito su GitHub
+  Actions), fa un `pg_dump` dello schema `public` (via **Session pooler**, l'unica connessione diretta
+  compatibile IPv4 — i runner GitHub non hanno IPv6, la connessione "Direct" di Supabase avrebbe
+  richiesto l'add-on IPv4 a pagamento) e carica il dump compresso come artifact con 90 giorni di
+  retention. Fallisce esplicitamente (non silenziosamente) se il dump è sospettosamente piccolo
+  (&lt;1000 byte, probabile errore di connessione/permessi) — GitHub avvisa via email di default sui
+  workflow falliti. Richiede il secret `SUPABASE_DB_URL` nel repository GitHub (Settings → Secrets and
+  variables → Actions), impostato manualmente dall'utente il 2026-08-05 (mai passato per il codice o
+  per `.env.local` — solo il secret GitHub lo conosce). **Cosa non copre**: i file caricati su Supabase
+  Storage (contratti PDF, foto documenti d'identità, foto/firme rapportini) non sono righe di
+  database — `pg_dump` non li tocca, restano protetti solo dall'infrastruttura Supabase stessa.
+  **Per ripristinare** un dump: `gunzip -c backup-donewifi-AAAA-MM-GG.sql.gz | psql "$SUPABASE_DB_URL"`
+  (scaricando prima l'artifact dalla tab Actions del repository).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

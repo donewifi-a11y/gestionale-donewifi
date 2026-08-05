@@ -1,0 +1,52 @@
+name: Backup database
+
+# ★ NUOVO — il progetto Supabase è sul piano Free: nessun backup
+# automatico (verificato nel pannello, "Last backup: No backups"). Questo
+# workflow gira su GitHub Actions (gratuito, indipendente dal piano
+# Supabase e dai 2 cron già occupati su Vercel Hobby) e fa un dump
+# giornaliero dello schema "public" — dove vivono tutti i dati veri del
+# gestionale (tickets, segnalazioni, clienti_esterni, fatture_esterne,
+# persone, tariffe, materiali, storico, chat...).
+#
+# ATTENZIONE — cosa NON copre: i file caricati in Supabase Storage
+# (contratti PDF, foto documenti d'identità, foto/firme dei rapportini)
+# non sono righe di database, sono oggetti nello storage — pg_dump non li
+# tocca. Questo backup protegge i DATI (i record), non gli ALLEGATI.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # ogni notte alle 03:00 UTC (le 04:00/05:00 in Italia a seconda dell'ora legale)
+  workflow_dispatch: {} # per lanciarlo anche a mano da GitHub, quando serve
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Installa il client Postgres (pg_dump)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Esegui pg_dump dello schema "public"
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          DATA=$(date +%Y-%m-%d)
+          NOME_FILE="backup-donewifi-${DATA}.sql.gz"
+          pg_dump "$SUPABASE_DB_URL" --schema=public --no-owner --no-privileges | gzip > "$NOME_FILE"
+          DIMENSIONE=$(stat -c%s "$NOME_FILE")
+          echo "Backup creato: $NOME_FILE ($DIMENSIONE byte)"
+          # ★ un backup sospettosamente piccolo (es. connessione fallita a
+          # metà, permessi negati) non deve passare inosservato come se
+          # fosse andato tutto bene.
+          if [ "$DIMENSIONE" -lt 1000 ]; then
+            echo "::error::Backup troppo piccolo ($DIMENSIONE byte) — probabile errore di connessione o permessi."
+            exit 1
+          fi
+          echo "NOME_FILE=$NOME_FILE" >> "$GITHUB_ENV"
+
+      - name: Carica il backup come artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NOME_FILE }}
+          path: ${{ env.NOME_FILE }}
+          retention-days: 90
