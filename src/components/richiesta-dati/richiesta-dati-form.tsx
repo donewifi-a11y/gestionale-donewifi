@@ -7,8 +7,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validaCodiceFiscale, validaPartitaIva, validaIban, validaEmail } from "@/lib/validazione";
 import { prezziNettoLordo, formattaValuta } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 import type { Tariffa } from "@/lib/types";
 import type { SceltaPiano } from "@/components/richiesta-dati/configuratore-piano";
+
+const ETICHETTE_FILE: Record<string, string> = {
+  fronteDocumento: "Fronte documento",
+  retroDocumento: "Retro documento",
+  fronteTesseraSanitaria: "Fronte tessera sanitaria",
+  retroTesseraSanitaria: "Retro tessera sanitaria",
+};
+
+/** ★ FIX — i documenti non passano più nel corpo di /api/richiesta-dati: 4
+ * foto ad alta risoluzione (documento + tessera sanitaria, ora entrambi
+ * obbligatori) superano facilmente il limite di ~4.5MB per le funzioni
+ * Vercel, che rispondeva con una pagina di errore testuale invece di JSON
+ * ("Unexpected token 'R'..." era l'inizio di "Request Entity Too Large").
+ * Il file va quindi caricato qui, direttamente dal browser allo storage
+ * Supabase con un signed upload URL — la route resta solo per i dati
+ * anagrafici (testo, pochi KB) e riceve solo il percorso già caricato. */
+async function caricaDocumento(file: File, segnalazioneId: string, campo: string): Promise<{ nome: string; percorso: string; tipo: string }> {
+  const rispostaUrl = await fetch("/api/richiesta-dati/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ segnalazioneId, nomeFile: file.name }),
+  });
+  const risultatoUrl = await rispostaUrl.json();
+  if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || `Errore preparazione upload "${file.name}".`);
+
+  const supabase = createClient();
+  const { error } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+  if (error) throw new Error(`Errore caricamento "${file.name}": ${error.message}`);
+
+  return { nome: file.name, percorso: risultatoUrl.percorso, tipo: ETICHETTE_FILE[campo] ?? campo };
+}
 
 function FileUpload({ id, label, obbligatorio }: { id: string; label: string; obbligatorio?: boolean }) {
   const [nome, setNome] = useState("");
@@ -52,6 +84,7 @@ export function RichiestaDatiForm({
   indirizzo?: { via: string; civico: string; comune: string; cap: string };
 }) {
   const [inCorso, setInCorso] = useState(false);
+  const [fase, setFase] = useState("");
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
   const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">(sceltaPiano?.tipologiaCliente ?? "Privato");
@@ -135,16 +168,16 @@ export function RichiestaDatiForm({
       }
     }
 
-    const fronteDoc = (formRef.current?.querySelector("#fronteDocumento") as HTMLInputElement)?.files?.[0];
-    if (!fronteDoc) return setErrore("Carica il fronte del documento d'identità.");
-    if (tipoDocumento !== "PASSAPORTO") {
-      const retroDoc = (formRef.current?.querySelector("#retroDocumento") as HTMLInputElement)?.files?.[0];
-      if (!retroDoc) return setErrore("Carica il retro del documento d'identità.");
+    const campiFile = ["fronteDocumento", "retroDocumento", "fronteTesseraSanitaria", "retroTesseraSanitaria"];
+    const fileSelezionati: Record<string, File> = {};
+    for (const campo of campiFile) {
+      const file = (formRef.current?.querySelector(`#${campo}`) as HTMLInputElement)?.files?.[0];
+      if (file) fileSelezionati[campo] = file;
     }
-    const fronteTessera = (formRef.current?.querySelector("#fronteTesseraSanitaria") as HTMLInputElement)?.files?.[0];
-    if (!fronteTessera) return setErrore("Carica il fronte della tessera sanitaria.");
-    const retroTessera = (formRef.current?.querySelector("#retroTesseraSanitaria") as HTMLInputElement)?.files?.[0];
-    if (!retroTessera) return setErrore("Carica il retro della tessera sanitaria.");
+    if (!fileSelezionati.fronteDocumento) return setErrore("Carica il fronte del documento d'identità.");
+    if (tipoDocumento !== "PASSAPORTO" && !fileSelezionati.retroDocumento) return setErrore("Carica il retro del documento d'identità.");
+    if (!fileSelezionati.fronteTesseraSanitaria) return setErrore("Carica il fronte della tessera sanitaria.");
+    if (!fileSelezionati.retroTesseraSanitaria) return setErrore("Carica il retro della tessera sanitaria.");
 
     if (!dati.get("consenso")) return setErrore("Devi accettare l'informativa privacy per proseguire.");
 
@@ -155,14 +188,31 @@ export function RichiestaDatiForm({
     if (sceltaPiano) {
       dati.set("profiloInternet", sceltaPiano.tariffaNome);
       dati.set("router", sceltaPiano.routerNome);
-      if (sceltaPiano.extenderScelto) dati.set("extenderMesh", sceltaPiano.extenderNome);
+      if (sceltaPiano.extenderQuantita > 0) dati.set("extenderMesh", `${sceltaPiano.extenderNome} x${sceltaPiano.extenderQuantita}`);
       dati.set("costoMensile", formattaValuta(sceltaPiano.mensile));
       dati.set("costoUnaTantum", formattaValuta(sceltaPiano.unaTantum));
     }
 
     setInCorso(true);
+    setFase("Caricamento documenti…");
     try {
-      const risposta = await fetch("/api/richiesta-dati", { method: "POST", body: dati });
+      const documenti: { nome: string; percorso: string; tipo: string }[] = [];
+      for (const [campo, file] of Object.entries(fileSelezionati)) {
+        documenti.push(await caricaDocumento(file, segnalazioneId, campo));
+      }
+
+      setFase("Invio dati…");
+      const corpo: Record<string, string> = {};
+      for (const [chiave, valore] of dati.entries()) {
+        if (campiFile.includes(chiave)) continue;
+        if (typeof valore === "string") corpo[chiave] = valore;
+      }
+
+      const risposta = await fetch("/api/richiesta-dati", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...corpo, documenti }),
+      });
       const risultato = await risposta.json();
       if (!risposta.ok) throw new Error(risultato.errore || "Errore imprevisto.");
       setInviato(true);
@@ -170,6 +220,7 @@ export function RichiestaDatiForm({
       setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
     } finally {
       setInCorso(false);
+      setFase("");
     }
   }
 
@@ -206,7 +257,7 @@ export function RichiestaDatiForm({
           <p className="text-sm font-semibold">{sceltaPiano.tariffaNome}</p>
           <p className="text-xs text-muted-foreground">
             {tipologiaCliente} · Router: {sceltaPiano.routerNome}
-            {sceltaPiano.extenderScelto && ` · Extender mesh incluso`}
+            {sceltaPiano.extenderQuantita > 0 && ` · Extender mesh x${sceltaPiano.extenderQuantita}`}
           </p>
           <div className="mt-2 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Canone mensile / una tantum</span>
@@ -414,7 +465,7 @@ export function RichiestaDatiForm({
       )}
 
       <Button type="submit" disabled={inCorso} size="lg" className="mt-2">
-        {inCorso ? "Invio in corso…" : "Invia i miei dati"}
+        {inCorso ? fase || "Invio in corso…" : "Invia i miei dati"}
       </Button>
     </form>
   );

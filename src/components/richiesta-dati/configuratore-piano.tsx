@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Wifi, Router as RouterIcon, Sparkles, ArrowRight } from "lucide-react";
+import { Wifi, Router as RouterIcon, Sparkles, ArrowRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prezziNettoLordo, prezzoPerTipoCliente, formattaValuta } from "@/lib/types";
 import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
@@ -29,9 +29,11 @@ export interface SceltaPiano {
   tariffaNome: string;
   routerNome: string;
   routerPrezzo: number;
-  extenderScelto: boolean;
+  extenderQuantita: number;
   extenderNome: string;
-  extenderPrezzo: number;
+  /** Prezzo del singolo extender (non moltiplicato per la quantità). */
+  extenderPrezzoUnitario: number;
+  attivazione: number;
   mensile: number;
   unaTantum: number;
 }
@@ -58,7 +60,7 @@ export function ConfiguratorePiano({
   const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
   const [tariffaId, setTariffaId] = useState("");
   const [routerId, setRouterId] = useState(() => router[0]?.id ?? "");
-  const [extenderScelto, setExtenderScelto] = useState(false);
+  const [extenderQuantita, setExtenderQuantita] = useState(0);
 
   const tipoPrezzo = tipologiaCliente === "Azienda" ? "Business" : "Privato";
 
@@ -70,10 +72,11 @@ export function ConfiguratorePiano({
   const routerScelto = router.find((r) => r.id === routerId) ?? null;
 
   const prezzoRouter = routerScelto ? prezzoPerTipoCliente(routerScelto.prezzo_unitario, tipoPrezzo) : 0;
-  const prezzoExtender = extender && extenderScelto ? prezzoPerTipoCliente(extender.prezzo_unitario, tipoPrezzo) : 0;
+  const prezzoExtenderUnitario = extender ? prezzoPerTipoCliente(extender.prezzo_unitario, tipoPrezzo) : 0;
+  const prezzoExtenderTotale = prezzoExtenderUnitario * extenderQuantita;
   const mensile = tariffaScelta?.prezzo_mensile != null ? prezziNettoLordo(tariffaScelta.prezzo_mensile, tariffaScelta.iva_inclusa).lordo : 0;
   const attivazione = tariffaScelta?.prezzo_attivazione != null ? prezziNettoLordo(tariffaScelta.prezzo_attivazione, tariffaScelta.iva_inclusa).lordo : 0;
-  const unaTantum = attivazione + prezzoRouter + prezzoExtender;
+  const unaTantum = attivazione + prezzoRouter + prezzoExtenderTotale;
 
   function conferma() {
     if (!tariffaScelta) return;
@@ -82,9 +85,10 @@ export function ConfiguratorePiano({
       tariffaNome: tariffaScelta.nome,
       routerNome: routerScelto?.nome ?? "Incluso (nessun costo aggiuntivo)",
       routerPrezzo: prezzoRouter,
-      extenderScelto,
+      extenderQuantita,
       extenderNome: extender?.nome ?? "",
-      extenderPrezzo: prezzoExtender,
+      extenderPrezzoUnitario: prezzoExtenderUnitario,
+      attivazione,
       mensile,
       unaTantum,
     });
@@ -133,20 +137,19 @@ export function ConfiguratorePiano({
                 key={t.id}
                 type="button"
                 onClick={() => setTariffaId(t.id)}
-                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition ${tariffaId === t.id ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
+                className={`flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left text-sm transition ${tariffaId === t.id ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
               >
-                <span>
-                  <span className="block font-semibold">{t.nome}</span>
-                  {t.velocita && <span className="block text-xs text-muted-foreground">{t.velocita}</span>}
+                <span className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{t.nome}</span>
+                  {t.prezzo_mensile != null && t.prezzo_mensile > 0 && (
+                    <span className="shrink-0 font-mono text-sm font-bold text-primary">
+                      {formattaValuta(prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo)}/mese
+                    </span>
+                  )}
                 </span>
-                {t.prezzo_mensile != null && t.prezzo_mensile > 0 ? (
-                  <span className="shrink-0 font-mono text-sm font-bold text-primary">
-                    {formattaValuta(prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa).lordo)}/mese
-                  </span>
-                ) : (
-                  t.descrizione && (
-                    <span className="shrink-0 text-right text-xs font-semibold text-primary">{t.descrizione}</span>
-                  )
+                {t.velocita && <span className="text-xs text-muted-foreground">{t.velocita}</span>}
+                {(t.prezzo_mensile == null || t.prezzo_mensile <= 0) && t.descrizione && (
+                  <span className="text-xs font-semibold text-primary">{t.descrizione}</span>
                 )}
               </button>
             ))}
@@ -196,21 +199,37 @@ export function ConfiguratorePiano({
       )}
 
       {extender && (
-        <label className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
-          <span className="flex items-center gap-2">
-            <input type="checkbox" checked={extenderScelto} onChange={(e) => setExtenderScelto(e.target.checked)} className="h-4 w-4" />
-            <span>
-              <span className="flex items-center gap-1.5 font-semibold">
-                <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
-                Vuoi anche un extender mesh?
-              </span>
-              <span className="block text-xs text-muted-foreground">{extender.nome} — copertura Wi-Fi estesa in tutta casa</span>
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
+          <span>
+            <span className="flex items-center gap-1.5 font-semibold">
+              <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
+              Vuoi anche un extender mesh?
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              {extender.nome} — {formattaValuta(prezzoExtenderUnitario)} cad. — copertura Wi-Fi estesa in tutta casa
             </span>
           </span>
-          <span className="shrink-0 font-mono text-xs font-bold text-primary">
-            {formattaValuta(prezzoPerTipoCliente(extender.prezzo_unitario, tipoPrezzo))}
+          <span className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExtenderQuantita((q) => Math.max(0, q - 1))}
+              disabled={extenderQuantita === 0}
+              className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-30"
+              aria-label="Riduci quantità extender"
+            >
+              <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
+            <span className="w-4 text-center font-mono text-sm font-bold">{extenderQuantita}</span>
+            <button
+              type="button"
+              onClick={() => setExtenderQuantita((q) => q + 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary"
+              aria-label="Aumenta quantità extender"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
           </span>
-        </label>
+        </div>
       )}
 
       {tariffaScelta && (
@@ -220,8 +239,26 @@ export function ConfiguratorePiano({
             <span className="text-muted-foreground">Canone mensile (IVA incl.)</span>
             <span className="font-mono font-bold">{formattaValuta(mensile)}/mese</span>
           </div>
-          <div className="mt-1 flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Costo una tantum (attivazione + apparati)</span>
+          <div className="mt-3 flex flex-col gap-1 border-t border-primary/20 pt-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Attivazione</span>
+              <span className="font-mono">{formattaValuta(attivazione)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{routerScelto?.nome ?? "Router"}</span>
+              <span className="font-mono">{formattaValuta(prezzoRouter)}</span>
+            </div>
+            {extenderQuantita > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {extender?.nome} × {extenderQuantita}
+                </span>
+                <span className="font-mono">{formattaValuta(prezzoExtenderTotale)}</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-primary/20 pt-2 text-sm">
+            <span className="font-semibold">Totale una tantum</span>
             <span className="font-mono font-bold">{formattaValuta(unaTantum)}</span>
           </div>
         </div>

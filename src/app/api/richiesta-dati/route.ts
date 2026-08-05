@@ -3,13 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
 import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
 
-const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloInternet", "consenso"]);
-const CAMPI_FILE: Record<string, string> = {
-  fronteDocumento: "Fronte documento",
-  retroDocumento: "Retro documento",
-  fronteTesseraSanitaria: "Fronte tessera sanitaria",
-  retroTesseraSanitaria: "Retro tessera sanitaria",
-};
+const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloInternet", "consenso", "documenti"]);
 
 // ★ Rotta pubblica (nessun login) usata dal modulo Richiesta Dati — ex
 // RichiestaDatiNuovoContratto.html del vecchio gestionale: tipologia
@@ -17,9 +11,13 @@ const CAMPI_FILE: Record<string, string> = {
 // con mandato SEPA, documento d'identità in 4 allegati distinti (non un
 // solo campo multi-file generico) invece del modulo semplificato di
 // prima. Usa la service role solo qui, lato server.
+// ★ FIX — riceve JSON, non più multipart/FormData: i file vengono ormai
+// caricati direttamente dal browser allo storage (vedi upload-url/route.ts)
+// per non superare il limite di corpo delle funzioni Vercel; qui arriva solo
+// il loro percorso già caricato dentro `documenti`.
 export async function POST(request: NextRequest) {
-  const dati = await request.formData();
-  const segnalazioneId = String(dati.get("segnalazioneId") || "");
+  const dati = await request.json();
+  const segnalazioneId = String(dati.segnalazioneId || "");
   if (!segnalazioneId) {
     return NextResponse.json({ errore: "Segnalazione non specificata." }, { status: 400 });
   }
@@ -35,15 +33,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Segnalazione non trovata." }, { status: 404 });
   }
 
-  const tipologiaCliente = String(dati.get("tipologiaCliente") || "");
-  const profiloInternet = String(dati.get("profiloInternet") || "");
+  const tipologiaCliente = String(dati.tipologiaCliente || "");
+  const profiloInternet = String(dati.profiloInternet || "");
 
   // ★ stessa validazione formale del client, ripetuta qui: la route è
   // pubblica, un client malevolo potrebbe saltare i controlli JS.
-  const codiceFiscale = String(dati.get("codiceFiscale") || "").trim();
-  const partitaIva = String(dati.get("partitaIva") || "").trim();
-  const codiceFiscaleAzienda = String(dati.get("codiceFiscaleAzienda") || "").trim();
-  const iban = String(dati.get("iban") || "").trim();
+  const codiceFiscale = String(dati.codiceFiscale || "").trim();
+  const partitaIva = String(dati.partitaIva || "").trim();
+  const codiceFiscaleAzienda = String(dati.codiceFiscaleAzienda || "").trim();
+  const iban = String(dati.iban || "").trim();
   if (codiceFiscale && !validaCodiceFiscale(codiceFiscale).valido) {
     return NextResponse.json({ errore: validaCodiceFiscale(codiceFiscale).messaggio }, { status: 400 });
   }
@@ -61,24 +59,12 @@ export async function POST(request: NextRequest) {
   // in "dettagli" — un solo posto da aggiornare se un domani cambiano i
   // campi del modulo, senza toccare questa route.
   const dettagli: Record<string, string> = {};
-  for (const [chiave, valore] of dati.entries()) {
-    if (CAMPI_RISERVATI.has(chiave) || chiave in CAMPI_FILE) continue;
+  for (const [chiave, valore] of Object.entries(dati)) {
+    if (CAMPI_RISERVATI.has(chiave)) continue;
     if (typeof valore === "string" && valore.trim()) dettagli[chiave] = valore.trim();
   }
 
-  const documenti: { nome: string; percorso: string; tipo: string }[] = [];
-  for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
-    const file = dati.get(campo);
-    if (!(file instanceof File) || file.size === 0) continue;
-    const percorso = `${segnalazioneId}/${Date.now()}-${file.name}`;
-    const { error: erroreUpload } = await supabase.storage.from("documenti").upload(percorso, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (erroreUpload) {
-      return NextResponse.json({ errore: `Errore caricamento "${file.name}": ${erroreUpload.message}` }, { status: 500 });
-    }
-    documenti.push({ nome: file.name, percorso, tipo: etichetta });
-  }
+  const documenti = Array.isArray(dati.documenti) ? dati.documenti : [];
 
   const { error: erroreInsert } = await supabase.from("richieste_clienti").insert({
     tipo_richiesta: "Richiesta Dati",
