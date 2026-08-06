@@ -1006,6 +1006,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   dal cliente ("Dati ricevuti dal cliente") sono ora apribili con un pulsante invece di comparire
   solo come testo (tipo/nome) senza modo di vederli davvero — stesso pattern già usato in Richieste
   Clienti (`urlContratto()`, generica nonostante il nome, riusata qui).
+✅ "Dati ricevuti dal cliente" — completo e raggruppato (2026-08-06): Tipologia Cliente e Profilo
+  Internet scelto (salvati sulla Segnalazione, prima mai mostrati qui) e l'indirizzo di
+  installazione (via/civico/comune/CAP, prima assente da questo pannello) ora compaiono; 4 campi
+  che uscivano con il nome tecnico invece di un'etichetta (`router`, `extenderMesh`,
+  `costoMensile`, `costoUnaTantum`) e il valore grezzo "on" del mandato SEPA (ora "Sì") sono
+  sistemati in `etichette-dettagli.ts`. L'elenco piatto (ordine di invio del form) è diventato
+  gruppi per come si cerca in pratica un dato (Piano scelto/Anagrafica/Contatti/Pagamento/Note,
+  indirizzo su una riga sola con link mappa, un "Altro" di sicurezza per eventuali campi futuri non
+  ancora previsti). Ogni riga si copia con un click (icona che compare solo al passaggio del
+  mouse) — pensato per chi da qui deve poi ritrasferire questi dati a mano nel contratto.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

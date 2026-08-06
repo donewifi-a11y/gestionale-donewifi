@@ -30,6 +30,12 @@ export const ETICHETTE_DETTAGLI: Record<string, string> = {
   nuovoTelefono: "Nuovo telefono",
   nuovaEmail: "Nuova email",
   note: "Note",
+  tipologiaCliente: "Tipologia Cliente",
+  profiloInternet: "Profilo Internet",
+  router: "Router",
+  extenderMesh: "Extender mesh",
+  costoMensile: "Canone mensile",
+  costoUnaTantum: "Costo una tantum",
 };
 
 export function etichettaDettaglio(chiave: string): string {

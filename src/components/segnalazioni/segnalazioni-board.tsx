@@ -49,6 +49,29 @@ const STRIPE_COPERTURA: Record<string, string> = {
 
 const CHIAVE_FILTRI = "segnalazioniFiltri";
 
+// ★ FIX — "Dati ricevuti dal cliente" era un unico elenco piatto (ordine di
+// invio del form, non di lettura), con Tipologia Cliente/Profilo Internet
+// del tutto assenti (salvati sulla Segnalazione ma mai mostrati qui) e 4
+// campi con il nome tecnico invece di un'etichetta ("router", "extenderMesh"…).
+// Ora è raggruppato per come uno lo cerca in pratica (piano scelto, poi
+// anagrafica, contatti, pagamento…), con l'indirizzo unito su una riga sola
+// invece di 4 righe separate — un "Altro" raccoglie eventuali campi futuri
+// non ancora previsti in nessun gruppo, così non spariscono in silenzio.
+const GRUPPI_DETTAGLI: { titolo: string; campi: string[] }[] = [
+  { titolo: "Piano scelto", campi: ["tipologiaCliente", "profiloInternet", "router", "extenderMesh", "costoMensile", "costoUnaTantum"] },
+  { titolo: "Anagrafica", campi: ["codiceFiscale", "ragioneSociale", "partitaIva", "codiceFiscaleAzienda", "pec", "sdi", "legaleRappresentanteNome", "legaleRappresentanteCf"] },
+  { titolo: "Contatti", campi: ["telefono", "email"] },
+  { titolo: "Pagamento", campi: ["metodoPagamento", "iban", "ibanIntestatarioNome", "ibanIntestatarioCf", "mandatoSepa"] },
+  { titolo: "Note", campi: ["note"] },
+];
+const CAMPI_INDIRIZZO = ["via", "civico", "comune", "cap"];
+const TIPI_DOCUMENTO: Record<string, string> = { CI: "Carta d'Identità", PATENTE: "Patente", PASSAPORTO: "Passaporto" };
+
+function formattaValoreCampo(chiave: string, valore: string) {
+  if (chiave === "mandatoSepa") return valore === "on" ? "Sì" : valore;
+  return valore;
+}
+
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
@@ -299,6 +322,31 @@ function DettaglioSegnalazione({
   // trasmetti. "Indietro" resta disponibile per correggere un errore.
   const indiceCorrente = COLONNE.findIndex((c) => c.stato === segnalazione.stato);
 
+  // ★ Tipologia Cliente/Profilo Internet non sono in richiesta.dettagli (la
+  // route li esclude apposta, sono colonne dirette della Segnalazione): li
+  // si inietta qui per mostrarli comunque nello stesso pannello, invece di
+  // lasciarli visibili solo indirettamente (dedotti dal router/canone).
+  const campiRicevuti: Record<string, string> = richiesta
+    ? {
+        ...(segnalazione.tipologia_cliente ? { tipologiaCliente: segnalazione.tipologia_cliente } : {}),
+        ...(segnalazione.profilo_internet ? { profiloInternet: segnalazione.profilo_internet } : {}),
+        ...richiesta.dettagli,
+      }
+    : {};
+  const campiUsati = new Set([...CAMPI_INDIRIZZO, "tipoDocumento"]);
+  const gruppiConDati = GRUPPI_DETTAGLI.map((g) => ({
+    titolo: g.titolo,
+    voci: g.campi.filter((c) => {
+      const presente = !!campiRicevuti[c];
+      if (presente) campiUsati.add(c);
+      return presente;
+    }),
+  })).filter((g) => g.voci.length > 0);
+  const altriCampi = Object.keys(campiRicevuti).filter((c) => !campiUsati.has(c));
+  const indirizzoInstallazione = CAMPI_INDIRIZZO.every((c) => campiRicevuti[c])
+    ? `${campiRicevuti.via} ${campiRicevuti.civico}, ${campiRicevuti.comune} (${campiRicevuti.cap})`
+    : null;
+
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
   if (!contrattoUrl) mancanti.push("contratto firmato");
@@ -495,24 +543,69 @@ function DettaglioSegnalazione({
 
         {richiesta && (
           <div className="rounded-lg border bg-muted/40 p-3">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
-            <div className="flex flex-col gap-1.5">
-              {Object.entries(richiesta.dettagli).map(([chiave, valore]) => (
-                <div key={chiave} className="flex justify-between gap-2 text-xs">
-                  <span className="text-muted-foreground">{etichettaDettaglio(chiave)}</span>
-                  <span className="font-medium">{valore}</span>
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
+            <div className="flex flex-col gap-2.5">
+              {gruppiConDati.map((gruppo) => (
+                <div key={gruppo.titolo}>
+                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">{gruppo.titolo}</p>
+                  <div className="flex flex-col">
+                    {gruppo.voci.map((chiave) => (
+                      <RigaDatoCliente
+                        key={chiave}
+                        etichetta={etichettaDettaglio(chiave)}
+                        valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
+                        onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ))}
+
+              {indirizzoInstallazione && (
+                <div>
+                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">Indirizzo di installazione</p>
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                    {indirizzoInstallazione}
+                  </a>
+                </div>
+              )}
+
+              {altriCampi.length > 0 && (
+                <div>
+                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">Altro</p>
+                  <div className="flex flex-col">
+                    {altriCampi.map((chiave) => (
+                      <RigaDatoCliente
+                        key={chiave}
+                        etichetta={etichettaDettaglio(chiave)}
+                        valore={campiRicevuti[chiave]}
+                        onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+
             {richiesta.documenti.length > 0 && (
-              <div className="mt-2.5 flex flex-col gap-1.5">
-                <span className="text-xs text-muted-foreground">Documenti</span>
-                {richiesta.documenti.map((d, i) => (
-                  <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
-                    <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                    {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
-                  </Button>
-                ))}
+              <div className="mt-2.5">
+                <p className="mb-1.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">
+                  Documenti{campiRicevuti.tipoDocumento && ` — ${TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento}`}
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {richiesta.documenti.map((d, i) => (
+                    <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
+                      <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                      {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -592,6 +685,29 @@ function DettaglioSegnalazione({
         )}
       </div>
     </>
+  );
+}
+
+// ★ NUOVO — ogni riga si copia con un click (icona che compare solo al
+// passaggio del mouse, per non riempire il pannello di icone): pensato per
+// chi da qui deve poi ritrasferire questi dati a mano nel contratto/altro
+// gestionale, invece di doverli selezionare a mano dal testo.
+function RigaDatoCliente({ etichetta, valore, onCopiato }: { etichetta: string; valore: string; onCopiato: (etichetta: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(valore);
+        onCopiato(etichetta);
+      }}
+      className="group flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-xs transition hover:bg-background"
+    >
+      <span className="text-muted-foreground">{etichetta}</span>
+      <span className="flex items-center gap-1.5 text-right font-medium">
+        {valore}
+        <Copy className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" strokeWidth={2.25} />
+      </span>
+    </button>
   );
 }
 
