@@ -1000,7 +1000,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Telegram già esistente) quando arrivano dati/documenti dal cliente: va nel gruppo Commerciale
   (visto anche dagli amministratori), inviato da una Persona dedicata "Sistema" (creata inattiva,
   quindi mai selezionabile come assegnatario in nessun form — `src/lib/chat.ts`, chiamato da
-  `api/richiesta-dati/route.ts`).
+  `api/richiesta-dati/route.ts`). Il pannello Contratto ora compare solo dopo che il cliente ha
+  inviato la Richiesta Dati (o se un contratto era già stato caricato in precedenza) — prima
+  bastava arrivare a "Gestione Cliente", anche senza dati/documenti ricevuti. I documenti allegati
+  dal cliente ("Dati ricevuti dal cliente") sono ora apribili con un pulsante invece di comparire
+  solo come testo (tipo/nome) senza modo di vederli davvero — stesso pattern già usato in Richieste
+  Clienti (`urlContratto()`, generica nonostante il nome, riusata qui).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -350,6 +350,21 @@ function DettaglioSegnalazione({
     onCambiata({ ...segnalazione, contratto_pdf_url: risultato.percorso });
   }
 
+  // ★ FIX — i documenti allegati dalla Richiesta Dati (fronte/retro
+  // documento e tessera sanitaria) comparivano solo come testo ("tipo
+  // (nome)"), senza modo di aprirli: bisognava passare da Richieste
+  // Clienti per vederli davvero. `urlContratto()` è generica (genera solo
+  // una signed URL sul bucket "documenti", non specifica del contratto),
+  // quindi si riusa qui invece di duplicarla.
+  async function apriDocumento(percorso: string) {
+    const risultato = await urlContratto(percorso);
+    if (risultato.errore || !risultato.url) {
+      toast(risultato.errore || "Errore imprevisto.");
+      return;
+    }
+    window.open(risultato.url, "_blank", "noopener,noreferrer");
+  }
+
   async function vediContratto() {
     if (!contrattoUrl) return;
     const risultato = await urlContratto(contrattoUrl);
@@ -488,17 +503,22 @@ function DettaglioSegnalazione({
                   <span className="font-medium">{valore}</span>
                 </div>
               ))}
-              {richiesta.documenti.length > 0 && (
-                <div className="mt-1 text-xs">
-                  <span className="text-muted-foreground">Documenti: </span>
-                  {richiesta.documenti.map((d) => (d.tipo ? `${d.tipo} (${d.nome})` : d.nome)).join(", ")}
-                </div>
-              )}
             </div>
+            {richiesta.documenti.length > 0 && (
+              <div className="mt-2.5 flex flex-col gap-1.5">
+                <span className="text-xs text-muted-foreground">Documenti</span>
+                {richiesta.documenti.map((d, i) => (
+                  <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
+                    <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {indiceCorrente >= 2 && (
+        {indiceCorrente >= 2 && (richiesta || contrattoUrl) && (
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
