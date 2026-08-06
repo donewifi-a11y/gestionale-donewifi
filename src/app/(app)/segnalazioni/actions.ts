@@ -1,11 +1,67 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
+
+async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "Non autenticato.";
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return "Solo un amministratore può eliminare una Segnalazione.";
+  return null;
+}
+
+// ★ NUOVA — richiesta esplicita: un amministratore deve poter eliminare una
+// Segnalazione creata per errore/duplicata. "segnalazioni" non ha policy
+// RLS di delete (solo select/insert/update, vedi 0001_init.sql), quindi la
+// cancellazione vera passa dalla service role, dopo aver verificato qui
+// che chi chiama sia admin. Bloccata se esiste già un Ticket collegato
+// (tickets.segnalazione_id non ha ON DELETE CASCADE: la FK bloccherebbe
+// comunque la query, ma un errore Postgres grezzo non spiega cosa fare —
+// meglio dirlo subito e chiaro).
+export async function eliminaSegnalazione(id: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdmin(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+  const personaId = await getPersonaCorrenteId();
+
+  const { data: segnalazione, error: erroreLettura } = await supabase
+    .from("segnalazioni")
+    .select("numero, nome")
+    .eq("id", id)
+    .single();
+  if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
+
+  const service = createServiceClient();
+
+  const { data: ticketCollegato } = await service.from("tickets").select("numero").eq("segnalazione_id", id).maybeSingle();
+  if (ticketCollegato) return { errore: `Elimina prima il Ticket collegato (#${ticketCollegato.numero}).` };
+
+  // ★ i dati/documenti inviati dal cliente per questa Segnalazione non
+  // hanno senso senza di essa (nessun Ticket a cui restano comunque
+  // agganciati, appena verificato sopra) — vengono rimossi insieme.
+  await service.from("richieste_clienti").delete().eq("segnalazione_id", id);
+
+  const { error } = await service.from("segnalazioni").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: id,
+    operazione: "Segnalazione eliminata",
+    valore_prima: `#${segnalazione.numero} — ${segnalazione.nome}`,
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/segnalazioni");
+  return { errore: null };
+}
 
 // ★ invia davvero l'email (Resend) dall'indirizzo del reparto Commerciale
 // invece del mailto: che apriva il client di posta personale dell'operatore

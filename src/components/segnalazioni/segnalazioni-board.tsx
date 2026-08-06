@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import {
   urlContratto,
   inviaEmailRichiestaDatiSegnalazione,
   getUltimoCaricamentoContratto,
+  eliminaSegnalazione,
 } from "@/app/(app)/segnalazioni/actions";
 import type { AreaAccesso, RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 import { REPARTI } from "@/lib/types";
@@ -81,10 +82,12 @@ export function SegnalazioniBoard({
   segnalazioni,
   richieste,
   currentPersonaId,
+  isAdmin,
 }: {
   segnalazioni: Segnalazione[];
   richieste: RichiestaCliente[];
   currentPersonaId: string;
+  isAdmin: boolean;
 }) {
   const [aperta, setAperta] = useState<Segnalazione | null>(null);
   // ★ FIX — filtri ricordati per utente/browser: lettura/scrittura ora in
@@ -246,6 +249,7 @@ export function SegnalazioniBoard({
             <DettaglioSegnalazione
               segnalazione={aperta}
               richiesta={richieste.find((r) => r.segnalazione_id === aperta.id) ?? null}
+              isAdmin={isAdmin}
               onCambiata={(s) => setAperta(s)}
               onChiudi={() => setAperta(null)}
             />
@@ -259,11 +263,13 @@ export function SegnalazioniBoard({
 function DettaglioSegnalazione({
   segnalazione,
   richiesta,
+  isAdmin,
   onCambiata,
   onChiudi,
 }: {
   segnalazione: Segnalazione;
   richiesta: RichiestaCliente | null;
+  isAdmin: boolean;
   onCambiata: (s: Segnalazione) => void;
   onChiudi: () => void;
 }) {
@@ -364,6 +370,23 @@ function DettaglioSegnalazione({
     }
     onChiudi();
     router.push(`/tickets?aperto=${risultato.id}`);
+  }
+
+  // ★ NUOVA — solo un amministratore la vede (pulsante non renderizzato
+  // affatto per gli altri, controllo comunque ripetuto lato server in
+  // eliminaSegnalazione()): cancellazione vera, non un cambio di stato,
+  // pensata per pratiche di prova o duplicate.
+  async function elimina() {
+    if (!confirm(`Eliminare definitivamente la segnalazione #${segnalazione.numero} — ${segnalazione.nome}? L'operazione non è reversibile.`)) return;
+    setInCorso(true);
+    const risultato = await eliminaSegnalazione(segnalazione.id);
+    setInCorso(false);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    onChiudi();
+    router.refresh();
   }
 
   async function inviaEmailServer() {
@@ -690,6 +713,18 @@ function DettaglioSegnalazione({
               </p>
             )}
           </div>
+        )}
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={elimina}
+            disabled={inCorso}
+            className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-critical/30 px-3 py-2 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Elimina segnalazione
+          </button>
         )}
       </div>
     </>

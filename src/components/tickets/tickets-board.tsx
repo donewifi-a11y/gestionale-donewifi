@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   getNoteTicket,
   inviaEmailApprovazioneTicket,
   cambiaRepartoTicket,
+  eliminaTicket,
 } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, type SlotOccupato } from "@/app/(app)/calendario/actions";
@@ -290,6 +291,7 @@ export function TicketsBoard({
               persone={persone}
               currentPersonaId={currentPersonaId}
               onCambiato={(t) => setAperto(t)}
+              onEliminato={() => setAperto(null)}
             />
           )}
         </SheetContent>
@@ -330,14 +332,21 @@ function DettaglioTicket({
   persone,
   currentPersonaId,
   onCambiato,
+  onEliminato,
 }: {
   ticket: Ticket;
   persone: Persona[];
   currentPersonaId: string;
   onCambiato: (t: Ticket) => void;
+  onEliminato: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
+  // ★ NUOVA — solo un amministratore vede "Elimina Ticket" (controllo
+  // comunque ripetuto lato server in eliminaTicket()): `persone` è già
+  // passato a questo componente per altri usi (assegnatario), niente da
+  // aggiungere per saperlo.
+  const isAdmin = !!persone.find((p) => p.id === currentPersonaId)?.amministratore;
   const [inCorso, setInCorso] = useState(false);
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
@@ -399,6 +408,19 @@ function DettaglioTicket({
       return;
     }
     onCambiato({ ...ticket, reparto: nuovo });
+    router.refresh();
+  }
+
+  async function elimina() {
+    if (!confirm(`Eliminare definitivamente il Ticket #${ticket.numero} — ${ticket.cliente}? L'operazione non è reversibile.`)) return;
+    setInCorso(true);
+    const risultato = await eliminaTicket(ticket.id);
+    setInCorso(false);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    onEliminato();
     router.refresh();
   }
 
@@ -661,6 +683,18 @@ function DettaglioTicket({
           </div>
           {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
         </div>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={elimina}
+            disabled={inCorso}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-critical/30 px-3 py-2 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Elimina Ticket
+          </button>
+        )}
       </div>
     </>
   );

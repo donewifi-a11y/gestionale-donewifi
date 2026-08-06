@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
@@ -10,6 +10,71 @@ import type { AreaAccesso, PrioritaTicket, RapportinoIntervento, StatoTicket, Ti
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
 // restituirli come dato ({ errore }), non lanciarli.
+
+async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "Non autenticato.";
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return "Solo un amministratore può eliminare un Ticket.";
+  return null;
+}
+
+// ★ NUOVA — richiesta esplicita: un amministratore deve poter eliminare un
+// Ticket creato per errore/duplicato, non solo Annullarlo (che resta
+// comunque visibile in Archivio). "tickets" non ha policy RLS di delete
+// (solo select/insert/update, vedi 0001_init.sql), quindi la cancellazione
+// vera passa dalla service role, dopo aver verificato qui che chi chiama
+// sia admin — stesso principio già usato per le Persone.
+// Alcune tabelle collegate non hanno ON DELETE CASCADE/SET NULL sul
+// ticket_id (note_calendario, richieste_clienti): senza scioglierle prima,
+// la FK bloccherebbe la cancellazione. Le altre (note_ticket, rapportini,
+// approvazioni: CASCADE; appuntamenti, schede_lavoro: SET NULL) si
+// sistemano da sole.
+export async function eliminaTicket(id: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdmin(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+  const personaId = await getPersonaCorrenteId();
+
+  const { data: ticket, error: erroreLettura } = await supabase
+    .from("tickets")
+    .select("numero, cliente, segnalazione_id")
+    .eq("id", id)
+    .single();
+  if (erroreLettura || !ticket) return { errore: erroreLettura?.message || "Ticket non trovato." };
+
+  const service = createServiceClient();
+  await service.from("note_calendario").update({ ticket_id: null }).eq("ticket_id", id);
+  await service.from("richieste_clienti").update({ ticket_id: null }).eq("ticket_id", id);
+
+  // ★ se il Ticket veniva da una Segnalazione "Trasmessa", la si riporta a
+  // "Gestione Cliente" invece di lasciarla bloccata su uno stato finale
+  // che punta a un Ticket ormai sparito — dati cliente e contratto restano,
+  // pronta per essere ritrasmessa subito.
+  if (ticket.segnalazione_id) {
+    await service
+      .from("segnalazioni")
+      .update({ stato: "Gestione Cliente", aggiornato_il: new Date().toISOString() })
+      .eq("id", ticket.segnalazione_id);
+  }
+
+  const { error } = await service.from("tickets").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "ticket",
+    riferimento_id: id,
+    operazione: "Ticket eliminato",
+    valore_prima: `#${ticket.numero} — ${ticket.cliente}`,
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/tickets");
+  revalidatePath("/segnalazioni");
+  return { errore: null };
+}
 
 export async function creaTicket(
   dati: {

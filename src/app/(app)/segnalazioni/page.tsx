@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PhoneCall, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { Button } from "@/components/ui/button";
 import { SegnalazioniBoard } from "@/components/segnalazioni/segnalazioni-board";
 import type { RichiestaCliente, Segnalazione } from "@/lib/types";
@@ -48,6 +48,7 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
 export default async function SegnalazioniPage() {
   const supabase = await createClient();
   const personaCorrenteId = await getPersonaCorrenteId();
+  const persona = await getPersonaCorrente(supabase);
 
   const segnalazioni = await fetchTutteSegnalazioni(supabase);
   const richieste = await fetchTutteRichieste(supabase);
@@ -78,6 +79,7 @@ export default async function SegnalazioniPage() {
         segnalazioni={segnalazioni}
         richieste={richieste}
         currentPersonaId={personaCorrenteId ?? ""}
+        isAdmin={personaHaAccessoAdmin(persona)}
       />
     </div>
   );

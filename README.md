@@ -1019,6 +1019,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Presentate 4 alternative grafiche (elenco verticale, card a griglia, tabella compatta, riepilogo
   con sezioni a comparsa); scelta la card a griglia — "Piano scelto" e indirizzo a tutta larghezza
   in alto (i dati consultati più spesso), il resto affiancato 2 card per riga.
+✅ Eliminazione Ticket/Segnalazioni, solo amministratore (2026-08-06): pulsante "Elimina" nel
+  dettaglio (non renderizzato affatto per chi non è admin, controllo comunque ripetuto lato server
+  in `eliminaTicket()`/`eliminaSegnalazione()`) — nessuna delle due tabelle aveva policy RLS di
+  delete, quindi la cancellazione vera passa dalla service role dopo la verifica admin, stesso
+  principio già usato per le Persone. Eliminare un Ticket scioglie prima i riferimenti che non
+  hanno `ON DELETE CASCADE/SET NULL` (`note_calendario`, `richieste_clienti.ticket_id`) e riporta
+  a "Gestione Cliente" l'eventuale Segnalazione d'origine invece di lasciarla bloccata su
+  "Trasmessa" puntando a un Ticket sparito; il resto (note, rapportini, approvazioni, appuntamenti,
+  schede di lavoro) è già a posto via cascade/set null nello schema. Eliminare una Segnalazione è
+  bloccato se esiste già un Ticket collegato ("Elimina prima il Ticket collegato (#N)" invece del
+  messaggio grezzo della FK Postgres); le Richieste Clienti legate vengono rimosse insieme.
+  Verificato end-to-end contro il database di produzione con righe di prova create e ripulite.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
