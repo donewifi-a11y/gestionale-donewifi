@@ -544,10 +544,18 @@ function DettaglioSegnalazione({
         {richiesta && (
           <div className="rounded-lg border bg-muted/40 p-3">
             <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
-            <div className="flex flex-col gap-2.5">
+            {/* ★ NUOVO — card a griglia invece di un unico elenco verticale (opzione
+             * "B" scelta dopo il confronto con altre 3 grafiche): il gruppo "Piano
+             * scelto" e l'indirizzo, i dati consultati più spesso, occupano tutta la
+             * larghezza in alto; il resto è affiancato 2 per riga per un colpo
+             * d'occhio più rapido su un pannello laterale stretto. */}
+            <div className="grid grid-cols-2 gap-2">
               {gruppiConDati.map((gruppo) => (
-                <div key={gruppo.titolo}>
-                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">{gruppo.titolo}</p>
+                <div
+                  key={gruppo.titolo}
+                  className={`rounded-lg border bg-card p-2.5 ${gruppo.titolo === "Piano scelto" ? "col-span-2" : ""}`}
+                >
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
                   <div className="flex flex-col">
                     {gruppo.voci.map((chiave) => (
                       <RigaDatoCliente
@@ -562,23 +570,23 @@ function DettaglioSegnalazione({
               ))}
 
               {indirizzoInstallazione && (
-                <div>
-                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">Indirizzo di installazione</p>
+                <div className="col-span-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
                   <a
                     href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary underline-offset-2 hover:underline"
                   >
-                    <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                    <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
                     {indirizzoInstallazione}
                   </a>
                 </div>
               )}
 
               {altriCampi.length > 0 && (
-                <div>
-                  <p className="mb-0.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">Altro</p>
+                <div className="col-span-2 rounded-lg border bg-card p-2.5">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
                   <div className="flex flex-col">
                     {altriCampi.map((chiave) => (
                       <RigaDatoCliente
@@ -591,23 +599,23 @@ function DettaglioSegnalazione({
                   </div>
                 </div>
               )}
-            </div>
 
-            {richiesta.documenti.length > 0 && (
-              <div className="mt-2.5">
-                <p className="mb-1.5 px-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/70">
-                  Documenti{campiRicevuti.tipoDocumento && ` — ${TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento}`}
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {richiesta.documenti.map((d, i) => (
-                    <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
-                      <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                      {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
-                    </Button>
-                  ))}
+              {richiesta.documenti.length > 0 && (
+                <div className="col-span-2 rounded-lg border bg-card p-2.5">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
+                    Documenti{campiRicevuti.tipoDocumento && ` — ${TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento}`}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {richiesta.documenti.map((d, i) => (
+                      <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
+                        <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                        {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 

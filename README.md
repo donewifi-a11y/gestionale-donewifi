@@ -1016,6 +1016,9 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   indirizzo su una riga sola con link mappa, un "Altro" di sicurezza per eventuali campi futuri non
   ancora previsti). Ogni riga si copia con un click (icona che compare solo al passaggio del
   mouse) — pensato per chi da qui deve poi ritrasferire questi dati a mano nel contratto.
+  Presentate 4 alternative grafiche (elenco verticale, card a griglia, tabella compatta, riepilogo
+  con sezioni a comparsa); scelta la card a griglia — "Piano scelto" e indirizzo a tutta larghezza
+  in alto (i dati consultati più spesso), il resto affiancato 2 card per riga.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
