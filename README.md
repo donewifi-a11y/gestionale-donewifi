@@ -1031,6 +1031,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   bloccato se esiste già un Ticket collegato ("Elimina prima il Ticket collegato (#N)" invece del
   messaggio grezzo della FK Postgres); le Richieste Clienti legate vengono rimosse insieme.
   Verificato end-to-end contro il database di produzione con righe di prova create e ripulite.
+✅ FIX — pannello laterale (Sheet) non scorreva (2026-08-06): mancava un `overflow-y` sul
+  contenitore condiviso da tutti i pannelli laterali dell'app (Ticket, Segnalazioni, Persone,
+  Clienti, Tariffe, Materiali, Calendario, ecc. — `src/components/ui/sheet.tsx`); un dettaglio più
+  alto dello schermo restava tagliato al bordo della finestra senza modo di raggiungere il resto.
+  Diventato più evidente ora che il dettaglio Ticket/Segnalazione ha più sezioni/pulsanti (card
+  dati cliente, indicatore di avanzamento, pulsante Elimina). Lo scroll è sul contenuto, non su
+  tutto il pannello, così la X per chiudere resta sempre raggiungibile in alto a destra invece di
+  scorrere via insieme al resto.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
