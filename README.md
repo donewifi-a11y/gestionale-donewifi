@@ -1039,6 +1039,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   dati cliente, indicatore di avanzamento, pulsante Elimina). Lo scroll è sul contenuto, non su
   tutto il pannello, così la X per chiudere resta sempre raggiungibile in alto a destra invece di
   scorrere via insieme al resto.
+✅ FIX — testo/dati che uscivano dal pannello laterale (2026-08-07): nomi file lunghi (foto da
+  smartphone tipo "1785936327735-IMG_...jpg") e valori lunghi (CF, indirizzo) spingevano la riga
+  oltre il bordo del pannello, portandosi dietro l'intera pagina in scroll orizzontale invece di
+  restare dentro il foglio. Causa: un figlio flex/grid non si restringe mai sotto la dimensione
+  "naturale" del suo contenuto per default (`min-width: auto`) — servisse `min-w-0` esplicito a
+  ogni livello della catena (dal contenitore dello Sheet fino alla singola riga) perché `truncate`
+  avesse un effetto reale invece di limitarsi a tagliare senza ellissi. Sistemato nel pannello
+  "Dati ricevuti dal cliente" (Segnalazioni), nell'elenco documenti di Richieste Clienti, e nel
+  contenitore condiviso di ogni Sheet dell'app (`src/components/ui/sheet.tsx`) come rete di
+  sicurezza per il resto dei pannelli.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -455,7 +455,7 @@ function DettaglioSegnalazione({
         </SheetDescription>
       </SheetHeader>
 
-      <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
+      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
         <div>
           <div className="flex items-center gap-1">
             {COLONNE.map((c, i) => (
@@ -572,11 +572,19 @@ function DettaglioSegnalazione({
              * scelto" e l'indirizzo, i dati consultati più spesso, occupano tutta la
              * larghezza in alto; il resto è affiancato 2 per riga per un colpo
              * d'occhio più rapido su un pannello laterale stretto. */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* ★ FIX — un valore o nome file lungo (CF, IBAN, foto da smartphone con
+             * nome generato tipo "1785936327735-IMG...jpg") spingeva la riga oltre
+             * il bordo del pannello, portandosi dietro tutta la pagina in scroll
+             * orizzontale invece di restare dentro il foglio. Ogni contenitore in
+             * questa griglia ha `min-w-0`: senza, un figlio flex/grid non si
+             * restringe mai sotto la dimensione "naturale" del suo contenuto
+             * (min-width: auto di default), quindi truncate non aveva alcun
+             * effetto reale. */}
+            <div className="grid min-w-0 grid-cols-2 gap-2">
               {gruppiConDati.map((gruppo) => (
                 <div
                   key={gruppo.titolo}
-                  className={`rounded-lg border bg-card p-2.5 ${gruppo.titolo === "Piano scelto" ? "col-span-2" : ""}`}
+                  className={`min-w-0 rounded-lg border bg-card p-2.5 ${gruppo.titolo === "Piano scelto" ? "col-span-2" : ""}`}
                 >
                   <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
                   <div className="flex flex-col">
@@ -593,22 +601,23 @@ function DettaglioSegnalazione({
               ))}
 
               {indirizzoInstallazione && (
-                <div className="col-span-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                <div className="col-span-2 min-w-0 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
                   <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
                   <a
                     href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                    title={indirizzoInstallazione}
+                    className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-primary underline-offset-2 hover:underline"
                   >
                     <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                    {indirizzoInstallazione}
+                    <span className="min-w-0 truncate">{indirizzoInstallazione}</span>
                   </a>
                 </div>
               )}
 
               {altriCampi.length > 0 && (
-                <div className="col-span-2 rounded-lg border bg-card p-2.5">
+                <div className="col-span-2 min-w-0 rounded-lg border bg-card p-2.5">
                   <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
                   <div className="flex flex-col">
                     {altriCampi.map((chiave) => (
@@ -624,15 +633,22 @@ function DettaglioSegnalazione({
               )}
 
               {richiesta.documenti.length > 0 && (
-                <div className="col-span-2 rounded-lg border bg-card p-2.5">
+                <div className="col-span-2 min-w-0 rounded-lg border bg-card p-2.5">
                   <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
                     Documenti{campiRicevuti.tipoDocumento && ` — ${TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento}`}
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-col gap-1.5">
                     {richiesta.documenti.map((d, i) => (
-                      <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(d.percorso)}>
-                        <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                        {d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
+                      <Button
+                        key={i}
+                        size="sm"
+                        variant="outline"
+                        title={d.nome}
+                        className="w-full min-w-0 justify-start"
+                        onClick={() => apriDocumento(d.percorso)}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                        <span className="min-w-0 truncate">{d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}</span>
                       </Button>
                     ))}
                   </div>
@@ -735,19 +751,25 @@ function DettaglioSegnalazione({
 // passaggio del mouse, per non riempire il pannello di icone): pensato per
 // chi da qui deve poi ritrasferire questi dati a mano nel contratto/altro
 // gestionale, invece di doverli selezionare a mano dal testo.
+// ★ FIX — un valore lungo (CF, email, IBAN...) spingeva la riga oltre il
+// bordo del pannello invece di andare a capo/troncarsi: per default un
+// figlio flex non si restringe sotto la sua dimensione "naturale"
+// (min-width: auto), serve min-w-0 esplicito perché truncate funzioni
+// davvero invece di limitarsi a tagliare visivamente senza effetto.
 function RigaDatoCliente({ etichetta, valore, onCopiato }: { etichetta: string; valore: string; onCopiato: (etichetta: string) => void }) {
   return (
     <button
       type="button"
+      title={valore}
       onClick={() => {
         navigator.clipboard.writeText(valore);
         onCopiato(etichetta);
       }}
-      className="group flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-xs transition hover:bg-background"
+      className="group flex min-w-0 items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left text-xs transition hover:bg-background"
     >
-      <span className="text-muted-foreground">{etichetta}</span>
-      <span className="flex items-center gap-1.5 text-right font-medium">
-        {valore}
+      <span className="shrink-0 text-muted-foreground">{etichetta}</span>
+      <span className="flex min-w-0 items-center gap-1.5 text-right font-medium">
+        <span className="min-w-0 truncate">{valore}</span>
         <Copy className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" strokeWidth={2.25} />
       </span>
     </button>

@@ -487,7 +487,7 @@ function DettaglioTicket({
           {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
         </SheetDescription>
       </SheetHeader>
-      <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
+      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
         {ticket.stato === "Annullato" ? (
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (

@@ -148,7 +148,7 @@ function DettaglioRichiesta({
         <SheetTitle>{richiesta.cliente || "Richiesta"}</SheetTitle>
         <SheetDescription>{richiesta.tipo_richiesta}</SheetDescription>
       </SheetHeader>
-      <div className="flex flex-col gap-4 px-4 pb-4 text-sm">
+      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
         <div className="flex flex-wrap gap-1.5">
           {STATI.map((s) => (
             <button
@@ -190,9 +190,16 @@ function DettaglioRichiesta({
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Documenti</div>
             <div className="flex flex-col gap-1.5">
               {richiesta.documenti.map((doc, i) => (
-                <Button key={i} size="sm" variant="outline" className="w-fit justify-start" onClick={() => apriDocumento(doc.percorso)}>
-                  <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  {doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}
+                <Button
+                  key={i}
+                  size="sm"
+                  variant="outline"
+                  title={doc.nome}
+                  className="w-full min-w-0 justify-start"
+                  onClick={() => apriDocumento(doc.percorso)}
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  <span className="min-w-0 truncate">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
                 </Button>
               ))}
             </div>
