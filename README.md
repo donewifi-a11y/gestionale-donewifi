@@ -1049,6 +1049,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   "Dati ricevuti dal cliente" (Segnalazioni), nell'elenco documenti di Richieste Clienti, e nel
   contenitore condiviso di ogni Sheet dell'app (`src/components/ui/sheet.tsx`) come rete di
   sicurezza per il resto dei pannelli.
+✅ "Dati ricevuti dal cliente" — mai più un dato troncato (2026-08-07): il fix precedente
+  (troncamento con "…") nascondeva comunque dati veri quando il pannello era stretto — un Codice
+  Fiscale ridotto a una sola lettera. Rifatto completamente: via la griglia a 2 colonne (le card
+  fianco a fianco non lasciavano spazio sufficiente al valore quando l'etichetta era già lunga di
+  suo), ogni campo ora è etichetta sopra/valore sotto — stesso linguaggio dei campi
+  Telefono/Indirizzo già in cima allo stesso pannello — e il valore va a capo se serve invece di
+  tagliarsi. Stessa correzione sui nomi documento (`break-all`, i nomi generati con timestamp non
+  hanno spazi dove andare a capo) qui e nell'elenco documenti di Richieste Clienti. Confrontate 3
+  alternative in un artifact con i dati veri dello screenshot dell'utente prima di scegliere questo
+  layout.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

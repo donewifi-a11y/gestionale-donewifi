@@ -194,12 +194,11 @@ function DettaglioRichiesta({
                   key={i}
                   size="sm"
                   variant="outline"
-                  title={doc.nome}
-                  className="w-full min-w-0 justify-start"
+                  className="h-auto w-full justify-start py-1.5 whitespace-normal"
                   onClick={() => apriDocumento(doc.percorso)}
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  <span className="min-w-0 truncate">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
+                  <span className="text-left break-all">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
                 </Button>
               ))}
             </div>
