@@ -1111,6 +1111,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   qualunque punto della pagina poteva far comparire uno scrollbar orizzontale su tutta la finestra.
   Ora la pagina non scorre mai in orizzontale — chi trabocca si taglia o va gestito con
   `overflow-x-auto` sul proprio contenitore, non trascina più l'intera finestra.
+✅ Contratto pronto — avviso anche ad Analisi Rete (2026-08-08): il pulsante "Invia contratto al
+  cliente per approvazione" (rinominato "Contratto pronto — invia per approvazione") ora avvisa
+  anche il reparto Analisi Rete nella Chat interna, non solo il cliente via email — così chi
+  pianifica le installazioni può iniziare a organizzarsi in parallelo all'attesa della conferma del
+  cliente, invece di scoprire la pratica solo quando arriva "Trasmetti" (`inviaMessaggioChatSistema()`,
+  stesso meccanismo già usato per l'avviso di arrivo dati/documenti al reparto Commerciale).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

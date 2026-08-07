@@ -5,6 +5,7 @@ import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { inviaMessaggioChatSistema } from "@/lib/chat";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
 
 async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
@@ -234,6 +235,16 @@ export async function inviaEmailApprovazioneContratto(segnalazioneId: string, or
     valore_dopo: segnalazione.email,
     operatore_id: personaId,
   });
+
+  // ★ NUOVA — richiesta esplicita: chi pianifica le installazioni (Analisi
+  // Rete) deve saperlo appena il contratto parte per l'approvazione, non
+  // solo quando arriva "Trasmetti" — così può iniziare a organizzarsi in
+  // parallelo all'attesa della conferma del cliente, invece di scoprire la
+  // pratica solo a cose fatte.
+  await inviaMessaggioChatSistema(
+    "Analisi Rete",
+    `📄 Contratto inviato per approvazione a ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Puoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.`
+  );
 
   revalidatePath("/segnalazioni");
   return { errore: null };

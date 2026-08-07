@@ -890,10 +890,15 @@ function DettaglioSegnalazione({
                   </button>
                 </>
               ) : (
-                <Button size="sm" onClick={inviaApprovazioneContratto} disabled={inCorsoApprovazione} className="w-full">
-                  <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  {inCorsoApprovazione ? "Invio in corso…" : "Invia contratto al cliente per approvazione"}
-                </Button>
+                <>
+                  <Button size="sm" onClick={inviaApprovazioneContratto} disabled={inCorsoApprovazione} className="w-full">
+                    <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    {inCorsoApprovazione ? "Invio in corso…" : "Contratto pronto — invia per approvazione"}
+                  </Button>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Manda il contratto al cliente da approvare e avvisa Analisi Rete di iniziare a organizzare l&apos;installazione.
+                  </p>
+                </>
               )}
               {erroreApprovazione && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-xs text-critical">
