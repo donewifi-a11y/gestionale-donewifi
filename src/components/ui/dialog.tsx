@@ -61,12 +61,19 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // ★ FIX — nessun limite di altezza né overflow-y: un dialog con più
+          // contenuto dell'80% dell'altezza dello schermo (frequente con un
+          // dialog largo/a tab) restava tagliato al bordo della finestra senza
+          // modo di scorrere — stesso bug già corretto per lo Sheet laterale
+          // (src/components/ui/sheet.tsx), stessa soluzione: lo scroll va sul
+          // contenuto (sotto), non su tutto il dialog, così la X resta sempre
+          // raggiungibile in alto a destra invece di scorrere via col resto.
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
       >
-        {children}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">{children}</div>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button

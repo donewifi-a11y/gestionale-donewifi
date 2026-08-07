@@ -7,12 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -243,10 +243,17 @@ export function SegnalazioniBoard({
         })}
       </div>
 
-      <Sheet open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
-        <SheetContent className="sm:max-w-lg">
+      {/* ★ NUOVO — da pannello laterale stretto (~370px, dove i dati veri
+       * finivano troncati) a dialog centrale largo (~700px): con dati reali
+       * (CF, IBAN, indirizzi, nomi file lunghi) serviva spazio vero, non un
+       * layout più furbo nello stesso spazio stretto. A tab (Anagrafica /
+       * Piano e pagamento / Documenti) invece di tutto impilato, per non
+       * trasformare la maggior larghezza in uno scroll verticale infinito. */}
+      <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
+        <DialogContent className="sm:max-w-2xl">
           {aperta && (
             <DettaglioSegnalazione
+              key={aperta.id}
               segnalazione={aperta}
               richiesta={richieste.find((r) => r.segnalazione_id === aperta.id) ?? null}
               isAdmin={isAdmin}
@@ -254,8 +261,8 @@ export function SegnalazioniBoard({
               onChiudi={() => setAperta(null)}
             />
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -298,6 +305,7 @@ function DettaglioSegnalazione({
   }, [contrattoUrl, segnalazione.id]);
   const [inCorsoEmail, setInCorsoEmail] = useState(false);
   const [esitoEmail, setEsitoEmail] = useState("");
+  const [tab, setTab] = useState<"anagrafica" | "piano" | "documenti">("anagrafica");
 
   const linkRichiestaDati = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
@@ -352,6 +360,11 @@ function DettaglioSegnalazione({
   const indirizzoInstallazione = CAMPI_INDIRIZZO.every((c) => campiRicevuti[c])
     ? `${campiRicevuti.via} ${campiRicevuti.civico}, ${campiRicevuti.comune} (${campiRicevuti.cap})`
     : null;
+  // ★ i gruppi (Piano scelto/Anagrafica/Contatti/Pagamento/Note) si smistano
+  // nelle 3 tab del dialog — con più spazio disponibile ora servono le tab
+  // a spezzare il contenuto, non più a nasconderlo dietro un troncamento.
+  const gruppiTabAnagrafica = gruppiConDati.filter((g) => ["Anagrafica", "Contatti", "Note"].includes(g.titolo));
+  const gruppiTabPiano = gruppiConDati.filter((g) => ["Piano scelto", "Pagamento"].includes(g.titolo));
 
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
@@ -448,14 +461,14 @@ function DettaglioSegnalazione({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{segnalazione.nome}</SheetTitle>
-        <SheetDescription>
+      <DialogHeader>
+        <DialogTitle>{segnalazione.nome}</DialogTitle>
+        <DialogDescription>
           #{segnalazione.numero} · {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
-        </SheetDescription>
-      </SheetHeader>
+        </DialogDescription>
+      </DialogHeader>
 
-      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
+      <div className="flex min-w-0 flex-col gap-4 text-sm">
         <div>
           <div className="flex items-center gap-1">
             {COLONNE.map((c, i) => (
@@ -567,67 +580,110 @@ function DettaglioSegnalazione({
         {richiesta && (
           <div className="rounded-lg border bg-muted/40 p-3">
             <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
-            {/* ★ FIX — la griglia a 2 colonne (card affiancate) troncava i valori con
-             * "…" quando il pannello era stretto e etichetta+valore non ci
-             * stavano insieme sulla stessa riga (es. "Codice Fiscale" ridotto a una
-             * sola lettera): con dati veri, nessun dato inviato dal cliente può
-             * sparire dietro un troncamento. Layout rifatto a una colonna sola,
-             * etichetta sopra e valore sotto (stesso linguaggio dei campi
-             * Telefono/Indirizzo già in cima a questo pannello): il valore va a
-             * capo se serve, non si taglia mai. */}
-            <div className="flex flex-col gap-2">
-              {gruppiConDati.map((gruppo) => (
-                <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
-                  <div className="flex flex-col gap-2">
-                    {gruppo.voci.map((chiave) => (
-                      <RigaDatoCliente
-                        key={chiave}
-                        etichetta={etichettaDettaglio(chiave)}
-                        valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                        onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
-                      />
-                    ))}
-                  </div>
-                </div>
+            {/* ★ NUOVO — con più spazio in un dialog centrale largo, i gruppi si
+             * smistano su 3 tab (Anagrafica/Piano e pagamento/Documenti) invece
+             * di restare tutti impilati: meno scroll, un argomento alla volta.
+             * Dentro ogni tab resta comunque etichetta sopra/valore sotto — nessun
+             * dato inviato dal cliente si tronca mai, indipendentemente da quanto
+             * sia largo il dialog. */}
+            <div className="mb-3 flex gap-1 border-b">
+              {(
+                [
+                  ["anagrafica", "Anagrafica"],
+                  ["piano", "Piano e pagamento"],
+                  ["documenti", `Documenti${richiesta.documenti.length > 0 ? ` (${richiesta.documenti.length})` : ""}`],
+                ] as const
+              ).map(([valore, etichetta]) => (
+                <button
+                  key={valore}
+                  type="button"
+                  onClick={() => setTab(valore)}
+                  className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-bold transition ${
+                    tab === valore ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {etichetta}
+                </button>
               ))}
+            </div>
 
-              {indirizzoInstallazione && (
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
-                  >
-                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                    {indirizzoInstallazione}
-                  </a>
-                </div>
-              )}
-
-              {altriCampi.length > 0 && (
-                <div className="rounded-lg border bg-card p-2.5">
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
-                  <div className="flex flex-col gap-2">
-                    {altriCampi.map((chiave) => (
-                      <RigaDatoCliente
-                        key={chiave}
-                        etichetta={etichettaDettaglio(chiave)}
-                        valore={campiRicevuti[chiave]}
-                        onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
-                      />
-                    ))}
+            {tab === "anagrafica" && (
+              <div className="flex flex-col gap-2">
+                {gruppiTabAnagrafica.map((gruppo) => (
+                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
+                    <div className="flex flex-col gap-2">
+                      {gruppo.voci.map((chiave) => (
+                        <RigaDatoCliente
+                          key={chiave}
+                          etichetta={etichettaDettaglio(chiave)}
+                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                ))}
 
-              {richiesta.documenti.length > 0 && (
-                <div className="rounded-lg border bg-card p-2.5">
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
-                    Documenti{campiRicevuti.tipoDocumento && ` — ${TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento}`}
-                  </p>
+                {indirizzoInstallazione && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
+                    >
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                      {indirizzoInstallazione}
+                    </a>
+                  </div>
+                )}
+
+                {altriCampi.length > 0 && (
+                  <div className="rounded-lg border bg-card p-2.5">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
+                    <div className="flex flex-col gap-2">
+                      {altriCampi.map((chiave) => (
+                        <RigaDatoCliente
+                          key={chiave}
+                          etichetta={etichettaDettaglio(chiave)}
+                          valore={campiRicevuti[chiave]}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === "piano" && (
+              <div className="flex flex-col gap-2">
+                {gruppiTabPiano.map((gruppo) => (
+                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
+                    <div className="flex flex-col gap-2">
+                      {gruppo.voci.map((chiave) => (
+                        <RigaDatoCliente
+                          key={chiave}
+                          etichetta={etichettaDettaglio(chiave)}
+                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tab === "documenti" && (
+              <div className="rounded-lg border bg-card p-2.5">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
+                  Tipo Documento: {campiRicevuti.tipoDocumento ? (TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento) : "—"}
+                </p>
+                {richiesta.documenti.length > 0 ? (
                   <div className="flex flex-col gap-1.5">
                     {richiesta.documenti.map((d, i) => (
                       <Button
@@ -642,9 +698,11 @@ function DettaglioSegnalazione({
                       </Button>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nessun documento caricato.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

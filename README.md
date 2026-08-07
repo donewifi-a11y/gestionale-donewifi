@@ -1059,6 +1059,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   hanno spazi dove andare a capo) qui e nell'elenco documenti di Richieste Clienti. Confrontate 3
   alternative in un artifact con i dati veri dello screenshot dell'utente prima di scegliere questo
   layout.
+✅ Dettaglio Segnalazione — da pannello laterale a dialog centrale a tab (2026-08-07): anche a una
+  colonna sola, ~370px restavano stretti per un'anagrafica Business completa. Il dettaglio è ora un
+  dialog centrale largo (~672px, `sm:max-w-2xl`) invece del pannello agganciato al bordo destro
+  (`Dialog`/`DialogContent` al posto di `Sheet`/`SheetContent` — prima non ancora usati in nessuna
+  altra schermata). "Dati ricevuti dal cliente" è diviso in 3 tab (Anagrafica · Piano e pagamento ·
+  Documenti) invece di restare tutto impilato in verticale — indicatore di avanzamento, pulsante
+  dell'azione corrente, invio modulo dati, Contratto, Trasmetti ed Elimina restano sempre visibili
+  fuori dalle tab. Stesso fix di scroll già fatto per lo Sheet (`src/components/ui/dialog.tsx`:
+  altezza massima 85vh, scroll sul contenuto non su tutto il dialog, X sempre raggiungibile) esteso
+  qui. Scelto dopo un confronto in artifact tra 4 impostazioni (popup largo, popup a tab, pannello
+  laterale allargato, pagina dedicata).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
