@@ -1077,6 +1077,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   profilo/apparati scelti (prima la prima tab) non hanno un campo corrispondente in quella
   schermata — si usano in un passaggio successivo del gestionale contratti — quindi ora sono
   l'ultima tab invece della prima.
+✅ FIX — dialog Segnalazione "difficile da leggere" scorrendo (2026-08-07): la X per chiudere
+  restava fissa in alto ma il titolo no — scorrendo il dialog, nome/indirizzo del cliente
+  sparivano e al loro posto compariva qualunque campo si trovasse in quel momento in cima al
+  contenuto (es. il valore dell'Email da solo, senza etichetta, proprio accanto alla X), dando
+  l'impressione di un'interfaccia rotta. L'intestazione ora è `sticky top-0`: resta sempre
+  visibile durante lo scroll. Tolta anche la duplicazione di Telefono/Email appena arrivano i dati
+  dal cliente — comparivano identici sia in cima al dialog sia nella tab Anagrafica → Contatti.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

@@ -466,7 +466,13 @@ function DettaglioSegnalazione({
 
   return (
     <>
-      <DialogHeader>
+      {/* ★ FIX — la X per chiudere restava fissa in alto (dentro DialogContent,
+       * fuori dal contenitore che scorre) ma il titolo no: scorrendo il
+       * dialog, nome/indirizzo sparivano e al loro posto compariva qualunque
+       * campo si trovasse in quel momento in cima al contenuto (es. il valore
+       * dell'Email, senza la sua etichetta) — sembrava un'interfaccia rotta.
+       * `sticky top-0` tiene il titolo sempre visibile mentre si scorre. */}
+      <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
         <DialogTitle>{segnalazione.nome}</DialogTitle>
         <DialogDescription>
           #{segnalazione.numero} · {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
@@ -521,8 +527,17 @@ function DettaglioSegnalazione({
           )}
         </div>
 
-        <Campo etichetta="Telefono" valore={segnalazione.telefono} />
-        <Campo etichetta="Email" valore={segnalazione.email || "—"} />
+        {/* ★ FIX — una volta arrivata la Richiesta Dati, Telefono/Email qui
+         * duplicavano esattamente lo stesso valore già nella tab Anagrafica →
+         * Contatti (la route li risincronizza sulla Segnalazione quando
+         * arrivano): tenerli entrambi allungava lo scroll prima di arrivare
+         * alle tab senza aggiungere informazione. */}
+        {!richiesta && (
+          <>
+            <Campo etichetta="Telefono" valore={segnalazione.telefono} />
+            <Campo etichetta="Email" valore={segnalazione.email || "—"} />
+          </>
+        )}
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
           <a
