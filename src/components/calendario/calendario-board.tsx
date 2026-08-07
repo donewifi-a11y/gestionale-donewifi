@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ interface TicketMinimo {
   numero: number;
   cliente: string;
   indirizzo: string | null;
+  telefono: string | null;
 }
 
 // ── date, sempre in orario locale (mai toISOString su una data — sposta
@@ -210,6 +211,7 @@ export function CalendarioBoard({
           appuntamenti={appuntamenti}
           note={note}
           eventiGoogle={eventiGoogle}
+          ticket={ticket}
           trovaPersona={trovaPersona}
           onApri={setModifica}
           onCambiaStato={cambiaStato}
@@ -246,7 +248,7 @@ export function CalendarioBoard({
 
       <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
-          {modifica && <FormModificaAppuntamento appuntamento={modifica} persone={persone} onFatto={() => setModifica(null)} />}
+          {modifica && <FormModificaAppuntamento appuntamento={modifica} persone={persone} ticket={ticket} onFatto={() => setModifica(null)} />}
         </SheetContent>
       </Sheet>
 
@@ -264,11 +266,15 @@ export function CalendarioBoard({
 function RigaAppuntamento({
   a,
   tecnico,
+  telefono,
   onApri,
   onCambiaStato,
 }: {
   a: Appuntamento;
   tecnico: Persona | null;
+  /** Telefono del Ticket collegato — se presente, un pulsante per chiamare
+   * direttamente compare accanto all'indirizzo. */
+  telefono: string | null;
   onApri: (a: Appuntamento) => void;
   onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
 }) {
@@ -284,18 +290,30 @@ function RigaAppuntamento({
           <span className="truncate font-semibold">{a.titolo}</span>
           <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
         </div>
-        {a.indirizzo && (
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
-          >
-            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
-            {a.indirizzo}
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          {a.indirizzo && (
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+            >
+              <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              {a.indirizzo}
+            </a>
+          )}
+          {telefono && (
+            <a
+              href={`tel:${telefono}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+            >
+              <Phone className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              {telefono}
+            </a>
+          )}
+        </div>
       </button>
       {tecnico && (
         <span title={tecnico.nome} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
@@ -355,10 +373,15 @@ function RigaEventoGoogle({ e }: { e: EventoGoogleCalendario }) {
           <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">Google</span>
         </div>
         {e.indirizzo && (
-          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(e.indirizzo)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+          >
             <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
             {e.indirizzo}
-          </span>
+          </a>
         )}
       </div>
       {e.link && (
@@ -375,6 +398,7 @@ function VistaGiorno({
   appuntamenti,
   note,
   eventiGoogle,
+  ticket,
   trovaPersona,
   onApri,
   onCambiaStato,
@@ -385,6 +409,7 @@ function VistaGiorno({
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
   eventiGoogle: EventoGoogleCalendario[];
+  ticket: TicketMinimo[];
   trovaPersona: (id: string | null) => Persona | null;
   onApri: (a: Appuntamento) => void;
   onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
@@ -410,7 +435,14 @@ function VistaGiorno({
         <RigaNota key={n.id} n={n} onAlterna={onAlternaNota} onElimina={onEliminaNota} />
       ))}
       {appuntamentiGiorno.map((a) => (
-        <RigaAppuntamento key={a.id} a={a} tecnico={trovaPersona(a.tecnico_id)} onApri={onApri} onCambiaStato={onCambiaStato} />
+        <RigaAppuntamento
+          key={a.id}
+          a={a}
+          tecnico={trovaPersona(a.tecnico_id)}
+          telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? null}
+          onApri={onApri}
+          onCambiaStato={onCambiaStato}
+        />
       ))}
       {eventiGiorno.map((e) => (
         <RigaEventoGoogle key={e.id} e={e} />
@@ -707,10 +739,12 @@ function FormNuovoAppuntamento({
 function FormModificaAppuntamento({
   appuntamento,
   persone,
+  ticket,
   onFatto,
 }: {
   appuntamento: Appuntamento;
   persone: Persona[];
+  ticket: TicketMinimo[];
   onFatto: () => void;
 }) {
   const router = useRouter();
@@ -719,6 +753,7 @@ function FormModificaAppuntamento({
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
+  const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -756,6 +791,34 @@ function FormModificaAppuntamento({
         <SheetTitle>Modifica Appuntamento</SheetTitle>
         <SheetDescription>Cambia data, ora, tecnico o dettagli.</SheetDescription>
       </SheetHeader>
+      {/* ★ NUOVO — richiesta esplicita: telefono cliccabile per chiamare
+       * subito, indirizzo cliccabile che apre Google Maps direttamente —
+       * prima l'indirizzo era solo un campo di testo modificabile, senza
+       * modo di aprirlo, e il telefono non compariva affatto qui. */}
+      {(telefonoCliente || appuntamento.indirizzo) && (
+        <div className="mb-1 flex flex-wrap gap-1.5 px-4">
+          {telefonoCliente && (
+            <a
+              href={`tel:${telefonoCliente}`}
+              className="flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+            >
+              <Phone className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
+              {telefonoCliente}
+            </a>
+          )}
+          {appuntamento.indirizzo && (
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(appuntamento.indirizzo)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+            >
+              <MapPin className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
+              Apri mappa
+            </a>
+          )}
+        </div>
+      )}
       <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
         <div>
           <Label htmlFor="tipo_servizio-m">Tipo di servizio *</Label>

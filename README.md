@@ -1117,6 +1117,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   pianifica le installazioni può iniziare a organizzarsi in parallelo all'attesa della conferma del
   cliente, invece di scoprire la pratica solo quando arriva "Trasmetti" (`inviaMessaggioChatSistema()`,
   stesso meccanismo già usato per l'avviso di arrivo dati/documenti al reparto Commerciale).
+✅ Calendario — telefono cliccabile e indirizzo che apre Maps (2026-08-08): nella card
+  dell'appuntamento (Vista Giorno) e nel pannello "Modifica Appuntamento" ora compare anche il
+  telefono del cliente (dal Ticket collegato), cliccabile per chiamare direttamente (`tel:`); prima
+  non c'era per niente. L'indirizzo, che nel pannello di modifica era solo un campo di testo senza
+  modo di aprirlo, ha ora accanto un pulsante che apre Google Maps — stesso trattamento già dato
+  agli indirizzi nella card della Vista Giorno e (ora anche) negli eventi letti da Google Calendar.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

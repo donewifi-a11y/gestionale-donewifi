@@ -71,7 +71,7 @@ export default async function CalendarioPage({
     supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
     supabase
       .from("tickets")
-      .select("id, numero, cliente, indirizzo")
+      .select("id, numero, cliente, indirizzo, telefono")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
     listaEventiGoogleCalendario(inizioRange, fineRange),
