@@ -1070,6 +1070,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   altezza massima 85vh, scroll sul contenuto non su tutto il dialog, X sempre raggiungibile) esteso
   qui. Scelto dopo un confronto in artifact tra 4 impostazioni (popup largo, popup a tab, pannello
   laterale allargato, pagina dedicata).
+✅ "Dati ricevuti dal cliente" — tab riordinate come il gestionale contratti esterno (2026-08-07):
+  da 3 a 4 tab (Anagrafica · Indirizzo e pagamento · Documenti · Piano scelto), nell'ordine in cui
+  questi stessi dati vanno ricopiati a mano in service.done.cst98.com/Contratto/cliente.aspx per
+  compilare il contratto — anagrafica/contatti, poi indirizzo e IBAN (RID), poi documenti. Il
+  profilo/apparati scelti (prima la prima tab) non hanno un campo corrispondente in quella
+  schermata — si usano in un passaggio successivo del gestionale contratti — quindi ora sono
+  l'ultima tab invece della prima.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

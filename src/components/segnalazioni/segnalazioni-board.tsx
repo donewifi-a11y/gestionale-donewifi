@@ -305,7 +305,7 @@ function DettaglioSegnalazione({
   }, [contrattoUrl, segnalazione.id]);
   const [inCorsoEmail, setInCorsoEmail] = useState(false);
   const [esitoEmail, setEsitoEmail] = useState("");
-  const [tab, setTab] = useState<"anagrafica" | "piano" | "documenti">("anagrafica");
+  const [tab, setTab] = useState<"anagrafica" | "indirizzo" | "documenti" | "piano">("anagrafica");
 
   const linkRichiestaDati = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
@@ -361,10 +361,15 @@ function DettaglioSegnalazione({
     ? `${campiRicevuti.via} ${campiRicevuti.civico}, ${campiRicevuti.comune} (${campiRicevuti.cap})`
     : null;
   // ★ i gruppi (Piano scelto/Anagrafica/Contatti/Pagamento/Note) si smistano
-  // nelle 3 tab del dialog — con più spazio disponibile ora servono le tab
-  // a spezzare il contenuto, non più a nasconderlo dietro un troncamento.
+  // in 4 tab, nello stesso ordine in cui questi dati vanno ricopiati nel
+  // gestionale contratti esterno (service.done.cst98.com): anagrafica e
+  // contatti, poi indirizzo e dati di pagamento (RID), poi documenti; il
+  // profilo/apparati scelti non hanno un campo corrispondente in quella
+  // schermata (si usano dopo, in un altro passaggio), quindi restano per
+  // ultimi invece di comparire per primi.
   const gruppiTabAnagrafica = gruppiConDati.filter((g) => ["Anagrafica", "Contatti", "Note"].includes(g.titolo));
-  const gruppiTabPiano = gruppiConDati.filter((g) => ["Piano scelto", "Pagamento"].includes(g.titolo));
+  const gruppiTabPagamento = gruppiConDati.filter((g) => g.titolo === "Pagamento");
+  const gruppiTabPiano = gruppiConDati.filter((g) => g.titolo === "Piano scelto");
 
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
@@ -581,17 +586,22 @@ function DettaglioSegnalazione({
           <div className="rounded-lg border bg-muted/40 p-3">
             <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
             {/* ★ NUOVO — con più spazio in un dialog centrale largo, i gruppi si
-             * smistano su 3 tab (Anagrafica/Piano e pagamento/Documenti) invece
-             * di restare tutti impilati: meno scroll, un argomento alla volta.
-             * Dentro ogni tab resta comunque etichetta sopra/valore sotto — nessun
-             * dato inviato dal cliente si tronca mai, indipendentemente da quanto
-             * sia largo il dialog. */}
-            <div className="mb-3 flex gap-1 border-b">
+             * smistano su 4 tab invece di restare tutti impilati: meno scroll, un
+             * argomento alla volta. L'ordine delle tab segue quello in cui questi
+             * stessi dati vanno ricopiati nel gestionale contratti esterno
+             * (service.done.cst98.com/Contratto/cliente.aspx): anagrafica e
+             * contatti, poi indirizzo e dati di pagamento (RID), poi documenti —
+             * il profilo/apparati scelti non hanno un campo lì, si usano in un
+             * passaggio successivo, quindi restano per ultimi invece che per
+             * primi. Dentro ogni tab resta comunque etichetta sopra/valore
+             * sotto — nessun dato inviato dal cliente si tronca mai. */}
+            <div className="mb-3 flex flex-wrap gap-1 border-b">
               {(
                 [
                   ["anagrafica", "Anagrafica"],
-                  ["piano", "Piano e pagamento"],
+                  ["indirizzo", "Indirizzo e pagamento"],
                   ["documenti", `Documenti${richiesta.documenti.length > 0 ? ` (${richiesta.documenti.length})` : ""}`],
+                  ["piano", "Piano scelto"],
                 ] as const
               ).map(([valore, etichetta]) => (
                 <button
@@ -625,21 +635,6 @@ function DettaglioSegnalazione({
                   </div>
                 ))}
 
-                {indirizzoInstallazione && (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
-                    <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
-                    >
-                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                      {indirizzoInstallazione}
-                    </a>
-                  </div>
-                )}
-
                 {altriCampi.length > 0 && (
                   <div className="rounded-lg border bg-card p-2.5">
                     <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
@@ -655,6 +650,41 @@ function DettaglioSegnalazione({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {tab === "indirizzo" && (
+              <div className="flex flex-col gap-2">
+                {indirizzoInstallazione && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
+                    >
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                      {indirizzoInstallazione}
+                    </a>
+                  </div>
+                )}
+
+                {gruppiTabPagamento.map((gruppo) => (
+                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
+                    <div className="flex flex-col gap-2">
+                      {gruppo.voci.map((chiave) => (
+                        <RigaDatoCliente
+                          key={chiave}
+                          etichetta={etichettaDettaglio(chiave)}
+                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
