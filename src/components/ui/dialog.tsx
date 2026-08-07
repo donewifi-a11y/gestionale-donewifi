@@ -73,7 +73,7 @@ function DialogContent({
         )}
         {...props}
       >
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">{children}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">{children}</div>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button

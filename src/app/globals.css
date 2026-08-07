@@ -155,11 +155,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* ★ FIX — un elemento troppo largo da qualche parte nella pagina (es. il
+   * dialog di dettaglio Segnalazione su schermi non massimizzati) faceva
+   * comparire uno scrollbar orizzontale su tutta la pagina, spostando anche
+   * elementi "fixed" come i dialog centrati fuori dal centro reale dello
+   * schermo — bug capitato più volte, qui una rete di sicurezza a livello
+   * globale invece di inseguire ogni singolo elemento che trabocca: la
+   * pagina non scorre mai in orizzontale, chi trabocca si taglia (o va
+   * gestito con overflow-x-auto sul proprio contenitore), non trascina
+   * l'intera finestra. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
   }
   html {
-    @apply font-sans;
+    @apply font-sans overflow-x-hidden;
   }
   h1, h2, h3, h4 {
     @apply font-heading;

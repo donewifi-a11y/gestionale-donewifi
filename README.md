@@ -1100,7 +1100,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   sui Ticket, migrazione 0013 — `token_approvazione` generalizzata con `origine`/`segnalazione_id`
   invece di crearne una copia), il cliente legge il PDF e approva su `/approva/[token]`; data/ora
   dell'approvazione sono salvate su `segnalazioni.contratto_approvato_cliente_il` e tracciate in
-  Storico Modifiche come prova.
+  Storico Modifiche come prova. Verificato end-to-end contro il database di produzione dopo
+  l'esecuzione della migrazione 0044 (righe di prova create e ripulite: approvazione contratto e
+  approvazione intervento Ticket, per verificare che il vincolo di esclusività sulla
+  `token_approvazione` generalizzata non rompesse il flusso esistente).
+✅ FIX — dialog che richiedeva scroll orizzontale (2026-08-08): un contenuto interno più largo del
+  dialog (dettaglio Segnalazione a tab) non veniva contenuto — mancava `overflow-x` sia sul
+  contenitore che scorre di `Dialog`/`Sheet` (`src/components/ui/dialog.tsx`, `sheet.tsx`) sia,
+  come rete di sicurezza più a monte, su `html`/`body` (`globals.css`): un elemento troppo largo in
+  qualunque punto della pagina poteva far comparire uno scrollbar orizzontale su tutta la finestra.
+  Ora la pagina non scorre mai in orizzontale — chi trabocca si taglia o va gestito con
+  `overflow-x-auto` sul proprio contenitore, non trascina più l'intera finestra.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
