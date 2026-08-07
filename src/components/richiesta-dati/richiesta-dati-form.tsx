@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, Upload, PencilLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,7 @@ export function RichiestaDatiForm({
   sceltaPiano,
   onCambiaPiano,
   indirizzo,
+  nomeSegnalazione,
 }: {
   segnalazioneId: string;
   giaInviato: boolean;
@@ -111,7 +112,17 @@ export function RichiestaDatiForm({
   /** Indirizzo già raccolto in fase di Segnalazione — precompilato qui perché il
    * cliente lo riverifichi/corregga: verrà usato per l'installazione. */
   indirizzo?: { via: string; civico: string; comune: string; cap: string };
+  /** Nome scritto dallo staff in Segnalazione — solo per precompilare Nome/Cognome
+   * qui sotto (best-effort, primo spazio), che il cliente riconferma/corregge. */
+  nomeSegnalazione?: string;
 }) {
+  const [nomeIniziale, cognomeIniziale] = useMemo(() => {
+    const pulito = (nomeSegnalazione ?? "").trim();
+    if (!pulito) return ["", ""];
+    const spazio = pulito.indexOf(" ");
+    if (spazio === -1) return [pulito, ""];
+    return [pulito.slice(0, spazio), pulito.slice(spazio + 1)];
+  }, [nomeSegnalazione]);
   const [inCorso, setInCorso] = useState(false);
   const [fase, setFase] = useState("");
   const [inviato, setInviato] = useState(false);
@@ -142,6 +153,10 @@ export function RichiestaDatiForm({
     const dati = new FormData(e.currentTarget);
 
     if (tipologiaCliente === "Privato") {
+      const nome = String(dati.get("nome") || "").trim();
+      if (!nome) return setErrore("Il nome è obbligatorio.");
+      const cognome = String(dati.get("cognome") || "").trim();
+      if (!cognome) return setErrore("Il cognome è obbligatorio.");
       const cf = String(dati.get("codiceFiscale") || "").trim();
       if (!cf) return setErrore("Il Codice Fiscale è obbligatorio.");
       const esito = validaCodiceFiscale(cf);
@@ -294,6 +309,7 @@ export function RichiestaDatiForm({
             <span className="text-muted-foreground">Canone mensile / una tantum</span>
             <span className="font-mono font-bold">{formattaValuta(sceltaPiano.mensile)}/mese · {formattaValuta(sceltaPiano.unaTantum)}</span>
           </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">L&apos;importo una tantum va saldato al momento della posa.</p>
         </div>
       ) : (
         <>
@@ -334,10 +350,23 @@ export function RichiestaDatiForm({
       )}
 
       {tipologiaCliente === "Privato" ? (
-        <div>
-          <Label htmlFor="codiceFiscale">Codice Fiscale *</Label>
-          <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-10 uppercase" maxLength={16} />
-        </div>
+        <>
+          <p className="-mb-2 text-xs text-muted-foreground">Verifica che nome e cognome siano scritti correttamente: verranno usati per il contratto.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="nome">Nome *</Label>
+              <Input id="nome" name="nome" defaultValue={nomeIniziale} className="mt-1 h-10" />
+            </div>
+            <div>
+              <Label htmlFor="cognome">Cognome *</Label>
+              <Input id="cognome" name="cognome" defaultValue={cognomeIniziale} className="mt-1 h-10" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="codiceFiscale">Codice Fiscale *</Label>
+            <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-10 uppercase" maxLength={16} />
+          </div>
+        </>
       ) : (
         <>
           <div>

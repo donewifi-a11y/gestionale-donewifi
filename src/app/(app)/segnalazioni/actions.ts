@@ -3,7 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailRichiestaDatiSegnalazione } from "@/lib/email";
+import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
 
@@ -182,6 +182,61 @@ export async function urlContratto(percorso: string) {
   if (!persona) return { errore: "Non autenticato.", url: null };
 
   return urlFirmataDocumento(percorso);
+}
+
+// ★ NUOVA — richiesta esplicita: "Trasmetti per l'installazione" deve poter
+// uscire solo dopo che il cliente ha davvero approvato il contratto, non
+// solo perché è stato caricato un PDF. Stesso principio già usato per
+// l'approvazione dell'intervento su Ticket (inviaEmailApprovazioneTicket()):
+// un link monouso inviato all'email del cliente, che una volta cliccato è
+// la prova che l'approvazione viene proprio da quella casella — niente di
+// più (non è una firma elettronica qualificata), ma già a norma per come
+// veniva gestito anche nel vecchio gestionale per gli interventi.
+export async function inviaEmailApprovazioneContratto(segnalazioneId: string, origine: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+
+  const { data: segnalazione } = await supabase
+    .from("segnalazioni")
+    .select("numero, nome, email, contratto_pdf_url")
+    .eq("id", segnalazioneId)
+    .single();
+  if (!segnalazione) return { errore: "Segnalazione non trovata." };
+  if (!segnalazione.email) return { errore: "Il cliente non ha un'email registrata su questa segnalazione." };
+  if (!segnalazione.contratto_pdf_url) return { errore: "Carica prima il contratto firmato." };
+
+  const service = createServiceClient();
+  const { data: creato, error } = await service
+    .from("token_approvazione")
+    .insert({ segnalazione_id: segnalazioneId, origine: "contratto" })
+    .select("token")
+    .single();
+  if (error) return { errore: error.message };
+
+  const link = `${origine}/approva/${creato.token}`;
+  const { oggetto, corpoHtml } = emailApprovazioneContratto(segnalazione.nome, segnalazione.numero, link);
+  const risultato = await inviaEmail({ a: segnalazione.email, oggetto, corpoHtml, reparto: "Commerciale" });
+  if (risultato.errore) return { errore: risultato.errore };
+
+  await supabase
+    .from("segnalazioni")
+    .update({ contratto_inviato_approvazione_il: new Date().toISOString() })
+    .eq("id", segnalazioneId);
+
+  await supabase.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: segnalazioneId,
+    operazione: "Contratto inviato per approvazione",
+    valore_dopo: segnalazione.email,
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/segnalazioni");
+  return { errore: null };
 }
 
 export async function creaSegnalazione(dati: {

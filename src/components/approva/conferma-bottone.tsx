@@ -4,9 +4,15 @@ import { useState } from "react";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function ConfermaBottone({ token }: { token: string }) {
+const TESTI = {
+  intervento: { azione: "Conferma intervento", titolo: "Intervento confermato" },
+  contratto: { azione: "Approvo il contratto", titolo: "Contratto approvato" },
+} as const;
+
+export function ConfermaBottone({ token, tipo }: { token: string; tipo: "intervento" | "contratto" }) {
   const [stato, setStato] = useState<"idle" | "inCorso" | "fatto" | "errore">("idle");
   const [errore, setErrore] = useState("");
+  const testi = TESTI[tipo];
 
   async function conferma() {
     setStato("inCorso");
@@ -25,7 +31,7 @@ export function ConfermaBottone({ token }: { token: string }) {
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
         <CheckCircle2 className="h-10 w-10 text-success" strokeWidth={2} />
-        <p className="font-heading text-lg font-bold">Intervento confermato</p>
+        <p className="font-heading text-lg font-bold">{testi.titolo}</p>
         <p className="text-sm text-muted-foreground">Grazie! Buona giornata da Done Wifi.</p>
       </div>
     );
@@ -34,7 +40,7 @@ export function ConfermaBottone({ token }: { token: string }) {
   return (
     <div className="flex flex-col items-center gap-3">
       <Button size="lg" disabled={stato === "inCorso"} onClick={conferma}>
-        {stato === "inCorso" ? "Conferma in corso…" : "Conferma intervento"}
+        {stato === "inCorso" ? "Conferma in corso…" : testi.azione}
       </Button>
       {stato === "errore" && (
         <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

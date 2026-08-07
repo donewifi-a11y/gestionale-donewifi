@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2 } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,12 +21,14 @@ import {
   inviaEmailRichiestaDatiSegnalazione,
   getUltimoCaricamentoContratto,
   eliminaSegnalazione,
+  inviaEmailApprovazioneContratto,
 } from "@/app/(app)/segnalazioni/actions";
 import type { AreaAccesso, RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 import { REPARTI } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/lib/use-persisted-state";
+import { createClient } from "@/lib/supabase/client";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
@@ -60,7 +62,7 @@ const CHIAVE_FILTRI = "segnalazioniFiltri";
 // non ancora previsti in nessun gruppo, così non spariscono in silenzio.
 const GRUPPI_DETTAGLI: { titolo: string; campi: string[] }[] = [
   { titolo: "Piano scelto", campi: ["tipologiaCliente", "profiloInternet", "router", "extenderMesh", "costoMensile", "costoUnaTantum"] },
-  { titolo: "Anagrafica", campi: ["codiceFiscale", "ragioneSociale", "partitaIva", "codiceFiscaleAzienda", "pec", "sdi", "legaleRappresentanteNome", "legaleRappresentanteCf"] },
+  { titolo: "Anagrafica", campi: ["nome", "cognome", "codiceFiscale", "ragioneSociale", "partitaIva", "codiceFiscaleAzienda", "pec", "sdi", "legaleRappresentanteNome", "legaleRappresentanteCf"] },
   { titolo: "Contatti", campi: ["telefono", "email"] },
   { titolo: "Pagamento", campi: ["metodoPagamento", "iban", "ibanIntestatarioNome", "ibanIntestatarioCf", "mandatoSepa"] },
   { titolo: "Note", campi: ["note"] },
@@ -97,6 +99,7 @@ export function SegnalazioniBoard({
   const [filtri, aggiornaFiltri] = usePersistedState(CHIAVE_FILTRI, { soloMie: false });
   const [ricerca, setRicerca] = useState("");
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // ★ apre direttamente una segnalazione via ?aperto=<id> — usato dalla
   // ricerca globale.
@@ -107,6 +110,37 @@ export function SegnalazioniBoard({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con l'URL (?aperto=id), non deriva da props/stato locale: è il caso d'uso "external system" per cui useEffect è corretto.
     if (trovata) setAperta(trovata);
   }, [searchParams, segnalazioni]);
+
+  // ★ FIX — quando arrivano dati/documenti dal cliente (POST pubblico a
+  // /api/richiesta-dati) la bacheca restava com'era finché non si ricaricava
+  // la pagina a mano: `segnalazioni`/`richieste` sono props di un Server
+  // Component, non si aggiornano da sole. Un canale Realtime su entrambe le
+  // tabelle fa scattare `router.refresh()` (nuovo fetch server-side) appena
+  // qualcosa cambia — stesso principio già usato per la Chat
+  // (chat-data-context.tsx), un solo canale per board (mai più istanze
+  // contemporaneamente), quindi nessun rischio di nome duplicato.
+  useEffect(() => {
+    const supabase = createClient();
+    const canale = supabase
+      .channel("segnalazioni-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "segnalazioni" }, () => router.refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "richieste_clienti" }, () => router.refresh())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(canale);
+    };
+  }, [router]);
+
+  // ★ la Segnalazione aperta nel dialog è uno snapshot in stato locale: senza
+  // questo, dopo un router.refresh() la bacheca dietro si aggiorna ma il
+  // dialog già aperto continua a mostrare dati/stato vecchi finché non lo si
+  // chiude e riapre.
+  useEffect(() => {
+    if (!aperta) return;
+    const fresca = segnalazioni.find((s) => s.id === aperta.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- risincronizza con la prop `segnalazioni` dopo un refresh esterno (Realtime/router.refresh), non derivabile durante il render di questo componente.
+    if (fresca && fresca !== aperta) setAperta(fresca);
+  }, [segnalazioni, aperta]);
 
   const filtrate = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
@@ -288,6 +322,8 @@ function DettaglioSegnalazione({
   const [caricamentoContratto, setCaricamentoContratto] = useState(false);
   const [erroreContratto, setErroreContratto] = useState("");
   const [infoCaricamento, setInfoCaricamento] = useState<{ nome: string; data: string } | null>(null);
+  const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
+  const [erroreApprovazione, setErroreApprovazione] = useState("");
   // ★ FIX — il reparto del Ticket alla trasmissione era fisso nel codice
   // ("Analisi Rete"); ora è una scelta con quello stesso default, per le
   // eccezioni rare in cui l'installazione non la fa Analisi Rete.
@@ -374,6 +410,11 @@ function DettaglioSegnalazione({
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
   if (!contrattoUrl) mancanti.push("contratto firmato");
+  // ★ NUOVA — richiesta esplicita: "Trasmetti" non basta più che il
+  // contratto sia caricato, serve che il cliente l'abbia anche approvato
+  // (link email monouso, vedi inviaEmailApprovazioneContratto()) prima di
+  // procedere con l'installazione.
+  else if (!segnalazione.contratto_approvato_cliente_il) mancanti.push("approvazione del contratto da parte del cliente");
   const puoTrasmettere = mancanti.length === 0;
 
   async function trasmetti() {
@@ -419,6 +460,19 @@ function DettaglioSegnalazione({
     navigator.clipboard.writeText(linkRichiestaDati);
     setCopiato(true);
     setTimeout(() => setCopiato(false), 1500);
+  }
+
+  async function inviaApprovazioneContratto() {
+    setInCorsoApprovazione(true);
+    setErroreApprovazione("");
+    const risultato = await inviaEmailApprovazioneContratto(segnalazione.id, window.location.origin);
+    setInCorsoApprovazione(false);
+    if (risultato.errore) {
+      setErroreApprovazione(risultato.errore);
+      return;
+    }
+    onCambiata({ ...segnalazione, contratto_inviato_approvazione_il: new Date().toISOString() });
+    router.refresh();
   }
 
   async function caricaContratto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -790,6 +844,64 @@ function DettaglioSegnalazione({
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
               {erroreContratto}
             </p>
+          )}
+
+          {/* ★ NUOVA — richiesta esplicita: prima di "Trasmetti" il cliente
+           * deve approvare davvero il contratto, non basta averlo caricato.
+           * Stesso link monouso via email già usato per l'approvazione
+           * dell'intervento sui Ticket — un click da quella casella è la
+           * prova di data/ora e autenticità richiesta, tracciata anche in
+           * Storico Modifiche. */}
+          {contrattoUrl && (
+            <div className="mt-3 border-t pt-3">
+              {segnalazione.contratto_approvato_cliente_il ? (
+                <p className="flex items-start gap-1.5 text-xs font-semibold text-success">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+                  Contratto approvato dal cliente il{" "}
+                  {new Date(segnalazione.contratto_approvato_cliente_il).toLocaleString("it-IT", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  .
+                </p>
+              ) : segnalazione.contratto_inviato_approvazione_il ? (
+                <>
+                  <p className="flex items-start gap-1.5 text-xs text-warning">
+                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    In attesa di approvazione dal cliente — inviato il{" "}
+                    {new Date(segnalazione.contratto_inviato_approvazione_il).toLocaleString("it-IT", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    .
+                  </p>
+                  <button
+                    type="button"
+                    onClick={inviaApprovazioneContratto}
+                    disabled={inCorsoApprovazione}
+                    className="mt-1.5 text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                  >
+                    {inCorsoApprovazione ? "Invio in corso…" : "Invia di nuovo al cliente"}
+                  </button>
+                </>
+              ) : (
+                <Button size="sm" onClick={inviaApprovazioneContratto} disabled={inCorsoApprovazione} className="w-full">
+                  <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  {inCorsoApprovazione ? "Invio in corso…" : "Invia contratto al cliente per approvazione"}
+                </Button>
+              )}
+              {erroreApprovazione && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-xs text-critical">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  {erroreApprovazione}
+                </p>
+              )}
+            </div>
           )}
         </div>
         )}

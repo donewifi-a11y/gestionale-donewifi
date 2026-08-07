@@ -77,6 +77,7 @@ export default async function RichiestaDatiPage({ params }: { params: Promise<{ 
         <RichiestaDatiFlow
           segnalazioneId={segnalazione.id}
           giaInviato={!!segnalazione.dati_ricevuti_at}
+          nomeSegnalazione={segnalazione.nome}
           tariffe={(tariffe as Tariffa[]) ?? []}
           router={router}
           extender={extender}

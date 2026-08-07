@@ -261,6 +261,7 @@ export function ConfiguratorePiano({
             <span className="font-semibold">Totale una tantum</span>
             <span className="font-mono font-bold">{formattaValuta(unaTantum)}</span>
           </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Da saldare al momento della posa.</p>
         </div>
       )}
 

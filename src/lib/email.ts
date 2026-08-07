@@ -83,6 +83,22 @@ export function emailApprovazioneIntervento(cliente: string, numero: number, lin
   };
 }
 
+export function emailApprovazioneContratto(cliente: string, numero: number, link: string) {
+  return {
+    oggetto: `Done Wifi — Il tuo contratto è pronto (Pratica #${numero})`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <h2 style="color:#0B1B3D;">Done Wifi — Il tuo contratto è pronto</h2>
+        <p>Gentile ${cliente},</p>
+        <p>Abbiamo preparato il contratto relativo alla tua pratica #${numero}. Prima di procedere con l'installazione, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
+        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi e approva il contratto</a></p>
+        <p>Per qualsiasi domanda, rispondi a questa email o scrivi a <b>commerciale@donewifi.it</b>.</p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
 export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
   return {
     oggetto: "Done Wifi — completa i tuoi dati",

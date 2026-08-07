@@ -12,6 +12,7 @@ import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
 export function RichiestaDatiFlow({
   segnalazioneId,
   giaInviato,
+  nomeSegnalazione,
   tariffe,
   router,
   extender,
@@ -19,6 +20,7 @@ export function RichiestaDatiFlow({
 }: {
   segnalazioneId: string;
   giaInviato: boolean;
+  nomeSegnalazione?: string;
   tariffe: Tariffa[];
   router: MaterialeMagazzino[];
   extender: MaterialeMagazzino | null;
@@ -46,6 +48,7 @@ export function RichiestaDatiFlow({
           sceltaPiano={sceltaPiano}
           onCambiaPiano={() => setSceltaPiano(null)}
           indirizzo={indirizzo}
+          nomeSegnalazione={nomeSegnalazione}
         />
       </div>
     </>

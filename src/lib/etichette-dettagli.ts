@@ -3,6 +3,7 @@
 // jsonb — qui solo per mostrarli con un'etichetta leggibile allo staff.
 export const ETICHETTE_DETTAGLI: Record<string, string> = {
   nome: "Nome",
+  cognome: "Cognome",
   cf: "Codice Fiscale",
   codiceFiscale: "Codice Fiscale",
   codiceFiscaleAzienda: "Codice Fiscale Azienda",

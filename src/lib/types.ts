@@ -74,6 +74,8 @@ export interface Segnalazione {
   contratto_pdf_url: string | null;
   documenti_richiesti_at: string | null;
   dati_ricevuti_at: string | null;
+  contratto_inviato_approvazione_il: string | null;
+  contratto_approvato_cliente_il: string | null;
 }
 
 export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";

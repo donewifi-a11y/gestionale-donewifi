@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
   };
   if (dettagli.telefono) aggiornamentoSegnalazione.telefono = dettagli.telefono;
   if (dettagli.email) aggiornamentoSegnalazione.email = dettagli.email;
+  // ★ nome/cognome (Privato) o ragione sociale (Azienda) sono ora
+  // riconfermati dal cliente in questo step invece di restare solo quanto
+  // scritto dallo staff in Segnalazione — se diversi, il nome corretto va
+  // aggiornato qui.
+  if (dettagli.nome && dettagli.cognome) aggiornamentoSegnalazione.nome = `${dettagli.nome} ${dettagli.cognome}`.trim();
+  else if (dettagli.ragioneSociale) aggiornamentoSegnalazione.nome = dettagli.ragioneSociale;
   // ★ l'indirizzo di installazione viene riverificato dal cliente in questo
   // step (vedi richiesta-dati-form.tsx) — se corretto rispetto a quello
   // raccolto in Segnalazione, va aggiornato qui.

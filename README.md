@@ -1084,6 +1084,23 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   l'impressione di un'interfaccia rotta. L'intestazione ora è `sticky top-0`: resta sempre
   visibile durante lo scroll. Tolta anche la duplicazione di Telefono/Email appena arrivano i dati
   dal cliente — comparivano identici sia in cima al dialog sia nella tab Anagrafica → Contatti.
+✅ Richiesta Dati e Segnalazioni — riconferma dati, saldo alla posa, aggiornamento live, approvazione
+  contratto (2026-08-08, richiede la migrazione `0044_realtime_segnalazioni_approvazione_contratto.sql`
+  da eseguire a mano su Supabase SQL Editor): il riepilogo costi (configuratore piano e "Il tuo
+  piano" nel form) indica ora che l'importo una tantum va saldato al momento della posa. Il cliente
+  riconferma anche Nome e Cognome (nuovi campi obbligatori per i Privati, precompilati dal nome
+  scritto in Segnalazione ma correggibili) oltre a email/indirizzo già riconfermabili — se diversi
+  da quanto scritto dallo staff, `segnalazioni.nome` viene aggiornato di conseguenza (route
+  `api/richiesta-dati`). La bacheca Segnalazioni si aggiorna da sola (Supabase Realtime su
+  `segnalazioni`/`richieste_clienti`, stesso principio già usato per la Chat) quando arrivano
+  dati/documenti dal cliente, incluso il dialog già aperto — prima serviva un refresh manuale.
+  "Trasmetti per l'installazione" ora richiede anche l'approvazione del contratto da parte del
+  cliente, non basta più averlo caricato: un pulsante "Invia contratto al cliente per approvazione"
+  manda un link monouso via email (stesso meccanismo già usato per l'approvazione dell'intervento
+  sui Ticket, migrazione 0013 — `token_approvazione` generalizzata con `origine`/`segnalazione_id`
+  invece di crearne una copia), il cliente legge il PDF e approva su `/approva/[token]`; data/ora
+  dell'approvazione sono salvate su `segnalazioni.contratto_approvato_cliente_il` e tracciate in
+  Storico Modifiche come prova.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
