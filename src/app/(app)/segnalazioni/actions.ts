@@ -121,9 +121,20 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
     .upload(percorso, file, { contentType: "application/pdf" });
   if (erroreUpload) return { errore: erroreUpload.message };
 
+  // ★ FIX — sostituire il PDF (es. errore nel primo caricamento) lasciava
+  // intatta un'eventuale approvazione già data dal cliente: l'interfaccia
+  // continuava a mostrare "Contratto approvato" riferendosi in realtà al
+  // file vecchio, e "Trasmetti" restava sbloccato per un contratto che il
+  // cliente non ha mai visto. Ogni nuovo caricamento azzera l'approvazione
+  // (e l'invio), costringendo a rimandarla per il file nuovo.
   const { error } = await supabase
     .from("segnalazioni")
-    .update({ contratto_pdf_url: percorso, aggiornato_il: new Date().toISOString() })
+    .update({
+      contratto_pdf_url: percorso,
+      contratto_inviato_approvazione_il: null,
+      contratto_approvato_cliente_il: null,
+      aggiornato_il: new Date().toISOString(),
+    })
     .eq("id", segnalazioneId);
   if (error) return { errore: error.message };
 
@@ -375,6 +386,12 @@ export async function trasmettiPerInstallazione(segnalazioneId: string, reparto:
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (Richiesta Dati)");
   if (!segnalazione.contratto_pdf_url) mancanti.push("contratto firmato");
+  // ★ FIX — mancava qui il controllo sull'approvazione del cliente, presente
+  // solo lato UI (pulsante disabilitato): questa funzione, chiamata
+  // direttamente, avrebbe trasmesso una pratica il cui contratto non è mai
+  // stato approvato dal cliente. Stesso identico controllo del componente,
+  // qui davvero come unica fonte di verità.
+  else if (!segnalazione.contratto_approvato_cliente_il) mancanti.push("approvazione del contratto da parte del cliente");
   if (mancanti.length > 0) return { errore: `Mancano ancora: ${mancanti.join(", ")}.` };
 
   const { data: ticket, error: erroreTicket } = await supabase

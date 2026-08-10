@@ -495,7 +495,12 @@ function DettaglioSegnalazione({
       return;
     }
     setContrattoUrl(risultato.percorso);
-    onCambiata({ ...segnalazione, contratto_pdf_url: risultato.percorso });
+    onCambiata({
+      ...segnalazione,
+      contratto_pdf_url: risultato.percorso,
+      contratto_inviato_approvazione_il: null,
+      contratto_approvato_cliente_il: null,
+    });
   }
 
   // ★ FIX — i documenti allegati dalla Richiesta Dati (fronte/retro
@@ -814,7 +819,14 @@ function DettaglioSegnalazione({
           </div>
         )}
 
-        {indiceCorrente >= 2 && (richiesta || contrattoUrl) && (
+        {/* ★ FIX — il pannello Contratto compariva solo se il cliente aveva già
+         * compilato la Richiesta Dati (richiesta) o se un contratto era già
+         * stato caricato in passato: una pratica arrivata a "Gestione
+         * Cliente" senza che il cliente abbia mai inviato il form restava
+         * senza alcun modo di caricare un contratto e sbloccare "Trasmetti"
+         * — un vicolo cieco. Basta essere a questo punto del flusso
+         * (indiceCorrente >= 2) per poter caricare il contratto. */}
+        {indiceCorrente >= 2 && (
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />

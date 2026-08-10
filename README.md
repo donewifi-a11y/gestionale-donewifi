@@ -1151,6 +1151,20 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   via email né, a valle, le comunicazioni successive che richiedono l'email del cliente
   (approvazione contratto). Il form "Nuova Segnalazione" ora la richiede (validazione formale
   client-side, ripetuta anche nell'azione server `creaSegnalazione()` come le altre).
+✅ Segnalazioni — Audit adversariale della gating "Trasmetti" (2026-08-10): rilettura mirata a
+  cercare bug logici in tutto il flusso di approvazione del contratto ha trovato 3 problemi reali,
+  ora corretti: (1) sostituire un contratto già approvato ("Sostituisci") lasciava intatti
+  `contratto_approvato_cliente_il`/`contratto_inviato_approvazione_il` — l'interfaccia continuava a
+  mostrare "approvato" riferendosi al file vecchio, con "Trasmetti" sbloccato per un PDF mai visto
+  dal cliente; ora ogni nuovo caricamento azzera entrambi i campi. (2) Il controllo server di
+  `trasmettiPerInstallazione()` (che si dichiara "unica fonte di verità") non verificava affatto
+  l'approvazione del cliente, solo tipologia/profilo/PDF presente — allineato allo stesso controllo
+  già presente lato interfaccia. (3) Il pannello di caricamento contratto compariva solo se il
+  cliente aveva già inviato la Richiesta Dati o esisteva già un contratto: una pratica arrivata a
+  "Gestione Cliente" senza che il cliente compili mai il form pubblico restava senza alcun modo di
+  caricare un contratto — vicolo cieco rimosso, il pannello ora compare in base allo stato della
+  pratica, non alla presenza della Richiesta Dati. Fix (1) verificato con uno script contro dati
+  reali (creazione/verifica/pulizia di una segnalazione di prova).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
