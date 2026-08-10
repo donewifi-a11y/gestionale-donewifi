@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { registraEsitoIntegrazione } from "@/lib/integrazioni-log";
 
 // ★ un solo calendario Google condiviso (account di servizio, non un
 // login per persona): ogni Appuntamento creato qui diventa un evento
@@ -61,7 +62,10 @@ export async function creaEventoCalendario(dati: {
   durataMinuti: number;
 }): Promise<string | null> {
   const c = client();
-  if (!c) return null;
+  if (!c) {
+    await registraEsitoIntegrazione("google_calendar", "errore", "Variabili d'ambiente mancanti.");
+    return null;
+  }
 
   try {
     const inizio = new Date(dati.dataOraInizio);
@@ -76,9 +80,11 @@ export async function creaEventoCalendario(dati: {
         end: { dateTime: fine.toISOString(), timeZone: "Europe/Rome" },
       },
     });
+    await registraEsitoIntegrazione("google_calendar", "ok", `Evento creato: ${dati.titolo}`);
     return data.id ?? null;
   } catch (err) {
     console.error("Google Calendar: creazione evento fallita", err);
+    await registraEsitoIntegrazione("google_calendar", "errore", err instanceof Error ? err.message : "Errore imprevisto.");
     return null;
   }
 }

@@ -1165,6 +1165,30 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   caricare un contratto — vicolo cieco rimosso, il pannello ora compare in base allo stato della
   pratica, non alla presenza della Richiesta Dati. Fix (1) verificato con uno script contro dati
   reali (creazione/verifica/pulizia di una segnalazione di prova).
+✅ Stato Sistema (2026-08-10): nato dall'incidente di oggi — `CRON_SECRET` incollato nel campo
+  "Note" invece che "Value" su Vercel ha reso una rotta cron silenziosamente disabilitata per
+  giorni, senza che nulla nel gestionale lo segnalasse. Nuova pagina `/sistema` (menu Team, solo
+  amministratori) con: checklist delle variabili d'ambiente critiche (presenti/mancanti/formato
+  sospetto, mai i valori veri), stato delle integrazioni in uscita (Email/Telegram/Google
+  Calendar — ultimo invio riuscito, ultimo errore, quanti errori nelle ultime 24h) e stato del
+  controllo email in arrivo (IMAP, per casella). `src/lib/integrazioni-log.ts` +
+  `integrazioni_log` (migrazione 0046) registrano ok/errore ad ogni tentativo — instrumentato in
+  `inviaEmail()`, `inviaNotificaTelegram()` (corretto anche un bug qui: il risultato di `fetch()`
+  non veniva mai controllato, un token Telegram scaduto veniva silenziosamente trattato come invio
+  riuscito) e `creaEventoCalendario()`.
+✅ Segnalazioni — Rilevamento duplicati (2026-08-10): "Nuova Segnalazione" non controllava mai se
+  telefono/email corrispondevano a una pratica già esistente — un cliente che richiama, o due
+  operatori che prendono la stessa chiamata, creavano un doppione scoperto solo per caso.
+  `creaSegnalazione()` ora controlla prima di inserire e, se trova corrispondenze, le mostra come
+  avviso (non blocco: può essere davvero un cliente diverso) con un pulsante "Crea comunque" per
+  procedere consapevolmente.
+✅ Promemoria approvazione contratto in sospeso (2026-08-10): un contratto inviato per approvazione
+  (vedi sopra) poteva restare "in attesa" per sempre se il cliente non cliccava mai il link —
+  scopribile solo aprendo ogni pratica una per una. Nuova rotta `/api/cron/promemoria-approvazione-
+  contratto`, stesso schema di `controlla-risposte-email` (fuori dai 2 cron nativi di Vercel Hobby,
+  richiede un job esterno tipo cron-job.org una volta al giorno): segnala in Chat al reparto
+  Commerciale le pratiche in attesa da più di 3 giorni, un promemoria al massimo ogni 24h per
+  pratica (`segnalazioni.ultimo_promemoria_approvazione_il`, migrazione 0046).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

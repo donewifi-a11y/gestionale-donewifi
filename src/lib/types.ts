@@ -76,6 +76,7 @@ export interface Segnalazione {
   dati_ricevuti_at: string | null;
   contratto_inviato_approvazione_il: string | null;
   contratto_approvato_cliente_il: string | null;
+  ultimo_promemoria_approvazione_il: string | null;
 }
 
 export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";

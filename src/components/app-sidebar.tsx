@@ -24,6 +24,7 @@ import {
   Wrench,
   MessageCircle,
   ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -132,7 +133,12 @@ export function AppSidebar({
         // ★ "Utenti" (account condivisi) non è più promosso qui: dal login
         // individuale, l'accesso vero passa da Persone — Utenti resta
         // raggiungibile su /utenti per chi lo conosce già, solo non in menu.
-        voci: isAdmin ? [{ href: "/persone", etichetta: "Persone", icona: UserCircle }] : [],
+        voci: isAdmin
+          ? [
+              { href: "/persone", etichetta: "Persone", icona: UserCircle },
+              { href: "/sistema", etichetta: "Stato Sistema", icona: ShieldCheck },
+            ]
+          : [],
       },
     ];
     return lista.filter((m) => m.voci.length > 0);

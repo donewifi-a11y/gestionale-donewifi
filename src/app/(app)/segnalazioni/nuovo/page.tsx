@@ -21,6 +21,8 @@ export default function NuovaSegnalazionePage() {
   const [comune, setComune] = useState("");
   const [cap, setCap] = useState("");
   const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
+  const [datiInCorso, setDatiInCorso] = useState<Omit<Parameters<typeof creaSegnalazione>[0], "forza"> | null>(null);
+  const [duplicati, setDuplicati] = useState<string[]>([]);
 
   function onSelezionaIndirizzo(d: DettagliIndirizzo) {
     setVia(d.via);
@@ -45,8 +47,7 @@ export default function NuovaSegnalazionePage() {
       setErrore(esitoEmail.messaggio);
       return;
     }
-    setInCorso(true);
-    const risultato = await creaSegnalazione({
+    const datiSegnalazione = {
       nome,
       telefono,
       email,
@@ -57,10 +58,32 @@ export default function NuovaSegnalazionePage() {
       copertura: String(dati.get("copertura") || "daVerificare") as Copertura,
       note: String(dati.get("note") || ""),
       tipologiaCliente,
-    });
+    };
+    setDuplicati([]);
+    setInCorso(true);
+    const risultato = await creaSegnalazione(datiSegnalazione);
+    setInCorso(false);
+    if (risultato.duplicati && risultato.duplicati.length > 0) {
+      // ★ non è un errore bloccante: si mostra l'avviso e si tengono i dati
+      // pronti per "Crea comunque", invece di far riscrivere tutto.
+      setDatiInCorso(datiSegnalazione);
+      setDuplicati(risultato.duplicati);
+      return;
+    }
     if (risultato.errore) {
       setErrore(risultato.errore);
-      setInCorso(false);
+      return;
+    }
+    router.push("/segnalazioni");
+  }
+
+  async function creaComunque() {
+    if (!datiInCorso) return;
+    setInCorso(true);
+    const risultato = await creaSegnalazione({ ...datiInCorso, forza: true });
+    setInCorso(false);
+    if (risultato.errore) {
+      setErrore(risultato.errore);
       return;
     }
     router.push("/segnalazioni");
@@ -154,6 +177,21 @@ export default function NuovaSegnalazionePage() {
           <Textarea id="note" name="note" rows={3} className="mt-1" />
         </div>
 
+        {duplicati.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg bg-warning/10 p-2.5 text-sm text-warning">
+            <p className="flex items-start gap-2 font-semibold">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+              Telefono o email già presenti su un&apos;altra pratica:
+            </p>
+            <ul className="ml-6 list-disc">
+              {duplicati.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+            <p className="text-xs">Se è comunque un cliente diverso, puoi procedere lo stesso.</p>
+          </div>
+        )}
+
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
@@ -165,9 +203,15 @@ export default function NuovaSegnalazionePage() {
           <Link href="/segnalazioni">
             <Button type="button" variant="ghost">Annulla</Button>
           </Link>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? "Creazione..." : "Crea Segnalazione"}
-          </Button>
+          {duplicati.length > 0 ? (
+            <Button type="button" variant="outline" className="border-warning text-warning hover:bg-warning/10" disabled={inCorso} onClick={creaComunque}>
+              {inCorso ? "Creazione..." : "Crea comunque"}
+            </Button>
+          ) : (
+            <Button type="submit" disabled={inCorso}>
+              {inCorso ? "Creazione..." : "Crea Segnalazione"}
+            </Button>
+          )}
         </div>
       </form>
     </div>

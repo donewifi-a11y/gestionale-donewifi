@@ -277,6 +277,12 @@ export async function creaSegnalazione(dati: {
    * piano, e quel valore prevale se diverso — qui è solo la prima stima
    * di chi prende la chiamata). */
   tipologiaCliente: "Privato" | "Azienda";
+  /** ★ NUOVA — messo a true dal form solo dopo che l'operatore ha visto
+   * l'avviso di possibile duplicato e ha confermato di voler procedere lo
+   * stesso (es. è davvero un cliente diverso con lo stesso numero di
+   * famiglia). Senza conferma, in presenza di un duplicato la Segnalazione
+   * NON viene creata — vedi sotto. */
+  forza?: boolean;
 }) {
   const supabase = await createClient();
   const {
@@ -289,6 +295,26 @@ export async function creaSegnalazione(dati: {
   // Richiesta Dati (né le comunicazioni successive: approvazione contratto,
   // ecc.), ripetuto qui perché il controllo lato client non basta da solo.
   if (!dati.email.trim()) return { errore: "L'email è obbligatoria." };
+
+  // ★ NUOVA — nessun controllo esisteva su telefono/email già usati da
+  // un'altra Segnalazione: un cliente che richiama, o due operatori che
+  // prendono la stessa chiamata, creavano un doppione invisibile (si
+  // scopriva solo aprendo per caso entrambe le pratiche). Un avviso soft
+  // invece di un blocco vero: può darsi che sia davvero un'altra persona
+  // con lo stesso numero (es. numero di casa condiviso).
+  if (!dati.forza) {
+    const { data: duplicati } = await supabase
+      .from("segnalazioni")
+      .select("numero, nome, stato")
+      .or(`telefono.eq.${dati.telefono},email.eq.${dati.email}`)
+      .limit(5);
+    if (duplicati && duplicati.length > 0) {
+      return {
+        errore: null,
+        duplicati: duplicati.map((d) => `#${d.numero} — ${d.nome} (${d.stato})`),
+      };
+    }
+  }
 
   const { data, error } = await supabase
     .from("segnalazioni")

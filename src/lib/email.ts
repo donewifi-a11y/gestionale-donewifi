@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { AreaAccesso } from "@/lib/types";
+import { registraEsitoIntegrazione } from "@/lib/integrazioni-log";
 
 // ★ ex EMAIL_MITTENTE_REPARTI del vecchio gestionale (Gmail "Invia
 // messaggi come") — qui lo stesso principio ma via le caselle Aruba vere
@@ -49,7 +50,9 @@ export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: str
 
   const credenziali = credenzialiReparto(a.reparto);
   if (!credenziali) {
-    return { errore: "Invio email non configurato (credenziali SMTP mancanti per questa casella)." };
+    const errore = "Invio email non configurato (credenziali SMTP mancanti per questa casella).";
+    await registraEsitoIntegrazione("email", "errore", `${a.reparto ?? "default"}: ${errore}`);
+    return { errore };
   }
 
   try {
@@ -60,9 +63,12 @@ export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: str
       subject: a.oggetto,
       html: a.corpoHtml,
     });
+    await registraEsitoIntegrazione("email", "ok", `${a.reparto ?? "default"} → ${a.a}`);
     return { errore: null };
   } catch (err) {
-    return { errore: err instanceof Error ? err.message : "Errore imprevisto nell'invio email." };
+    const errore = err instanceof Error ? err.message : "Errore imprevisto nell'invio email.";
+    await registraEsitoIntegrazione("email", "errore", `${a.reparto ?? "default"} → ${a.a}: ${errore}`);
+    return { errore };
   }
 }
 
