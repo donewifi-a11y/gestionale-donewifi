@@ -1123,6 +1123,21 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   non c'era per niente. L'indirizzo, che nel pannello di modifica era solo un campo di testo senza
   modo di aprirlo, ha ora accanto un pulsante che apre Google Maps — stesso trattamento già dato
   agli indirizzi nella card della Vista Giorno e (ora anche) negli eventi letti da Google Calendar.
+✅ Email in uscita per reparto — verificato + notifica in Chat sulle risposte (2026-08-10): il
+  meccanismo che manda ogni email cliente dalla casella del reparto giusto (Commerciale/
+  Fatturazione/Assistenza) esisteva già (`src/lib/email.ts`, `CASELLE_REPARTI`) — verificato che
+  ogni invio verso il cliente nel codice passa già il `reparto` corretto. Mancavano solo le
+  credenziali `SMTP_USER_COMMERCIALE`/`SMTP_PASS_COMMERCIALE` (Fatturazione e Assistenza erano già
+  configurate). Nuovo: quando un cliente **risponde** a una di queste email, il reparto competente
+  ne viene avvisato nella Chat interna (`src/lib/imap.ts`, `controllaNuoveEmail()` — IMAP, stesse
+  credenziali già usate per SMTP, nessun segreto nuovo). Tiene traccia per casella dell'ultimo UID
+  già controllato (migrazione `0045_controllo_risposte_email.sql`) così non ri-notifica due volte
+  la stessa email, e al primo avvio memorizza solo la posizione attuale invece di notificare
+  l'intera cronologia esistente — verificato contro le caselle reali di Fatturazione e Assistenza.
+  Route `api/cron/controlla-risposte-email`: **non** nel Cron nativo di Vercel (piano Hobby, i 2
+  cron già occupati da pulizia documenti/promemoria ticket) — va richiamata da un servizio esterno
+  (es. cron-job.org) ogni 5-10 minuti con lo stesso header `Authorization: Bearer $CRON_SECRET`
+  già usato dagli altri cron.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
