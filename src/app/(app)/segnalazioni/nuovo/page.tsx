@@ -19,6 +19,7 @@ export default function NuovaSegnalazionePage() {
   const [via, setVia] = useState("");
   const [comune, setComune] = useState("");
   const [cap, setCap] = useState("");
+  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
 
   function onSelezionaIndirizzo(d: DettagliIndirizzo) {
     setVia(d.via);
@@ -48,6 +49,7 @@ export default function NuovaSegnalazionePage() {
       cap,
       copertura: String(dati.get("copertura") || "daVerificare") as Copertura,
       note: String(dati.get("note") || ""),
+      tipologiaCliente,
     });
     if (risultato.errore) {
       setErrore(risultato.errore);
@@ -71,6 +73,27 @@ export default function NuovaSegnalazionePage() {
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <div>
+          <Label>Tipologia Cliente</Label>
+          <p className="mb-1.5 text-xs text-muted-foreground">Prima stima — il cliente la riconferma lui stesso più avanti nella Richiesta Dati.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTipologiaCliente("Privato")}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              👤 Privato
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipologiaCliente("Azienda")}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              🏢 Azienda
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="nome">Nome cliente *</Label>

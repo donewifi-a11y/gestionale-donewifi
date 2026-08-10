@@ -238,6 +238,11 @@ export function SegnalazioniBoard({
                         {s.comune} · {s.telefono}
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
+                        {s.tipologia_cliente && (
+                          <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
+                            {s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}
+                          </Badge>
+                        )}
                         <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
                           {s.copertura === "si" ? "Copertura sì" : s.copertura === "no" ? "Copertura no" : "Da verificare"}
                         </Badge>
@@ -588,6 +593,10 @@ function DettaglioSegnalazione({
          * alle tab senza aggiungere informazione. */}
         {!richiesta && (
           <>
+            <Campo
+              etichetta="Tipologia Cliente"
+              valore={segnalazione.tipologia_cliente ? `${segnalazione.tipologia_cliente === "Azienda" ? "🏢" : "👤"} ${segnalazione.tipologia_cliente}` : "—"}
+            />
             <Campo etichetta="Telefono" valore={segnalazione.telefono} />
             <Campo etichetta="Email" valore={segnalazione.email || "—"} />
           </>

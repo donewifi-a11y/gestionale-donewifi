@@ -260,6 +260,12 @@ export async function creaSegnalazione(dati: {
   cap: string;
   copertura: Copertura;
   note: string;
+  /** ★ NUOVA — richiesta esplicita: sapere già da qui se è un privato o
+   * un'azienda, invece di scoprirlo solo quando arriva la Richiesta Dati
+   * (a quel punto lo sceglie di nuovo il cliente stesso nel configuratore
+   * piano, e quel valore prevale se diverso — qui è solo la prima stima
+   * di chi prende la chiamata). */
+  tipologiaCliente: "Privato" | "Azienda";
 }) {
   const supabase = await createClient();
   const {
@@ -281,6 +287,7 @@ export async function creaSegnalazione(dati: {
       cap: dati.cap,
       copertura: dati.copertura,
       note: dati.note || null,
+      tipologia_cliente: dati.tipologiaCliente,
       operatore_id: personaId,
     })
     .select("id, numero")

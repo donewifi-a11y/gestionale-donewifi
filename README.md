@@ -1137,7 +1137,16 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Route `api/cron/controlla-risposte-email`: **non** nel Cron nativo di Vercel (piano Hobby, i 2
   cron già occupati da pulizia documenti/promemoria ticket) — va richiamata da un servizio esterno
   (es. cron-job.org) ogni 5-10 minuti con lo stesso header `Authorization: Bearer $CRON_SECRET`
-  già usato dagli altri cron.
+  già usato dagli altri cron. Credenziali Commerciale configurate e verificate (SMTP + IMAP contro
+  la casella reale) sia in locale che su Vercel; posizione iniziale già registrata per tutte e 3 le
+  caselle (migrazione 0045 eseguita) così il primo controllo non notifica l'intera cronologia
+  esistente. Resta da collegare il servizio cron esterno.
+✅ Segnalazioni — Tipologia Cliente già dalla creazione (2026-08-10): prima si scopriva se un
+  cliente era Privato o Azienda solo quando arrivava la Richiesta Dati (a volte giorni dopo). Il
+  form "Nuova Segnalazione" ha ora lo stesso toggle 👤/🏢 già usato altrove — una prima stima di chi
+  prende la chiamata, non vincolante: se il cliente sceglie diversamente nel configuratore piano
+  della Richiesta Dati, quel valore prevale (stesso principio già in uso per telefono/email/
+  indirizzo/nome). Visibile come badge sulla card della bacheca e nel dettaglio della pratica.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
