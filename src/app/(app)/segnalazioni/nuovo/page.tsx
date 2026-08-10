@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaSegnalazione } from "../actions";
+import { validaEmail } from "@/lib/validazione";
 import type { Copertura } from "@/lib/types";
 
 export default function NuovaSegnalazionePage() {
@@ -34,15 +35,21 @@ export default function NuovaSegnalazionePage() {
     const nome = String(dati.get("nome") || "").trim();
     const telefono = String(dati.get("telefono") || "").trim();
     const civico = String(dati.get("civico") || "").trim();
-    if (!nome || !telefono || !via || !civico || !comune || !cap) {
-      setErrore("Nome, telefono e indirizzo completo sono obbligatori.");
+    const email = String(dati.get("email") || "").trim();
+    if (!nome || !telefono || !email || !via || !civico || !comune || !cap) {
+      setErrore("Nome, telefono, email e indirizzo completo sono obbligatori.");
+      return;
+    }
+    const esitoEmail = validaEmail(email);
+    if (!esitoEmail.valido) {
+      setErrore(esitoEmail.messaggio);
       return;
     }
     setInCorso(true);
     const risultato = await creaSegnalazione({
       nome,
       telefono,
-      email: String(dati.get("email") || ""),
+      email,
       via,
       civico,
       comune,
@@ -106,8 +113,9 @@ export default function NuovaSegnalazionePage() {
         </div>
 
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" className="mt-1" />
+          <Label htmlFor="email">Email *</Label>
+          <Input id="email" name="email" type="email" required className="mt-1" />
+          <p className="mt-1 text-xs text-muted-foreground">Serve per inviare la Richiesta Dati e le comunicazioni successive (contratto, ecc.).</p>
         </div>
 
         <div className="grid grid-cols-3 gap-3">

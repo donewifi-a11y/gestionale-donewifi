@@ -274,6 +274,10 @@ export async function creaSegnalazione(dati: {
   if (!user) return { errore: "Non autenticato." };
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ NUOVA — richiesta esplicita: senza email non si può mandare la
+  // Richiesta Dati (né le comunicazioni successive: approvazione contratto,
+  // ecc.), ripetuto qui perché il controllo lato client non basta da solo.
+  if (!dati.email.trim()) return { errore: "L'email è obbligatoria." };
 
   const { data, error } = await supabase
     .from("segnalazioni")

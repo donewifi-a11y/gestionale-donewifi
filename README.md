@@ -1147,6 +1147,10 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   prende la chiamata, non vincolante: se il cliente sceglie diversamente nel configuratore piano
   della Richiesta Dati, quel valore prevale (stesso principio già in uso per telefono/email/
   indirizzo/nome). Visibile come badge sulla card della bacheca e nel dettaglio della pratica.
+✅ Segnalazioni — Email obbligatoria (2026-08-10): senza email non si può mandare la Richiesta Dati
+  via email né, a valle, le comunicazioni successive che richiedono l'email del cliente
+  (approvazione contratto). Il form "Nuova Segnalazione" ora la richiede (validazione formale
+  client-side, ripetuta anche nell'azione server `creaSegnalazione()` come le altre).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
