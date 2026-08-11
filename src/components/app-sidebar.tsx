@@ -25,6 +25,7 @@ import {
   MessageCircle,
   ListChecks,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -121,6 +122,7 @@ export function AppSidebar({
           { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
           ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
           ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
+          ...(vedeTariffe ? [{ href: "/preventivi", etichetta: "Preventivi", icona: FileText }] : []),
           ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
           { href: "/clienti", etichetta: "Clienti", icona: Users2 },
           ...(vedeRichieste ? [{ href: "/clienti-esterni", etichetta: "Anagrafica Clienti", icona: Database }] : []),

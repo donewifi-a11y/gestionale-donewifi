@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati } from "../actions";
+import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati } from "../actions";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
 
@@ -21,10 +21,11 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
   const c = cliente as ClienteEsterno;
 
-  const [storico, fatture, ticketCollegati] = await Promise.all([
+  const [storico, fatture, ticketCollegati, preventiviCollegati] = await Promise.all([
     getStoricoProfiloCliente(c.id),
     getFattureCliente(c.codice_fiscale, c.partita_iva),
     getTicketCollegati(c.telefono),
+    getPreventiviCollegati(c.id, c.telefono),
   ]);
 
   const fatturatoTotale = fatture.reduce((s, f) => s + (Number(f.importo) || 0), 0);
@@ -170,6 +171,32 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
             </table>
           </div>
         )}
+      </div>
+
+      <div className="mb-5 rounded-2xl border bg-card p-5 shadow-md">
+        <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
+          <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Preventivi collegati
+        </h2>
+        {preventiviCollegati.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nessun preventivo trovato per questo cliente.</p>
+        )}
+        <div className="flex flex-col gap-1.5">
+          {preventiviCollegati.map((p) => (
+            <Link
+              key={p.id}
+              href={`/preventivi?aperto=${p.id}`}
+              className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition hover:bg-muted/60"
+            >
+              <span>
+                <span className="font-mono text-xs text-muted-foreground">#{p.numero}</span> — {formattaValuta(p.totale)}
+              </span>
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                {p.stato} · {new Date(p.creato_il).toLocaleDateString("it-IT")}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-md">

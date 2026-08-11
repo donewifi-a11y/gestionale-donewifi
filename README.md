@@ -1189,6 +1189,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   richiede un job esterno tipo cron-job.org una volta al giorno): segnala in Chat al reparto
   Commerciale le pratiche in attesa da più di 3 giorni, un promemoria al massimo ogni 24h per
   pratica (`segnalazioni.ultimo_promemoria_approvazione_il`, migrazione 0046).
+✅ Preventivi (2026-08-11): nuova sezione `/preventivi` (menu Business, Commerciale/Admin) —
+  a differenza dei contratti (PDF pronto caricato a mano), il preventivo si compone dentro il
+  gestionale: righe con quantità/prezzo scelte da Tariffe e Materiali (o voce libera), totale
+  calcolato in automatico (server-side, mai fidandosi del totale mandato dal client). Da "Nuovo
+  Preventivo" si può cercare e collegare un cliente già esistente (Segnalazione o Cliente Esterno
+  Aruba — compare così nella sua scheda, vedi `getPreventiviCollegati()`) oppure scrivere un
+  contatto nuovo a mano. Stesso meccanismo di approvazione via link email monouso già in uso per i
+  contratti (`token_approvazione`, ora generalizzata a un terzo riferimento), ma con una differenza
+  esplicitamente richiesta: il cliente può anche **rifiutare**, non solo approvare — l'unico dei tre
+  casi con due esiti, la pagina pubblica mostra il preventivo per intero (righe/totale, niente PDF)
+  con due pulsanti. Flusso completo (creazione/invio/approvazione/rifiuto/vincoli DB) verificato
+  contro dati reali con script usa-e-getta. Migrazione 0047.
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.

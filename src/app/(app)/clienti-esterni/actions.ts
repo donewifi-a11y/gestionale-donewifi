@@ -339,6 +339,32 @@ export async function getTicketCollegati(telefono: string | null) {
   return data ?? [];
 }
 
+/** ★ NUOVA — "che gli stessi (i Preventivi) siano presenti nella scheda
+ * cliente", richiesta esplicita: stesso principio di getTicketCollegati()
+ * sopra, ma con un match più preciso quando disponibile — un Preventivo
+ * creato collegando direttamente questo Cliente Esterno (cliente_esterno_id)
+ * conta come corrispondenza certa; altrimenti si ricade sullo stesso
+ * confronto per telefono (ultime 9 cifre) già in uso per i Ticket, per
+ * intercettare anche i preventivi fatti "a mano" senza collegarli. */
+export async function getPreventiviCollegati(clienteEsternoId: number, telefono: string | null) {
+  const supabase = await createClient();
+  const ultimeCifre = telefono ? telefono.replace(/\D/g, "").slice(-9) : "";
+
+  const query = supabase
+    .from("preventivi")
+    .select("id, numero, cliente_nome, stato, totale, creato_il")
+    .order("creato_il", { ascending: false })
+    .limit(20);
+
+  const { data, error } =
+    ultimeCifre.length >= 6
+      ? await query.or(`cliente_esterno_id.eq.${clienteEsternoId},cliente_telefono.ilike.%${ultimeCifre}%`)
+      : await query.eq("cliente_esterno_id", clienteEsternoId);
+
+  if (error) console.error("getPreventiviCollegati:", error.message);
+  return data ?? [];
+}
+
 export interface ClienteInsoluto {
   clienteId: number | null;
   nome: string;

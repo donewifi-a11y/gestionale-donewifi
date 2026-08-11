@@ -79,6 +79,38 @@ export interface Segnalazione {
   ultimo_promemoria_approvazione_il: string | null;
 }
 
+export type StatoPreventivo = "Bozza" | "Inviato" | "Approvato" | "Rifiutato";
+
+/** Una voce del preventivo — descrizione libera (spesso il nome di una
+ * Tariffa/MaterialeMagazzino al momento della composizione, ma non un
+ * riferimento vivo: se il prezzo del catalogo cambia dopo, il preventivo
+ * già creato non deve cambiare con lui) con quantità e prezzo unitario. */
+export interface RigaPreventivo {
+  descrizione: string;
+  quantita: number;
+  prezzoUnitario: number;
+}
+
+export interface Preventivo {
+  id: string;
+  numero: number;
+  cliente_nome: string;
+  cliente_telefono: string | null;
+  cliente_email: string | null;
+  tipologia_cliente: "Privato" | "Azienda";
+  segnalazione_id: string | null;
+  cliente_esterno_id: number | null;
+  righe: RigaPreventivo[];
+  totale: number;
+  note: string | null;
+  stato: StatoPreventivo;
+  inviato_il: string | null;
+  risposto_il: string | null;
+  operatore_id: string | null;
+  creato_il: string;
+  aggiornato_il: string;
+}
+
 export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";
 
 /** Cosa deve fare l'installatore sul posto: prima attivazione di un

@@ -105,6 +105,22 @@ export function emailApprovazioneContratto(cliente: string, numero: number, link
   };
 }
 
+export function emailPreventivo(cliente: string, numero: number, totale: string, link: string) {
+  return {
+    oggetto: `Done Wifi — Il tuo preventivo (#${numero})`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <h2 style="color:#0B1B3D;">Done Wifi — Il tuo preventivo</h2>
+        <p>Gentile ${cliente},</p>
+        <p>Abbiamo preparato un preventivo per te (totale <b>${totale}</b>). Puoi vederlo nel dettaglio e scegliere se approvarlo direttamente da qui:</p>
+        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi il preventivo</a></p>
+        <p>Per qualsiasi domanda, rispondi a questa email o scrivi a <b>commerciale@donewifi.it</b>.</p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
 export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
   return {
     oggetto: "Done Wifi — completa i tuoi dati",
