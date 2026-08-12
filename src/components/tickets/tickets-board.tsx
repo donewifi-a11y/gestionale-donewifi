@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,12 +70,6 @@ const STRIPE_PRIORITA: Record<PrioritaTicket, string> = {
   Bassa: "before:bg-success",
 };
 
-const COLORE_REPARTO: Record<string, string> = {
-  "Analisi Rete": "bg-accent text-accent-foreground border-accent",
-  Commerciale: "bg-secondary text-secondary-foreground border-transparent",
-  Fatturazione: "bg-success/10 text-success border-success/20",
-};
-
 const CHIAVE_FILTRI = "ticketsFiltri";
 
 const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
@@ -87,6 +80,11 @@ const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
 
 function iniziali(persona: Persona) {
   return persona.nome.slice(0, 2).toUpperCase();
+}
+
+function giorniAperta(data: string) {
+  const ms = Date.now() - new Date(data).getTime();
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
 
 export function TicketsBoard({
@@ -231,6 +229,21 @@ export function TicketsBoard({
                 {items.map((t) => {
                   const assegnatario = trovaPersona(t.tecnico_assegnato);
                   const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
+                  // ★ NUOVA — richiesta esplicita "a prova di scemo": priorità
+                  // e reparto comparivano sempre come 2 badge, anche per il
+                  // caso normale (priorità Normale, nessuna attesa) — stesso
+                  // principio già applicato a Segnalazioni: un solo segnale,
+                  // il più urgente, e solo quando c'è davvero qualcosa da
+                  // notare. La striscia colorata a sinistra continua comunque
+                  // a mostrare la priorità in ogni caso, senza bisogno di un
+                  // badge in più per "Normale"/"Bassa".
+                  const giorni = giorniAperta(t.data_creazione);
+                  let segnale: { testo: string; critico: boolean } | null = null;
+                  if (t.priorita === "Urgente") {
+                    segnale = { testo: "🔴 Urgente", critico: true };
+                  } else if (t.stato === "Da gestire" && giorni >= 2) {
+                    segnale = { testo: `⏳ Da gestire da ${giorni}g`, critico: giorni >= 5 };
+                  }
                   return (
                     <div
                       key={t.id}
@@ -246,19 +259,24 @@ export function TicketsBoard({
                       </div>
                       <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
                         {t.categoria}
-                        {t.sottocategoria && ` · ${t.sottocategoria}`}
+                        {t.sottocategoria && ` · ${t.sottocategoria}`} · {t.reparto}
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
-                        <StatusBadge status={t.priorita} />
-                        <Badge variant="outline" className={COLORE_REPARTO[t.reparto] ?? ""}>
-                          {t.reparto}
-                        </Badge>
+                        {segnale && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
+                              segnale.critico ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
+                            }`}
+                          >
+                            {segnale.testo}
+                          </span>
+                        )}
 
-                        <div className="ml-auto flex items-center gap-1">
+                        <div className="ml-auto flex items-center gap-1.5">
                           {assegnatario ? (
                             <span
                               title={assegnatario.nome}
-                              className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                              className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${
                                 assegnatario.id === currentPersonaId
                                   ? "bg-primary text-primary-foreground"
                                   : "bg-secondary text-secondary-foreground"
@@ -270,18 +288,18 @@ export function TicketsBoard({
                             <button
                               onClick={(e) => prendiInCarico(t, e)}
                               title="Prendi in carico"
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed text-muted-foreground transition hover:border-primary hover:text-primary"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed text-muted-foreground transition hover:border-primary hover:text-primary"
                             >
-                              <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
                             </button>
                           )}
                           {puoAvanzare && (
                             <button
                               onClick={(e) => avanzaStato(t, e)}
                               title="Avanza allo stato successivo"
-                              className="flex h-6 w-6 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
                             >
-                              <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                              <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
                             </button>
                           )}
                         </div>
@@ -788,10 +806,13 @@ function DettaglioTicket({
         )}
 
         <div>
-          <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
             Invia una pratica al cliente
           </div>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            Manda al cliente un link a un modulo pubblico da compilare (es. cambio IBAN, trasloco) — i dati inviati compaiono poi qui, nella tab Documenti.
+          </p>
           <select
             value={praticaScelta}
             onChange={(e) => setPraticaScelta(e.target.value)}

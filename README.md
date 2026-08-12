@@ -1292,6 +1292,19 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     solo posto (`azione`): mostra il pulsante del passo attuale, o spiega con una riga di testo
     perché al momento non c'è nulla da cliccare (es. "in attesa che il cliente compili il modulo").
     "Torna indietro" resta disponibile nella stessa barra.
+✅ **Ticket "a prova di scemo"** (2026-08-12): secondo pezzo — stessi principi, adattati perché lo
+  stato di un Ticket (a differenza di una Segnalazione) non è una progressione lineare — "In
+  lavorazione"/"In attesa" possono alternarsi legittimamente più volte (es. attesa ricambi), quindi
+  non esiste un'unica "azione successiva" da forzare in una barra fissa.
+  - **Card della bacheca**: priorità e reparto non sono più due badge sempre visibili — un solo
+    segnale quando serve (🔴 Urgente, o "Da gestire da troppi giorni"), il reparto scende a testo
+    semplice sotto il nome (identificativo, non un avviso). La striscia colorata a sinistra
+    continua a portare la priorità anche per i casi senza badge.
+  - **Bersagli più grandi**: le icone "Prendi in carico"/"Avanza stato" sulla card passano da 24px a
+    28px, più facili da centrare col dito su tablet.
+  - **Aiuto contestuale**: una riga sotto "Invia una pratica al cliente" spiega cosa fa (manda un
+    link a un modulo pubblico, i dati arrivano poi nella tab Documenti) — non era ovvio a chi non lo
+    usa spesso.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
