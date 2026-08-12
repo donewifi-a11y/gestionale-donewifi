@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
+import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
 const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "consenso"]);
@@ -67,6 +68,13 @@ export async function POST(request: NextRequest) {
     reparto,
     `📋 <b>Nuova richiesta: ${tipo}</b>\n\nCliente: ${nomeCliente}\n\nApri il gestionale (Richieste Clienti) per i dettagli.`
   );
+
+  // ★ NUOVA — richiesta esplicita: anche nella Chat interna (come già per
+  // Richiesta Dati), con un link diretto che apre subito il Ticket sulla
+  // tab "Documenti" invece del generico "apri Richieste Clienti" — se il
+  // modulo non è collegato a un Ticket, apre comunque l'elenco filtrabile.
+  const link = ticketId ? `${request.nextUrl.origin}/tickets?aperto=${ticketId}` : `${request.nextUrl.origin}/richieste-clienti`;
+  await inviaMessaggioChatSistema(reparto, `📋 Nuova richiesta ${tipo} da ${nomeCliente}. ${link}`);
 
   return NextResponse.json({ ok: true });
 }

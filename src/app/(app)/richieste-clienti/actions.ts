@@ -4,6 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
+import type { RichiestaCliente } from "@/lib/types";
+
+// ★ NUOVA — richiesta esplicita: i moduli inviati dal cliente (Cambio
+// IBAN/Anagrafica/Trasferimento/Subentro) collegati a un Ticket non
+// comparivano da nessuna parte nel Ticket stesso — bisognava saperlo e
+// andare a cercarli a parte in "Richieste Clienti". Usata dalla tab
+// "Documenti" del dettaglio Ticket (tickets-board.tsx).
+export async function getRichiesteClientiPerTicket(ticketId: string): Promise<RichiestaCliente[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("richieste_clienti")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("data", { ascending: false });
+  if (error) console.error("getRichiesteClientiPerTicket:", error.message);
+  return (data as RichiestaCliente[] | null) ?? [];
+}
 
 export async function urlDocumentoRichiesta(percorso: string) {
   const supabase = await createClient();

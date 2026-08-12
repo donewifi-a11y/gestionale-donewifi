@@ -49,6 +49,24 @@ export async function aggiornaMateriale(id: string, dati: DatiMateriale) {
   return { errore: null };
 }
 
+// ★ NUOVA — toggle rapido per la schermata "In Scheda di lavoro"
+// (selettore-visibilita-schede.tsx): non tocca prezzo/categoria/altro, solo
+// se il materiale compare o meno nel selettore delle Schede di
+// Installazione/Lavorazione Tecnica — indipendente da "attivo".
+export async function impostaVisibilitaSchedaMateriale(id: string, visibile: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { error } = await supabase.from("materiali_magazzino").update({ mostra_in_schede_lavoro: visibile }).eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
+}
+
 export async function eliminaMateriale(id: string) {
   const supabase = await createClient();
   const {

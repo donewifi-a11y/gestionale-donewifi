@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   aggiornaStatoTicket,
   assegnaTicket,
@@ -33,7 +34,9 @@ import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-fo
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
 import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
-import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
+import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
+import { etichettaDettaglio } from "@/lib/etichette-dettagli";
+import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
@@ -113,6 +116,11 @@ export function TicketsBoard({
     soloMiei: false,
   });
   const [aperto, setAperto] = useState<Ticket | null>(null);
+  // ★ NUOVA — sollevato qui (la Scheda si apre in un Dialog centrale
+  // separato dal Sheet di dettaglio Ticket, non più annidato dentro):
+  // DettaglioTicket conosce già l'appuntamento collegato, lo passa su con
+  // onApriScheda invece di doverlo rifetchare qui.
+  const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
 
   // ★ apre direttamente un ticket via ?aperto=<id> — usato dalla ricerca
   // globale e dal link "vai al ticket" dopo aver trasmesso una Segnalazione.
@@ -295,13 +303,48 @@ export function TicketsBoard({
               ticket={aperto}
               persone={persone}
               currentPersonaId={currentPersonaId}
-              catalogoMateriali={catalogoMateriali}
+              onApriScheda={(a) => setSchedaAperta(a)}
               onCambiato={(t) => setAperto(t)}
               onEliminato={() => setAperto(null)}
             />
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
+      Sheet di dettaglio Ticket: "visuale centrale" richiesta esplicitamente,
+      stesso trattamento di Vista Tecnico/Calendario. Chiude anche il
+      dettaglio Ticket al salvataggio: lo stato appena passato a
+      "Completato" renderebbe il pannello aperto subito disallineato. */}
+      <Dialog open={!!schedaAperta} onOpenChange={(v) => !v && setSchedaAperta(null)}>
+        <DialogContent className="sm:max-w-xl">
+          {schedaAperta && (
+            schedaAperta.tipo_servizio === "Nuova installazione" ? (
+              <SchedaInstallazioneForm
+                appuntamentoId={schedaAperta.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setSchedaAperta(null)}
+                onSalvato={() => {
+                  setSchedaAperta(null);
+                  setAperto(null);
+                  router.refresh();
+                }}
+              />
+            ) : (
+              <SchedaLavorazioneForm
+                appuntamentoId={schedaAperta.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setSchedaAperta(null)}
+                onSalvato={() => {
+                  setSchedaAperta(null);
+                  setAperto(null);
+                  router.refresh();
+                }}
+              />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -337,14 +380,14 @@ function DettaglioTicket({
   ticket,
   persone,
   currentPersonaId,
-  catalogoMateriali,
+  onApriScheda,
   onCambiato,
   onEliminato,
 }: {
   ticket: Ticket;
   persone: Persona[];
   currentPersonaId: string;
-  catalogoMateriali: MaterialeMagazzino[];
+  onApriScheda: (a: Appuntamento) => void;
   onCambiato: (t: Ticket) => void;
   onEliminato: () => void;
 }) {
@@ -379,7 +422,13 @@ function DettaglioTicket({
   // `appuntamentoAttivo` è l'appuntamento "Programmato" collegato (se
   // c'è), da cui si apre lo stesso form — vedi getAppuntamentoAttivoPerTicket().
   const [appuntamentoAttivo, setAppuntamentoAttivo] = useState<Appuntamento | null>(null);
-  const [mostraSchedaForm, setMostraSchedaForm] = useState(false);
+  // ★ NUOVA — richiesta esplicita: "Dettagli" / "Documenti" / "Note" invece
+  // di un unico pannello lungo — i moduli inviati dal cliente, il
+  // contratto e la scheda/rapportino completati erano sparsi tra vari
+  // punti dello scroll, ora tutti insieme in "Documenti" con un contatore
+  // sulla tab per sapere a colpo d'occhio se c'è qualcosa da guardare.
+  const [tab, setTab] = useState<"dettagli" | "documenti" | "note">("dettagli");
+  const [richieste, setRichieste] = useState<RichiestaCliente[]>([]);
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
@@ -397,8 +446,19 @@ function DettaglioTicket({
       getAppuntamentoAttivoPerTicket(ticket.id).then(setAppuntamentoAttivo);
     }
     setMostraRapportinoForm(false);
-    setMostraSchedaForm(false);
+    getRichiesteClientiPerTicket(ticket.id).then(setRichieste);
   }, [ticket.id, ticket.stato]);
+
+  async function apriDocumentoRichiesta(percorso: string) {
+    const risultato = await urlDocumentoRichiesta(percorso);
+    if (risultato.errore || !risultato.url) {
+      toast(risultato.errore || "Errore imprevisto.");
+      return;
+    }
+    window.open(risultato.url, "_blank", "noopener,noreferrer");
+  }
+
+  const numeroDocumenti = (ticket.contratto_pdf_url ? 1 : 0) + richieste.length + (ticket.stato === "Completato" && (scheda || rapportino) ? 1 : 0);
 
   const linkPratica = useMemo(() => {
     if (!praticaScelta || typeof window === "undefined") return "";
@@ -507,6 +567,29 @@ function DettaglioTicket({
         </SheetDescription>
       </SheetHeader>
       <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
+        <div className="flex gap-1 border-b">
+          {(
+            [
+              ["dettagli", "Dettagli"],
+              ["documenti", `Documenti${numeroDocumenti > 0 ? ` (${numeroDocumenti})` : ""}`],
+              ["note", `Note${note.length > 0 ? ` (${note.length})` : ""}`],
+            ] as const
+          ).map(([valore, etichetta]) => (
+            <button
+              key={valore}
+              type="button"
+              onClick={() => setTab(valore)}
+              className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-bold transition ${
+                tab === valore ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {etichetta}
+            </button>
+          ))}
+        </div>
+
+        {tab === "dettagli" && (
+        <>
         {ticket.stato === "Annullato" ? (
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (
@@ -544,15 +627,12 @@ function DettaglioTicket({
           />
         )}
 
-        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
-        {ticket.stato === "Completato" && !scheda && rapportino && (
-          <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
-        )}
-
         {/* ★ NUOVA — appuntamento pianificato ma non ancora completato: la
         Scheda si apre da qui (non serve più essere il tecnico assegnato,
-        né aspettare il giorno dell'appuntamento su Vista Tecnico). */}
-        {ticket.stato !== "Completato" && appuntamentoAttivo && !mostraSchedaForm && (
+        né aspettare il giorno dell'appuntamento su Vista Tecnico) — in un
+        popup centrale separato (vedi TicketsBoard), "visuale centrale"
+        richiesta esplicitamente. */}
+        {ticket.stato !== "Completato" && appuntamentoAttivo && (
           <div className="rounded-xl border bg-card p-3 shadow-sm">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <CalendarCheck2 className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -569,36 +649,11 @@ function DettaglioTicket({
               {" — "}
               {appuntamentoAttivo.tipo_servizio}
             </p>
-            <Button size="sm" onClick={() => setMostraSchedaForm(true)}>
+            <Button size="sm" onClick={() => onApriScheda(appuntamentoAttivo)}>
               <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
               Apri scheda di lavoro
             </Button>
           </div>
-        )}
-        {mostraSchedaForm && appuntamentoAttivo && (
-          appuntamentoAttivo.tipo_servizio === "Nuova installazione" ? (
-            <SchedaInstallazioneForm
-              appuntamentoId={appuntamentoAttivo.id}
-              catalogoMateriali={catalogoMateriali}
-              onAnnulla={() => setMostraSchedaForm(false)}
-              onSalvato={() => {
-                setMostraSchedaForm(false);
-                onCambiato({ ...ticket, stato: "Completato" });
-                router.refresh();
-              }}
-            />
-          ) : (
-            <SchedaLavorazioneForm
-              appuntamentoId={appuntamentoAttivo.id}
-              catalogoMateriali={catalogoMateriali}
-              onAnnulla={() => setMostraSchedaForm(false)}
-              onSalvato={() => {
-                setMostraSchedaForm(false);
-                onCambiato({ ...ticket, stato: "Completato" });
-                router.refresh();
-              }}
-            />
-          )
         )}
 
         <div>
@@ -640,6 +695,32 @@ function DettaglioTicket({
           <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
         )}
         {ticket.sottocategoria && <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />}
+
+        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
+        sempre una prima installazione, ma il tipo di servizio non lo
+        deduceva mai da solo: il menu partiva sempre su "Lavorazione
+        tecnica" come per qualunque altro Ticket, rischiando la Scheda
+        sbagliata sul campo se chi pianifica non se ne accorgeva. */}
+        <PianificaAppuntamento
+          ticket={ticket}
+          persone={persone}
+          tipoServizioIniziale={ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
+        />
+        </>
+        )}
+
+        {/* ★ NUOVA — richiesta esplicita: contratto, scheda/rapportino
+        completati e moduli inviati dal cliente (Cambio IBAN/Anagrafica/
+        Trasferimento/Subentro) erano sparsi in punti diversi dello scroll
+        (o del tutto assenti, per i moduli) — ora tutti insieme qui, un
+        solo posto per "tutta la carta" del Ticket. */}
+        {tab === "documenti" && (
+        <>
+        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
+        {ticket.stato === "Completato" && !scheda && rapportino && (
+          <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
+        )}
+
         {ticket.contratto_pdf_url && (
           <Button
             size="sm"
@@ -659,18 +740,54 @@ function DettaglioTicket({
           </Button>
         )}
 
-        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
-        sempre una prima installazione, ma il tipo di servizio non lo
-        deduceva mai da solo: il menu partiva sempre su "Lavorazione
-        tecnica" come per qualunque altro Ticket, rischiando la Scheda
-        sbagliata sul campo se chi pianifica non se ne accorgeva. */}
-        <PianificaAppuntamento
-          ticket={ticket}
-          persone={persone}
-          tipoServizioIniziale={ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
-        />
+        {richieste.length > 0 && (
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Moduli ricevuti dal cliente
+            </div>
+            <div className="flex flex-col gap-2">
+              {richieste.map((r) => (
+                <div key={r.id} className="rounded-lg border bg-card p-2.5">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold">{r.tipo_richiesta}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(r.data).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {Object.entries(r.dettagli || {}).map(([chiave, valore]) =>
+                      valore ? (
+                        <div key={chiave} className="text-xs">
+                          <span className="text-muted-foreground">{etichettaDettaglio(chiave)}: </span>
+                          <span className="font-medium break-words">{valore}</span>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                  {r.documenti?.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {r.documenti.map((doc, i) => (
+                        <Button
+                          key={i}
+                          size="sm"
+                          variant="outline"
+                          className="h-auto w-full justify-start py-1.5 whitespace-normal"
+                          onClick={() => apriDocumentoRichiesta(doc.percorso)}
+                        >
+                          <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                          <span className="text-left break-all">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div className="border-t pt-4">
+        <div>
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
             Invia una pratica al cliente
@@ -712,8 +829,11 @@ function DettaglioTicket({
             </div>
           )}
         </div>
+        </>
+        )}
 
-        <div className="border-t pt-4">
+        {tab === "note" && (
+        <div>
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <NotebookText className="h-3.5 w-3.5" strokeWidth={2.25} />
             Note e aggiornamenti
@@ -754,6 +874,7 @@ function DettaglioTicket({
           </div>
           {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
         </div>
+        )}
 
         {isAdmin && (
           <button

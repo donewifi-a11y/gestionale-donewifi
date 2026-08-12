@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/status-badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
@@ -547,45 +548,40 @@ export function VistaTecnicoBoard({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={!!appuntamentoScheda} onOpenChange={(v) => !v && setAppuntamentoScheda(null)}>
-        <SheetContent className="sm:max-w-lg">
+      {/* ★ NUOVA — richiesta esplicita: la Scheda ora si apre in un popup
+      centrale (Dialog) invece che in un pannello laterale (Sheet), stessa
+      "visuale centrale" richiesta anche per Ticket/Calendario — un solo
+      trattamento in tutto il gestionale, non tre diversi a seconda di
+      dove si apre. Su schermi stretti il Dialog occupa comunque quasi
+      tutto lo schermo (vedi dialog.tsx), quindi l'esperienza mobile a
+      passi (SchedaWizard) resta identica. */}
+      <Dialog open={!!appuntamentoScheda} onOpenChange={(v) => !v && setAppuntamentoScheda(null)}>
+        <DialogContent className="sm:max-w-xl">
           {appuntamentoScheda && (
-            <>
-              <SheetHeader>
-                <SheetTitle>{appuntamentoScheda.titolo}</SheetTitle>
-                <SheetDescription>
-                  {appuntamentoScheda.tipo_servizio === "Nuova installazione"
-                    ? "Certificato di installazione a regola d'arte."
-                    : "Rapporto di intervento in loco."}
-                </SheetDescription>
-              </SheetHeader>
-              <div className="px-4 pb-4">
-                {appuntamentoScheda.tipo_servizio === "Nuova installazione" ? (
-                  <SchedaInstallazioneForm
-                    appuntamentoId={appuntamentoScheda.id}
-                    catalogoMateriali={catalogoMateriali}
-                    onAnnulla={() => setAppuntamentoScheda(null)}
-                    onSalvato={() => {
-                      setAppuntamentoScheda(null);
-                      router.refresh();
-                    }}
-                  />
-                ) : (
-                  <SchedaLavorazioneForm
-                    appuntamentoId={appuntamentoScheda.id}
-                    catalogoMateriali={catalogoMateriali}
-                    onAnnulla={() => setAppuntamentoScheda(null)}
-                    onSalvato={() => {
-                      setAppuntamentoScheda(null);
-                      router.refresh();
-                    }}
-                  />
-                )}
-              </div>
-            </>
+            appuntamentoScheda.tipo_servizio === "Nuova installazione" ? (
+              <SchedaInstallazioneForm
+                appuntamentoId={appuntamentoScheda.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setAppuntamentoScheda(null)}
+                onSalvato={() => {
+                  setAppuntamentoScheda(null);
+                  router.refresh();
+                }}
+              />
+            ) : (
+              <SchedaLavorazioneForm
+                appuntamentoId={appuntamentoScheda.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setAppuntamentoScheda(null)}
+                onSalvato={() => {
+                  setAppuntamentoScheda(null);
+                  router.refresh();
+                }}
+              />
+            )
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

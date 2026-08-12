@@ -19,6 +19,36 @@ import {
 } from "@/app/(app)/chat/actions";
 import type { MessaggioChat } from "@/lib/types";
 
+// ★ NUOVA — richiesta esplicita: le notifiche di sistema (Preventivo
+// inviato, moduli cliente ricevuti, ecc.) ora includono un link diretto
+// al Ticket/pratica interessata — prima restava testo semplice, non
+// cliccabile, l'operatore doveva comunque uscire dalla Chat e cercarlo a
+// mano. `testo` arriva sempre da fonti interne (notifiche automatiche),
+// mai da input diretto del cliente, quindi non serve sanitizzare oltre
+// l'escaping già automatico di React sulle parti di testo normale.
+const REGEX_URL = /(https?:\/\/[^\s]+)/g;
+function TestoMessaggio({ testo }: { testo: string }) {
+  // ★ split() con un gruppo catturante intercala testo normale e URL
+  // trovati: gli indici dispari sono sempre gli URL catturati, quelli
+  // pari il testo attorno — niente bisogno di un secondo .test() (che con
+  // il flag /g avrebbe comunque dato risultati sbagliati, avanzando
+  // `lastIndex` ad ogni chiamata).
+  const parti = testo.split(REGEX_URL);
+  return (
+    <>
+      {parti.map((parte, i) =>
+        i % 2 === 1 ? (
+          <a key={i} href={parte} className="underline underline-offset-2 hover:opacity-80" onClick={(e) => e.stopPropagation()}>
+            apri →
+          </a>
+        ) : (
+          <span key={i}>{parte}</span>
+        )
+      )}
+    </>
+  );
+}
+
 interface Thread {
   conversazioneId: string;
   titolo: string;
@@ -335,7 +365,7 @@ export function ChatPanel({
                       <span className="mb-0.5 px-1 text-[10px] font-semibold text-muted-foreground">{nomeMittente(m.mittente_id)}</span>
                     )}
                     <div className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-sm ${mio ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                      {m.testo}
+                      {m.testo && <TestoMessaggio testo={m.testo} />}
                       {m.allegato_url && (
                         <button onClick={() => apriAllegato(m.allegato_url!)} className={`flex items-center gap-1.5 text-xs underline-offset-2 hover:underline ${m.testo ? "mt-1" : ""}`}>
                           <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />

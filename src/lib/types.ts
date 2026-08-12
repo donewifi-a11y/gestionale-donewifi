@@ -339,6 +339,10 @@ export interface MaterialeMagazzino {
   comodato_uso: boolean;
   attivo: boolean;
   ordine: number;
+  /** Compare nel selettore materiali delle Schede di Installazione/
+   * Lavorazione Tecnica — indipendente da `attivo` (che resta il permesso
+   * generale "esiste nel listino", usato anche da Preventivi). */
+  mostra_in_schede_lavoro: boolean;
 }
 
 /** Regola prezzi del listino Materiali/Servizi: il prezzo salvato è
@@ -410,7 +414,7 @@ export interface SchedaLavoro {
 export const OPZIONI_INSTALLAZIONE = {
   supporto: ["Palo Esistente", "Nuovo Palo", "Staffa a L a Muro", "Zanca da Camino", "Altro"],
   cavo: ["Cat5e FTP Outdoor", "Cat6 FTP Outdoor", "Fibra Ottica Drop", "Cat6 UTP Indoor", "Altro"],
-  cpe: ["Cambium Force 300", "MikroTik SXTsq", "Altro"],
+  cpe: ["Cambium", "Albentia 150-Rs", "Albentia 150-15", "Albentia 250-Rs", "Albentia 250-15", "Albentia 350-Rs", "Albentia 350-15", "Altro"],
   router: ["TP-Link EX230V", "TP-Link Deco Mesh", "MikroTik hAP", "Router Cliente", "Altro"],
 } as const;
 

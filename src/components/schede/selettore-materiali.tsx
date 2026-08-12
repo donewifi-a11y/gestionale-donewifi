@@ -35,7 +35,13 @@ export function SelettoreMateriali({
   const [dettagli, setDettagli] = useState("");
   const [tipoCliente, setTipoCliente] = useState<TipoCliente>("Privato");
 
-  const catalogoAttivo = catalogo.filter((m) => m.attivo);
+  // ★ FIX — mostrava ogni materiale "attivo", compresi quelli di puro
+  // servizio (es. voci di Trasferimento) mai usati in una scheda tecnica:
+  // il tecnico doveva scorrere l'intero listino per trovare un cavo. Il
+  // catalogo qui è ora ulteriormente ristretto a `mostra_in_schede_lavoro`
+  // (curato da Materiali → "In Scheda di lavoro"), indipendente da
+  // "attivo" che resta il permesso generale usato anche da Preventivi.
+  const catalogoAttivo = catalogo.filter((m) => m.attivo && m.mostra_in_schede_lavoro);
 
   function aggiungi() {
     const materiale = catalogoAttivo.find((m) => m.id === selezionato);

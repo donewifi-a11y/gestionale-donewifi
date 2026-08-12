@@ -1228,6 +1228,34 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
      assegnato, da Vista Tecnico, il giorno stesso. Nuovo pannello "Apri scheda di lavoro" sia nel
      dettaglio Ticket sia nel dettaglio Appuntamento (stesso form già usato in Vista Tecnico,
      `getAppuntamentoAttivoPerTicket()`), utilizzabile da chiunque non solo dal tecnico assegnato.
+✅ Revisione completa Schede di lavoro, Materiali e documenti Ticket (2026-08-11), da un secondo
+  giro di proposte con artifact (opzioni A/B/C confrontate, l'utente ha scelto le consigliate):
+  - **Schede di Installazione/Lavorazione a step** (`src/components/schede/scheda-wizard.tsx`): da
+    un unico form lungo a passi in sequenza (Installazione: Struttura → Cablaggio → Radio/CPE →
+    Materiali → Firme; Lavorazione: Interventi → Materiali → Esito → Firma), un pensiero alla volta
+    invece di uno scroll infinito su smartphone. Tutti i campi sono ora stato controllato (non più
+    `FormData` letta al submit) — necessario perché un passo nascosto smonta il proprio JSX, un
+    input non controllato avrebbe perso il valore. Bozza salvata in `localStorage`
+    (`src/lib/bozza-scheda.ts`, solo campi testuali/numerici — mai foto o firme) mentre si
+    compila, per non perdere nulla se il tecnico perde la connessione a metà scheda sul campo. Le
+    due Schede si aprono ora in un **popup centrale** (Dialog, non più Sheet laterale) da tutti e
+    tre i punti d'accesso — Vista Tecnico, Ticket, Calendario — "visuale centrale" richiesta
+    esplicitamente, coerente ovunque.
+  - **Lista modelli CPE aggiornata** (`OPZIONI_INSTALLAZIONE.cpe`, `src/lib/types.ts`): Cambium,
+    Albentia 150-Rs/150-15/250-Rs/250-15/350-Rs/350-15 al posto di Cambium Force 300/MikroTik SXTsq.
+  - **Materiali "In Scheda di lavoro"** (migrazione 0049, `mostra_in_schede_lavoro`): schermata
+    dedicata a due colonne (catalogo / selezionati, `selettore-visibilita-schede.tsx`) per scegliere
+    quali materiali compaiono nel selettore delle Schede sul campo — indipendente da "attivo", che
+    resta il permesso generale usato anche da Preventivi. Aggiornamento ottimistico con rollback in
+    caso di errore. Default `true` per non far sparire nulla al primo deploy.
+  - **Tab "Documenti" nel Ticket** (`tickets-board.tsx`): il dettaglio Ticket si divide ora in
+    Dettagli / Documenti / Note — contratto, scheda/rapportino completati e moduli inviati dal
+    cliente (Cambio IBAN/Anagrafica/Trasferimento/Subentro, prima assenti dal Ticket) sono ora tutti
+    nella tab Documenti, con contatore. Nuova `getRichiesteClientiPerTicket()`.
+  - **Notifica Chat con link diretto**: la route pubblica `/api/richiesta-cliente` ora avvisa anche
+    in Chat (non solo Telegram) con un link diretto al Ticket. I messaggi di Chat contenenti URL
+    sono ora linkificati automaticamente (`TestoMessaggio` in `chat-panel.tsx`) — miglioria che vale
+    per qualunque notifica di sistema con link, non solo questa.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

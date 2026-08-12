@@ -15,6 +15,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   creaAppuntamento,
   modificaAppuntamento,
@@ -126,6 +127,11 @@ export function CalendarioBoard({
   const [nuovo, setNuovo] = useState(false);
   const [nuovaNota, setNuovaNota] = useState(false);
   const [modifica, setModifica] = useState<Appuntamento | null>(null);
+  // ★ NUOVA — sollevato qui (invece che dentro FormModificaAppuntamento)
+  // perché la Scheda ora si apre in un Dialog centrale separato dal Sheet
+  // di modifica, non più annidato dentro — "visuale centrale" richiesta
+  // esplicitamente, coerente con lo stesso trattamento in Vista Tecnico.
+  const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
   const [ticketPreselezionato, setTicketPreselezionato] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -257,12 +263,46 @@ export function CalendarioBoard({
               appuntamento={modifica}
               persone={persone}
               ticket={ticket}
-              catalogoMateriali={catalogoMateriali}
+              onApriScheda={() => {
+                setSchedaAperta(modifica);
+                setModifica(null);
+              }}
               onFatto={() => setModifica(null)}
             />
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
+      Sheet di modifica (vedi sopra): stesso identico trattamento di Vista
+      Tecnico, "visuale centrale" richiesta esplicitamente. */}
+      <Dialog open={!!schedaAperta} onOpenChange={(v) => !v && setSchedaAperta(null)}>
+        <DialogContent className="sm:max-w-xl">
+          {schedaAperta && (
+            schedaAperta.tipo_servizio === "Nuova installazione" ? (
+              <SchedaInstallazioneForm
+                appuntamentoId={schedaAperta.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setSchedaAperta(null)}
+                onSalvato={() => {
+                  setSchedaAperta(null);
+                  router.refresh();
+                }}
+              />
+            ) : (
+              <SchedaLavorazioneForm
+                appuntamentoId={schedaAperta.id}
+                catalogoMateriali={catalogoMateriali}
+                onAnnulla={() => setSchedaAperta(null)}
+                onSalvato={() => {
+                  setSchedaAperta(null);
+                  router.refresh();
+                }}
+              />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={nuovaNota} onOpenChange={setNuovaNota}>
         <SheetContent>
@@ -752,23 +792,18 @@ function FormModificaAppuntamento({
   appuntamento,
   persone,
   ticket,
-  catalogoMateriali,
+  onApriScheda,
   onFatto,
 }: {
   appuntamento: Appuntamento;
   persone: Persona[];
   ticket: TicketMinimo[];
-  catalogoMateriali: MaterialeMagazzino[];
+  onApriScheda: () => void;
   onFatto: () => void;
 }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
-  // ★ NUOVA — richiesta esplicita: la Scheda di Installazione/Lavorazione
-  // era apribile solo da Vista Tecnico (dal tecnico assegnato, il giorno
-  // stesso) — ora anche da qui, per un admin/commerciale che vuole
-  // controllare o compilare la scheda senza aspettare.
-  const [mostraSchedaForm, setMostraSchedaForm] = useState(false);
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
@@ -804,41 +839,6 @@ function FormModificaAppuntamento({
     onFatto();
   }
 
-  if (mostraSchedaForm) {
-    const onSchedaSalvata = () => {
-      setMostraSchedaForm(false);
-      router.refresh();
-      onFatto();
-    };
-    return (
-      <>
-        <SheetHeader>
-          <SheetTitle>Scheda di lavoro — {appuntamento.titolo}</SheetTitle>
-          <SheetDescription>
-            {appuntamento.tipo_servizio === "Nuova installazione" ? "Certificato di installazione." : "Rapporto intervento in loco."}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-4 px-4 pb-4">
-          {appuntamento.tipo_servizio === "Nuova installazione" ? (
-            <SchedaInstallazioneForm
-              appuntamentoId={appuntamento.id}
-              catalogoMateriali={catalogoMateriali}
-              onAnnulla={() => setMostraSchedaForm(false)}
-              onSalvato={onSchedaSalvata}
-            />
-          ) : (
-            <SchedaLavorazioneForm
-              appuntamentoId={appuntamento.id}
-              catalogoMateriali={catalogoMateriali}
-              onAnnulla={() => setMostraSchedaForm(false)}
-              onSalvato={onSchedaSalvata}
-            />
-          )}
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <SheetHeader>
@@ -849,12 +849,15 @@ function FormModificaAppuntamento({
        * Lavorazione era apribile solo da Vista Tecnico (dal tecnico
        * assegnato, il giorno stesso dell'appuntamento) — ora anche da qui,
        * per chi pianifica/controlla senza aspettare o senza essere il
-       * tecnico assegnato. Solo per appuntamenti ancora "Programmato": un
-       * appuntamento già Completato ha la sua scheda visibile dal Ticket
-       * collegato (SchedaVista), non la si riapre in scrittura da qui. */}
+       * tecnico assegnato. Si apre in un popup centrale (Dialog, vedi
+       * CalendarioBoard) invece che dentro questo stesso pannello
+       * laterale — "visuale centrale" richiesta esplicitamente, uguale
+       * ovunque nel gestionale. Solo per appuntamenti ancora
+       * "Programmato": un appuntamento già Completato ha la sua scheda
+       * visibile in sola lettura dal Ticket collegato (SchedaVista). */}
       {appuntamento.stato === "Programmato" && (
         <div className="px-4">
-          <Button type="button" variant="outline" size="sm" onClick={() => setMostraSchedaForm(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={onApriScheda}>
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
             Apri scheda di lavoro
           </Button>
