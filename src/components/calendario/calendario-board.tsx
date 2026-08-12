@@ -604,6 +604,17 @@ function VistaMese({
   const notePerGiorno = useMemo(() => raggruppaPerGiorno(note, (n) => chiaveGiornoData(n.data_promemoria)), [note]);
   const eventiPerGiorno = useMemo(() => raggruppaPerGiorno(eventiGoogle, chiaveGiornoEvento), [eventiGoogle]);
 
+  // ★ NUOVA — richiesta esplicita ("la vista mensile è agghiacciante"):
+  // prima ogni cella mostrava solo il numero del giorno e 1-3 pallini con
+  // un conteggio — zero nomi, zero orari, serviva un click per scoprire
+  // qualunque cosa. Proposta con artifact (3 alternative confrontate),
+  // scelta "A — chip evento": stesso principio di Google/Outlook, ogni
+  // impegno diventa una striscia compatta orario+cliente, visibile senza
+  // aprire nulla. Max 3 righe per cella, oltre le quali un "+N altri" —
+  // stesso ordine (note → appuntamenti → eventi Google) già usato in
+  // Vista Settimana, per coerenza tra le due viste.
+  const MAX_RIGHE_CELLA = 3;
+
   return (
     <div>
       <div className="grid grid-cols-7 gap-1.5">
@@ -616,26 +627,48 @@ function VistaMese({
           const chiave = d.toDateString();
           const isOggi = chiave === oggiChiave;
           const fuoriMese = d.getMonth() !== meseCorrente;
-          const nAppuntamenti = (appuntamentiPerGiorno.get(chiave) ?? []).filter((a) => a.stato !== "Annullato").length;
-          const nNote = (notePerGiorno.get(chiave) ?? []).filter((n) => !n.completata).length;
-          const nEventi = (eventiPerGiorno.get(chiave) ?? []).length;
+          const noteGiorno = (notePerGiorno.get(chiave) ?? []).filter((n) => !n.completata);
+          const apptGiorno = (appuntamentiPerGiorno.get(chiave) ?? []).filter((a) => a.stato !== "Annullato");
+          const eventiGiorno = eventiPerGiorno.get(chiave) ?? [];
+          const totaleRighe = noteGiorno.length + apptGiorno.length + eventiGiorno.length;
+          type Riga = { key: string; testo: string; classe: string };
+          const righe: Riga[] = [
+            ...noteGiorno.map((n): Riga => ({ key: `n-${n.id}`, testo: `📌 ${n.testo}`, classe: "border-l-warning bg-warning/10 text-warning" })),
+            ...apptGiorno.map((a): Riga => ({
+              key: `a-${a.id}`,
+              testo: `${new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} ${a.titolo}`,
+              classe: a.stato === "Completato" ? "border-l-success bg-success/10 text-success opacity-70" : "border-l-primary bg-muted/60",
+            })),
+            ...eventiGiorno.map((e): Riga => ({
+              key: `e-${e.id}`,
+              testo: `${e.tuttoIlGiorno ? "" : new Date(e.inizio).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) + " "}${e.titolo}`,
+              classe: "border-l-muted-foreground bg-muted/40 text-muted-foreground border-dashed",
+            })),
+          ].slice(0, MAX_RIGHE_CELLA);
           return (
             <Link
               key={i}
               href={`/calendario?vista=giorno&data=${formattaData(d)}`}
-              className={`flex min-h-20 flex-col items-center gap-1 rounded-xl border p-1.5 transition hover:border-primary/40 ${
+              className={`flex min-h-24 flex-col gap-0.5 rounded-xl border p-1.5 transition hover:border-primary/40 ${
                 fuoriMese ? "bg-muted/30 opacity-50" : "bg-card"
-              }`}
+              } ${isOggi ? "border-primary/50" : ""}`}
             >
-              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold tabular-nums ${isOggi ? "bg-primary text-primary-foreground" : ""}`}>
+              <span
+                className={`mb-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${
+                  isOggi ? "bg-primary text-primary-foreground" : ""
+                }`}
+              >
                 {d.getDate()}
               </span>
-              <div className="flex flex-wrap justify-center gap-0.5">
-                {nAppuntamenti > 0 && (
-                  <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">{nAppuntamenti}</span>
+              <div className="flex flex-col gap-0.5">
+                {righe.map((r) => (
+                  <span key={r.key} className={`truncate rounded border-l-2 px-1 py-0.5 text-[9.5px] leading-tight font-semibold ${r.classe}`}>
+                    {r.testo}
+                  </span>
+                ))}
+                {totaleRighe > MAX_RIGHE_CELLA && (
+                  <span className="px-1 text-[9.5px] font-semibold text-muted-foreground">+{totaleRighe - MAX_RIGHE_CELLA} altri</span>
                 )}
-                {nNote > 0 && <span className="rounded-full bg-warning/15 px-1.5 text-[10px] font-bold text-warning">{nNote}</span>}
-                {nEventi > 0 && <span className="rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">{nEventi}</span>}
               </div>
             </Link>
           );

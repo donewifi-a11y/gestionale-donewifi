@@ -1305,6 +1305,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - **Aiuto contestuale**: una riga sotto "Invia una pratica al cliente" spiega cosa fa (manda un
     link a un modulo pubblico, i dati arrivano poi nella tab Documenti) — non era ovvio a chi non lo
     usa spesso.
+✅ **Calendario — vista mensile riscritta** (2026-08-12): terzo pezzo — "la vista mensile è
+  agghiacciante" (citazione), ogni cella mostrava solo il numero del giorno e 1-3 pallini con un
+  conteggio, zero nomi/orari, un click obbligato per scoprire qualunque cosa. Proposta con artifact
+  (3 alternative — chip evento / densità colore per tecnico / anteprima al click — confrontate),
+  scelta "chip evento": ogni impegno diventa ora una striscia compatta orario+cliente dentro la
+  cella (max 3 righe, poi "+N altri"), stesso principio di Google/Outlook e stesso ordine
+  note→appuntamenti→eventi Google già usato in Vista Settimana, per coerenza tra le due viste.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
