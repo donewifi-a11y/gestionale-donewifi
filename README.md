@@ -1256,6 +1256,29 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     in Chat (non solo Telegram) con un link diretto al Ticket. I messaggi di Chat contenenti URL
     sono ora linkificati automaticamente (`TestoMessaggio` in `chat-panel.tsx`) — miglioria che vale
     per qualunque notifica di sistema con link, non solo questa.
+✅ **Rebrand con il logo vero** (2026-08-12): il gestionale non aveva mai usato il logo reale
+  dell'azienda — solo un'icona WiFi generica (Lucide) su sfondo blu `#2A5FA8`, un colore senza
+  alcun legame col marchio (nero + rosso, motivo ad archi di segnale). Anche il favicon era ancora
+  quello di default di Next.js, mai sostituito. Proposta con artifact (due direzioni — rebrand
+  completo vs ibrida col blu — scelto il rebrand completo) prima di implementare.
+  - **Palette** (`globals.css`): `--primary` passa da `#2A5FA8` a `#CF000A` (rosso campionato
+    direttamente dal file del logo, non stimato), la sidebar da blu-notte a quasi-nero `#141414`
+    (stesso nero del wordmark). I neutri mantengono la stessa struttura di prima (lieve deriva di
+    tinta verso il brand) solo con hue spostato da blu (255) a rosso caldo (30). Gli stati semantici
+    (successo/avviso/critico) restano volutamente un rosso diverso (più aranciato) dal nuovo rosso
+    di marchio, per non creare ambiguità tra "azione del brand" e "avviso" — sempre con icona.
+  - **Varianti del logo generate** (`public/brand/`, script PowerShell + `System.Drawing`, colori
+    campionati per scansione pixel dal PNG originale — non stimati): `logo-completo.png` (originale,
+    per sfondi chiari: login, pagine pubbliche), `logo-bianco.png` (wordmark nero ricolorato in
+    bianco, stesso disegno, per la sidebar/hero scure — il file fornito aveva solo la versione con
+    testo nero, invisibile su sfondo scuro), `logo-marchio.png` (solo anello+archi+quadratino,
+    ritagliato e mascherato — niente testo, per favicon e spazi compatti dove il wordmark sarebbe
+    illeggibile).
+  - **Favicon reale**: `src/app/icon.png` (convenzione Next.js App Router, auto-servito a tutte le
+    dimensioni) — prima non era mai stato impostato.
+  - **Punti di integrazione**: sidebar (desktop e header mobile), login, Portale Clienti, Richiesta
+    Dati, le 4 Richieste Cliente pubbliche, Disdetta, Privacy, pagina di approvazione pubblica,
+    intestazioni delle email automatiche.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

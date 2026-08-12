@@ -77,11 +77,11 @@ export function emailApprovazioneIntervento(cliente: string, numero: number, lin
     oggetto: `Done Wifi — Conferma Intervento (Ticket #${numero})`,
     corpoHtml: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-        <h2 style="color:#0B1B3D;">Done Wifi — Conferma Intervento</h2>
+        <h2 style="color:#141414;">Done Wifi — Conferma Intervento</h2>
         <p>Gentile ${cliente},</p>
         <p>Ti confermiamo che l'intervento relativo al tuo Ticket #${numero} è stato completato da remoto.</p>
         <p>Per confermare che tutto funzioni correttamente, clicca sul link qui sotto:</p>
-        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Conferma intervento</a></p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Conferma intervento</a></p>
         <p>Se hai ancora problemi, rispondi a questa email o scrivi a <b>servizioclienti@donewifi.it</b>.</p>
         <p>Grazie,<br>Done Wifi</p>
       </div>
@@ -94,10 +94,10 @@ export function emailApprovazioneContratto(cliente: string, numero: number, link
     oggetto: `Done Wifi — Il tuo contratto è pronto (Pratica #${numero})`,
     corpoHtml: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-        <h2 style="color:#0B1B3D;">Done Wifi — Il tuo contratto è pronto</h2>
+        <h2 style="color:#141414;">Done Wifi — Il tuo contratto è pronto</h2>
         <p>Gentile ${cliente},</p>
         <p>Abbiamo preparato il contratto relativo alla tua pratica #${numero}. Prima di procedere con l'installazione, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
-        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi e approva il contratto</a></p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi e approva il contratto</a></p>
         <p>Per qualsiasi domanda, rispondi a questa email o scrivi a <b>commerciale@donewifi.it</b>.</p>
         <p>Grazie,<br>Done Wifi</p>
       </div>
@@ -110,10 +110,10 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
     oggetto: `Done Wifi — Il tuo preventivo (#${numero})`,
     corpoHtml: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-        <h2 style="color:#0B1B3D;">Done Wifi — Il tuo preventivo</h2>
+        <h2 style="color:#141414;">Done Wifi — Il tuo preventivo</h2>
         <p>Gentile ${cliente},</p>
         <p>Abbiamo preparato un preventivo per te (totale <b>${totale}</b>). Puoi vederlo nel dettaglio e scegliere se approvarlo direttamente da qui:</p>
-        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi il preventivo</a></p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vedi il preventivo</a></p>
         <p>Per qualsiasi domanda, rispondi a questa email o scrivi a <b>commerciale@donewifi.it</b>.</p>
         <p>Grazie,<br>Done Wifi</p>
       </div>
@@ -134,7 +134,7 @@ export function emailPraticaCliente(nome: string, titoloPratica: string, link: s
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
         <p>Ciao ${nome},</p>
         <p>Per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi, apri il link qui sotto:</p>
-        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vai alla pratica</a></p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vai alla pratica</a></p>
         <p>Grazie,<br>Done Wifi</p>
       </div>
     `,
@@ -148,7 +148,7 @@ export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
         <p>Ciao ${nome},</p>
         <p>Per completare la tua richiesta Done Wifi inserisci qui i tuoi dati:</p>
-        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Completa i dati</a></p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Completa i dati</a></p>
         <p>Grazie,<br>Done Wifi</p>
       </div>
     `,

@@ -1,4 +1,4 @@
-import { AlertTriangle, Wifi, FileText } from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { ConfermaBottone } from "@/components/approva/conferma-bottone";
@@ -46,11 +46,9 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[oklch(0.22_0.035_255)] p-6">
+    <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 text-center shadow-2xl">
-        <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-          <Wifi className="h-5 w-5" strokeWidth={2.5} />
-        </div>
+        <img src="/brand/logo-completo.png" alt="Done Wifi" className="mb-1 h-14 w-14" />
         {!dati || (!ticket && !segnalazione && !preventivo) ? (
           <>
             <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />

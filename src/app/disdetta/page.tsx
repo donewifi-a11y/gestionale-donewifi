@@ -1,4 +1,4 @@
-import { Wifi, Mail, Send, ListChecks, AlertTriangle } from "lucide-react";
+import { Mail, Send, ListChecks, AlertTriangle } from "lucide-react";
 import { CopiaBottone } from "@/components/condivisi/copia-bottone";
 
 export const metadata = { title: "Come disdire il contratto - Done Wifi" };
@@ -25,16 +25,14 @@ Data: __________          Firma: __________`;
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <div className="border-b bg-card py-5 text-center shadow-sm">
-        <span className="font-heading text-lg font-extrabold">
-          Done<span className="text-primary">Wifi</span>
-        </span>
+      <div className="border-b bg-card py-4 text-center shadow-sm">
+        <img src="/brand/logo-completo.png" alt="Done Wifi" className="mx-auto h-12 w-12" />
       </div>
 
       <div className="mx-auto max-w-xl px-5 py-10">
         <div className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
-            <Wifi className="h-5 w-5" strokeWidth={2.5} />
+          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] p-1.5 shadow-md shadow-primary/30">
+            <img src="/brand/logo-marchio.png" alt="" className="h-full w-full object-contain" />
           </div>
           <h1 className="mt-3 font-heading text-xl font-bold tracking-tight">Come disdire il tuo contratto</h1>
           <p className="mb-4 text-sm text-muted-foreground">

@@ -1,19 +1,15 @@
-import { Wifi } from "lucide-react";
-
 export const metadata = { title: "Informativa Privacy - Done Wifi" };
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-muted/30">
-      <div className="border-b bg-card py-5 text-center shadow-sm">
-        <span className="font-heading text-lg font-extrabold">
-          Done<span className="text-primary">Wifi</span>
-        </span>
+      <div className="border-b bg-card py-4 text-center shadow-sm">
+        <img src="/brand/logo-completo.png" alt="Done Wifi" className="mx-auto h-12 w-12" />
       </div>
       <div className="mx-auto max-w-2xl px-5 py-10">
         <div className="rounded-2xl border bg-card p-7 shadow-sm sm:p-9">
-          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
-            <Wifi className="h-5 w-5" strokeWidth={2.5} />
+          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] p-1.5 shadow-md shadow-primary/30">
+            <img src="/brand/logo-marchio.png" alt="" className="h-full w-full object-contain" />
           </div>
           <h1 className="mt-3 font-heading text-2xl font-bold tracking-tight">
             Informativa sul trattamento dei dati personali
