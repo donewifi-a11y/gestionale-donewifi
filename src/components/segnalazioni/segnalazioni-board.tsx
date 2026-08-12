@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2, Send } from "lucide-react";
+import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2, Send, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -213,14 +213,24 @@ export function SegnalazioniBoard({
                 )}
                 {items.map((s) => {
                   const giorni = giorniAperta(s.data);
-                  // ★ FIX — nessun segnale su quanto sta aspettando una
-                  // risposta del cliente dopo l'invio della Richiesta
-                  // Dati: stesso stile dell'avviso "da Ng" già in uso per
-                  // Da Contattare/In Contatto, calcolato però da
-                  // documenti_richiesti_at (quando è stato inviato il
-                  // link) invece che da s.data (creazione pratica).
                   const inAttesaDati = col.stato === "Gestione Cliente" && !s.dati_ricevuti_at && !!s.documenti_richiesti_at;
                   const giorniAttesa = inAttesaDati ? giorniAperta(s.documenti_richiesti_at as string) : 0;
+                  // ★ NUOVA — richiesta esplicita "a prova di scemo": prima la
+                  // card impilava fino a 4-5 badge piccoli da leggere e
+                  // interpretare tutti insieme, senza dire quale richiedesse
+                  // davvero attenzione. Ora un solo segnale, il più urgente
+                  // tra quelli possibili — e dice anche cosa fare, non solo
+                  // il problema. Nessun problema in corso → card pulita,
+                  // senza badge (il "tutto normale" non ha bisogno di un
+                  // colore acceso addosso).
+                  let segnale: { testo: string; critico: boolean } | null = null;
+                  if (inAttesaDati && giorniAttesa >= 3) {
+                    segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, critico: giorniAttesa >= 7 };
+                  } else if (mostraGiorni && giorni >= 2) {
+                    segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, critico: giorni >= 5 };
+                  } else if (col.stato === "Gestione Cliente" && s.dati_ricevuti_at) {
+                    segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false };
+                  }
                   return (
                     <div
                       key={s.id}
@@ -235,44 +245,28 @@ export function SegnalazioniBoard({
                         <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
                       </div>
                       <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
-                        {s.comune} · {s.telefono}
+                        {s.comune}
+                        {s.tipologia_cliente ? ` · ${s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}` : ` · ${s.telefono}`}
                       </div>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {s.tipologia_cliente && (
-                          <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
-                            {s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}
+                      {segnale ? (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
+                            segnale.critico
+                              ? "bg-critical/10 text-critical"
+                              : segnale.testo.startsWith("✓")
+                                ? "bg-success/10 text-success"
+                                : "bg-warning/10 text-warning"
+                          }`}
+                        >
+                          {segnale.testo}
+                        </span>
+                      ) : (
+                        s.copertura !== "si" && (
+                          <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
+                            {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
                           </Badge>
-                        )}
-                        <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
-                          {s.copertura === "si" ? "Copertura sì" : s.copertura === "no" ? "Copertura no" : "Da verificare"}
-                        </Badge>
-                        {mostraGiorni && giorni >= 2 && (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              giorni >= 5 ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
-                            }`}
-                          >
-                            <Clock className="h-3 w-3" strokeWidth={2.5} />
-                            da {giorni}g
-                          </span>
-                        )}
-                        {col.stato === "Gestione Cliente" && s.dati_ricevuti_at && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
-                            <Check className="h-3 w-3" strokeWidth={2.5} />
-                            Dati ricevuti
-                          </span>
-                        )}
-                        {inAttesaDati && giorniAttesa >= 3 && (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              giorniAttesa >= 7 ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
-                            }`}
-                          >
-                            <Clock className="h-3 w-3" strokeWidth={2.5} />
-                            in attesa da {giorniAttesa}g
-                          </span>
-                        )}
-                      </div>
+                        )
+                      )}
                     </div>
                   );
                 })}
@@ -528,6 +522,36 @@ function DettaglioSegnalazione({
     window.open(risultato.url, "_blank", "noopener,noreferrer");
   }
 
+  // ★ NUOVA — richiesta esplicita "a prova di scemo": prima c'erano fino a
+  // 4 pulsanti diversi sparsi nel pannello (stato, contratto, trasmetti),
+  // ognuno visibile solo in certe condizioni — bisognava capire da soli
+  // quale fosse quello giusto in quel momento. Ora un solo oggetto
+  // `azione`, calcolato qui in un posto solo, mostrato in una barra fissa
+  // in fondo al popup (sempre nello stesso punto): se non c'è nulla da
+  // cliccare, `statoInfo` spiega perché invece di lasciare la barra vuota.
+  type Azione = { testo: string; icona: typeof PhoneCall; onClick: () => void; disabilitato: boolean };
+  let azione: Azione | null = null;
+  let statoInfo: string | null = null;
+  if (segnalazione.stato === "Da Contattare") {
+    azione = { testo: "Ho contattato il cliente", icona: PhoneCall, onClick: () => cambiaStato("In Contatto"), disabilitato: inCorso };
+  } else if (segnalazione.stato === "In Contatto") {
+    azione = { testo: "Avvia Gestione Cliente", icona: ArrowRight, onClick: () => cambiaStato("Gestione Cliente"), disabilitato: inCorso };
+  } else if (segnalazione.stato === "Gestione Cliente") {
+    if (!richiesta) {
+      statoInfo = "In attesa che il cliente compili il modulo dati — usa WhatsApp/Email/Copia link qui sopra per sollecitarlo.";
+    } else if (!contrattoUrl) {
+      statoInfo = "Dati ricevuti. Carica il contratto firmato nella tab Documenti per continuare.";
+    } else if (!segnalazione.contratto_approvato_cliente_il && !segnalazione.contratto_inviato_approvazione_il) {
+      azione = { testo: "Contratto pronto — invia per approvazione", icona: Send, onClick: inviaApprovazioneContratto, disabilitato: inCorsoApprovazione };
+    } else if (!segnalazione.contratto_approvato_cliente_il) {
+      statoInfo = `In attesa che il cliente approvi il contratto, inviato il ${new Date(segnalazione.contratto_inviato_approvazione_il as string).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}.`;
+    } else {
+      azione = { testo: "Trasmetti per l'installazione", icona: Rocket, onClick: trasmetti, disabilitato: inCorso };
+    }
+  } else if (segnalazione.stato === "Trasmessa") {
+    statoInfo = "Pratica trasmessa — l'installazione è in carico ad Analisi Rete.";
+  }
+
   return (
     <>
       {/* ★ FIX — la X per chiudere restava fissa in alto (dentro DialogContent,
@@ -566,29 +590,6 @@ function DettaglioSegnalazione({
               </div>
             ))}
           </div>
-
-          {segnalazione.stato === "Da Contattare" && (
-            <Button onClick={() => cambiaStato("In Contatto")} disabled={inCorso} className="mt-3 w-full">
-              <PhoneCall className="h-4 w-4" strokeWidth={2.25} />
-              Ho contattato il cliente
-            </Button>
-          )}
-          {segnalazione.stato === "In Contatto" && (
-            <Button onClick={() => cambiaStato("Gestione Cliente")} disabled={inCorso} className="mt-3 w-full">
-              <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
-              Avvia Gestione Cliente
-            </Button>
-          )}
-          {indiceCorrente > 0 && segnalazione.stato !== "Trasmessa" && (
-            <button
-              type="button"
-              disabled={inCorso}
-              onClick={() => cambiaStato(COLONNE[indiceCorrente - 1].stato)}
-              className="mt-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
-            >
-              ← Torna a &ldquo;{COLONNE[indiceCorrente - 1].titolo}&rdquo;
-            </button>
-          )}
         </div>
 
         {/* ★ FIX — una volta arrivata la Richiesta Dati, Telefono/Email qui
@@ -911,15 +912,10 @@ function DettaglioSegnalazione({
                   </button>
                 </>
               ) : (
-                <>
-                  <Button size="sm" onClick={inviaApprovazioneContratto} disabled={inCorsoApprovazione} className="w-full">
-                    <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
-                    {inCorsoApprovazione ? "Invio in corso…" : "Contratto pronto — invia per approvazione"}
-                  </Button>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Manda il contratto al cliente da approvare e avvisa Analisi Rete di iniziare a organizzare l&apos;installazione.
-                  </p>
-                </>
+                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  Contratto caricato — usa il pulsante in fondo per inviarlo al cliente da approvare.
+                </p>
               )}
               {erroreApprovazione && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-xs text-critical">
@@ -932,33 +928,25 @@ function DettaglioSegnalazione({
         </div>
         )}
 
+        {/* ★ il pulsante "Trasmetti" vero e proprio si è spostato nella
+        barra fissa in fondo al popup (vedi sotto, `azione`) — qui resta
+        solo la scelta del reparto, visibile un po' prima nel percorso
+        così è già impostata quando l'azione si sblocca. */}
         {segnalazione.stato === "Gestione Cliente" && (
-          <div className="mt-2">
-            <div className="mb-2 flex items-center gap-2">
-              <Label htmlFor="repartoTrasmissione" className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                Reparto installazione
-              </Label>
-              <select
-                id="repartoTrasmissione"
-                value={repartoTrasmissione}
-                onChange={(e) => setRepartoTrasmissione(e.target.value as AreaAccesso)}
-                className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
-              >
-                {REPARTI.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <Button onClick={trasmetti} disabled={inCorso || !puoTrasmettere} className="w-full">
-              <Rocket className="h-4 w-4" strokeWidth={2.25} />
-              Trasmetti per l&apos;installazione
-            </Button>
-            {!puoTrasmettere && (
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-warning">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                Mancano ancora: {mancanti.join(", ")}.
-              </p>
-            )}
+          <div className="mt-2 flex items-center gap-2">
+            <Label htmlFor="repartoTrasmissione" className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Reparto installazione
+            </Label>
+            <select
+              id="repartoTrasmissione"
+              value={repartoTrasmissione}
+              onChange={(e) => setRepartoTrasmissione(e.target.value as AreaAccesso)}
+              className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
+            >
+              {REPARTI.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -974,6 +962,37 @@ function DettaglioSegnalazione({
           </button>
         )}
       </div>
+
+      {/* ★ NUOVA — barra fissa in fondo al popup, sempre nello stesso
+      punto: una sola azione possibile (quella del passo attuale) invece
+      di doverla cercare tra i vari pulsanti sparsi nel pannello. Se non
+      c'è nulla da cliccare in questo momento, spiega perché invece di
+      restare vuota. */}
+      {(azione || statoInfo) && segnalazione.stato !== "Trasmessa" && (
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 border-t bg-popover px-4 pt-3 pb-4">
+          {azione ? (
+            <Button onClick={azione.onClick} disabled={azione.disabilitato} className="w-full">
+              <azione.icona className="h-4 w-4" strokeWidth={2.25} />
+              {azione.disabilitato ? "Invio in corso…" : azione.testo}
+            </Button>
+          ) : (
+            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              {statoInfo}
+            </p>
+          )}
+          {indiceCorrente > 0 && (
+            <button
+              type="button"
+              disabled={inCorso}
+              onClick={() => cambiaStato(COLONNE[indiceCorrente - 1].stato)}
+              className="mt-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              ← Torna a &ldquo;{COLONNE[indiceCorrente - 1].titolo}&rdquo;
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

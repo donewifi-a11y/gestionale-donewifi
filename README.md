@@ -1279,6 +1279,19 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - **Punti di integrazione**: sidebar (desktop e header mobile), login, Portale Clienti, Richiesta
     Dati, le 4 Richieste Cliente pubbliche, Disdetta, Privacy, pagina di approvazione pubblica,
     intestazioni delle email automatiche.
+✅ **Segnalazioni "a prova di scemo"** (2026-08-12): primo pezzo della revisione generale di
+  leggibilità/semplicità/interattività (proposta con artifact, confermata) — 4 principi (un'azione
+  alla volta, zero memoria richiesta, bersagli grandi, errore impossibile da ignorare) applicati a:
+  - **Card della bacheca**: da 3-4 badge piccoli da leggere tutti insieme a **un solo segnale**, il
+    più urgente tra quelli possibili (in attesa dati da troppo → "sollecita"; ferma da troppo →
+    "contatta il cliente"; dati arrivati → "pronta per il contratto"), che dice anche cosa fare, non
+    solo il problema. Nessun problema in corso → card pulita, senza badge.
+  - **Un'unica azione, sempre in fondo al popup**: da 4 pulsanti diversi sparsi nel pannello
+    (cambio stato, invio approvazione, trasmetti) — ognuno visibile solo in certe condizioni, da
+    scoprire scorrendo — a una barra fissa in fondo, sempre nello stesso punto, calcolata in un
+    solo posto (`azione`): mostra il pulsante del passo attuale, o spiega con una riga di testo
+    perché al momento non c'è nulla da cliccare (es. "in attesa che il cliente compili il modulo").
+    "Torna indietro" resta disponibile nella stessa barra.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
