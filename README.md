@@ -1204,6 +1204,30 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
 ⏳ Build di produzione verificata in locale; test end-to-end manuale (creare una Segnalazione →
   Gestione Cliente → compilare Richiesta Dati → Trasmetti → controllare il Ticket, e il nuovo
   rapportino di chiusura) ancora da fare con dati reali.
+✅ 4 bug segnalati dopo l'introduzione dei Preventivi (2026-08-11), tutti corretti:
+  1. **FIX SICUREZZA** — la policy RLS di lettura sui Ticket controllava solo che si fosse staff
+     attivo, mai il reparto: chiunque loggato vedeva i Ticket di TUTTI i reparti, non solo del
+     proprio. Nuova funzione `persona_vede_ticket()` (migrazione 0048): si vede un Ticket da admin,
+     se il proprio reparto coincide, o se si è il tecnico assegnato — nient'altro. Solo la lettura è
+     ristretta, insert/update restano aperti a qualunque staff attivo (riassegnare un Ticket ad un
+     altro reparto resta un'operazione valida).
+  2. La sidebar sinistra non seguiva lo scroll verticale. Causa: il fix `overflow-x: hidden` su
+     `html`/`body` (aggiunto in una sessione precedente contro lo scroll orizzontale) aveva un
+     effetto collaterale della spec CSS — impostare un asse di overflow senza dichiarare l'altro fa
+     sì che l'asse non dichiarato venga comunque calcolato `auto`, trasformando `html`/`body` nel
+     proprio contenitore di scroll invece di lasciarlo al viewport, rompendo così il riferimento di
+     `position: sticky` della sidebar. Corretto dichiarando esplicitamente `overflow-y: visible`.
+  3. Il pulsante "Email" nel pannello "Invia una pratica al cliente" (Trasferimento/Subentro/Cambio
+     IBAN/Cambio Anagrafica/Disdetta, `InvioLinkCliente`) apriva il client di posta locale
+     dell'operatore (`mailto:`) invece di inviare davvero — a differenza di Richiesta Dati. Ora
+     invia per davvero, dalla casella del reparto competente: Cambio IBAN/Cambio Anagrafica →
+     Fatturazione, Trasferimento/Subentro/Disdetta → Commerciale/Fatturazione (stesso mapping già
+     usato per le notifiche interne, `REPARTO_PER_TIPO_RICHIESTA`).
+  4. Una volta pianificato l'appuntamento (Trasmetti → Ticket → Pianifica), non c'era alcun modo di
+     aprire la Scheda di Installazione/Lavorazione dal Ticket o dal Calendario: solo il tecnico
+     assegnato, da Vista Tecnico, il giorno stesso. Nuovo pannello "Apri scheda di lavoro" sia nel
+     dettaglio Ticket sia nel dettaglio Appuntamento (stesso form già usato in Vista Tecnico,
+     `getAppuntamentoAttivoPerTicket()`), utilizzabile da chiunque non solo dal tecnico assegnato.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

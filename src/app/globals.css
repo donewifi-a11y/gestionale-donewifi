@@ -163,12 +163,25 @@
    * globale invece di inseguire ogni singolo elemento che trabocca: la
    * pagina non scorre mai in orizzontale, chi trabocca si taglia (o va
    * gestito con overflow-x-auto sul proprio contenitore), non trascina
-   * l'intera finestra. */
+   * l'intera finestra.
+   *
+   * ★ FIX — questo stesso `overflow-x: hidden` aveva un effetto collaterale
+   * non voluto: per la spec CSS, impostare un asse di overflow senza
+   * dichiarare l'altro fa sì che l'asse non dichiarato (qui `overflow-y`,
+   * lasciato implicitamente "visible") venga comunque calcolato come
+   * `auto` — trasformando `html`/`body` in un proprio contenitore di
+   * scroll invece di lasciarlo al viewport. Risultato: la sidebar
+   * (`position: sticky`, vedi app-sidebar.tsx) perdeva il riferimento di
+   * scroll corretto e restava ferma invece di seguire la pagina.
+   * Dichiarare `overflow-y: visible` esplicito annulla l'effetto
+   * collaterale senza perdere il taglio orizzontale che serviva. */
   body {
     @apply bg-background text-foreground overflow-x-hidden;
+    overflow-y: visible;
   }
   html {
     @apply font-sans overflow-x-hidden;
+    overflow-y: visible;
   }
   h1, h2, h3, h4 {
     @apply font-heading;

@@ -2,7 +2,7 @@ import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CalendarioBoard } from "@/components/calendario/calendario-board";
 import { listaEventiGoogleCalendario } from "@/lib/google-calendar";
-import type { Appuntamento, NotaCalendario } from "@/lib/types";
+import type { Appuntamento, MaterialeMagazzino, NotaCalendario } from "@/lib/types";
 
 export type VistaCalendario = "giorno" | "settimana" | "mese";
 
@@ -55,7 +55,7 @@ export default async function CalendarioPage({
 
   const supabase = await createClient();
 
-  const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }, eventiGoogleGrezzi] = await Promise.all([
+  const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }, { data: materiali }, eventiGoogleGrezzi] = await Promise.all([
     supabase
       .from("appuntamenti")
       .select("*")
@@ -74,6 +74,10 @@ export default async function CalendarioPage({
       .select("id, numero, cliente, indirizzo, telefono")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
+    // ★ NUOVA — serve al pannello "Apri scheda di lavoro" nel dettaglio
+    // appuntamento (vedi calendario-board.tsx), stesso form già usato in
+    // Vista Tecnico, che richiede il catalogo materiali per il selettore.
+    supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
     listaEventiGoogleCalendario(inizioRange, fineRange),
   ]);
 
@@ -104,6 +108,7 @@ export default async function CalendarioPage({
         eventiGoogle={eventiGoogle}
         vista={vista}
         dataRiferimento={formattaData(dataRiferimento)}
+        catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
       />
     </div>
   );

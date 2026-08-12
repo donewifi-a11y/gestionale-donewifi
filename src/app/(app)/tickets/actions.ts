@@ -3,9 +3,10 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento } from "@/lib/email";
+import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento, emailPraticaCliente } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
-import type { AreaAccesso, PrioritaTicket, RapportinoIntervento, StatoTicket, Ticket } from "@/lib/types";
+import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
+import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -441,6 +442,37 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
   await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto: ticket.reparto });
 
   return { errore: null, link };
+}
+
+// ★ NUOVA — FIX: il pulsante "Email" per le pratiche pubbliche
+// (Trasferimento/Subentro/Cambio IBAN/Cambio Anagrafica/Disdetta) apriva
+// solo un mailto: (client di posta locale dell'operatore) invece di
+// inviare davvero dalla casella del reparto competente — a differenza di
+// Richiesta Dati, che invia per davvero da commerciale@donewifi.it. Il
+// reparto si deduce dalla pratica (REPARTO_PER_TIPO_RICHIESTA, già in uso
+// per le notifiche Telegram/Chat sulla route pubblica): Cambio IBAN/Cambio
+// Anagrafica → Fatturazione, Trasferimento/Subentro → Commerciale;
+// Disdetta non è tra le 4 "Richieste Cliente" (ha un flusso pubblico
+// proprio, /disdetta) ma è la stessa casistica di competenza Fatturazione.
+export async function inviaEmailPraticaCliente(ticketId: string, slug: string, url: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const { data: ticket } = await supabase.from("tickets").select("cliente, email").eq("id", ticketId).single();
+  if (!ticket) return { errore: "Ticket non trovato." };
+  if (!ticket.email) return { errore: "Il cliente non ha un'email registrata su questo ticket." };
+
+  const config = RICHIESTE_CLIENTE_CONFIG[slug as SlugRichiestaCliente];
+  const titolo = slug === "disdetta" ? "Disdetta contratto" : config?.titolo;
+  const reparto: AreaAccesso = slug === "disdetta" ? "Fatturazione" : REPARTO_PER_TIPO_RICHIESTA[config.tipo];
+  if (!titolo || !reparto) return { errore: "Pratica non riconosciuta." };
+
+  const { oggetto, corpoHtml } = emailPraticaCliente(ticket.cliente, titolo, url);
+  const risultato = await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto });
+  return risultato;
 }
 
 export async function urlDocumentoRapportino(percorso: string) {

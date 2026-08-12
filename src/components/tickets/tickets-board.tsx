@@ -19,18 +19,21 @@ import {
   aggiungiNotaTicket,
   getNoteTicket,
   inviaEmailApprovazioneTicket,
+  inviaEmailPraticaCliente,
   cambiaRepartoTicket,
   eliminaTicket,
 } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
-import { creaAppuntamento, getSlotOccupatiProssimi, type SlotOccupato } from "@/app/(app)/calendario/actions";
+import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
 import { SchedaVista } from "@/components/schede/scheda-vista";
+import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
+import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
 import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
-import type { NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
+import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
@@ -87,10 +90,12 @@ export function TicketsBoard({
   tickets,
   currentPersonaId,
   persone,
+  catalogoMateriali,
 }: {
   tickets: Ticket[];
   currentPersonaId: string;
   persone: Persona[];
+  catalogoMateriali: MaterialeMagazzino[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -290,6 +295,7 @@ export function TicketsBoard({
               ticket={aperto}
               persone={persone}
               currentPersonaId={currentPersonaId}
+              catalogoMateriali={catalogoMateriali}
               onCambiato={(t) => setAperto(t)}
               onEliminato={() => setAperto(null)}
             />
@@ -331,12 +337,14 @@ function DettaglioTicket({
   ticket,
   persone,
   currentPersonaId,
+  catalogoMateriali,
   onCambiato,
   onEliminato,
 }: {
   ticket: Ticket;
   persone: Persona[];
   currentPersonaId: string;
+  catalogoMateriali: MaterialeMagazzino[];
   onCambiato: (t: Ticket) => void;
   onEliminato: () => void;
 }) {
@@ -364,6 +372,14 @@ function DettaglioTicket({
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
   const [scheda, setScheda] = useState<SchedaLavoro | null>(null);
+  // ★ NUOVA — richiesta esplicita: una volta pianificato un appuntamento
+  // (Trasmetti → Ticket → Pianifica), non c'era alcun modo di aprire la
+  // Scheda di Installazione/Lavorazione dal Ticket: solo il tecnico
+  // assegnato, da Vista Tecnico, il giorno stesso dell'appuntamento.
+  // `appuntamentoAttivo` è l'appuntamento "Programmato" collegato (se
+  // c'è), da cui si apre lo stesso form — vedi getAppuntamentoAttivoPerTicket().
+  const [appuntamentoAttivo, setAppuntamentoAttivo] = useState<Appuntamento | null>(null);
+  const [mostraSchedaForm, setMostraSchedaForm] = useState(false);
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
@@ -373,12 +389,15 @@ function DettaglioTicket({
       // generico — mai entrambi per lo stesso ticket.
       getSchedaLavoroPerTicket(ticket.id).then(setScheda);
       getRapportinoTicket(ticket.id).then(setRapportino);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket completato = nessun appuntamento ancora da pianificare/aprire), non un caso separato di "derivabile durante il render".
+      setAppuntamentoAttivo(null);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- ramo sincrono del fetch sopra (ticket non completato = nessun rapportino/scheda da caricare), non un caso separato di "derivabile durante il render".
       setRapportino(null);
       setScheda(null);
+      getAppuntamentoAttivoPerTicket(ticket.id).then(setAppuntamentoAttivo);
     }
     setMostraRapportinoForm(false);
+    setMostraSchedaForm(false);
   }, [ticket.id, ticket.stato]);
 
   const linkPratica = useMemo(() => {
@@ -530,6 +549,58 @@ function DettaglioTicket({
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
         )}
 
+        {/* ★ NUOVA — appuntamento pianificato ma non ancora completato: la
+        Scheda si apre da qui (non serve più essere il tecnico assegnato,
+        né aspettare il giorno dell'appuntamento su Vista Tecnico). */}
+        {ticket.stato !== "Completato" && appuntamentoAttivo && !mostraSchedaForm && (
+          <div className="rounded-xl border bg-card p-3 shadow-sm">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <CalendarCheck2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Appuntamento pianificato
+            </p>
+            <p className="mb-2.5 text-sm font-medium">
+              {new Date(appuntamentoAttivo.data_ora).toLocaleString("it-IT", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {" — "}
+              {appuntamentoAttivo.tipo_servizio}
+            </p>
+            <Button size="sm" onClick={() => setMostraSchedaForm(true)}>
+              <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Apri scheda di lavoro
+            </Button>
+          </div>
+        )}
+        {mostraSchedaForm && appuntamentoAttivo && (
+          appuntamentoAttivo.tipo_servizio === "Nuova installazione" ? (
+            <SchedaInstallazioneForm
+              appuntamentoId={appuntamentoAttivo.id}
+              catalogoMateriali={catalogoMateriali}
+              onAnnulla={() => setMostraSchedaForm(false)}
+              onSalvato={() => {
+                setMostraSchedaForm(false);
+                onCambiato({ ...ticket, stato: "Completato" });
+                router.refresh();
+              }}
+            />
+          ) : (
+            <SchedaLavorazioneForm
+              appuntamentoId={appuntamentoAttivo.id}
+              catalogoMateriali={catalogoMateriali}
+              onAnnulla={() => setMostraSchedaForm(false)}
+              onSalvato={() => {
+                setMostraSchedaForm(false);
+                onCambiato({ ...ticket, stato: "Completato" });
+                router.refresh();
+              }}
+            />
+          )
+        )}
+
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>
           {assegnatario ? (
@@ -624,7 +695,7 @@ function DettaglioTicket({
                 telefono={ticket.telefono}
                 email={ticket.email}
                 messaggio={messaggioPratica}
-                oggetto={`Done Wifi — ${PRATICHE_INVIABILI.find((p) => p.slug === praticaScelta)?.titolo ?? "pratica"}`}
+                onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
               />
             </div>
           )}

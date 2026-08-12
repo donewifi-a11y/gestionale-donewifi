@@ -6,7 +6,7 @@ import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-cal
 import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
-import type { MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
+import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 
 export interface SlotOccupato {
   id: string;
@@ -382,6 +382,31 @@ export async function getSchedaLavoroPerTicket(ticketId: string): Promise<Scheda
   const { data, error } = await supabase.from("schede_lavoro").select("*").eq("ticket_id", ticketId).maybeSingle();
   if (error) console.error("getSchedaLavoroPerTicket:", error.message);
   return (data as SchedaLavoro | null) ?? null;
+}
+
+// ★ NUOVA — richiesta esplicita: una volta pianificato l'appuntamento
+// (Trasmetti → Ticket → Pianifica), non c'era alcun modo di aprire/vedere
+// la Scheda di lavoro dal Ticket o dal Calendario: solo il tecnico
+// assegnato, da Vista Tecnico, poteva farlo — e solo il giorno stesso
+// dell'appuntamento (query "Appuntamenti di oggi"). Un admin/commerciale
+// che vuole controllare lo stato della pianificazione, o compilare la
+// scheda al posto del tecnico, non trovava nulla. Restituisce
+// l'appuntamento "Programmato" più vicino nel tempo per quel Ticket (ce
+// n'è di norma uno solo alla volta), per offrire da lì lo stesso form
+// (SchedaInstallazioneForm/SchedaLavorazioneForm) già usato in Vista
+// Tecnico — non serve essere il tecnico assegnato per aprirlo.
+export async function getAppuntamentoAttivoPerTicket(ticketId: string): Promise<Appuntamento | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("appuntamenti")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .eq("stato", "Programmato")
+    .order("data_ora", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) console.error("getAppuntamentoAttivoPerTicket:", error.message);
+  return (data as Appuntamento | null) ?? null;
 }
 
 /** URL firmata per una foto/firma di una scheda di lavoro (bucket privato). */

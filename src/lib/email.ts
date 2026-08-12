@@ -121,6 +121,26 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
   };
 }
 
+// ★ NUOVA — FIX: il pulsante "Email" del pannello "Invia una pratica al
+// cliente" (Trasferimento/Subentro/Cambio IBAN/Cambio Anagrafica/Disdetta,
+// vedi InvioLinkCliente) apriva il client di posta locale dell'operatore
+// (mailto:) invece di inviare davvero dalla casella del reparto competente
+// — a differenza di Richiesta Dati, che invia per davvero da
+// commerciale@donewifi.it. Stesso identico schema riusato qui.
+export function emailPraticaCliente(nome: string, titoloPratica: string, link: string) {
+  return {
+    oggetto: `Done Wifi — ${titoloPratica}`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <p>Ciao ${nome},</p>
+        <p>Per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi, apri il link qui sotto:</p>
+        <p><a href="${link}" style="display:inline-block;background:#2A5FA8;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Vai alla pratica</a></p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
 export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
   return {
     oggetto: "Done Wifi — completa i tuoi dati",

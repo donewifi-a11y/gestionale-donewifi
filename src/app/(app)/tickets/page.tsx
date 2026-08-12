@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId } from "@/lib/persona";
 import { Button } from "@/components/ui/button";
 import { TicketsBoard } from "@/components/tickets/tickets-board";
-import type { Ticket } from "@/lib/types";
+import type { MaterialeMagazzino, Ticket } from "@/lib/types";
 
 // ★ FIX — la Kanban Ticket esclude solo "Annullato": la colonna "Lavorata"
 // mostra TUTTI i ticket completati dall'inizio dell'attività, senza limite
@@ -37,6 +37,11 @@ export default async function TicketsPage() {
   const tickets = await fetchTuttiTicketNonAnnullati(supabase);
 
   const { data: persone } = await supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true);
+  // ★ NUOVA — serve al pannello "Apri scheda di lavoro" (vedi
+  // tickets-board.tsx): un admin/commerciale deve poter compilare la
+  // Scheda Installazione/Lavorazione dal Ticket, stesso form già usato in
+  // Vista Tecnico, che richiede il catalogo materiali per il selettore.
+  const { data: materiali } = await supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true });
   const personaCorrenteId = await getPersonaCorrenteId();
 
   return (
@@ -63,6 +68,7 @@ export default async function TicketsPage() {
         tickets={(tickets as Ticket[]) ?? []}
         currentPersonaId={personaCorrenteId ?? ""}
         persone={persone ?? []}
+        catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
       />
     </div>
   );

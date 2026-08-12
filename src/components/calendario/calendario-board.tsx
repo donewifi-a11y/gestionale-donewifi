@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +23,10 @@ import {
   completaNotaCalendario,
   eliminaNotaCalendario,
 } from "@/app/(app)/calendario/actions";
+import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
+import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
-import type { Appuntamento, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
+import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
 
@@ -110,6 +112,7 @@ export function CalendarioBoard({
   eventiGoogle,
   vista,
   dataRiferimento,
+  catalogoMateriali,
 }: {
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
@@ -118,6 +121,7 @@ export function CalendarioBoard({
   eventiGoogle: EventoGoogleCalendario[];
   vista: VistaCalendario;
   dataRiferimento: string;
+  catalogoMateriali: MaterialeMagazzino[];
 }) {
   const [nuovo, setNuovo] = useState(false);
   const [nuovaNota, setNuovaNota] = useState(false);
@@ -248,7 +252,15 @@ export function CalendarioBoard({
 
       <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
-          {modifica && <FormModificaAppuntamento appuntamento={modifica} persone={persone} ticket={ticket} onFatto={() => setModifica(null)} />}
+          {modifica && (
+            <FormModificaAppuntamento
+              appuntamento={modifica}
+              persone={persone}
+              ticket={ticket}
+              catalogoMateriali={catalogoMateriali}
+              onFatto={() => setModifica(null)}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
@@ -740,16 +752,23 @@ function FormModificaAppuntamento({
   appuntamento,
   persone,
   ticket,
+  catalogoMateriali,
   onFatto,
 }: {
   appuntamento: Appuntamento;
   persone: Persona[];
   ticket: TicketMinimo[];
+  catalogoMateriali: MaterialeMagazzino[];
   onFatto: () => void;
 }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  // ★ NUOVA — richiesta esplicita: la Scheda di Installazione/Lavorazione
+  // era apribile solo da Vista Tecnico (dal tecnico assegnato, il giorno
+  // stesso) — ora anche da qui, per un admin/commerciale che vuole
+  // controllare o compilare la scheda senza aspettare.
+  const [mostraSchedaForm, setMostraSchedaForm] = useState(false);
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
@@ -785,12 +804,62 @@ function FormModificaAppuntamento({
     onFatto();
   }
 
+  if (mostraSchedaForm) {
+    const onSchedaSalvata = () => {
+      setMostraSchedaForm(false);
+      router.refresh();
+      onFatto();
+    };
+    return (
+      <>
+        <SheetHeader>
+          <SheetTitle>Scheda di lavoro — {appuntamento.titolo}</SheetTitle>
+          <SheetDescription>
+            {appuntamento.tipo_servizio === "Nuova installazione" ? "Certificato di installazione." : "Rapporto intervento in loco."}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-4 px-4 pb-4">
+          {appuntamento.tipo_servizio === "Nuova installazione" ? (
+            <SchedaInstallazioneForm
+              appuntamentoId={appuntamento.id}
+              catalogoMateriali={catalogoMateriali}
+              onAnnulla={() => setMostraSchedaForm(false)}
+              onSalvato={onSchedaSalvata}
+            />
+          ) : (
+            <SchedaLavorazioneForm
+              appuntamentoId={appuntamento.id}
+              catalogoMateriali={catalogoMateriali}
+              onAnnulla={() => setMostraSchedaForm(false)}
+              onSalvato={onSchedaSalvata}
+            />
+          )}
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <SheetHeader>
         <SheetTitle>Modifica Appuntamento</SheetTitle>
         <SheetDescription>Cambia data, ora, tecnico o dettagli.</SheetDescription>
       </SheetHeader>
+      {/* ★ NUOVA — richiesta esplicita: la Scheda di Installazione/
+       * Lavorazione era apribile solo da Vista Tecnico (dal tecnico
+       * assegnato, il giorno stesso dell'appuntamento) — ora anche da qui,
+       * per chi pianifica/controlla senza aspettare o senza essere il
+       * tecnico assegnato. Solo per appuntamenti ancora "Programmato": un
+       * appuntamento già Completato ha la sua scheda visibile dal Ticket
+       * collegato (SchedaVista), non la si riapre in scrittura da qui. */}
+      {appuntamento.stato === "Programmato" && (
+        <div className="px-4">
+          <Button type="button" variant="outline" size="sm" onClick={() => setMostraSchedaForm(true)}>
+            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Apri scheda di lavoro
+          </Button>
+        </div>
+      )}
       {/* ★ NUOVO — richiesta esplicita: telefono cliccabile per chiamare
        * subito, indirizzo cliccabile che apre Google Maps direttamente —
        * prima l'indirizzo era solo un campo di testo modificabile, senza
