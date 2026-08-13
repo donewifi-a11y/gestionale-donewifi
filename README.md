@@ -1387,12 +1387,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   selettore "materiali visibili in scheda" (Materiali), l'unico punto rimasto senza spiegazione
   inline. Ogni azione scrivibile del gestionale ha ora lo stesso pattern: `useTransition()`
   indipendente per azione, spinner `Loader2`, toast di conferma anche sul successo.
-✅ **Verifica cron "promemoria-approvazione-contratto"** (2026-08-13): nessuna evidenza nei dati
-  reali che sia mai stato eseguito (`ultimo_promemoria_approvazione_il` mai valorizzato su nessuna
-  Segnalazione) — ma al momento del controllo non esisteva nemmeno alcuna pratica con contratto
-  inviato da più di 72h e non approvato, quindi l'assenza di evidenza non prova che il cron sia
-  inattivo: il caso non si è ancora mai presentato da quando la funzione esiste. Verifica non
-  conclusiva — da confermare direttamente su cron-job.org.
+✅ **Cron "promemoria-approvazione-contratto" configurato e verificato** (2026-08-13): un primo
+  controllo sui dati reali era risultato non conclusivo (nessuna pratica aveva ancora mai raggiunto
+  la soglia dei 72h per far scattare il sollecito). Job creato su cron-job.org
+  (`https://gestione.donewifi.it/api/cron/promemoria-approvazione-contratto`, header
+  `Authorization: Bearer $CRON_SECRET`, stesso schema di `controlla-risposte-email`), programmato
+  una volta al giorno alle 9:00. "Execute now" confermato: `200 OK`,
+  `{"ok":true,"sollecitate":0}` — la rotta risponde correttamente, resta da vedere il primo
+  sollecito reale la prima volta che una pratica supererà le 72h di attesa.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
