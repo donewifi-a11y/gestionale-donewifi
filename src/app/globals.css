@@ -52,13 +52,19 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  /* ★ ombre a più livelli (ambient + contatto) invece di un'unica ombra
-     piatta — ridefiniscono shadow-xs/sm/md/lg di Tailwind ovunque siano
-     già usate, senza dover toccare ogni componente. */
-  --shadow-xs: 0 1px 2px rgba(16,24,40,.05);
-  --shadow-sm: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
-  --shadow-md: 0 8px 20px -6px rgba(16,24,40,.18), 0 2px 6px -2px rgba(16,24,40,.10);
-  --shadow-lg: 0 24px 48px -16px rgba(16,24,40,.30), 0 6px 16px -6px rgba(16,24,40,.14);
+  /* ★ RAFFINATO (2026-08) — ombre a più livelli (ambient + contatto)
+     invece di un'unica ombra piatta, ridefiniscono shadow-xs/sm/md/lg di
+     Tailwind ovunque siano già usate, senza dover toccare ogni
+     componente. Tinta ritoccata da un grigio-blu neutro (rgba(16,24,40))
+     a un bruno caldo coerente con la deriva di tinta 30° già scelta per
+     i neutri di sfondo/bordo — un'ombra "sente" la superficie su cui
+     cade: se il resto della pagina ha una tinta calda, un'ombra
+     grigio-blu è quella che tradisce per prima un tema assemblato
+     invece che disegnato. */
+  --shadow-xs: 0 1px 2px rgba(35,18,12,.05);
+  --shadow-sm: 0 1px 3px rgba(35,18,12,.08), 0 1px 2px rgba(35,18,12,.04);
+  --shadow-md: 0 10px 24px -10px rgba(35,18,12,.20), 0 2px 6px -2px rgba(35,18,12,.10);
+  --shadow-lg: 0 24px 48px -16px rgba(35,18,12,.32), 0 6px 16px -6px rgba(35,18,12,.15);
 }
 
 :root {
@@ -106,8 +112,11 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* ★ angoli più morbidi, coerenti con lo stile "Ricco/Arrotondato" già scelto */
-  --radius: 0.85rem;
+  /* ★ RAFFINATO (2026-08) — leggermente più stretto di prima (era
+     0.85rem): resta nello stile "Ricco/Arrotondato" già scelto, ma un
+     filo più preciso invece che morbido, più "prodotto disegnato" che
+     "template". */
+  --radius: 0.75rem;
   /* ★ sidebar quasi-nera (stesso nero del wordmark del logo, non più
      blu-notte) anche in tema chiaro: dà identità visiva immediata invece
      di una barra grigia come qualsiasi altro pannello. */
@@ -193,7 +202,15 @@
     @apply font-sans overflow-x-hidden;
     overflow-y: visible;
   }
+  /* ★ RAFFINATO (2026-08) — spaziatura leggermente più stretta di default
+     su tutti i titoli (non solo dove già presente `tracking-tight` per
+     classe): dà un tono più deciso ai numeri di Ticket/Segnalazione e ai
+     titoli pagina, coerente ovunque invece che solo dove qualcuno se
+     n'era ricordato. Le classi `tracking-*` già presenti nei componenti
+     restano valide e vincono comunque (stessa specificità, dichiarate
+     dopo in cascata via @layer utilities). */
   h1, h2, h3, h4 {
     @apply font-heading;
+    letter-spacing: -0.01em;
   }
 }

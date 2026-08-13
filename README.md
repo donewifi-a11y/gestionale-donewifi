@@ -1547,6 +1547,26 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   antenna-crea/prenota/installa/elimina riuscito, vincoli su stato e unicità MAC testati e
   funzionanti.
 
+✅ **Audit di sicurezza/bug + rifinitura stile "Raffinato"** (2026-08-13): richiesta esplicita di
+  una verifica accurata di tutto il gestionale, poi proposte di stile con artifact (3 direzioni:
+  Raffinato/Editoriale/Console tecnica) — scelto **Raffinato** (evoluzione dello stile attuale,
+  non uno stravolgimento).
+  - **Bug trovati e corretti** (2): `cercaClientiPerPreventivo()` (`preventivi/actions.ts`) e
+    `cercaTicketPerAntenna()` (`materiali/actions.ts`) passavano il testo di ricerca senza
+    escaping dentro un filtro `.or()` di PostgREST — una virgola o parentesi nel testo digitato
+    rompeva silenziosamente la ricerca. Stesso fix già esistente altrove (`ricerca/actions.ts`,
+    `tickets/actions.ts`) applicato anche qui.
+  - **Punto d'attenzione segnalato, non corretto** (rischio giudicato trascurabile): lo scarico
+    automatico della giacenza Materiali (`scaricaGiacenzaMateriali()`) legge e scrive in due passi
+    separati, non atomici — un doppio salvataggio nello stesso istante esatto sullo stesso
+    materiale potrebbe in teoria perdere un decremento.
+  - **Stile "Raffinato"** (`src/app/globals.css`): raggio angoli leggermente più stretto (`0.85rem`
+    → `0.75rem`), ombre a più livelli ritinteggiate da un grigio-blu neutro a un bruno caldo
+    coerente con la deriva di tinta 30° già scelta per sfondo/bordo, spaziatura lettere (`-0.01em`)
+    aggiunta di default a tutti i titoli `h1`-`h4` (prima presente solo dove un componente
+    dichiarava esplicitamente `tracking-tight`). Nessun componente riscritto: solo i token in
+    `globals.css`, coerente ovunque nel gestionale senza toccare pagina per pagina.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
