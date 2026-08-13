@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, PhoneCall, ChevronDown, RotateCcw, FileText, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, Ticket as TicketIcon, PhoneCall, ChevronDown, RotateCcw, FileText, AlertTriangle, Loader2, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { riapriTicket } from "@/app/(app)/archivio/actions";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
@@ -70,11 +71,7 @@ export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; se
         )}
       </div>
 
-      {filtrate.length === 0 && (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          Nessun risultato.
-        </div>
-      )}
+      {filtrate.length === 0 && <StatoVuoto icona={Archive} titolo="Nessun risultato con questi filtri." />}
 
       <div className="flex flex-col gap-2">
         {filtrate.map((v) => {

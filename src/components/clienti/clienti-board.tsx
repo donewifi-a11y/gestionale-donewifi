@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { salvaDatiContrattualiCliente } from "@/app/(app)/clienti/actions";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
@@ -152,11 +153,7 @@ export function ClientiBoard({
         />
       </div>
 
-      {filtrati.length === 0 && (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          Nessun cliente trovato.
-        </div>
-      )}
+      {filtrati.length === 0 && <StatoVuoto icona={Users2} titolo="Nessun cliente trovato." />}
 
       <div className="flex flex-col gap-2">
         {filtrati.map((c) => {

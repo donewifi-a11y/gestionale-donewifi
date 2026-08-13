@@ -1439,6 +1439,28 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   presenti, inserimento/cancellazione di prova riusciti, e il vincolo "un riferimento solo" blocca
   correttamente un tentativo con appuntamento e ticket impostati insieme.
 
+✅ **Audit UI/UX — 4 lacune reali risolte** (2026-08-13): richiesta esplicita di rivedere l'intera
+  interfaccia "a prova di scemo ma smart e bella" — invece di proposte generiche, un controllo nel
+  codice ha trovato 4 gap concreti mai affrontati nei giri precedenti (quelli avevano coperto
+  interazione e affidabilità, non i momenti "vuoti"):
+  - **Stati di caricamento**: solo la Dashboard aveva `loading.tsx` — le altre pagine restavano
+    ferme senza segnale durante il fetch server-side. Aggiunti skeleton dedicati a Ticket,
+    Segnalazioni, Calendario, Preventivi, Materiali, Clienti, Persone, Archivio, Vista Tecnico,
+    Richieste Clienti (`src/components/ui/page-skeletons.tsx`, due mattoncini condivisi:
+    intestazione + bacheca a colonne o lista).
+  - **"Nessun risultato"**: 18 punti nel codice mostravano solo testo grigio, senza icona né un
+    passo successivo proposto. Nuovo componente `StatoVuoto` (icona + testo + azione facoltativa),
+    applicato dove aveva senso un'azione (Preventivi: "+ Nuovo Preventivo") e dove no, solo
+    l'icona (filtri senza risultati, viste vuote — un archivio vuoto non ha un'azione da proporre).
+  - **Ricerca globale senza scorciatoia**: esisteva già e funzionava, ma andava trovata col mouse.
+    Aggiunta `⌘K`/`Ctrl K` (listener globale che porta il focus sull'input esistente, badge
+    visibile per scoprirla) — pattern standard di ogni strumento "smart".
+  - **Cambi tab/vista bruschi**: passare da Dettagli a Documenti su un Ticket (o tra i passi di una
+    Scheda) sostituiva il contenuto di colpo. Dissolvenza breve (~200ms,
+    `motion-safe:animate-in fade-in-0`) su Ticket, Segnalazioni e wizard Scheda — rispetta
+    "riduci le animazioni" del sistema operativo.
+  Nessuna di queste modifiche tocca dati o logica di business — solo interfaccia.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { formattaValuta } from "@/lib/types";
@@ -99,7 +100,7 @@ export function PreventiviBoard({
       </div>
 
       {filtrati.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Nessun preventivo.</div>
+        <StatoVuoto icona={FileText} titolo="Nessun preventivo qui." azione={{ testo: "+ Nuovo Preventivo", href: "/preventivi/nuovo" }} />
       ) : (
         <div className="flex flex-col gap-2">
           {filtrati.map((p) => (

@@ -13,6 +13,7 @@ export function RicercaGlobale() {
   const [caricamento, setCaricamento] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contenitoreRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onClickFuori(e: MouseEvent) {
@@ -20,6 +21,25 @@ export function RicercaGlobale() {
     }
     document.addEventListener("mousedown", onClickFuori);
     return () => document.removeEventListener("mousedown", onClickFuori);
+  }, []);
+
+  // ★ NUOVA — richiesta esplicita: la ricerca globale esisteva già e
+  // funzionava, ma andava trovata col mouse ogni volta — nessuna
+  // scorciatoia da tastiera come in qualunque strumento "smart"
+  // (Linear/Notion/GitHub usano tutti ⌘K/Ctrl K). Un solo listener
+  // globale: porta il focus sull'input esistente, senza aprire un
+  // pannello/modale separato da mantenere in più.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        setAperta(true);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   function onChange(valore: string) {
@@ -52,12 +72,18 @@ export function RicercaGlobale() {
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/40" strokeWidth={2.5} />
         <input
+          ref={inputRef}
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setAperta(true)}
           placeholder="Cerca ticket, segnalazione o cliente..."
-          className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-3 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-sidebar-primary"
+          className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-9 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-sidebar-primary"
         />
+        {!query && (
+          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-sidebar-border bg-sidebar-accent/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-sidebar-foreground/50">
+            ⌘K
+          </kbd>
+        )}
       </div>
 
       {aperta && query.trim().length >= 2 && (

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import {
   Sheet,
@@ -484,11 +485,7 @@ function VistaGiorno({
   const eventiGiorno = eventiGoogle.filter((e) => chiaveGiornoEvento(e) === chiave);
 
   if (appuntamentiGiorno.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-        Nessun appuntamento o promemoria per questo giorno.
-      </div>
-    );
+    return <StatoVuoto icona={CalendarClock} titolo="Nessun appuntamento o promemoria per questo giorno." />;
   }
 
   return (

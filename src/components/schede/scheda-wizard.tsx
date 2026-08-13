@@ -122,7 +122,13 @@ export function SchedaWizard({
         Passo {indice + 1} di {passi.length} — {passo.titolo}
       </p>
 
-      <div className="flex flex-col gap-4">{passo.contenuto}</div>
+      {/* ★ NUOVA — dissolvenza breve al cambio passo invece di uno scatto
+       * istantaneo: `key={indice}` forza React a rimontare il contenuto,
+       * che riparte da animate-in ogni volta. motion-safe: rispetta chi ha
+       * "riduci le animazioni" attivo nel sistema. */}
+      <div key={indice} className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
+        {passo.contenuto}
+      </div>
 
       {(erroreLocale || erroreInvio) && (
         <p className="mt-4 flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

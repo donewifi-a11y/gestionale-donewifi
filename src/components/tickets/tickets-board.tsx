@@ -641,7 +641,7 @@ function DettaglioTicket({
         </div>
 
         {tab === "dettagli" && (
-        <>
+        <div key="dettagli" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
         {ticket.stato === "Annullato" ? (
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (
@@ -761,7 +761,7 @@ function DettaglioTicket({
           persone={persone}
           tipoServizioIniziale={ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
         />
-        </>
+        </div>
         )}
 
         {/* ★ NUOVA — richiesta esplicita: contratto, scheda/rapportino
@@ -770,7 +770,7 @@ function DettaglioTicket({
         (o del tutto assenti, per i moduli) — ora tutti insieme qui, un
         solo posto per "tutta la carta" del Ticket. */}
         {tab === "documenti" && (
-        <>
+        <div key="documenti" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
         {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
         {ticket.stato === "Completato" && !scheda && rapportino && (
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
@@ -889,11 +889,11 @@ function DettaglioTicket({
             </div>
           )}
         </div>
-        </>
+        </div>
         )}
 
         {tab === "note" && (
-        <div>
+        <div key="note" className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <NotebookText className="h-3.5 w-3.5" strokeWidth={2.25} />
             Note e aggiornamenti

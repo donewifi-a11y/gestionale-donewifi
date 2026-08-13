@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Phone, MapPin, RefreshCw, AlertTriangle, FileText, ChevronRight, Users2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { sincronizzaAnagraficaAruba, sincronizzaFattureAruba, type ClienteInsoluto } from "@/app/(app)/clienti-esterni/actions";
 import type { ClienteEsterno } from "@/lib/types";
 
@@ -141,9 +142,7 @@ export function ClientiEsterniBoard({
       )}
 
       {clienti.length === 0 && (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          {isAdmin ? 'Nessun dato ancora — premi "Sincronizza anagrafica".' : "Nessun dato ancora."}
-        </div>
+        <StatoVuoto icona={Users2} titolo={isAdmin ? 'Nessun dato ancora — premi "Sincronizza anagrafica".' : "Nessun dato ancora."} />
       )}
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">

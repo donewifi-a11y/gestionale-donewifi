@@ -785,7 +785,7 @@ function DettaglioSegnalazione({
             </div>
 
             {tab === "anagrafica" && (
-              <div className="flex flex-col gap-2">
+              <div key="anagrafica" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
                 {gruppiTabAnagrafica.map((gruppo) => (
                   <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
                     <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
@@ -821,7 +821,7 @@ function DettaglioSegnalazione({
             )}
 
             {tab === "indirizzo" && (
-              <div className="flex flex-col gap-2">
+              <div key="indirizzo" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
                 {indirizzoInstallazione && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
                     <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
@@ -856,7 +856,7 @@ function DettaglioSegnalazione({
             )}
 
             {tab === "piano" && (
-              <div className="flex flex-col gap-2">
+              <div key="piano" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
                 {gruppiTabPiano.map((gruppo) => (
                   <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
                     <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
@@ -876,7 +876,7 @@ function DettaglioSegnalazione({
             )}
 
             {tab === "documenti" && (
-              <div className="rounded-lg border bg-card p-2.5">
+              <div key="documenti" className="rounded-lg border bg-card p-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
                 <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
                   Tipo Documento: {campiRicevuti.tipoDocumento ? (TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento) : "—"}
                 </p>

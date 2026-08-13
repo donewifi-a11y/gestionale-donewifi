@@ -20,6 +20,7 @@ import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-fo
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { useToast } from "@/components/ui/toast";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import type { Appuntamento, MaterialeMagazzino, Persona, StatoTicket, Ticket } from "@/lib/types";
 
 // ★ NUOVO — il tecnico può aprire da solo un Ticket per un "Nuovo
@@ -388,11 +389,7 @@ export function VistaTecnicoBoard({
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Appuntamenti di oggi ({appuntamenti.length})
         </h2>
-        {appuntamenti.length === 0 && (
-          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Nessun appuntamento in programma.
-          </div>
-        )}
+        {appuntamenti.length === 0 && <StatoVuoto icona={CheckCircle2} titolo="Nessun appuntamento in programma." compatto />}
         <div className="flex flex-col gap-3">
           {appuntamenti.map((a) => (
             <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-md">
@@ -432,11 +429,7 @@ export function VistaTecnicoBoard({
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           I miei Ticket aperti ({tickets.length})
         </h2>
-        {tickets.length === 0 && (
-          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Nessun ticket assegnato.
-          </div>
-        )}
+        {tickets.length === 0 && <StatoVuoto icona={CheckCircle2} titolo="Nessun ticket assegnato." compatto />}
         <div className="flex flex-col gap-3">
           {tickets.map((t) => {
             const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
