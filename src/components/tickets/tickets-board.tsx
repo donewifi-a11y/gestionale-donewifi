@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2 } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -442,10 +443,17 @@ function DettaglioTicket({
   // passato a questo componente per altri usi (assegnatario), niente da
   // aggiungere per saperlo.
   const isAdmin = !!persone.find((p) => p.id === currentPersonaId)?.amministratore;
-  const [inCorso, setInCorso] = useState(false);
+  // ★ NUOVA — stesso principio già applicato a segnalazioni-board.tsx: una
+  // useTransition() indipendente per ogni azione invece di un unico
+  // booleano "inCorso" condiviso, così cambiare stato non accende anche lo
+  // spinner di "Elimina" (o viceversa) — spinner Loader2 + toast di
+  // conferma anche sul successo, non solo sull'errore.
+  const [inCorsoStato, startStato] = useTransition();
+  const [inCorsoAssegna, startAssegna] = useTransition();
+  const [inCorsoElimina, startElimina] = useTransition();
+  const [inCorsoNota, startNota] = useTransition();
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
-  const [invioNota, setInvioNota] = useState(false);
   const [erroreNota, setErroreNota] = useState("");
   // ★ se la sottocategoria del Ticket corrisponde a una delle 5 pratiche
   // pubbliche (vedi PRATICA_PER_SOTTOCATEGORIA), il pannello "Invia una
@@ -453,8 +461,8 @@ function DettaglioTicket({
   // sistemi (campi extra interni / pratiche pubbliche) erano scollegati,
   // lo staff doveva sapere a memoria quale pratica corrispondesse.
   const [praticaScelta, setPraticaScelta] = useState<string>(() => PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] ?? "");
-  const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
-  const [inCorsoReparto, setInCorsoReparto] = useState(false);
+  const [inCorsoApprovazione, startApprovazione] = useTransition();
+  const [inCorsoReparto, startReparto] = useTransition();
   const [esitoApprovazione, setEsitoApprovazione] = useState("");
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
@@ -513,38 +521,41 @@ function DettaglioTicket({
   const primoNomeCliente = ticket.cliente.trim().split(/\s+/)[0];
   const messaggioPratica = `Ciao ${primoNomeCliente}, per la tua pratica Done Wifi apri questo link: ${linkPratica}`;
 
-  async function inviaApprovazione() {
-    setInCorsoApprovazione(true);
+  function inviaApprovazione() {
     setEsitoApprovazione("");
-    const risultato = await inviaEmailApprovazioneTicket(ticket.id, window.location.origin);
-    setInCorsoApprovazione(false);
-    setEsitoApprovazione(risultato.errore ? risultato.errore : "Email di approvazione inviata.");
+    startApprovazione(async () => {
+      const risultato = await inviaEmailApprovazioneTicket(ticket.id, window.location.origin);
+      setEsitoApprovazione(risultato.errore ? risultato.errore : "Email di approvazione inviata.");
+      toast(risultato.errore || "Email di approvazione inviata al cliente.", risultato.errore ? "errore" : "successo");
+    });
   }
 
-  async function cambiaReparto(nuovo: (typeof REPARTI)[number]) {
+  function cambiaReparto(nuovo: (typeof REPARTI)[number]) {
     if (nuovo === ticket.reparto) return;
-    setInCorsoReparto(true);
-    const risultato = await cambiaRepartoTicket(ticket.id, nuovo, ticket.reparto);
-    setInCorsoReparto(false);
-    if (risultato.errore) {
-      toast(risultato.errore);
-      return;
-    }
-    onCambiato({ ...ticket, reparto: nuovo });
-    router.refresh();
+    startReparto(async () => {
+      const risultato = await cambiaRepartoTicket(ticket.id, nuovo, ticket.reparto);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      onCambiato({ ...ticket, reparto: nuovo });
+      toast(`Reparto cambiato in "${nuovo}".`, "successo");
+      router.refresh();
+    });
   }
 
-  async function elimina() {
+  function elimina() {
     if (!confirm(`Eliminare definitivamente il Ticket #${ticket.numero} — ${ticket.cliente}? L'operazione non è reversibile.`)) return;
-    setInCorso(true);
-    const risultato = await eliminaTicket(ticket.id);
-    setInCorso(false);
-    if (risultato.errore) {
-      toast(risultato.errore);
-      return;
-    }
-    onEliminato();
-    router.refresh();
+    startElimina(async () => {
+      const risultato = await eliminaTicket(ticket.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Ticket eliminato.", "successo");
+      onEliminato();
+      router.refresh();
+    });
   }
 
   useEffect(() => {
@@ -555,22 +566,23 @@ function DettaglioTicket({
     return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
-  async function inviaNota() {
+  function inviaNota() {
     const testo = notaTesto.trim();
     if (!testo) return;
-    setInvioNota(true);
     setErroreNota("");
-    const risultato = await aggiungiNotaTicket(ticket.id, testo);
-    setInvioNota(false);
-    if (risultato.errore || !risultato.nota) {
-      setErroreNota(risultato.errore || "Errore imprevisto.");
-      return;
-    }
-    setNote((n) => [...n, risultato.nota]);
-    setNotaTesto("");
+    startNota(async () => {
+      const risultato = await aggiungiNotaTicket(ticket.id, testo);
+      if (risultato.errore || !risultato.nota) {
+        setErroreNota(risultato.errore || "Errore imprevisto.");
+        toast(risultato.errore || "Errore imprevisto.");
+        return;
+      }
+      setNote((n) => [...n, risultato.nota]);
+      setNotaTesto("");
+    });
   }
 
-  async function cambiaStato(nuovo: StatoTicket) {
+  function cambiaStato(nuovo: StatoTicket) {
     if (nuovo === ticket.stato) return;
     // ★ passare a Completato richiede il rapportino di chiusura invece di
     // un semplice confirm() — vedi form sotto.
@@ -578,25 +590,21 @@ function DettaglioTicket({
       setMostraRapportinoForm(true);
       return;
     }
-    setInCorso(true);
-    try {
+    startStato(async () => {
       await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
       onCambiato({ ...ticket, stato: nuovo });
+      toast(`Passato a "${nuovo}".`, "successo");
       router.refresh();
-    } finally {
-      setInCorso(false);
-    }
+    });
   }
 
-  async function prendiInCarico() {
-    setInCorso(true);
-    try {
+  function prendiInCarico() {
+    startAssegna(async () => {
       await assegnaTicket(ticket.id, currentPersonaId);
       onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId });
+      toast("Ticket preso in carico.", "successo");
       router.refresh();
-    } finally {
-      setInCorso(false);
-    }
+    });
   }
 
   const idx = SEQUENZA_STATO.indexOf(ticket.stato);
@@ -641,9 +649,9 @@ function DettaglioTicket({
             {SEQUENZA_STATO.map((s, i) => (
               <button
                 key={s}
-                disabled={inCorso}
+                disabled={inCorsoStato}
                 onClick={() => cambiaStato(s)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-60 ${
                   i === idx
                     ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
                     : i < idx
@@ -710,20 +718,23 @@ function DettaglioTicket({
               <span className="font-medium">{assegnatario.nome}</span>
             </div>
           ) : (
-            <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorso} className="mt-1.5">
-              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
-              Prendi in carico
+            <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorsoAssegna} className="mt-1.5 min-h-11">
+              {inCorsoAssegna ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />}
+              {inCorsoAssegna ? "Assegnazione…" : "Prendi in carico"}
             </Button>
           )}
         </div>
 
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Reparto</div>
+          <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Reparto
+            <SuggerimentoCampo testo="Il reparto responsabile di questo Ticket — cambialo se la pratica va gestita da un altro reparto (es. da Commerciale ad Analisi Rete per l'installazione)." />
+          </div>
           <select
             value={ticket.reparto}
             disabled={inCorsoReparto}
             onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
-            className="mt-1 h-8 rounded-md border bg-background px-2 text-xs font-medium"
+            className="mt-1 h-9 rounded-md border bg-background px-2 text-xs font-medium disabled:opacity-60"
           >
             {REPARTI.map((r) => (
               <option key={r} value={r}>{r}</option>
@@ -866,11 +877,13 @@ function DettaglioTicket({
 
           {ticket.email && (
             <div className="mt-3 border-t pt-3">
-              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 Intervento risolto da remoto?
+                <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
               </p>
-              <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione}>
-                {inCorsoApprovazione ? "Invio..." : "Invia email di approvazione"}
+              <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
+                {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
+                {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
               </Button>
               {esitoApprovazione && <p className="mt-1.5 text-xs text-muted-foreground">{esitoApprovazione}</p>}
             </div>
@@ -915,8 +928,8 @@ function DettaglioTicket({
               placeholder="Scrivi un aggiornamento su questo ticket..."
               className="h-9 flex-1 rounded-md border bg-background px-3 text-xs"
             />
-            <Button size="icon" disabled={invioNota || !notaTesto.trim()} onClick={inviaNota}>
-              <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Button size="icon" className="h-11 w-11 shrink-0" disabled={inCorsoNota || !notaTesto.trim()} onClick={inviaNota}>
+              {inCorsoNota ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.5} />}
             </Button>
           </div>
           {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
@@ -927,11 +940,11 @@ function DettaglioTicket({
           <button
             type="button"
             onClick={elimina}
-            disabled={inCorso}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-critical/30 px-3 py-2 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+            disabled={inCorsoElimina}
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
           >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Elimina Ticket
+            {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoElimina ? "Eliminazione in corso…" : "Elimina Ticket"}
           </button>
         )}
       </div>
@@ -1026,9 +1039,10 @@ export function PianificaAppuntamento({
   tecnicoIniziale?: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [aperto, setAperto] = useState(apertaSubito);
   const [slot, setSlot] = useState<SlotOccupato[]>([]);
-  const [inCorso, setInCorso] = useState(false);
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [fatto, setFatto] = useState(false);
 
@@ -1036,7 +1050,7 @@ export function PianificaAppuntamento({
     if (aperto) getSlotOccupatiProssimi().then(setSlot);
   }, [aperto]);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
@@ -1044,21 +1058,25 @@ export function PianificaAppuntamento({
     const ora = String(dati.get("ora") || "");
     if (!data || !ora) return setErrore("Imposta data e ora.");
 
-    setInCorso(true);
-    const risultato = await creaAppuntamento({
-      titolo: `${ticket.categoria}${ticket.sottocategoria ? ` — ${ticket.sottocategoria}` : ""} · ${ticket.cliente}`,
-      indirizzo: ticket.indirizzo || "",
-      dataOra: new Date(`${data}T${ora}`).toISOString(),
-      durataMinuti: Number(dati.get("durata") || 60),
-      tecnicoId: String(dati.get("tecnico") || ""),
-      ticketId: ticket.id,
-      note: "",
-      tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+    startTransizione(async () => {
+      const risultato = await creaAppuntamento({
+        titolo: `${ticket.categoria}${ticket.sottocategoria ? ` — ${ticket.sottocategoria}` : ""} · ${ticket.cliente}`,
+        indirizzo: ticket.indirizzo || "",
+        dataOra: new Date(`${data}T${ora}`).toISOString(),
+        durataMinuti: Number(dati.get("durata") || 60),
+        tecnicoId: String(dati.get("tecnico") || ""),
+        ticketId: ticket.id,
+        note: "",
+        tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      setFatto(true);
+      toast("Appuntamento fissato.", "successo");
+      router.refresh();
     });
-    setInCorso(false);
-    if (risultato.errore) return setErrore(risultato.errore);
-    setFatto(true);
-    router.refresh();
   }
 
   if (!aperto) {
@@ -1136,8 +1154,9 @@ export function PianificaAppuntamento({
         </select>
         {errore && <p className="text-xs text-critical">{errore}</p>}
         <div className="flex gap-2">
-          <Button type="submit" size="sm" disabled={inCorso} className="flex-1">
-            {inCorso ? "Fisso..." : "Assegna e fissa"}
+          <Button type="submit" size="sm" disabled={inCorso} className="min-h-11 flex-1">
+            {inCorso && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
+            {inCorso ? "Fisso in corso…" : "Assegna e fissa"}
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => setAperto(false)}>
             Annulla

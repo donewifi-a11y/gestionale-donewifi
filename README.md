@@ -1361,6 +1361,19 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   (`#CF000A`/`#A30008`, con coppia `#E8555F`/`#c94750` per il tema scuro — stesso rosso già usato
   come `--primary` scuro in `globals.css`, non un semplice inverti-colore).
 
+✅ **Dettaglio Ticket — stesso trattamento "Extreme Makeover"** (2026-08-13): secondo pezzo dello
+  sprint, esteso dal Dettaglio Segnalazione al Dettaglio Ticket. Ogni azione (cambio stato, prendi
+  in carico, cambio reparto, invio nota, invio email di approvazione, elimina, pianifica
+  appuntamento) ha ora la propria `useTransition()` indipendente con spinner `Loader2` e un toast
+  di conferma anche sul successo — prima "Prendi in carico"/"Elimina"/"Cambio stato" condividevano
+  un unico booleano `inCorso`, per cui azioni indipendenti potevano accendersi a vicenda per
+  errore. Estratto un componente condiviso `SuggerimentoCampo`
+  (`src/components/ui/suggerimento-campo.tsx`, dall'omonimo helper locale già scritto per
+  Segnalazioni) per due tooltip contestuali nuovi: "Reparto" (cosa succede a cambiarlo) e
+  "Intervento risolto da remoto?" (cosa fa il link di approvazione via email). Bottoni critici
+  ("Prendi in carico", "Elimina Ticket", invio nota, invio approvazione, "Assegna e fissa"
+  appuntamento) portati a tocco più ampio (`min-h-11`).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

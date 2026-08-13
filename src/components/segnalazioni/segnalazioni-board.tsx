@@ -23,7 +23,6 @@ import {
   Send,
   Info,
   Loader2,
-  HelpCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +35,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -101,27 +101,6 @@ function formattaValoreCampo(chiave: string, valore: string) {
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
-}
-
-// ★ NUOVA — icona "?" piccola accanto a un'etichetta poco ovvia: al passaggio
-// del mouse (o al tocco, su tablet) spiega in una riga cosa significa il
-// campo o cosa succederà cliccando, senza dover allungare il testo fisso
-// dell'interfaccia per tutti anche quando è già chiaro dal contesto.
-function SuggerimentoCampo({ testo }: { testo: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition hover:text-primary"
-          aria-label="Aiuto"
-        >
-          <HelpCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>{testo}</TooltipContent>
-    </Tooltip>
-  );
 }
 
 export function SegnalazioniBoard({
