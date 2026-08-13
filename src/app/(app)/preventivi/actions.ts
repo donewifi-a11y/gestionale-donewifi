@@ -218,16 +218,24 @@ export async function cercaClientiPerPreventivo(query: string): Promise<Risultat
   if (testo.length < 2) return [];
   const supabase = await createClient();
 
+  // ★ FIX — stesso bug già corretto in ricerca/actions.ts e
+  // tickets/actions.ts (cercaClientiSimili): virgole/parentesi hanno
+  // significato speciale nella sintassi filtro di PostgREST — un cliente
+  // con una virgola nel nome (o chiunque digiti per errore "Mario, Rossi")
+  // rompeva silenziosamente il filtro `.or()` invece di essere trovato.
+  const testoSicuro = testo.replace(/[,()]/g, " ").trim();
+  if (testoSicuro.length < 2) return [];
+
   const [segnalazioni, clientiEsterni] = await Promise.all([
     supabase
       .from("segnalazioni")
       .select("id, nome, telefono, email, tipologia_cliente")
-      .or(`nome.ilike.%${testo}%,telefono.ilike.%${testo}%`)
+      .or(`nome.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%`)
       .limit(8),
     supabase
       .from("clienti_esterni")
       .select("id, nome, cognome, ragionesociale, telefono, email")
-      .or(`nome.ilike.%${testo}%,cognome.ilike.%${testo}%,ragionesociale.ilike.%${testo}%,telefono.ilike.%${testo}%`)
+      .or(`nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%`)
       .limit(8),
   ]);
 

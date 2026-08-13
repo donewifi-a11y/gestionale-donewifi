@@ -212,10 +212,20 @@ export async function cercaTicketPerAntenna(query: string) {
   const testo = query.trim();
   if (testo.length < 2) return [];
 
+  // ★ FIX — stesso bug già corretto altrove (ricerca/actions.ts,
+  // tickets/actions.ts, cercaClientiPerPreventivo): virgole/parentesi
+  // rompono la sintassi filtro di PostgREST se finiscono senza escaping
+  // dentro `.or()`.
+  const testoSicuro = testo.replace(/[,()]/g, " ").trim();
+  if (testoSicuro.length < 2) return [];
+
   // "numero" è un intero (serial): niente ilike diretto, si prova a
   // interpretarlo come numero e in parallelo si cerca per cliente.
-  const numero = Number(testo);
-  const filtro = Number.isFinite(numero) && testo.match(/^\d+$/) ? `numero.eq.${numero},cliente.ilike.%${testo}%` : `cliente.ilike.%${testo}%`;
+  const numero = Number(testoSicuro);
+  const filtro =
+    Number.isFinite(numero) && testoSicuro.match(/^\d+$/)
+      ? `numero.eq.${numero},cliente.ilike.%${testoSicuro}%`
+      : `cliente.ilike.%${testoSicuro}%`;
 
   const { data } = await supabase
     .from("tickets")
