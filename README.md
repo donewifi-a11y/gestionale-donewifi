@@ -1513,8 +1513,10 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     occupati da `pulizia-documenti`/`promemoria-ticket`).
   - "Team" nel menu laterale non è più "solo amministratori": ora tutti vedono "Lavorazioni
     Interne" (le proprie), Persone/Stato Sistema restano riservate agli admin.
-  **Richiede l'esecuzione manuale della migrazione `0053_lavorazioni_interne.sql`** e la
-  configurazione del nuovo cron esterno prima di funzionare in produzione.
+  Migrazione `0053` eseguita e verificata in produzione: tabella interrogabile con tutte le
+  colonne, vincoli su categoria/stato testati e funzionanti, ciclo completo
+  crea/assegna-a-un-altro/completa/elimina riuscito. **Resta da configurare il terzo cron esterno**
+  su cron-job.org (`/api/cron/promemoria-lavorazioni`) prima che i promemoria partano davvero.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
