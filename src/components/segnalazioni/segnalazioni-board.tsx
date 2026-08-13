@@ -1,8 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Copy, Check, Rocket, Clock, Search, MessageCircle, Mail, FileText, Upload, AlertTriangle, MapPin, PhoneCall, ArrowRight, Trash2, Send, Info } from "lucide-react";
+import {
+  UserRound,
+  X,
+  Copy,
+  Check,
+  Rocket,
+  Clock,
+  Search,
+  MessageCircle,
+  Mail,
+  FileText,
+  Upload,
+  AlertTriangle,
+  MapPin,
+  PhoneCall,
+  ArrowRight,
+  Trash2,
+  Send,
+  Info,
+  Loader2,
+  HelpCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,6 +35,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -78,6 +101,27 @@ function formattaValoreCampo(chiave: string, valore: string) {
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+// ★ NUOVA — icona "?" piccola accanto a un'etichetta poco ovvia: al passaggio
+// del mouse (o al tocco, su tablet) spiega in una riga cosa significa il
+// campo o cosa succederà cliccando, senza dover allungare il testo fisso
+// dell'interfaccia per tutti anche quando è già chiaro dal contesto.
+function SuggerimentoCampo({ testo }: { testo: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/70 transition hover:text-primary"
+          aria-label="Aiuto"
+        >
+          <HelpCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{testo}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function SegnalazioniBoard({
@@ -285,18 +329,53 @@ export function SegnalazioniBoard({
       <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
         <DialogContent className="sm:max-w-2xl">
           {aperta && (
-            <DettaglioSegnalazione
-              key={aperta.id}
-              segnalazione={aperta}
-              richiesta={richieste.find((r) => r.segnalazione_id === aperta.id) ?? null}
-              isAdmin={isAdmin}
-              onCambiata={(s) => setAperta(s)}
-              onChiudi={() => setAperta(null)}
-            />
+            <TooltipProvider>
+              <DettaglioSegnalazione
+                key={aperta.id}
+                segnalazione={aperta}
+                richiesta={richieste.find((r) => r.segnalazione_id === aperta.id) ?? null}
+                isAdmin={isAdmin}
+                onCambiata={(s) => setAperta(s)}
+                onChiudi={() => setAperta(null)}
+              />
+            </TooltipProvider>
           )}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ★ NUOVA — bottone di invio reale dentro un <form action={...}>: legge il
+// proprio stato "in corso" da useFormStatus() (React 19) invece di una prop
+// passata dal genitore, quindi resta sincronizzato anche se il form viene
+// inviato in modi diversi (click sul bottone, invio da tastiera, submit
+// programmatico via requestSubmit()). Usato per il caricamento del
+// contratto, l'unica interazione di questo pannello che è davvero un form
+// con un file da inviare — le altre azioni (cambio stato, trasmetti…) non
+// hanno campi propri e restano bottoni con Server Action invocata dentro
+// una transizione, vedi useTransition() più sotto.
+function EtichettaCaricamentoContratto({ giaCaricato }: { giaCaricato: boolean }) {
+  const { pending } = useFormStatus();
+  if (giaCaricato) {
+    return (
+      <span className="cursor-pointer text-xs font-semibold text-primary underline-offset-2 hover:underline">
+        {pending ? (
+          <span className="inline-flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />
+            Caricamento...
+          </span>
+        ) : (
+          "Sostituisci"
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm text-muted-foreground transition hover:border-primary hover:text-primary">
+      {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" strokeWidth={2.25} /> : <Upload className="h-4 w-4 shrink-0" strokeWidth={2.25} />}
+      {pending ? "Caricamento..." : "Carica il contratto firmato (PDF)"}
+    </span>
   );
 }
 
@@ -315,14 +394,23 @@ function DettaglioSegnalazione({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [inCorso, setInCorso] = useState(false);
+  // ★ NUOVA — una transizione per ogni azione indipendente invece di un
+  // unico booleano "inCorso" condiviso: così cliccare "Trasmetti" non
+  // accende anche lo spinner del bottone "Elimina" (o viceversa), pur
+  // restando entrambe la stessa identica meccanica React (isPending
+  // calcolato da startTransition, niente setState manuale prima/dopo).
+  const [inCorsoStato, startStato] = useTransition();
+  const [inCorsoTrasmetti, startTrasmetti] = useTransition();
+  const [inCorsoElimina, startElimina] = useTransition();
+  const [inCorsoApprovazione, startApprovazione] = useTransition();
+  const [inCorsoEmail, startEmail] = useTransition();
+
   const [copiato, setCopiato] = useState(false);
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
-  const [caricamentoContratto, setCaricamentoContratto] = useState(false);
   const [erroreContratto, setErroreContratto] = useState("");
   const [infoCaricamento, setInfoCaricamento] = useState<{ nome: string; data: string } | null>(null);
-  const [inCorsoApprovazione, setInCorsoApprovazione] = useState(false);
   const [erroreApprovazione, setErroreApprovazione] = useState("");
+  const formContrattoRef = useRef<HTMLFormElement>(null);
   // ★ FIX — il reparto del Ticket alla trasmissione era fisso nel codice
   // ("Analisi Rete"); ora è una scelta con quello stesso default, per le
   // eccezioni rare in cui l'installazione non la fa Analisi Rete.
@@ -338,7 +426,6 @@ function DettaglioSegnalazione({
       setInfoCaricamento(info ? { nome: info.nome, data: info.data } : null)
     );
   }, [contrattoUrl, segnalazione.id]);
-  const [inCorsoEmail, setInCorsoEmail] = useState(false);
   const [esitoEmail, setEsitoEmail] = useState("");
   const [tab, setTab] = useState<"anagrafica" | "indirizzo" | "documenti" | "piano">("anagrafica");
 
@@ -350,15 +437,17 @@ function DettaglioSegnalazione({
   const messaggio = `Ciao ${primoNome}, per completare la tua richiesta Done Wifi inserisci qui i tuoi dati: ${linkRichiestaDati}`;
   const telefonoIntl = "39" + segnalazione.telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
 
-  async function cambiaStato(nuovo: StatoSegnalazione) {
-    setInCorso(true);
-    try {
-      await cambiaStatoSegnalazione(segnalazione.id, nuovo, segnalazione.stato);
+  function cambiaStato(nuovo: StatoSegnalazione) {
+    startStato(async () => {
+      const risultato = await cambiaStatoSegnalazione(segnalazione.id, nuovo, segnalazione.stato);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
       onCambiata({ ...segnalazione, stato: nuovo });
+      toast(`Passata a "${nuovo}".`, "successo");
       router.refresh();
-    } finally {
-      setInCorso(false);
-    }
+    });
   }
 
   // ★ FIX — i 4 pulsanti di stato comparivano tutti insieme, cliccabili in
@@ -416,43 +505,51 @@ function DettaglioSegnalazione({
   else if (!segnalazione.contratto_approvato_cliente_il) mancanti.push("approvazione del contratto da parte del cliente");
   const puoTrasmettere = mancanti.length === 0;
 
-  async function trasmetti() {
+  function trasmetti() {
     if (!puoTrasmettere) return;
     if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
-    setInCorso(true);
-    const risultato = await trasmettiPerInstallazione(segnalazione.id, repartoTrasmissione);
-    setInCorso(false);
-    if (risultato.errore || !risultato.id) {
-      toast(risultato.errore || "Errore imprevisto.");
-      return;
-    }
-    onChiudi();
-    router.push(`/tickets?aperto=${risultato.id}`);
+    startTrasmetti(async () => {
+      const risultato = await trasmettiPerInstallazione(segnalazione.id, repartoTrasmissione);
+      if (risultato.errore || !risultato.id) {
+        toast(risultato.errore || "Errore imprevisto.");
+        return;
+      }
+      toast(`Trasmessa — Ticket #${risultato.numero} creato.`, "successo");
+      onChiudi();
+      router.push(`/tickets?aperto=${risultato.id}`);
+    });
   }
 
   // ★ NUOVA — solo un amministratore la vede (pulsante non renderizzato
   // affatto per gli altri, controllo comunque ripetuto lato server in
   // eliminaSegnalazione()): cancellazione vera, non un cambio di stato,
   // pensata per pratiche di prova o duplicate.
-  async function elimina() {
+  function elimina() {
     if (!confirm(`Eliminare definitivamente la segnalazione #${segnalazione.numero} — ${segnalazione.nome}? L'operazione non è reversibile.`)) return;
-    setInCorso(true);
-    const risultato = await eliminaSegnalazione(segnalazione.id);
-    setInCorso(false);
-    if (risultato.errore) {
-      toast(risultato.errore);
-      return;
-    }
-    onChiudi();
-    router.refresh();
+    startElimina(async () => {
+      const risultato = await eliminaSegnalazione(segnalazione.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Segnalazione eliminata.", "successo");
+      onChiudi();
+      router.refresh();
+    });
   }
 
-  async function inviaEmailServer() {
-    setInCorsoEmail(true);
+  function inviaEmailServer() {
     setEsitoEmail("");
-    const risultato = await inviaEmailRichiestaDatiSegnalazione(segnalazione.id, window.location.origin);
-    setInCorsoEmail(false);
-    setEsitoEmail(risultato.errore ? risultato.errore : "Inviata da commerciale@donewifi.it.");
+    startEmail(async () => {
+      const risultato = await inviaEmailRichiestaDatiSegnalazione(segnalazione.id, window.location.origin);
+      if (risultato.errore) {
+        setEsitoEmail(risultato.errore);
+        toast(risultato.errore);
+        return;
+      }
+      setEsitoEmail("Inviata da commerciale@donewifi.it.");
+      toast("Email inviata al cliente.", "successo");
+    });
   }
 
   function copiaLink() {
@@ -461,31 +558,33 @@ function DettaglioSegnalazione({
     setTimeout(() => setCopiato(false), 1500);
   }
 
-  async function inviaApprovazioneContratto() {
-    setInCorsoApprovazione(true);
+  function inviaApprovazioneContratto() {
     setErroreApprovazione("");
-    const risultato = await inviaEmailApprovazioneContratto(segnalazione.id, window.location.origin);
-    setInCorsoApprovazione(false);
-    if (risultato.errore) {
-      setErroreApprovazione(risultato.errore);
-      return;
-    }
-    onCambiata({ ...segnalazione, contratto_inviato_approvazione_il: new Date().toISOString() });
-    router.refresh();
+    startApprovazione(async () => {
+      const risultato = await inviaEmailApprovazioneContratto(segnalazione.id, window.location.origin);
+      if (risultato.errore) {
+        setErroreApprovazione(risultato.errore);
+        toast(risultato.errore);
+        return;
+      }
+      onCambiata({ ...segnalazione, contratto_inviato_approvazione_il: new Date().toISOString() });
+      toast("Richiesta di approvazione inviata al cliente.", "successo");
+      router.refresh();
+    });
   }
 
-  async function caricaContratto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ★ NUOVA — l'upload del contratto passa ora da un vero <form action={...}>:
+  // il campo file mantiene l'invio automatico alla scelta del file
+  // (onChange → requestSubmit(), stessa UX di prima, senza un secondo click
+  // su un bottone "Invia" separato) ma lo stato "in corso" della label è
+  // letto da useFormStatus() dentro EtichettaCaricamentoContratto — nessun
+  // booleano locale da tenere sincronizzato a mano con l'invio del form.
+  async function inviaFormContratto(formData: FormData) {
     setErroreContratto("");
-    setCaricamentoContratto(true);
-    const dati = new FormData();
-    dati.set("file", file);
-    const risultato = await caricaContrattoSegnalazione(segnalazione.id, dati);
-    setCaricamentoContratto(false);
-    e.target.value = "";
+    const risultato = await caricaContrattoSegnalazione(segnalazione.id, formData);
     if (risultato.errore || !risultato.percorso) {
       setErroreContratto(risultato.errore || "Errore imprevisto.");
+      toast(risultato.errore || "Errore imprevisto.");
       return;
     }
     setContrattoUrl(risultato.percorso);
@@ -495,6 +594,11 @@ function DettaglioSegnalazione({
       contratto_inviato_approvazione_il: null,
       contratto_approvato_cliente_il: null,
     });
+    toast("Contratto caricato.", "successo");
+  }
+
+  function selezionatoFileContratto() {
+    formContrattoRef.current?.requestSubmit();
   }
 
   // ★ FIX — i documenti allegati dalla Richiesta Dati (fronte/retro
@@ -533,9 +637,9 @@ function DettaglioSegnalazione({
   let azione: Azione | null = null;
   let statoInfo: string | null = null;
   if (segnalazione.stato === "Da Contattare") {
-    azione = { testo: "Ho contattato il cliente", icona: PhoneCall, onClick: () => cambiaStato("In Contatto"), disabilitato: inCorso };
+    azione = { testo: "Ho contattato il cliente", icona: PhoneCall, onClick: () => cambiaStato("In Contatto"), disabilitato: inCorsoStato };
   } else if (segnalazione.stato === "In Contatto") {
-    azione = { testo: "Avvia Gestione Cliente", icona: ArrowRight, onClick: () => cambiaStato("Gestione Cliente"), disabilitato: inCorso };
+    azione = { testo: "Avvia Gestione Cliente", icona: ArrowRight, onClick: () => cambiaStato("Gestione Cliente"), disabilitato: inCorsoStato };
   } else if (segnalazione.stato === "Gestione Cliente") {
     if (!richiesta) {
       statoInfo = "In attesa che il cliente compili il modulo dati — usa WhatsApp/Email/Copia link qui sopra per sollecitarlo.";
@@ -546,7 +650,7 @@ function DettaglioSegnalazione({
     } else if (!segnalazione.contratto_approvato_cliente_il) {
       statoInfo = `In attesa che il cliente approvi il contratto, inviato il ${new Date(segnalazione.contratto_inviato_approvazione_il as string).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}.`;
     } else {
-      azione = { testo: "Trasmetti per l'installazione", icona: Rocket, onClick: trasmetti, disabilitato: inCorso };
+      azione = { testo: "Trasmetti per l'installazione", icona: Rocket, onClick: trasmetti, disabilitato: inCorsoTrasmetti };
     }
   } else if (segnalazione.stato === "Trasmessa") {
     statoInfo = "Pratica trasmessa — l'installazione è in carico ad Analisi Rete.";
@@ -634,7 +738,7 @@ function DettaglioSegnalazione({
                 href={`https://wa.me/${telefonoIntl}?text=${encodeURIComponent(messaggio)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+                className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-2.5 py-3 text-xs font-semibold shadow-sm transition hover:border-primary/40"
               >
                 <span className={`flex h-6 w-6 items-center justify-center rounded-md ${COLORE_WHATSAPP.badge}`}>
                   <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -645,16 +749,16 @@ function DettaglioSegnalazione({
                 onClick={inviaEmailServer}
                 disabled={inCorsoEmail || !segnalazione.email}
                 title={segnalazione.email ? "Invia da commerciale@donewifi.it" : "Il cliente non ha un'email registrata"}
-                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40 disabled:opacity-50"
+                className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-2.5 py-3 text-xs font-semibold shadow-sm transition hover:border-primary/40 disabled:opacity-50"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#5b52c9] text-white">
-                  <Mail className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  {inCorsoEmail ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Mail className="h-3.5 w-3.5" strokeWidth={2.25} />}
                 </span>
                 {inCorsoEmail ? "Invio..." : "Email"}
               </button>
               <button
                 onClick={copiaLink}
-                className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+                className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-2.5 py-3 text-xs font-semibold shadow-sm transition hover:border-primary/40"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted-foreground text-background">
                   {copiato ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />}
@@ -712,7 +816,7 @@ function DettaglioSegnalazione({
                           key={chiave}
                           etichetta={etichettaDettaglio(chiave)}
                           valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
                         />
                       ))}
                     </div>
@@ -728,7 +832,7 @@ function DettaglioSegnalazione({
                           key={chiave}
                           etichetta={etichettaDettaglio(chiave)}
                           valore={campiRicevuti[chiave]}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
                         />
                       ))}
                     </div>
@@ -763,7 +867,7 @@ function DettaglioSegnalazione({
                           key={chiave}
                           etichetta={etichettaDettaglio(chiave)}
                           valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
                         />
                       ))}
                     </div>
@@ -783,7 +887,7 @@ function DettaglioSegnalazione({
                           key={chiave}
                           etichetta={etichettaDettaglio(chiave)}
                           valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`)}
+                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
                         />
                       ))}
                     </div>
@@ -802,9 +906,8 @@ function DettaglioSegnalazione({
                     {richiesta.documenti.map((d, i) => (
                       <Button
                         key={i}
-                        size="sm"
                         variant="outline"
-                        className="h-auto w-full justify-start py-1.5 whitespace-normal"
+                        className="h-auto min-h-11 w-full justify-start py-3 whitespace-normal"
                         onClick={() => apriDocumento(d.percorso)}
                       >
                         <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
@@ -833,26 +936,38 @@ function DettaglioSegnalazione({
             <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
             Contratto
           </p>
-          {contrattoUrl ? (
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={vediContratto}>
-                <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Vedi contratto
-              </Button>
-              <label className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:underline">
-                Sostituisci
-                <input type="file" accept="application/pdf" onChange={caricaContratto} className="hidden" disabled={caricamentoContratto} />
+          {/* ★ form reale: il campo file invia se stesso appena scelto
+           * (selezionatoFileContratto → requestSubmit()), la Server Action
+           * caricaContrattoSegnalazione() viene chiamata da inviaFormContratto()
+           * dentro l'attributo action — EtichettaCaricamentoContratto legge lo
+           * stato "in corso" con useFormStatus() invece di una prop passata a
+           * mano. */}
+          <form ref={formContrattoRef} action={inviaFormContratto}>
+            {contrattoUrl ? (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="min-h-11" onClick={vediContratto}>
+                  <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Vedi contratto
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <label className="cursor-pointer">
+                      <input type="file" name="file" accept="application/pdf" onChange={selezionatoFileContratto} className="hidden" />
+                      <EtichettaCaricamentoContratto giaCaricato />
+                    </label>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Sostituendo il contratto, un&apos;eventuale approvazione già data dal cliente viene annullata: andrà richiesta di nuovo.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            ) : (
+              <label className="cursor-pointer">
+                <input type="file" name="file" accept="application/pdf" onChange={selezionatoFileContratto} className="hidden" />
+                <EtichettaCaricamentoContratto giaCaricato={false} />
               </label>
-            </div>
-          ) : (
-            <>
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary hover:text-primary">
-                <Upload className="h-4 w-4 shrink-0" strokeWidth={2.25} />
-                {caricamentoContratto ? "Caricamento..." : "Carica il contratto firmato (PDF)"}
-                <input type="file" accept="application/pdf" onChange={caricaContratto} className="hidden" disabled={caricamentoContratto} />
-              </label>
-            </>
-          )}
+            )}
+          </form>
           {contrattoUrl && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               {infoCaricamento
@@ -906,8 +1021,9 @@ function DettaglioSegnalazione({
                     type="button"
                     onClick={inviaApprovazioneContratto}
                     disabled={inCorsoApprovazione}
-                    className="mt-1.5 text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                    className="mt-1.5 flex items-center gap-1.5 text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50"
                   >
+                    {inCorsoApprovazione && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />}
                     {inCorsoApprovazione ? "Invio in corso…" : "Invia di nuovo al cliente"}
                   </button>
                 </>
@@ -933,15 +1049,16 @@ function DettaglioSegnalazione({
         solo la scelta del reparto, visibile un po' prima nel percorso
         così è già impostata quando l'azione si sblocca. */}
         {segnalazione.stato === "Gestione Cliente" && (
-          <div className="mt-2 flex items-center gap-2">
-            <Label htmlFor="repartoTrasmissione" className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="mt-2 flex items-center gap-1.5">
+            <Label htmlFor="repartoTrasmissione" className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Reparto installazione
+              <SuggerimentoCampo testo="Il reparto che riceverà il Ticket creato da questa Segnalazione. Di norma Analisi Rete: cambialo solo per un'eccezione." />
             </Label>
             <select
               id="repartoTrasmissione"
               value={repartoTrasmissione}
               onChange={(e) => setRepartoTrasmissione(e.target.value as AreaAccesso)}
-              className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
+              className="h-9 flex-1 rounded-md border bg-background px-2 text-xs"
             >
               {REPARTI.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -954,11 +1071,11 @@ function DettaglioSegnalazione({
           <button
             type="button"
             onClick={elimina}
-            disabled={inCorso}
-            className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-critical/30 px-3 py-2 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+            disabled={inCorsoElimina}
+            className="mt-2 flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
           >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Elimina segnalazione
+            {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoElimina ? "Eliminazione in corso…" : "Elimina segnalazione"}
           </button>
         )}
       </div>
@@ -967,14 +1084,23 @@ function DettaglioSegnalazione({
       punto: una sola azione possibile (quella del passo attuale) invece
       di doverla cercare tra i vari pulsanti sparsi nel pannello. Se non
       c'è nulla da cliccare in questo momento, spiega perché invece di
-      restare vuota. */}
+      restare vuota. Colore brand esplicito (bg-[#CF000A]) con variante
+      dark: dedicata (bg-[#E8555F], lo stesso rosso già usato come --primary
+      nel tema scuro in globals.css) invece del solo token bg-primary, per
+      rispettare alla lettera la palette richiesta pur restando leggibile
+      anche a tema scuro. */}
       {(azione || statoInfo) && segnalazione.stato !== "Trasmessa" && (
-        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 border-t bg-popover px-4 pt-3 pb-4">
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 rounded-t-2xl border-t bg-popover px-4 pt-3 pb-4">
           {azione ? (
-            <Button onClick={azione.onClick} disabled={azione.disabilitato} className="w-full">
-              <azione.icona className="h-4 w-4" strokeWidth={2.25} />
+            <button
+              type="button"
+              onClick={azione.onClick}
+              disabled={azione.disabilitato}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#CF000A] px-4 text-sm font-bold text-white shadow-lg shadow-[#CF000A]/25 transition hover:bg-[#A30008] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#E8555F] dark:shadow-[#E8555F]/20 dark:hover:bg-[#c94750]"
+            >
+              {azione.disabilitato ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <azione.icona className="h-4 w-4" strokeWidth={2.25} />}
               {azione.disabilitato ? "Invio in corso…" : azione.testo}
-            </Button>
+            </button>
           ) : (
             <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
@@ -984,7 +1110,7 @@ function DettaglioSegnalazione({
           {indiceCorrente > 0 && (
             <button
               type="button"
-              disabled={inCorso}
+              disabled={inCorsoStato}
               onClick={() => cambiaStato(COLONNE[indiceCorrente - 1].stato)}
               className="mt-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
             >

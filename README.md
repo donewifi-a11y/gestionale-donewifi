@@ -1341,6 +1341,26 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   giorni. Ogni riga porta direttamente alla pratica (`/tickets?aperto=`, `/segnalazioni?aperto=`,
   `/preventivi?aperto=`), senza dover ricostruire a mano dove cercare.
 
+✅ **Dettaglio Segnalazione — spinner/toast/tooltip espliciti** (2026-08-13): "Extreme Makeover
+  Step 1" — primo giro di uno sprint dedicato a UX/UI. Il dialog di dettaglio aveva già la barra
+  azione unica sticky in fondo (giro "a prova di scemo" precedente); questo passaggio ha aggiunto
+  il feedback che mancava intorno a quell'azione: ogni pulsante mostra ora uno spinner (`Loader2`)
+  mentre la Server Action è in corso invece di limitarsi a disabilitarsi in silenzio, e ogni esito
+  (cambio stato, invio email, upload contratto, invio approvazione, trasmissione, eliminazione)
+  passa anche dal toast di conferma, non solo dagli errori come prima. L'upload del contratto è
+  diventato un `<form>` vero con Server Action (`caricaContrattoSegnalazione` chiamata dentro
+  `action={...}`) invece di un `onChange` puro — la label che mostra "Caricamento..." legge il
+  proprio stato da `useFormStatus()` invece di un booleano passato a mano, il file continua a
+  inviarsi da solo alla selezione (`requestSubmit()`) senza un secondo click. Le altre azioni
+  (cambio stato, trasmetti, elimina...) restano bottoni imperativi ma ognuna con la propria
+  `useTransition()` indipendente, così lo spinner di "Elimina" non si accende insieme a quello di
+  "Trasmetti". Aggiunto un componente `Tooltip` (nuovo, `src/components/ui/tooltip.tsx`, su Radix)
+  per un paio di microcopy contestuali (Reparto installazione, Sostituisci contratto) dove il
+  significato non era ovvio a chi non usa la pagina tutti i giorni. Bottone primario e "Elimina"
+  portati a tocco più ampio (min. `h-11`), palette rosso brand esplicita
+  (`#CF000A`/`#A30008`, con coppia `#E8555F`/`#c94750` per il tema scuro — stesso rosso già usato
+  come `--primary` scuro in `globals.css`, non un semplice inverti-colore).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
