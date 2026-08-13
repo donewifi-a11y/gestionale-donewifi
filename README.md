@@ -1417,8 +1417,9 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   solo per la firma del **cliente** — la firma del tecnico nella Scheda di Installazione resta
   disegnata su schermo, invariata. Le schede già salvate col disegno restano leggibili come prima
   (`firma_cliente_url` non toccato, i 3 campi nuovi restano null su quelle righe storiche).
-  **Richiede l'esecuzione manuale della migrazione `0050_firma_cliente_scheda.sql`** prima di
-  funzionare in produzione — non ancora verificata contro dati reali per questo motivo.
+  Migrazione `0050_firma_cliente_scheda.sql` eseguita e verificata in produzione: tabella
+  `otp_firma_scheda` interrogabile, le 3 nuove colonne su `schede_lavoro` e `appuntamento_id` su
+  `token_approvazione` presenti, inserimento/lettura/cancellazione di prova riusciti.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
