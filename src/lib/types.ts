@@ -382,8 +382,19 @@ export interface SchedaLavoro {
   importo_fatturato: number | null;
   materiali: MaterialeUsato[];
   foto: { nome: string; percorso: string }[];
+  /** ★ solo schede storiche (pre-firma via email): disegno del cliente
+   * caricato come immagine. Le schede nuove hanno questo a null e usano
+   * invece firma_cliente_metodo/email/verificato_il — vedi sotto. */
   firma_cliente_url: string | null;
   firma_tecnico_url: string | null;
+  /** null = scheda storica con firma disegnata (firma_cliente_url) —
+   * altrimenti il metodo usato per l'approvazione via email del cliente. */
+  firma_cliente_metodo: "otp_email" | "link_email" | null;
+  firma_cliente_email: string | null;
+  /** Valorizzato solo quando il cliente ha davvero confermato — con
+   * "link_email" può restare null per un po' se il tecnico ha già chiuso
+   * la scheda ma il cliente non ha ancora cliccato il link. */
+  firma_cliente_verificato_il: string | null;
   // solo "Nuova installazione"
   supporto: string | null;
   posizione: string | null;

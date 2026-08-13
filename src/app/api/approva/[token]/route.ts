@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: riga } = await supabase
     .from("token_approvazione")
-    .select("ticket_id, segnalazione_id, preventivo_id, origine, creato_il")
+    .select("ticket_id, segnalazione_id, preventivo_id, appuntamento_id, origine, creato_il")
     .eq("token", token)
     .maybeSingle();
   if (!riga) {
@@ -64,6 +64,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       operazione: "Contratto approvato dal cliente",
       valore_dopo: `Approvato via link email il ${adesso}`,
     });
+  } else if (riga.origine === "firma_scheda" && riga.appuntamento_id) {
+    // ★ NUOVA — fallback della firma cliente sulla Scheda di Installazione/
+    // Lavorazione (vedi migrazione 0050): a differenza degli altri tre casi
+    // qui non c'è un ticket_id/segnalazione_id/preventivo_id diretto sul
+    // token, si referenzia l'appuntamento perché la scheda potrebbe non
+    // esistere ancora quando il link è stato inviato (si salva solo al
+    // submit finale del wizard) — si aggiorna la scheda più recente per
+    // quell'appuntamento, se nel frattempo il tecnico l'ha completata.
+    const { data: scheda } = await supabase
+      .from("schede_lavoro")
+      .select("id")
+      .eq("appuntamento_id", riga.appuntamento_id)
+      .order("creato_il", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!scheda) {
+      return NextResponse.json(
+        { errore: "Il tecnico non ha ancora completato la scheda — riprova tra qualche minuto." },
+        { status: 409 }
+      );
+    }
+    const { error } = await supabase
+      .from("schede_lavoro")
+      .update({ firma_cliente_verificato_il: new Date().toISOString() })
+      .eq("id", scheda.id);
+    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
   } else if (riga.ticket_id) {
     const { error } = await supabase
       .from("tickets")

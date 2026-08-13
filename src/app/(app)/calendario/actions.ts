@@ -3,9 +3,10 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
-import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
+import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
+import { createHash, randomInt } from "crypto";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 
 export interface SlotOccupato {
@@ -200,12 +201,26 @@ export async function eliminaNotaCalendario(id: string) {
   return { errore: null };
 }
 
+/** ★ NUOVA — sostituisce firmaClienteDataUrl (disegno su schermo): il
+ * cliente approva via OTP email o, solo se autorizzato dal tecnico, via
+ * link email — mai più un'immagine caricata. Vedi migrazione
+ * 0050_firma_cliente_scheda.sql e inviaOtpFirmaCliente()/
+ * inviaLinkFirmaCliente()/verificaOtpFirmaCliente() più sotto. */
+export interface FirmaClienteApprovata {
+  metodo: "otp_email" | "link_email";
+  email: string;
+  /** null per "link_email" finché il cliente non ha ancora cliccato —
+   * la scheda si salva comunque, il campo si valorizza dopo (vedi
+   * /api/approva/[token]). */
+  verificatoIl: string | null;
+}
+
 export interface DatiSchedaLavoro {
   esito: string;
   note: string;
   importoFatturato: string;
   materiali: MaterialeUsato[];
-  firmaClienteDataUrl: string;
+  firmaCliente: FirmaClienteApprovata;
   firmaTecnicoDataUrl?: string;
   // solo "Nuova installazione"
   supporto?: string;
@@ -277,8 +292,17 @@ export async function salvaSchedaLavoro(
     return { percorso, errore: null };
   }
 
-  const firmaCliente = await salvaFirma(dati.firmaClienteDataUrl, "firma-cliente");
-  if (firmaCliente.errore) return { errore: firmaCliente.errore };
+  // ★ FIX — la conferma del cliente (OTP verificato, o link autorizzato dal
+  // tecnico) era controllata solo lato client (bottone "Salva" disabilitato
+  // finché mancante): ripetuto qui, unica fonte di verità, come già per
+  // trasmettiPerInstallazione()/i controlli mancanti-per-Trasmetti.
+  if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
+    return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
+  }
+  if (dati.firmaCliente.metodo === "otp_email" && !dati.firmaCliente.verificatoIl) {
+    return { errore: "Il codice inviato al cliente non risulta verificato." };
+  }
+
   const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
   if (firmaTecnico.errore) return { errore: firmaTecnico.errore };
 
@@ -293,7 +317,10 @@ export async function salvaSchedaLavoro(
     importo_fatturato: importo,
     materiali: dati.materiali,
     foto: fotoSalvate,
-    firma_cliente_url: firmaCliente.percorso,
+    firma_cliente_url: null,
+    firma_cliente_metodo: dati.firmaCliente.metodo,
+    firma_cliente_email: dati.firmaCliente.email,
+    firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
     firma_tecnico_url: firmaTecnico.percorso,
     supporto: dati.supporto || null,
     posizione: dati.posizione || null,
@@ -360,6 +387,128 @@ export async function salvaSchedaLavoro(
   revalidatePath("/vista-tecnico");
   revalidatePath("/tickets");
   revalidatePath("/");
+  return { errore: null };
+}
+
+/** ★ NUOVA — email/nome cliente e numero Ticket per l'ultimo passo della
+ * Scheda (Firme): letti al volo invece di doverli far arrivare come prop
+ * da 3 punti d'accesso diversi (Ticket, Vista Tecnico, Calendario), che
+ * oggi passano alla Scheda solo appuntamentoId/catalogoMateriali. */
+export async function getContattoPerFirmaScheda(appuntamentoId: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, email: null, nomeCliente: null, ticketNumero: null };
+
+  const { data } = await supabase
+    .from("appuntamenti")
+    .select("titolo, tickets(numero, cliente, email)")
+    .eq("id", appuntamentoId)
+    .single();
+  // ★ la FK appuntamenti→tickets è sempre un oggetto singolo o null, mai un
+  // array (stesso ragionamento già applicato altrove per gli embed 1:1).
+  const ticket = data?.tickets as unknown as { numero: number; cliente: string; email: string | null } | null;
+
+  return {
+    errore: null,
+    email: ticket?.email ?? null,
+    nomeCliente: ticket?.cliente ?? data?.titolo ?? "",
+    ticketNumero: ticket?.numero ?? null,
+  };
+}
+
+const SCADENZA_OTP_MINUTI = 10;
+const TENTATIVI_MASSIMI_OTP = 5;
+
+function hashCodiceOtp(codice: string) {
+  return createHash("sha256").update(codice).digest("hex");
+}
+
+/** ★ NUOVA — invia un codice a 6 cifre via email, che il cliente legge e
+ * conferma di persona al tecnico presente sul posto: sostituisce la firma
+ * disegnata su schermo con una prova più solida (vedi migrazione
+ * 0050_firma_cliente_scheda.sql). Non serve essere il tecnico assegnato
+ * per usarla, solo staff attivo — stesso controllo di sempre. */
+export async function inviaOtpFirmaCliente(appuntamentoId: string, email: string, nomeCliente: string, ticketNumero: number) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (!email.trim()) return { errore: "Serve un'email per inviare il codice." };
+
+  const codice = String(randomInt(0, 1000000)).padStart(6, "0");
+  const service = createServiceClient();
+  const { error } = await service.from("otp_firma_scheda").insert({
+    appuntamento_id: appuntamentoId,
+    email: email.trim(),
+    codice_hash: hashCodiceOtp(codice),
+    scaduto_il: new Date(Date.now() + SCADENZA_OTP_MINUTI * 60 * 1000).toISOString(),
+  });
+  if (error) return { errore: error.message };
+
+  const { oggetto, corpoHtml } = emailOtpFirmaScheda(nomeCliente, codice, ticketNumero);
+  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, reparto: "Analisi Rete" });
+  if (risultato.errore) return { errore: risultato.errore };
+  return { errore: null };
+}
+
+/** ★ NUOVA — verifica il codice inserito dal tecnico (dettato dal
+ * cliente): tentativi limitati e scadenza breve, stesso principio di
+ * qualunque OTP — non riusa un vecchio codice già consumato o scaduto. */
+export async function verificaOtpFirmaCliente(appuntamentoId: string, email: string, codice: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, verificatoIl: null };
+
+  const service = createServiceClient();
+  const { data: riga } = await service
+    .from("otp_firma_scheda")
+    .select("id, codice_hash, tentativi, scaduto_il, verificato_il")
+    .eq("appuntamento_id", appuntamentoId)
+    .eq("email", email.trim())
+    .is("verificato_il", null)
+    .order("creato_il", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!riga) return { errore: "Nessun codice in attesa — invialo di nuovo.", verificatoIl: null };
+  if (new Date(riga.scaduto_il).getTime() < Date.now()) return { errore: "Il codice è scaduto — invialo di nuovo.", verificatoIl: null };
+  if (riga.tentativi >= TENTATIVI_MASSIMI_OTP) return { errore: "Troppi tentativi sbagliati — invia un nuovo codice.", verificatoIl: null };
+
+  if (hashCodiceOtp(codice.trim()) !== riga.codice_hash) {
+    await service.from("otp_firma_scheda").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
+    return { errore: "Codice errato.", verificatoIl: null };
+  }
+
+  const adesso = new Date().toISOString();
+  const { error } = await service.from("otp_firma_scheda").update({ verificato_il: adesso }).eq("id", riga.id);
+  if (error) return { errore: error.message, verificatoIl: null };
+  return { errore: null, verificatoIl: adesso };
+}
+
+/** ★ NUOVA — fallback al link di approvazione via email (stesso schema già
+ * usato per contratto/intervento/preventivo, vedi token_approvazione):
+ * SOLO quando il tecnico lo autorizza esplicitamente (conferma richiesta
+ * lato client prima di chiamare questa action), mai una scelta lasciata al
+ * cliente. A differenza degli altri tre casi, la scheda potrebbe non
+ * esistere ancora quando il cliente clicca — il token referenzia
+ * l'appuntamento, non la scheda (vedi migrazione 0050 e
+ * /api/approva/[token]/route.ts). */
+export async function inviaLinkFirmaCliente(appuntamentoId: string, origineUrl: string, email: string, nomeCliente: string, ticketNumero: number) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (!email.trim()) return { errore: "Serve un'email per inviare il link." };
+
+  const service = createServiceClient();
+  const { data: creato, error } = await service
+    .from("token_approvazione")
+    .insert({ appuntamento_id: appuntamentoId, origine: "firma_scheda" })
+    .select("token")
+    .single();
+  if (error) return { errore: error.message };
+
+  const link = `${origineUrl}/approva/${creato.token}`;
+  const { oggetto, corpoHtml } = emailLinkFirmaScheda(nomeCliente, ticketNumero, link);
+  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, reparto: "Analisi Rete" });
+  if (risultato.errore) return { errore: risultato.errore };
   return { errore: null };
 }
 

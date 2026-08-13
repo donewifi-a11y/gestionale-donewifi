@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, FileText } from "lucide-react";
+import { Printer, FileText, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlDocumentoScheda } from "@/app/(app)/calendario/actions";
 import { formattaValuta } from "@/lib/types";
@@ -115,9 +115,13 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
           </div>
         )}
 
-        {(scheda.firma_cliente_url || scheda.firma_tecnico_url) && (
+        {(scheda.firma_cliente_url || scheda.firma_cliente_metodo || scheda.firma_tecnico_url) && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {scheda.firma_cliente_url && (
+            {/* ★ NUOVA — le schede vecchie hanno firma_cliente_url (disegno,
+             * mostrato come prima); quelle nuove hanno firma_cliente_metodo
+             * valorizzato invece — OTP verificato (verde) o link inviato,
+             * ancora in attesa di conferma del cliente (giallo). */}
+            {scheda.firma_cliente_url ? (
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma cliente</div>
                 {urlFirmaCliente ? (
@@ -129,7 +133,24 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
                   </Button>
                 )}
               </div>
-            )}
+            ) : scheda.firma_cliente_metodo ? (
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Conferma cliente</div>
+                {scheda.firma_cliente_verificato_il ? (
+                  <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-success">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.5} />
+                    Confermato da {scheda.firma_cliente_email} il{" "}
+                    {new Date(scheda.firma_cliente_verificato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {scheda.firma_cliente_metodo === "otp_email" ? " (codice email)" : " (link email)"}.
+                  </p>
+                ) : (
+                  <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-warning">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+                    Link inviato a {scheda.firma_cliente_email} — in attesa che il cliente confermi.
+                  </p>
+                )}
+              </div>
+            ) : null}
             {scheda.firma_tecnico_url && (
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma tecnico</div>

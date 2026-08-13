@@ -1402,6 +1402,24 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Per l'eccezione rara in cui serve un reparto diverso, si riassegna dopo dal dettaglio del Ticket
   (select "Reparto" già presente lì, con tooltip che spiega cosa fa — vedi voce Ticket qui sopra).
 
+✅ **Firma cliente sulla Scheda — OTP email al posto del disegno su schermo** (2026-08-13):
+  richiesta esplicita, con discussione su quale meccanismo fosse più solido come prova (nessuna
+  delle due opzioni è una firma elettronica qualificata — stesso livello di ciò che il gestionale
+  già usa per contratto/intervento/preventivo). Scelto **OTP via email** come metodo principale: il
+  tecnico invia un codice a 6 cifre (scade in 10 minuti, 5 tentativi) al cliente, che lo legge
+  dalla propria email e lo detta di persona — lega l'approvazione al momento esatto in cui il
+  tecnico è fisicamente presente, prova più solida di un link cliccabile in autonomia in qualunque
+  momento. **Link di approvazione via email** resta come fallback, ma richiede
+  un'autorizzazione esplicita del tecnico (confirm dedicato, mai una scelta lasciata al cliente) —
+  usa lo stesso schema già collaudato per contratto/intervento/preventivo
+  (`token_approvazione`, ora esteso con `appuntamento_id` — migrazione `0050`). Nuova tabella
+  `otp_firma_scheda` (codice hashato, non in chiaro). Entrambi i metodi sostituiscono `FirmaPad`
+  solo per la firma del **cliente** — la firma del tecnico nella Scheda di Installazione resta
+  disegnata su schermo, invariata. Le schede già salvate col disegno restano leggibili come prima
+  (`firma_cliente_url` non toccato, i 3 campi nuovi restano null su quelle righe storiche).
+  **Richiede l'esecuzione manuale della migrazione `0050_firma_cliente_scheda.sql`** prima di
+  funzionare in produzione — non ancora verificata contro dati reali per questo motivo.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -5,9 +5,10 @@ import { MapPin, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
+import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import { salvaSchedaLavoro } from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -91,7 +92,7 @@ export function SchedaInstallazioneForm({
   const [fotoEsterna, setFotoEsterna] = useState<File | null>(null);
   const [fotoInterna, setFotoInterna] = useState<File | null>(null);
 
-  const firmaClienteRef = useRef<FirmaPadHandle>(null);
+  const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const firmaTecnicoRef = useRef<FirmaPadHandle>(null);
 
   useEffect(() => {
@@ -122,6 +123,10 @@ export function SchedaInstallazioneForm({
 
   async function invia() {
     setErroreInvio("");
+    if (!firmaCliente) {
+      setErroreInvio("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
+      return;
+    }
     const foto: File[] = [];
     if (fotoEsterna) foto.push(new File([fotoEsterna], `Struttura-esterna_${fotoEsterna.name}`, { type: fotoEsterna.type }));
     if (fotoInterna) foto.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
@@ -135,7 +140,7 @@ export function SchedaInstallazioneForm({
         note,
         importoFatturato: importo,
         materiali,
-        firmaClienteDataUrl: firmaClienteRef.current?.ottieniDataUrl() ?? "",
+        firmaCliente,
         firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
         supporto,
         posizione,
@@ -286,12 +291,13 @@ export function SchedaInstallazioneForm({
     },
     {
       titolo: "Firme",
+      valida: () => (firmaCliente ? null : "Conferma la firma del cliente (codice email o link di approvazione) prima di proseguire."),
       contenuto: (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label>Firma cliente</Label>
             <div className="mt-1.5">
-              <FirmaPad ref={firmaClienteRef} />
+              <FirmaClienteScheda appuntamentoId={appuntamentoId} value={firmaCliente} onChange={setFirmaCliente} />
             </div>
           </div>
           <div>

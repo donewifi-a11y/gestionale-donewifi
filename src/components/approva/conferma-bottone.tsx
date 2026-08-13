@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 const TESTI = {
   intervento: { azione: "Conferma intervento", titolo: "Intervento confermato" },
   contratto: { azione: "Approvo il contratto", titolo: "Contratto approvato" },
+  firma_scheda: { azione: "Confermo i lavori svolti", titolo: "Lavori confermati" },
 } as const;
 
 // ★ NUOVA — il preventivo è l'unico dei tre casi con due esiti possibili
@@ -14,7 +15,7 @@ const TESTI = {
 // invece di uno solo, `azione` viaggia nel corpo della POST e la route la
 // usa per decidere quale stato scrivere. Gli altri due tipi continuano a
 // non mandare corpo — la route li interpreta comunque come "approva".
-export function ConfermaBottone({ token, tipo }: { token: string; tipo: "intervento" | "contratto" | "preventivo" }) {
+export function ConfermaBottone({ token, tipo }: { token: string; tipo: "intervento" | "contratto" | "preventivo" | "firma_scheda" }) {
   const [stato, setStato] = useState<"idle" | "inCorso" | "approvato" | "rifiutato" | "errore">("idle");
   const [errore, setErrore] = useState("");
 
@@ -36,7 +37,7 @@ export function ConfermaBottone({ token, tipo }: { token: string; tipo: "interve
   }
 
   if (stato === "approvato") {
-    const titolo = tipo === "preventivo" ? "Preventivo approvato" : TESTI[tipo as "intervento" | "contratto"].titolo;
+    const titolo = tipo === "preventivo" ? "Preventivo approvato" : TESTI[tipo as "intervento" | "contratto" | "firma_scheda"].titolo;
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
         <CheckCircle2 className="h-10 w-10 text-success" strokeWidth={2} />

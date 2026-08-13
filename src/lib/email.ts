@@ -105,6 +105,51 @@ export function emailApprovazioneContratto(cliente: string, numero: number, link
   };
 }
 
+// ★ NUOVA — sostituisce la firma disegnata su schermo del cliente nella
+// Scheda di Installazione/Lavorazione: un codice a 6 cifre, valido 10
+// minuti, che il cliente legge dalla propria email e conferma di persona
+// al tecnico presente sul posto — prova più solida di un semplice link
+// cliccabile in autonomia in un momento qualsiasi (vedi
+// emailLinkFirmaScheda più sotto, riservato al fallback autorizzato dal
+// tecnico).
+export function emailOtpFirmaScheda(cliente: string, codice: string, ticketNumero: number) {
+  return {
+    oggetto: `Done Wifi — Codice di conferma lavori (Ticket #${ticketNumero})`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <h2 style="color:#141414;">Done Wifi — Conferma i lavori svolti</h2>
+        <p>Gentile ${cliente},</p>
+        <p>Il tecnico Done Wifi presente da te ti chiede di confermare i lavori appena svolti (Ticket #${ticketNumero}). Comunicagli questo codice:</p>
+        <p style="font-size:32px;font-weight:800;letter-spacing:6px;color:#CF000A;text-align:center;margin:20px 0;">${codice}</p>
+        <p style="color:#6B625E;font-size:13px;">Il codice scade tra 10 minuti. Se non hai richiesto nulla, ignora questa email.</p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
+// ★ NUOVA — alternativa al codice OTP (emailOtpFirmaScheda) per quando il
+// cliente non può riceverlo/leggerlo sul posto insieme al tecnico — va
+// usata solo se il tecnico autorizza esplicitamente il passaggio (mai una
+// scelta lasciata al cliente): stesso schema del link di approvazione già
+// usato per contratto/intervento/preventivo, il cliente può confermare
+// anche in un momento successivo da solo.
+export function emailLinkFirmaScheda(cliente: string, ticketNumero: number, link: string) {
+  return {
+    oggetto: `Done Wifi — Conferma i lavori svolti (Ticket #${ticketNumero})`,
+    corpoHtml: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+        <h2 style="color:#141414;">Done Wifi — Conferma i lavori svolti</h2>
+        <p>Gentile ${cliente},</p>
+        <p>Il tecnico Done Wifi ha completato l'intervento relativo al Ticket #${ticketNumero}. Conferma che i lavori sono stati svolti correttamente:</p>
+        <p><a href="${link}" style="display:inline-block;background:#CF000A;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">Confermo i lavori svolti</a></p>
+        <p>Per qualsiasi domanda, rispondi a questa email o scrivi a <b>servizioclienti@donewifi.it</b>.</p>
+        <p>Grazie,<br>Done Wifi</p>
+      </div>
+    `,
+  };
+}
+
 export function emailPreventivo(cliente: string, numero: number, totale: string, link: string) {
   return {
     oggetto: `Done Wifi — Il tuo preventivo (#${numero})`,

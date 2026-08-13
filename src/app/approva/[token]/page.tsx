@@ -6,15 +6,16 @@ import { formattaValuta } from "@/lib/types";
 import type { RigaPreventivo } from "@/lib/types";
 
 // ★ FIX — forma del join dichiarata esplicitamente invece del doppio cast
-// `as unknown as`: ticket_id/segnalazione_id/preventivo_id sono le uniche
-// FK di token_approvazione (migrazioni 0013, 0044, 0047, mai valorizzate
-// insieme), quindi ciascun embed è sempre un oggetto singolo o null, mai
-// un array.
+// `as unknown as`: ticket_id/segnalazione_id/preventivo_id/appuntamento_id
+// sono le uniche FK di token_approvazione (migrazioni 0013, 0044, 0047,
+// 0050, mai valorizzate insieme), quindi ciascun embed è sempre un
+// oggetto singolo o null, mai un array.
 interface RigaTokenApprovazione {
-  origine: "intervento" | "contratto" | "preventivo";
+  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
   preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
+  appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
 }
 
 // ★ NUOVA — lo stesso link/token monouso usato per l'approvazione
@@ -23,13 +24,20 @@ interface RigaTokenApprovazione {
 // token_approvazione.origine. A differenza degli altri due, qui il
 // preventivo si mostra per intero (righe/totale, niente PDF) e il cliente
 // può anche rifiutarlo esplicitamente, non solo approvarlo.
+//
+// ★ NUOVA — quarto caso, fallback della firma cliente sulla Scheda di
+// Installazione/Lavorazione (migrazione 0050): a differenza degli altri
+// tre, qui il riferimento è l'appuntamento (la scheda potrebbe non
+// esistere ancora quando il link è stato inviato).
 export default async function ApprovaPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createServiceClient();
 
   const { data: riga, error } = await supabase
     .from("token_approvazione")
-    .select("origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale)")
+    .select(
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente))"
+    )
     .eq("token", token)
     .maybeSingle();
   if (error) console.error("ApprovaPage:", error.message);
@@ -38,6 +46,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const ticket = dati?.tickets ?? undefined;
   const segnalazione = dati?.segnalazioni ?? undefined;
   const preventivo = dati?.preventivi ?? undefined;
+  const firmaScheda = dati?.origine === "firma_scheda" ? dati.appuntamenti : undefined;
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -49,13 +58,22 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
     <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 text-center shadow-2xl">
         <img src="/brand/logo-completo.png" alt="Done Wifi" className="mb-1 h-14 w-14" />
-        {!dati || (!ticket && !segnalazione && !preventivo) ? (
+        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda) ? (
           <>
             <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
             <p className="font-heading text-lg font-bold">Link non valido</p>
             <p className="text-sm text-muted-foreground">
               Questo link di approvazione è scaduto o è già stato usato. Se pensi sia un errore, contatta Done Wifi.
             </p>
+          </>
+        ) : firmaScheda ? (
+          <>
+            <h1 className="font-heading text-lg font-bold">Conferma i lavori svolti</h1>
+            <p className="text-sm text-muted-foreground">
+              {firmaScheda.tickets ? `Ticket #${firmaScheda.tickets.numero} · ` : ""}
+              {firmaScheda.tickets?.cliente ?? firmaScheda.titolo}, confermi che il lavoro dell&apos;installatore Done Wifi è stato svolto correttamente?
+            </p>
+            <ConfermaBottone token={token} tipo="firma_scheda" />
           </>
         ) : ticket ? (
           <>

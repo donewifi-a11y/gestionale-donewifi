@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
-import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
+import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import { salvaSchedaLavoro } from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -50,7 +50,7 @@ export function SchedaLavorazioneForm({
   const [esito, setEsito] = useState(bozza?.esito ?? "");
   const [importo, setImporto] = useState(bozza?.importo ?? "");
   const [note, setNote] = useState(bozza?.note ?? "");
-  const firmaRef = useRef<FirmaPadHandle>(null);
+  const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, importo, note });
@@ -62,6 +62,10 @@ export function SchedaLavorazioneForm({
 
   async function invia() {
     setErroreInvio("");
+    if (!firmaCliente) {
+      setErroreInvio("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
+      return;
+    }
     setInCorso(true);
     const risultato = await salvaSchedaLavoro(
       appuntamentoId,
@@ -71,7 +75,7 @@ export function SchedaLavorazioneForm({
         note,
         importoFatturato: importo,
         materiali,
-        firmaClienteDataUrl: firmaRef.current?.ottieniDataUrl() ?? "",
+        firmaCliente,
         interventiEseguiti: interventi,
       },
       []
@@ -153,11 +157,12 @@ export function SchedaLavorazioneForm({
     },
     {
       titolo: "Firma",
+      valida: () => (firmaCliente ? null : "Conferma la firma del cliente (codice email o link di approvazione) prima di proseguire."),
       contenuto: (
         <div>
           <Label>Firma / accettazione cliente</Label>
           <div className="mt-1.5">
-            <FirmaPad ref={firmaRef} />
+            <FirmaClienteScheda appuntamentoId={appuntamentoId} value={firmaCliente} onChange={setFirmaCliente} />
           </div>
         </div>
       ),
