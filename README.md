@@ -1471,6 +1471,25 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `storico.origine` accetta `'richiesta_cliente'`, ciclo completo crea/elimina/verifica-assenza su
   una richiesta di prova riuscito.
 
+✅ **4 bug reali segnalati dall'uso in produzione** (2026-08-13): riscontrati direttamente
+  dall'utente su `gestione.donewifi.it`, non teorici.
+  - **Sidebar che scompariva scorrendo**: `position: sticky` in un layout flex-row può perdere
+    l'ancoraggio a seconda di come cresce il contenuto accanto (visto scorrendo Materiali, una
+    lista lunga) — comportamento fragile da CSS a CSS. Passata a `position: fixed` (ancorata al
+    viewport senza condizioni), `<main>` riserva lo spazio con `md:ml-72` invece di affidarsi allo
+    spazio naturale del flex layout.
+  - **Dettaglio Ticket illeggibile**: pannello laterale (Sheet) troppo stretto per la quantità di
+    dati reali — passato a Dialog centrale, stessa larghezza/trattamento già usati per Segnalazioni.
+  - **Pulsanti del codice OTP non cliccabili**: nel passo "Firme" della Scheda Installazione, la
+    griglia a due colonne strette schiacciava input del codice e bottone "Verifica" fino a
+    sovrapporli — impossibile da cliccare. Passato a colonna singola impilata (Firma cliente sopra,
+    Firma tecnico sotto), niente più spazio insufficiente.
+  - **Popup che si chiudevano cliccando fuori**: un click accidentale sull'overlay (o un Esc
+    premuto per sbaglio a metà di un form a più passi) chiudeva tutto perdendo i dati inseriti.
+    Dialog e Sheet (`src/components/ui/dialog.tsx`/`sheet.tsx`, quindi applicato ovunque nel
+    gestionale) ora si chiudono solo dalla X in alto a destra o da un'azione esplicita del
+    componente (Annulla, salvataggio riuscito) — mai da un click fuori o da Esc.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -6,14 +6,7 @@ import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileT
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   aggiornaStatoTicket,
   assegnaTicket,
@@ -340,8 +333,12 @@ export function TicketsBoard({
         })}
       </div>
 
-      <Sheet open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
-        <SheetContent>
+      {/* ★ FIX — richiesta esplicita: il pannello laterale (Sheet) era
+      illeggibile — troppo stretto per la quantità di dati reali di un
+      Ticket. Passato a Dialog centrale, stessa larghezza e trattamento
+      già usati per Segnalazioni. */}
+      <Dialog open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
+        <DialogContent className="sm:max-w-2xl">
           {aperto && (
             <DettaglioTicket
               key={aperto.id}
@@ -353,11 +350,11 @@ export function TicketsBoard({
               onEliminato={() => setAperto(null)}
             />
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
-      Sheet di dettaglio Ticket: "visuale centrale" richiesta esplicitamente,
+      dettaglio Ticket: "visuale centrale" richiesta esplicitamente,
       stesso trattamento di Vista Tecnico/Calendario. Chiude anche il
       dettaglio Ticket al salvataggio: lo stato appena passato a
       "Completato" renderebbe il pannello aperto subito disallineato. */}
@@ -611,14 +608,17 @@ function DettaglioTicket({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{ticket.cliente}</SheetTitle>
-        <SheetDescription>
+      {/* ★ sticky top-0, stesso trattamento del titolo Segnalazione: resta
+      visibile scorrendo il dialog invece di sparire lasciando al suo
+      posto un campo qualsiasi senza etichetta. */}
+      <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
+        <DialogTitle>{ticket.cliente}</DialogTitle>
+        <DialogDescription>
           #{ticket.numero} · {ticket.categoria}
           {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
-        </SheetDescription>
-      </SheetHeader>
-      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
+        </DialogDescription>
+      </DialogHeader>
+      <div className="flex min-w-0 flex-col gap-4 text-sm">
         <div className="flex gap-1 border-b">
           {(
             [

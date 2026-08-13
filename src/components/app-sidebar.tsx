@@ -308,7 +308,15 @@ export function AppSidebar({
         </span>
       </header>
 
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex print:hidden">
+      {/* ★ FIX — richiesta esplicita: la sidebar smetteva di restare
+      visibile scorrendo una pagina lunga (es. Materiali) — "sticky" in un
+      layout flex-row può perdere l'ancoraggio a seconda di come cresce il
+      contenuto accanto, un comportamento fragile da CSS a CSS. "fixed"
+      la toglie del tutto dal flusso normale e la ancora al viewport senza
+      condizioni: resta sempre visibile qualunque cosa faccia il resto
+      della pagina. `<main>` (app-shell.tsx) riserva lo spazio con
+      `md:ml-72`, stessa larghezza di questa sidebar (w-72). */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-72 flex-col bg-sidebar text-sidebar-foreground md:flex print:hidden">
         {contenuto}
       </aside>
 

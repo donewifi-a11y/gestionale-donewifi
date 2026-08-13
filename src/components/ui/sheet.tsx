@@ -74,6 +74,13 @@ function SheetContent({
           className
         )}
         {...props}
+        // ★ NUOVA — stesso principio già applicato al Dialog centrale
+        // (src/components/ui/dialog.tsx): un click fuori dal pannello o un
+        // Esc premuto per sbaglio non deve chiuderlo — solo la X in alto a
+        // destra, o un'azione esplicita del form dentro.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">{children}</div>
         {showCloseButton && (

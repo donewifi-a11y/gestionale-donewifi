@@ -293,7 +293,13 @@ export function SchedaInstallazioneForm({
       titolo: "Firme",
       valida: () => (firmaCliente ? null : "Conferma la firma del cliente (codice email o link di approvazione) prima di proseguire."),
       contenuto: (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        // ★ FIX — richiesta esplicita: due colonne strette (grid-cols-2)
+        // lasciavano troppo poco spazio all'input del codice + bottone
+        // "Verifica" nella colonna Firma cliente, che finivano schiacciati
+        // e sovrapposti l'uno sull'altro — impossibile da cliccare. Una
+        // colonna sola, impilate: entrambe le firme hanno tutta la
+        // larghezza del dialog, niente più a rischio di sovrapposizione.
+        <div className="flex flex-col gap-6">
           <div>
             <Label>Firma cliente</Label>
             <div className="mt-1.5">

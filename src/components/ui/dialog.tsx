@@ -72,6 +72,15 @@ function DialogContent({
           className
         )}
         {...props}
+        // ★ NUOVA — richiesta esplicita: un click fuori dal popup (o un tasto
+        // Esc premuto per sbaglio mentre si compila un form a più passi,
+        // come la Scheda con l'OTP) non deve più chiudere nulla — solo la X
+        // in alto a destra, o un'azione esplicita del componente (es.
+        // "Annulla"/salvataggio riuscito). Evita di perdere dati inseriti
+        // per un click accidentale sull'overlay.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">{children}</div>
         {showCloseButton && (
