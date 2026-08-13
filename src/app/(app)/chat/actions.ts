@@ -45,8 +45,18 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { persone: [], gruppi: [], nonLettiTotali: 0 };
 
+  // ★ FIX — filtrava a `attivo = true`: la persona "Sistema" (mittente dei
+  // promemoria automatici, es. Lavorazioni Interne assegnate — vedi
+  // inviaMessaggioChatSistemaDiretto() in chat.ts) è sempre attivo=false
+  // per disegno, quindi spariva dall'elenco contatti anche quando aveva
+  // già scritto una DM. Il badge "non letti" (calcolato più sotto da
+  // TUTTE le conversazioni viste dalla RLS, non filtrate per attivo)
+  // saliva comunque, ma non c'era modo di aprire quella conversazione per
+  // leggerla — un contatore che cresce senza una notifica raggiungibile.
+  // Ora si legge `attivo` per ogni persona e si include comunque, sotto,
+  // chi ha già una conversazione esistente anche se non più attivo.
   const [{ data: persone }, { data: conversazioni }, { data: letture }] = await Promise.all([
-    supabase.from("persone").select("id, nome").eq("attivo", true).neq("id", personaId).order("nome"),
+    supabase.from("persone").select("id, nome, attivo").neq("id", personaId).order("nome"),
     supabase.from("conversazioni").select("*"),
     supabase.from("conversazioni_letture").select("conversazione_id, ultimo_letto_il").eq("persona_id", personaId),
   ]);
@@ -97,10 +107,15 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
     };
   }
 
-  const persone2: ContattoChat[] = (persone ?? []).map((p) => {
-    const conv = conversazionePerAltraPersona.get(p.id);
-    return { id: p.id, nome: p.nome, conversazioneId: conv?.id ?? null, ...anteprima(conv?.id) };
-  });
+  const persone2: ContattoChat[] = (persone ?? [])
+    // ★ un inattivo (es. "Sistema") compare solo se ha già scritto/ricevuto
+    // qualcosa — non ingombra l'elenco "a chi scrivo" di staff che non
+    // esiste più, ma non nasconde più le notifiche automatiche già arrivate.
+    .filter((p) => p.attivo || conversazionePerAltraPersona.has(p.id))
+    .map((p) => {
+      const conv = conversazionePerAltraPersona.get(p.id);
+      return { id: p.id, nome: p.nome, conversazioneId: conv?.id ?? null, ...anteprima(conv?.id) };
+    });
 
   const gruppi2: GruppoChat[] = conversazioniList
     .filter((c) => c.tipo === "gruppo")

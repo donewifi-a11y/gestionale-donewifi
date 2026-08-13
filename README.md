@@ -1601,6 +1601,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   vincoli su `tipo_riga`/`attivazione_predefinita` testati e funzionanti, scrittura di
   `metodo_pagamento_posa` riuscita su una scheda reale.
 
+✅ **Fix: notifiche Lavorazioni Interne invisibili in Chat** (2026-08-13): bug reale segnalato
+  dall'utente — assegnare una Lavorazione Interna a un'altra persona manda un DM automatico dalla
+  persona "Sistema" (`inviaMessaggioChatSistemaDiretto()`), ma "Sistema" è sempre `attivo=false` per
+  disegno (non selezionabile in nessun form). `getContattiChat()` (`src/app/(app)/chat/actions.ts`)
+  filtrava l'elenco contatti a `attivo=true`: il badge "non letti" in Chat saliva comunque (calcolato
+  da tutte le conversazioni viste dalla RLS, non filtrate), ma la conversazione con "Sistema" non
+  compariva mai nell'elenco — un contatore che cresce senza modo di aprire la notifica. Corretto
+  includendo un contatto inattivo nell'elenco quando ha già una conversazione esistente (non
+  ingombra comunque la lista "a chi scrivo" per staff disattivato senza storico). Verificato contro
+  un caso reale in produzione: una Lavorazione assegnata il 13/08 risultava effettivamente invisibile
+  prima del fix.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
