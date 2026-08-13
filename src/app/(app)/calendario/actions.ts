@@ -5,6 +5,7 @@ import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } fro
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import { createHash, randomInt } from "crypto";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
@@ -308,40 +309,52 @@ export async function salvaSchedaLavoro(
 
   const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
 
-  const { error: erroreScheda } = await service.from("schede_lavoro").insert({
-    appuntamento_id: appuntamentoId,
-    ticket_id: appuntamento.ticket_id,
-    tipo,
-    esito: dati.esito.trim() || null,
-    note: dati.note.trim() || null,
-    importo_fatturato: importo,
-    materiali: dati.materiali,
-    foto: fotoSalvate,
-    firma_cliente_url: null,
-    firma_cliente_metodo: dati.firmaCliente.metodo,
-    firma_cliente_email: dati.firmaCliente.email,
-    firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
-    firma_tecnico_url: firmaTecnico.percorso,
-    supporto: dati.supporto || null,
-    posizione: dati.posizione || null,
-    gps_lat: dati.gpsLat ?? null,
-    gps_lng: dati.gpsLng ?? null,
-    tipo_cavo: dati.tipoCavo || null,
-    metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
-    bts: dati.bts || null,
-    modello_cpe: dati.modelloCpe || null,
-    mac: dati.mac || null,
-    vlan: dati.vlan || null,
-    rssi: dati.rssi ? Number(dati.rssi) : null,
-    snr: dati.snr ? Number(dati.snr) : null,
-    router: dati.router || null,
-    ping_ms: dati.pingMs ? Number(dati.pingMs) : null,
-    download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
-    upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
-    interventi_eseguiti: dati.interventiEseguiti ?? [],
-    creato_da: persona.id,
-  });
+  const { data: schedaCreata, error: erroreScheda } = await service
+    .from("schede_lavoro")
+    .insert({
+      appuntamento_id: appuntamentoId,
+      ticket_id: appuntamento.ticket_id,
+      tipo,
+      esito: dati.esito.trim() || null,
+      note: dati.note.trim() || null,
+      importo_fatturato: importo,
+      materiali: dati.materiali,
+      foto: fotoSalvate,
+      firma_cliente_url: null,
+      firma_cliente_metodo: dati.firmaCliente.metodo,
+      firma_cliente_email: dati.firmaCliente.email,
+      firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
+      firma_tecnico_url: firmaTecnico.percorso,
+      supporto: dati.supporto || null,
+      posizione: dati.posizione || null,
+      gps_lat: dati.gpsLat ?? null,
+      gps_lng: dati.gpsLng ?? null,
+      tipo_cavo: dati.tipoCavo || null,
+      metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
+      bts: dati.bts || null,
+      modello_cpe: dati.modelloCpe || null,
+      mac: dati.mac || null,
+      vlan: dati.vlan || null,
+      rssi: dati.rssi ? Number(dati.rssi) : null,
+      snr: dati.snr ? Number(dati.snr) : null,
+      router: dati.router || null,
+      ping_ms: dati.pingMs ? Number(dati.pingMs) : null,
+      download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
+      upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
+      interventi_eseguiti: dati.interventiEseguiti ?? [],
+      creato_da: persona.id,
+    })
+    .select("id")
+    .single();
   if (erroreScheda) return { errore: erroreScheda.message };
+
+  // ★ NUOVA — scarico automatico magazzino + riconciliazione inventario
+  // antenne (vedi materiali/actions.ts): entrambe best-effort, non
+  // bloccano mai il salvataggio della scheda già avvenuto sopra.
+  await scaricaGiacenzaMateriali(dati.materiali.map((m) => ({ materiale_id: m.materiale_id, quantita: m.quantita })));
+  if (dati.mac?.trim()) {
+    await riconciliaAntennaInstallata(dati.mac.trim().toUpperCase(), appuntamento.ticket_id, schedaCreata?.id ?? null);
+  }
 
   const { error: erroreApp } = await supabase.from("appuntamenti").update({ stato: "Completato" }).eq("id", appuntamentoId);
   if (erroreApp) return { errore: erroreApp.message };

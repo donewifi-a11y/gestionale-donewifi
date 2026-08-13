@@ -1518,6 +1518,35 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   crea/assegna-a-un-altro/completa/elimina riuscito. **Resta da configurare il terzo cron esterno**
   su cron-job.org (`/api/cron/promemoria-lavorazioni`) prima che i promemoria partano davvero.
 
+✅ **Magazzino Materiali + Inventario Antenne** (2026-08-13): richiesta esplicita — "il conto si
+  aggiorna quando i materiali sono inseriti nei lavori" + un avviso in caso di mancanza, più un
+  inventario per MAC delle antenne divise per tipologia con le prenotazioni fatte in anticipo dal
+  tecnico di Analisi Rete. Proposta con artifact (opzioni di layout per entrambe le sezioni),
+  approvata sui consigliati.
+  - `materiali_magazzino` guadagna `giacenza`/`soglia_minima`/`ultimo_avviso_il` (migrazione
+    `0054`, tutte nullable: un materiale non tracciato resta solo voce di listino come prima).
+    Nuova tab **Magazzino** in Materiali — badge OK/sotto soglia/esaurito, correzioni manuali
+    riservate a un amministratore.
+  - Scarico automatico solo dai materiali **strutturati** usati in una Scheda di
+    Installazione/Lavorazione Tecnica salvata (`scaricaGiacenzaMateriali()`,
+    `src/app/(app)/materiali/actions.ts`) — non da Preventivi (solo un'ipotesi di vendita) né dal
+    Rapportino di chiusura Ticket (materiali a testo libero, non strutturati). Sotto soglia parte
+    un avviso in Chat interna al reparto Analisi Rete, al massimo una volta ogni 24h per materiale.
+  - Nuova tabella `antenne_inventario` (stessa migrazione `0054`): un pezzo per MAC, raggruppato
+    per tipologia (stessa lista di `OPZIONI_INSTALLAZIONE.cpe`), stato Disponibile/Prenotata/
+    Installata. Nuova tab **Antenne** in Materiali, con conteggio per tipologia. Censimento MAC e
+    correzioni riservati a un amministratore; la prenotazione (impegnare un pezzo Disponibile per
+    un Ticket, con ricerca per numero/cliente) è un gesto operativo di chiunque sia in Analisi
+    Rete.
+  - Riconciliazione automatica: alla Scheda di Installazione salvata, se il MAC compilato dal
+    tecnico corrisponde a un pezzo censito, passa da solo a Installata
+    (`riconciliaAntennaInstallata()`) — con avviso in Chat se risultava prenotato per un Ticket
+    diverso da quello appena installato, invece di far quadrare i conti in silenzio.
+  Migrazione `0054` eseguita e verificata in produzione: nuove colonne/tabella interrogabili,
+  ciclo completo giacenza-imposta/scarica-ripristina riuscito, ciclo completo
+  antenna-crea/prenota/installa/elimina riuscito, vincoli su stato e unicità MAC testati e
+  funzionanti.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

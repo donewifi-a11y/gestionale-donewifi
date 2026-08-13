@@ -9,18 +9,30 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/materiali/actions";
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
+import { MagazzinoVista } from "@/components/materiali/magazzino-vista";
+import { AntenneVista } from "@/components/materiali/antenne-vista";
 import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
-import type { MaterialeMagazzino } from "@/lib/types";
+import type { AntennaInventario, MaterialeMagazzino } from "@/lib/types";
 
 const CATEGORIA_SENZA = "Senza categoria";
 
-export function MaterialiBoard({ materiali }: { materiali: MaterialeMagazzino[] }) {
+export function MaterialiBoard({
+  materiali,
+  antenne,
+  isAdmin,
+  puoPrenotare,
+}: {
+  materiali: MaterialeMagazzino[];
+  antenne: AntennaInventario[];
+  isAdmin: boolean;
+  puoPrenotare: boolean;
+}) {
   const [nuovo, setNuovo] = useState(false);
   const [modifica, setModifica] = useState<MaterialeMagazzino | null>(null);
   // ★ NUOVA — richiesta esplicita: "quali materiali mostrare in Scheda di
-  // lavoro" come schermata dedicata (tab a sé), non più solo il catalogo
-  // prezzi generale.
-  const [vista, setVista] = useState<"catalogo" | "schede">("catalogo");
+  // lavoro" come schermata dedicata (tab a sé), poi estesa con Magazzino
+  // (giacenza + avviso mancanza) e Antenne (inventario per MAC).
+  const [vista, setVista] = useState<"catalogo" | "magazzino" | "antenne" | "schede">("catalogo");
 
   const categorieEsistenti = useMemo(
     () => Array.from(new Set(materiali.map((m) => m.categoria).filter((c): c is string => !!c))).sort(),
@@ -48,6 +60,18 @@ export function MaterialiBoard({ materiali }: { materiali: MaterialeMagazzino[] 
             Catalogo
           </button>
           <button
+            onClick={() => setVista("magazzino")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "magazzino" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Magazzino
+          </button>
+          <button
+            onClick={() => setVista("antenne")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "antenne" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Antenne
+          </button>
+          <button
             onClick={() => setVista("schede")}
             className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "schede" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
           >
@@ -64,6 +88,10 @@ export function MaterialiBoard({ materiali }: { materiali: MaterialeMagazzino[] 
 
       {vista === "schede" ? (
         <SelettoreVisibilitaSchede materiali={materiali} />
+      ) : vista === "magazzino" ? (
+        <MagazzinoVista materiali={materiali} isAdmin={isAdmin} />
+      ) : vista === "antenne" ? (
+        <AntenneVista antenne={antenne} isAdmin={isAdmin} puoPrenotare={puoPrenotare} />
       ) : (
         <>
           {materiali.length === 0 && (

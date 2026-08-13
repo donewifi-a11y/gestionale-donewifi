@@ -1,11 +1,16 @@
 import { Boxes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { MaterialiBoard } from "@/components/materiali/materiali-board";
-import type { MaterialeMagazzino } from "@/lib/types";
+import type { AntennaInventario, MaterialeMagazzino } from "@/lib/types";
 
 export default async function MaterialiPage() {
   const supabase = await createClient();
-  const { data: materiali } = await supabase.from("materiali_magazzino").select("*").order("ordine", { ascending: true });
+  const [{ data: materiali }, { data: antenne }, persona] = await Promise.all([
+    supabase.from("materiali_magazzino").select("*").order("ordine", { ascending: true }),
+    supabase.from("antenne_inventario").select("*").order("tipologia", { ascending: true }).order("creato_il", { ascending: true }),
+    getPersonaCorrente(supabase),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -21,7 +26,12 @@ export default async function MaterialiPage() {
         </div>
       </div>
 
-      <MaterialiBoard materiali={(materiali as MaterialeMagazzino[]) ?? []} />
+      <MaterialiBoard
+        materiali={(materiali as MaterialeMagazzino[]) ?? []}
+        antenne={(antenne as AntennaInventario[]) ?? []}
+        isAdmin={personaHaAccessoAdmin(persona)}
+        puoPrenotare={personaVedeReparto(persona, "Analisi Rete")}
+      />
     </div>
   );
 }

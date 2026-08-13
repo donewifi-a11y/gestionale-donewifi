@@ -374,6 +374,42 @@ export interface MaterialeMagazzino {
    * Lavorazione Tecnica — indipendente da `attivo` (che resta il permesso
    * generale "esiste nel listino", usato anche da Preventivi). */
   mostra_in_schede_lavoro: boolean;
+  /** ★ NUOVA — quantità a magazzino. NULL = materiale non tracciato (resta
+   * solo voce di listino, come prima di questa funzione). Si scarica da
+   * solo quando il materiale è usato in una Scheda di Installazione/
+   * Lavorazione Tecnica salvata (non da Preventivi, solo un'ipotesi, né
+   * dal Rapportino di chiusura Ticket, i cui materiali sono testo libero
+   * non strutturato). */
+  giacenza: number | null;
+  /** Sotto questa quantità scatta un avviso in Chat interna al reparto
+   * Analisi Rete. NULL = nessun avviso impostato per questo materiale. */
+  soglia_minima: number | null;
+  /** Evita di ripetere l'avviso ad ogni scheda salvata mentre si resta
+   * sotto soglia — non è un timestamp mostrato in UI. */
+  ultimo_avviso_il: string | null;
+}
+
+/** ★ NUOVA — stato di un pezzo nell'inventario Antenne (per MAC). */
+export const STATI_ANTENNA = ["Disponibile", "Prenotata", "Installata"] as const;
+export type StatoAntenna = (typeof STATI_ANTENNA)[number];
+
+/** ★ NUOVA — un'antenna/CPE censita per MAC, raggruppata per tipologia
+ * (stessa lista di OPZIONI_INSTALLAZIONE.cpe). A differenza degli altri
+ * materiali non si conta a quantità: ogni pezzo è un record a sé, che
+ * passa da Disponibile a Prenotata (impegnata per un Ticket futuro dal
+ * tecnico di Analisi Rete) a Installata (agganciata in automatico quando
+ * il MAC compare in una Scheda di Installazione salvata). */
+export interface AntennaInventario {
+  id: string;
+  tipologia: string;
+  mac: string;
+  stato: StatoAntenna;
+  ticket_id: string | null;
+  scheda_lavoro_id: string | null;
+  note: string | null;
+  creato_da: string | null;
+  creato_il: string;
+  aggiornato_il: string;
 }
 
 /** Regola prezzi del listino Materiali/Servizi: il prezzo salvato è

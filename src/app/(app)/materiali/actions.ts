@@ -1,6 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { revalidatePath } from "next/cache";
 import type { MaterialeMagazzino } from "@/lib/types";
 
@@ -79,4 +81,238 @@ export async function eliminaMateriale(id: string) {
 
   revalidatePath("/materiali");
   return { errore: null };
+}
+
+// ── MAGAZZINO (giacenza + soglia) ───────────────────────────────────────
+// ★ NUOVA — richiesta esplicita: giacenza reale + avviso di mancanza,
+// proposta approvata via artifact (tutte le opzioni consigliate: solo
+// amministratore corregge a mano giacenza/soglia).
+async function verificaAdminMateriali(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return ERRORE_PERSONA_MANCANTE;
+  if (!personaHaAccessoAdmin(persona)) return "Solo un amministratore può correggere la giacenza a magazzino.";
+  return null;
+}
+
+export async function impostaGiacenzaMateriale(id: string, giacenza: number | null, sogliaMinima: number | null) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdminMateriali(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+  if (giacenza != null && (!Number.isFinite(giacenza) || giacenza < 0)) return { errore: "La giacenza non può essere negativa." };
+  if (sogliaMinima != null && (!Number.isFinite(sogliaMinima) || sogliaMinima < 0)) return { errore: "La soglia non può essere negativa." };
+
+  const { error } = await supabase.from("materiali_magazzino").update({ giacenza, soglia_minima: sogliaMinima }).eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
+}
+
+const SOGLIA_RIPETI_AVVISO_ORE = 24;
+
+/** ★ NUOVA — chiamata da salvaSchedaLavoro() (calendario/actions.ts) dopo
+ * il salvataggio riuscito di una Scheda di Installazione/Lavorazione: per
+ * ogni materiale strutturato usato (materiale_id valorizzato) decrementa
+ * la giacenza, se tracciata (giacenza non NULL — un materiale mai
+ * censito a magazzino resta un semplice voce di listino, nessun errore).
+ * Scende sotto soglia_minima → un avviso in Chat al reparto Analisi Rete,
+ * al massimo una volta ogni 24h per materiale. Non lancia mai errori
+ * verso il chiamante: un mancato scarico non deve bloccare il salvataggio
+ * della scheda (stesso principio delle notifiche best-effort del resto
+ * del gestionale). Usa la service role: il chiamante (tecnico sul campo)
+ * non deve avere accesso di scrittura diretto alla giacenza per aggirare
+ * questa funzione. */
+export async function scaricaGiacenzaMateriali(materiali: { materiale_id: string | null; quantita: number }[]) {
+  try {
+    const service = createServiceClient();
+    for (const riga of materiali) {
+      if (!riga.materiale_id || !riga.quantita) continue;
+
+      const { data: materiale } = await service
+        .from("materiali_magazzino")
+        .select("id, nome, giacenza, soglia_minima, ultimo_avviso_il")
+        .eq("id", riga.materiale_id)
+        .maybeSingle();
+      if (!materiale || materiale.giacenza == null) continue; // non tracciato a magazzino
+
+      const nuovaGiacenza = Math.max(0, materiale.giacenza - riga.quantita);
+      await service.from("materiali_magazzino").update({ giacenza: nuovaGiacenza }).eq("id", materiale.id);
+
+      const sottoSoglia = materiale.soglia_minima != null && nuovaGiacenza <= materiale.soglia_minima;
+      const daAvvisare =
+        sottoSoglia &&
+        (!materiale.ultimo_avviso_il || Date.now() - new Date(materiale.ultimo_avviso_il).getTime() > SOGLIA_RIPETI_AVVISO_ORE * 60 * 60 * 1000);
+      if (daAvvisare) {
+        await inviaMessaggioChatSistema(
+          "Analisi Rete",
+          `📦 Scorta bassa: "${materiale.nome}" a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia ${materiale.soglia_minima}).`
+        );
+        await service.from("materiali_magazzino").update({ ultimo_avviso_il: new Date().toISOString() }).eq("id", materiale.id);
+      }
+    }
+  } catch (errore) {
+    console.error("scaricaGiacenzaMateriali:", errore);
+  }
+}
+
+// ── INVENTARIO ANTENNE (per MAC) ────────────────────────────────────────
+// ★ NUOVA — stessa richiesta/proposta di cui sopra: censimento e
+// correzioni riservati all'amministratore; la prenotazione (impegnare
+// un'antenna per un Ticket futuro) è invece un gesto operativo del
+// tecnico di Analisi Rete, non solo dell'amministratore.
+export async function aggiungiAntenneInventario(tipologia: string, macTesto: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdminMateriali(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+  const persona = await getPersonaCorrente(supabase);
+
+  const mac = Array.from(
+    new Set(
+      macTesto
+        .split(/[\n,;]+/)
+        .map((m) => m.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+  if (mac.length === 0) return { errore: "Inserisci almeno un MAC." };
+
+  const service = createServiceClient();
+  const { error } = await service.from("antenne_inventario").insert(
+    mac.map((m) => ({ tipologia, mac: m, creato_da: persona?.id ?? null }))
+  );
+  if (error) {
+    if (error.code === "23505") return { errore: "Uno o più MAC sono già censiti a inventario." };
+    return { errore: error.message };
+  }
+
+  revalidatePath("/materiali");
+  return { errore: null, aggiunte: mac.length };
+}
+
+export async function eliminaAntennaInventario(id: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdminMateriali(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  const service = createServiceClient();
+  const { error } = await service.from("antenne_inventario").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
+}
+
+/** ★ NUOVA — piccola ricerca per numero/cliente, usata dal selettore
+ * "Riserva per Ticket" nella tab Antenne (evita di dover andare a
+ * memoria/aprire un'altra scheda per trovare l'id del Ticket giusto). */
+export async function cercaTicketPerAntenna(query: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return [];
+  const testo = query.trim();
+  if (testo.length < 2) return [];
+
+  // "numero" è un intero (serial): niente ilike diretto, si prova a
+  // interpretarlo come numero e in parallelo si cerca per cliente.
+  const numero = Number(testo);
+  const filtro = Number.isFinite(numero) && testo.match(/^\d+$/) ? `numero.eq.${numero},cliente.ilike.%${testo}%` : `cliente.ilike.%${testo}%`;
+
+  const { data } = await supabase
+    .from("tickets")
+    .select("id, numero, cliente")
+    .or(filtro)
+    .order("creato_il", { ascending: false })
+    .limit(8);
+  return data ?? [];
+}
+
+async function verificaAnalisiReteOAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return ERRORE_PERSONA_MANCANTE;
+  if (!personaVedeReparto(persona, "Analisi Rete")) return "Solo Analisi Rete può prenotare un'antenna.";
+  return null;
+}
+
+/** ★ NUOVA — il tecnico di Analisi Rete impegna in anticipo un'antenna
+ * Disponibile per un Ticket, così l'ufficio sa già che non è più libera
+ * anche prima dell'intervento vero (aggancio definitivo a "Installata"
+ * quando il MAC compare in una Scheda di Installazione salvata, vedi
+ * salvaSchedaLavoro() in calendario/actions.ts). */
+export async function prenotaAntennaInventario(id: string, ticketId: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAnalisiReteOAdmin(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  // antenne_inventario non ha policy insert/update/delete (vedi
+  // migrazione 0054): la scrittura passa dalla service role solo dopo il
+  // controllo applicativo appena fatto sopra.
+  const service = createServiceClient();
+  const { data: antenna } = await service.from("antenne_inventario").select("stato").eq("id", id).maybeSingle();
+  if (!antenna) return { errore: "Antenna non trovata." };
+  if (antenna.stato !== "Disponibile") return { errore: "Questa antenna non è più disponibile." };
+
+  const { error } = await service
+    .from("antenne_inventario")
+    .update({ stato: "Prenotata", ticket_id: ticketId, aggiornato_il: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
+}
+
+export async function annullaPrenotazioneAntenna(id: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAnalisiReteOAdmin(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  const service = createServiceClient();
+  const { data: antenna } = await service.from("antenne_inventario").select("stato").eq("id", id).maybeSingle();
+  if (!antenna) return { errore: "Antenna non trovata." };
+  if (antenna.stato !== "Prenotata") return { errore: "Questa antenna non risulta prenotata." };
+
+  const { error } = await service
+    .from("antenne_inventario")
+    .update({ stato: "Disponibile", ticket_id: null, aggiornato_il: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
+}
+
+/** ★ NUOVA — chiamata da salvaSchedaLavoro() (calendario/actions.ts) dopo
+ * il salvataggio di una Scheda di Installazione con un MAC compilato:
+ * aggancia il pezzo scritto dal tecnico all'inventario, se censito.
+ * - Disponibile → passa a Installata per questo Ticket/Scheda.
+ * - Prenotata per lo stesso Ticket → conferma, passa a Installata.
+ * - Prenotata per un Ticket diverso → il tecnico ha usato un pezzo
+ *   impegnato altrove: si installa comunque (la realtà fisica vince),
+ *   ma un avviso in Chat ad Analisi Rete segnala l'incoerenza invece di
+ *   farla quadrare in silenzio (chi aveva quella prenotazione dovrà
+ *   sceglierne un'altra).
+ * - MAC non censito → nessun errore, il gestionale non obbliga a
+ *   censire ogni pezzo installato.
+ * Mai bloccante verso il chiamante (stesso principio di
+ * scaricaGiacenzaMateriali()). */
+export async function riconciliaAntennaInstallata(mac: string, ticketId: string | null, schedaLavoroId: string | null) {
+  try {
+    const service = createServiceClient();
+    const { data: antenna } = await service.from("antenne_inventario").select("id, stato, ticket_id").eq("mac", mac).maybeSingle();
+    if (!antenna || antenna.stato === "Installata") return;
+
+    if (antenna.stato === "Prenotata" && antenna.ticket_id && antenna.ticket_id !== ticketId) {
+      await inviaMessaggioChatSistema(
+        "Analisi Rete",
+        `⚠️ Antenna ${mac} era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.`
+      );
+    }
+
+    await service
+      .from("antenne_inventario")
+      .update({ stato: "Installata", ticket_id: ticketId, scheda_lavoro_id: schedaLavoroId, aggiornato_il: new Date().toISOString() })
+      .eq("id", antenna.id);
+  } catch (errore) {
+    console.error("riconciliaAntennaInstallata:", errore);
+  }
 }
