@@ -1320,6 +1320,27 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   del deep-link `?aperto=` già esistente) e applicarli come filtro. "Non assegnati" non esisteva
   nemmeno come filtro in Ticket: aggiunto un pulsante toggle apposta, accanto a "Solo i miei".
 
+✅ **Sidebar riorganizzata in 5 mondi coerenti** (2026-08-13): "è caotico e non so mai dove trovare
+  le sezioni" — "Mondo Business" era un cassetto con dentro 4 concetti diversi (analisi, vendita,
+  cataloghi, anagrafiche) mescolati solo perché "non erano Ticket"; "Mondo Team" mischiava
+  organico (Persone) e strumento tecnico (Stato Sistema). Proposto con artifact e confermato: ora
+  ogni mondo risponde a una sola domanda — **Assistenza** ("sto lavorando una pratica?": Ticket,
+  Vista Tecnico, Calendario, Materiali, Richieste Clienti, Archivio), **Vendita** ("sto vendendo?":
+  Segnalazioni, Preventivi, Tariffe), **Clienti** ("chi è questo cliente?": Clienti, Anagrafica
+  Clienti), **Analisi** ("come vanno le cose?": Dashboard generale + per reparto), **Team** (solo
+  admin: Persone, Stato Sistema). Segnalazioni si sposta da "Ticket" a "Vendita" (è un contatto
+  commerciale, non un ticket di assistenza); Richieste Clienti resta con Assistenza perché nasce
+  quasi sempre da un Ticket esistente.
+✅ **Home — pannello "Novità dai clienti"** (2026-08-13): Commerciale/Fatturazione/Admin non
+  avevano modo di accorgersi in prima pagina quando un cliente inviava un modulo, approvava un
+  contratto o rispondeva a un preventivo — bisognava andare a cercarlo settore per settore. Nuovo
+  pannello in cima alla home (subito sotto l'intro, prima della griglia Ticket), visibile solo a
+  chi ha competenza commerciale, che unisce 3 fonti in un unico elenco cliccabile ordinato per
+  data: moduli clienti da lavorare (`richieste_clienti` in stato "Da Lavorare"), contratti appena
+  approvati dal cliente e in attesa di trasmissione, preventivi approvati/rifiutati negli ultimi 7
+  giorni. Ogni riga porta direttamente alla pratica (`/tickets?aperto=`, `/segnalazioni?aperto=`,
+  `/preventivi?aperto=`), senza dover ricostruire a mano dove cercare.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

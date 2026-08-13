@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2, StickyNote, Wifi, Handshake, Receipt } from "lucide-react";
+import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAlert, Clock, Gauge, CheckCircle2, StickyNote, Wifi, Handshake, Receipt, Inbox, FileCheck2, FileSignature } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { REPARTI_ELENCO } from "@/lib/analytics";
@@ -59,6 +59,14 @@ export default async function MondoTicketPage() {
   const repartiUtente: AreaAccesso[] = !isAdmin ? personaCorrente?.reparti ?? [] : [];
   const filtratoPerReparto = repartiUtente.length > 0;
   const repartiVisibili = isAdmin ? REPARTI_ELENCO : REPARTI_ELENCO.filter((r) => repartiUtente.includes(r));
+  // ★ NUOVA — richiesta esplicita: "quando un cliente invia documentazione
+  // e approva preventivi e contratti" deve cadere all'occhio in prima
+  // pagina, per i settori competenti — oggi lo si scopriva solo aprendo
+  // Richieste Clienti/Segnalazioni/Preventivi a parte. Stessa visibilità
+  // già usata per quelle sezioni in sidebar (vedeRichieste in
+  // app-sidebar.tsx): moduli cliente e contratti sono commerciale/
+  // fatturazione, Analisi Rete non li vede.
+  const vedeNovitaClienti = isAdmin || repartiUtente.includes("Commerciale") || repartiUtente.includes("Fatturazione");
 
   const oggiInizio = new Date();
   oggiInizio.setHours(0, 0, 0, 0);
@@ -81,6 +89,9 @@ export default async function MondoTicketPage() {
     .lte("aggiornato_il", oggiFine.toISOString());
   if (filtratoPerReparto) queryCompletatiOggi = queryCompletatiOggi.in("reparto", repartiUtente);
 
+  const settimanaFa = new Date();
+  settimanaFa.setDate(settimanaFa.getDate() - 7);
+
   const [
     { data: ticketAttivi },
     { data: completatiOggiRighe },
@@ -89,6 +100,9 @@ export default async function MondoTicketPage() {
     { count: appuntamentiOggi },
     { count: mieiTicketOggi },
     { data: promemoria },
+    { data: richiesteDaLavorare },
+    { data: contrattiApprovatiDaTrasmettere },
+    { data: preventiviRisposti },
   ] = await Promise.all([
     queryTicket,
     queryCompletatiOggi,
@@ -113,10 +127,72 @@ export default async function MondoTicketPage() {
       .eq("completata", false)
       .lte("data_promemoria", oggiFine.toISOString().slice(0, 10))
       .order("data_promemoria", { ascending: true }),
+    vedeNovitaClienti
+      ? supabase
+          .from("richieste_clienti")
+          .select("id, tipo_richiesta, cliente, ticket_id, segnalazione_id, data")
+          .eq("stato", "Da Lavorare")
+          .order("data", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    vedeNovitaClienti
+      ? supabase
+          .from("segnalazioni")
+          .select("id, numero, nome, contratto_approvato_cliente_il")
+          .eq("stato", "Gestione Cliente")
+          .not("contratto_approvato_cliente_il", "is", null)
+          .order("contratto_approvato_cliente_il", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    vedeNovitaClienti
+      ? supabase
+          .from("preventivi")
+          .select("id, numero, cliente_nome, stato, risposto_il")
+          .in("stato", ["Approvato", "Rifiutato"])
+          .gte("risposto_il", settimanaFa.toISOString())
+          .order("risposto_il", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
 
   const attivi = (ticketAttivi ?? []) as TicketRiga[];
   const completatiOggi = completatiOggiRighe ?? [];
+
+  // ★ le 3 fonti sopra si combinano in un'unica lista "novità dai
+  // clienti", ognuna con un link diretto alla pratica — invece di dover
+  // sapere a memoria in quale delle 3 sezioni (Richieste Clienti/
+  // Segnalazioni/Preventivi) guardare per scoprire cosa è appena arrivato.
+  interface NovitaCliente {
+    id: string;
+    icona: typeof Inbox;
+    testo: string;
+    quando: string;
+    href: string;
+    colore: string;
+  }
+  const novitaClienti: NovitaCliente[] = [
+    ...(richiesteDaLavorare ?? []).map((r): NovitaCliente => ({
+      id: `r-${r.id}`,
+      icona: Inbox,
+      testo: `${r.tipo_richiesta} da ${r.cliente ?? "cliente"}`,
+      quando: r.data,
+      href: r.ticket_id ? `/tickets?aperto=${r.ticket_id}` : r.segnalazione_id ? `/segnalazioni?aperto=${r.segnalazione_id}` : "/richieste-clienti",
+      colore: "text-primary",
+    })),
+    ...(contrattiApprovatiDaTrasmettere ?? []).map((s): NovitaCliente => ({
+      id: `c-${s.id}`,
+      icona: FileCheck2,
+      testo: `Contratto approvato — ${s.nome} (#${s.numero})`,
+      quando: s.contratto_approvato_cliente_il as string,
+      href: `/segnalazioni?aperto=${s.id}`,
+      colore: "text-success",
+    })),
+    ...(preventiviRisposti ?? []).map((p): NovitaCliente => ({
+      id: `p-${p.id}`,
+      icona: FileSignature,
+      testo: `Preventivo ${p.stato.toLowerCase()} — ${p.cliente_nome} (#${p.numero})`,
+      quando: p.risposto_il as string,
+      href: `/preventivi?aperto=${p.id}`,
+      colore: p.stato === "Approvato" ? "text-success" : "text-critical",
+    })),
+  ].sort((a, b) => new Date(b.quando).getTime() - new Date(a.quando).getTime());
 
   // ★ pannello "serve attenzione ora" per settore: Urgenti + fermi da oltre
   // 24h senza nessuno assegnato — la stessa lista che nel vecchio
@@ -160,6 +236,34 @@ export default async function MondoTicketPage() {
       <p className="mb-6 text-muted-foreground">
         {filtratoPerReparto ? `Il colpo d'occhio sul settore ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda, settore per settore."}
       </p>
+
+      {vedeNovitaClienti && novitaClienti.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-primary/30 bg-primary/5 p-5 shadow-md">
+          <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
+            <Inbox className="h-4 w-4 text-primary" strokeWidth={2.25} />
+            Novità dai clienti
+          </h2>
+          <div className="flex flex-col gap-1">
+            {novitaClienti.slice(0, 8).map((n) => {
+              const Icona = n.icona;
+              return (
+                <Link
+                  key={n.id}
+                  href={n.href}
+                  className="flex items-center gap-2.5 rounded-lg bg-card px-2.5 py-2 text-sm shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <Icona className={`h-4 w-4 shrink-0 ${n.colore}`} strokeWidth={2.25} />
+                  <span className="min-w-0 flex-1 truncate">{n.testo}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {new Date(n.quando).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className={`mb-8 grid grid-cols-1 gap-5 ${repartiVisibili.length >= 3 ? "lg:grid-cols-3" : repartiVisibili.length === 2 ? "md:grid-cols-2" : ""}`}>
         {repartiVisibili.map((reparto) => (

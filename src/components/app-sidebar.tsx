@@ -21,7 +21,6 @@ import {
   BarChart3,
   UsersRound,
   Database,
-  Wrench,
   MessageCircle,
   ListChecks,
   ShieldCheck,
@@ -81,56 +80,67 @@ export function AppSidebar({
   ];
   const dashboardReparti = isAdmin ? REPARTI_SLUG : REPARTI_SLUG.filter((r) => personaReparti.includes(r.reparto));
 
-  // ★ NUOVA — la sidebar è ora divisa in "mondi" (tab laterali): invece di
-  // un'unica lista fino a 15 voci, ogni mondo ha le proprie 4-7 voci. Un
-  // mondo compare solo se l'utente ha almeno una voce da vederci dentro.
-  //
-  // ★ RIORGANIZZATA (2026-08): Calendario e Materiali non sono Ticket —
-  // erano finiti sotto "Mondo Ticket" solo perché nuovi, senza un posto
-  // pensato apposta. Ora hanno un "Mondo Operazioni" tutto loro (strumenti
-  // da campo, non flusso ticket), e "Clienti" si sposta vicino ad
-  // "Anagrafica Clienti" in Mondo Business — sono entrambe anagrafiche
-  // cliente, stesso posto concettuale anche se dati diversi.
+  // ★ RIORGANIZZATA (2026-08) — richiesta esplicita: la sidebar era
+  // "caotica", in particolare "Mondo Business" era un cassetto con dentro
+  // 4 concetti diversi (analisi, vendita, cataloghi, anagrafiche) mescolati
+  // solo perché "non erano Ticket", e "Mondo Team" mischiava organico
+  // (Persone) e strumento tecnico (Stato Sistema). Proposta con artifact,
+  // confermata: 5 mondi, ognuno risponde a UNA sola domanda —
+  // Assistenza = "sto lavorando una pratica sul campo?", Vendita = "sto
+  // vendendo?", Clienti = "chi è questo cliente?", Analisi = "come vanno
+  // le cose?", Team = solo amministratori. Segnalazioni si sposta da
+  // Assistenza a Vendita (è un contatto commerciale, non un ticket di
+  // assistenza); Richieste Clienti resta in Assistenza (nascono quasi
+  // sempre da un Ticket esistente); Materiali si sposta vicino a
+  // Calendario/Vista Tecnico in Assistenza (catalogo dei tecnici, non
+  // strumento di vendita).
   const mondi: Mondo[] = useMemo(() => {
     const lista: Mondo[] = [
       {
-        id: "ticket",
-        etichetta: "Mondo Ticket",
+        id: "assistenza",
+        etichetta: "Assistenza",
         icona: LayoutGrid,
         voci: [
-          { href: "/", etichetta: "Mondo Ticket", icona: LayoutGrid, esatto: true },
+          { href: "/", etichetta: "Assistenza", icona: LayoutGrid, esatto: true },
           { href: "/tickets", etichetta: "Ticket", icona: Ticket },
-          { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall },
           { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat },
+          { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
+          { href: "/materiali", etichetta: "Materiali", icona: Boxes },
+          ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
           { href: "/archivio", etichetta: "Archivio", icona: Archive },
         ],
       },
       {
-        id: "operazioni",
-        etichetta: "Mondo Operazioni",
-        icona: Wrench,
+        id: "vendita",
+        etichetta: "Vendita",
+        icona: PhoneCall,
         voci: [
-          { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
-          { href: "/materiali", etichetta: "Materiali", icona: Boxes },
+          { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall },
+          ...(vedeTariffe ? [{ href: "/preventivi", etichetta: "Preventivi", icona: FileText }] : []),
+          ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
         ],
       },
       {
-        id: "business",
-        etichetta: "Mondo Business",
-        icona: BarChart3,
+        id: "clienti",
+        etichetta: "Clienti",
+        icona: Users2,
         voci: [
-          { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
-          ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
-          ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
-          ...(vedeTariffe ? [{ href: "/preventivi", etichetta: "Preventivi", icona: FileText }] : []),
-          ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
           { href: "/clienti", etichetta: "Clienti", icona: Users2 },
           ...(vedeRichieste ? [{ href: "/clienti-esterni", etichetta: "Anagrafica Clienti", icona: Database }] : []),
         ],
       },
       {
+        id: "analisi",
+        etichetta: "Analisi",
+        icona: BarChart3,
+        voci: [
+          { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
+          ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
+        ],
+      },
+      {
         id: "team",
-        etichetta: "Mondo Team",
+        etichetta: "Team",
         icona: UsersRound,
         // ★ "Utenti" (account condivisi) non è più promosso qui: dal login
         // individuale, l'accesso vero passa da Persone — Utenti resta
