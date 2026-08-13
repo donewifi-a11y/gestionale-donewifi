@@ -25,6 +25,7 @@ import {
   ListChecks,
   ShieldCheck,
   FileText,
+  Wrench,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -142,15 +143,24 @@ export function AppSidebar({
         id: "team",
         etichetta: "Team",
         icona: UsersRound,
+        // ★ NUOVA — "Team" non è più "solo amministratori": Lavorazioni
+        // Interne (Rete/Ufficio, assegnabili da un admin ad altro staff)
+        // deve essere visibile a chiunque abbia lavorazioni assegnate, non
+        // solo a chi le assegna. Persone/Stato Sistema restano riservate
+        // agli amministratori (ogni pagina si protegge comunque da sola
+        // lato server, questo è solo cosa compare nel menu).
         // ★ "Utenti" (account condivisi) non è più promosso qui: dal login
         // individuale, l'accesso vero passa da Persone — Utenti resta
         // raggiungibile su /utenti per chi lo conosce già, solo non in menu.
-        voci: isAdmin
-          ? [
-              { href: "/persone", etichetta: "Persone", icona: UserCircle },
-              { href: "/sistema", etichetta: "Stato Sistema", icona: ShieldCheck },
-            ]
-          : [],
+        voci: [
+          { href: "/lavorazioni", etichetta: "Lavorazioni Interne", icona: Wrench },
+          ...(isAdmin
+            ? [
+                { href: "/persone", etichetta: "Persone", icona: UserCircle },
+                { href: "/sistema", etichetta: "Stato Sistema", icona: ShieldCheck },
+              ]
+            : []),
+        ],
       },
     ];
     return lista.filter((m) => m.voci.length > 0);

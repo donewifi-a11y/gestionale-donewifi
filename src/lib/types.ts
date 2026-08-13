@@ -295,6 +295,31 @@ export interface TodoPersonale {
   completato_il: string | null;
 }
 
+export type CategoriaLavorazione = "Rete" | "Ufficio";
+export type StatoLavorazione = "Da fare" | "In corso" | "Fatta";
+export const CATEGORIE_LAVORAZIONE: CategoriaLavorazione[] = ["Rete", "Ufficio"];
+export const STATI_LAVORAZIONE: StatoLavorazione[] = ["Da fare", "In corso", "Fatta"];
+
+/** ★ NUOVA — lavorazioni interne (non pratiche cliente) assegnabili da un
+ * amministratore, divise Rete/Ufficio — a differenza di TodoPersonale
+ * (appunti privati leggeri) queste sono lavoro formale del team, con
+ * responsabile e chi l'ha assegnata, e un promemoria automatico se
+ * restano ferme (vedi ultimo_promemoria_il). Niente scadenza per scelta
+ * esplicita — il promemoria si basa su quanto tempo è ferma, non su una
+ * data limite. */
+export interface LavorazioneInterna {
+  id: string;
+  categoria: CategoriaLavorazione;
+  titolo: string;
+  descrizione: string | null;
+  assegnato_a: string;
+  assegnato_da: string;
+  stato: StatoLavorazione;
+  creato_il: string;
+  completato_il: string | null;
+  ultimo_promemoria_il: string | null;
+}
+
 export interface NotaCalendario {
   id: string;
   testo: string;

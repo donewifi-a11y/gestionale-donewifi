@@ -1490,6 +1490,32 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     gestionale) ora si chiudono solo dalla X in alto a destra o da un'azione esplicita del
     componente (Annulla, salvataggio riuscito) — mai da un click fuori o da Esc.
 
+✅ **Lavorazioni Interne — nuova pagina, con assegnazione e promemoria** (2026-08-13): richiesta
+  esplicita per il lavoro interno (non pratiche cliente), diviso in due categorie fisse — **Rete**
+  (ponti radio, BS, postazioni) e **Ufficio** — assegnabili da un amministratore ad altro staff.
+  Proposta con artifact (modello dati, canale del promemoria, dove nel menu, rapporto col To-Do
+  personale), confermata con una correzione esplicita: **niente scadenza** — il promemoria si basa
+  su quanto tempo la lavorazione resta ferma dalla creazione (2 giorni per il primo sollecito, non
+  più di uno ogni 24h), stesso principio già in uso per "Ferma da Ng" in Segnalazioni/Ticket, non
+  su una data limite.
+  - Tabella nuova e separata da `todo_personali` (quello resta appunti privati leggeri, questo è
+    lavoro formale del team con responsabile e chi l'ha assegnata) — migrazione `0053`.
+  - Bacheca a colonne per stato (Da fare/In corso/Fatta), un tab per categoria — stesso linguaggio
+    visivo di Ticket/Segnalazioni. Solo un amministratore può assegnarla a un'altra persona
+    (chiunque può crearne una per sé); solo un amministratore vede tutte le lavorazioni di tutti
+    (service role in pagina), un utente normale solo le proprie (RLS).
+  - Nuova funzione `inviaMessaggioChatSistemaDiretto()` (`src/lib/chat.ts`) — messaggio diretto
+    (DM) da "Sistema" a una persona precisa, non solo broadcast di reparto come
+    `inviaMessaggioChatSistema()` esistente.
+  - Cron `/api/cron/promemoria-lavorazioni`: chi la deve fare **e** chi l'ha assegnata ricevono un
+    promemoria in Chat interna se resta ferma — stesso schema di `promemoria-approvazione-contratto`,
+    va aggiunto come **terzo job esterno** su cron-job.org (i 2 slot nativi Vercel Hobby restano
+    occupati da `pulizia-documenti`/`promemoria-ticket`).
+  - "Team" nel menu laterale non è più "solo amministratori": ora tutti vedono "Lavorazioni
+    Interne" (le proprie), Persone/Stato Sistema restano riservate agli admin.
+  **Richiede l'esecuzione manuale della migrazione `0053_lavorazioni_interne.sql`** e la
+  configurazione del nuovo cron esterno prima di funzionare in produzione.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
