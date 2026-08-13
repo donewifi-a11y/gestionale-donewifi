@@ -112,6 +112,7 @@ export function TicketsBoard({
     priorita: "",
     reparto: "",
     soloMiei: false,
+    nonAssegnati: false,
   });
   const [aperto, setAperto] = useState<Ticket | null>(null);
   // ★ NUOVA — sollevato qui (la Scheda si apre in un Dialog centrale
@@ -130,6 +131,22 @@ export function TicketsBoard({
     if (trovato) setAperto(trovato);
   }, [searchParams, tickets]);
 
+  // ★ NUOVA — richiesta esplicita: i KPI della Dashboard ("Ticket Urgenti",
+  // "Non assegnati") erano numeri statici, non cliccabili — bisognava
+  // uscire e ricostruire il filtro a mano. `?priorita=`/`?nonAssegnati=1`
+  // applicano il filtro corrispondente al primo caricamento, stesso
+  // principio del deep-link `?aperto=` sopra.
+  useEffect(() => {
+    const priorita = searchParams.get("priorita");
+    const nonAssegnati = searchParams.get("nonAssegnati");
+    if (!priorita && !nonAssegnati) return;
+    aggiornaFiltri({
+      ...(priorita ? { priorita } : {}),
+      ...(nonAssegnati ? { nonAssegnati: true } : {}),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- va applicato solo al primo caricamento con questi parametri, non ad ogni cambio di `filtri`/`aggiornaFiltri` (che cambierebbero proprio a causa di questo effetto, creando un loop).
+  }, [searchParams]);
+
   const filtrati = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
     return tickets
@@ -140,6 +157,7 @@ export function TicketsBoard({
           (!filtri.priorita || t.priorita === filtri.priorita) &&
           (!filtri.reparto || t.reparto === filtri.reparto) &&
           (!filtri.soloMiei || t.tecnico_assegnato === currentPersonaId) &&
+          (!filtri.nonAssegnati || !t.tecnico_assegnato) &&
           (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
       )
       .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
@@ -194,12 +212,20 @@ export function TicketsBoard({
           <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
           Solo i miei
         </Button>
-        {(filtri.stato || filtri.categoria || filtri.priorita || filtri.reparto || filtri.soloMiei || ricerca) && (
+        <Button
+          size="sm"
+          variant={filtri.nonAssegnati ? "default" : "outline"}
+          onClick={() => aggiornaFiltri({ nonAssegnati: !filtri.nonAssegnati })}
+        >
+          <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Non assegnati
+        </Button>
+        {(filtri.stato || filtri.categoria || filtri.priorita || filtri.reparto || filtri.soloMiei || filtri.nonAssegnati || ricerca) && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
-              aggiornaFiltri({ stato: "", categoria: "", priorita: "", reparto: "", soloMiei: false });
+              aggiornaFiltri({ stato: "", categoria: "", priorita: "", reparto: "", soloMiei: false, nonAssegnati: false });
               setRicerca("");
             }}
           >

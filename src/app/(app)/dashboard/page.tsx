@@ -162,6 +162,7 @@ export default async function DashboardPage({
               valore={ticketUrgenti}
               colore="text-critical"
               contesto={ticketAttivi > 0 ? `${Math.round((ticketUrgenti / ticketAttivi) * 100)}% degli attivi` : undefined}
+              href="/tickets?priorita=Urgente"
             />
             <Kpi
               icona={Clock}
@@ -169,9 +170,10 @@ export default async function DashboardPage({
               valore={ticketNonAssegnati}
               colore="text-warning"
               contesto={ticketAttivi > 0 ? `${Math.round((ticketNonAssegnati / ticketAttivi) * 100)}% degli attivi` : undefined}
+              href="/tickets?nonAssegnati=1"
             />
-            <Kpi icona={CalendarCheck2} etichetta="Appuntamenti oggi" valore={appuntamentiOggi ?? 0} colore="text-primary" />
-            <Kpi icona={Gauge} etichetta="Ticket attivi" valore={ticketAttivi} colore="text-foreground" />
+            <Kpi icona={CalendarCheck2} etichetta="Appuntamenti oggi" valore={appuntamentiOggi ?? 0} colore="text-primary" href="/calendario?vista=giorno" />
+            <Kpi icona={Gauge} etichetta="Ticket attivi" valore={ticketAttivi} colore="text-foreground" href="/tickets" />
           </div>
         );
       })()}
@@ -576,6 +578,7 @@ function Kpi({
   valore,
   colore,
   contesto,
+  href,
 }: {
   icona: typeof Gauge;
   etichetta: string;
@@ -589,15 +592,29 @@ function Kpi({
    * attivi") invece di inventare un confronto storico che richiederebbe
    * una tabella nuova. */
   contesto?: string;
+  /** ★ NUOVA — richiesta esplicita "a prova di scemo": un numero da solo
+   * non basta, bisognava uscire dalla Dashboard e ricostruire il filtro a
+   * mano per vedere la lista dietro al numero. Se passato, l'intera card
+   * diventa un link che apre già la lista giusta (vedi i deep-link
+   * `?priorita=`/`?nonAssegnati=` letti da tickets-board.tsx). */
+  href?: string;
 }) {
-  return (
-    <div className="rounded-2xl border bg-card p-4 shadow-md">
+  const contenuto = (
+    <>
       <Icona className={`mb-2 h-4 w-4 ${colore}`} strokeWidth={2.25} />
       <div className="font-heading text-2xl font-bold tabular-nums">{valore}</div>
       <div className="text-xs text-muted-foreground">{etichetta}</div>
       {contesto && <div className="mt-1 text-[10px] text-muted-foreground/70">{contesto}</div>}
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="rounded-2xl border bg-card p-4 shadow-md transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg">
+        {contenuto}
+      </Link>
+    );
+  }
+  return <div className="rounded-2xl border bg-card p-4 shadow-md">{contenuto}</div>;
 }
 
 function Pannello({ titolo, children, className }: { titolo: string; children: React.ReactNode; className?: string }) {

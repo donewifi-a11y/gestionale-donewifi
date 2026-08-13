@@ -1312,6 +1312,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   scelta "chip evento": ogni impegno diventa ora una striscia compatta orario+cliente dentro la
   cella (max 3 righe, poi "+N altri"), stesso principio di Google/Outlook e stesso ordine
   note→appuntamenti→eventi Google già usato in Vista Settimana, per coerenza tra le due viste.
+✅ **Dashboard — KPI cliccabili** (2026-08-12): quarto pezzo — i 4 numeri in cima alla Dashboard
+  (Ticket Urgenti, Non assegnati, Appuntamenti oggi, Ticket attivi) erano statici: per vedere la
+  lista dietro al numero bisognava uscire e ricostruire il filtro a mano in Ticket/Calendario. Ora
+  ogni card è un link che apre già la lista giusta — `Kpi` accetta un `href` opzionale; Ticket ha
+  imparato a leggere `?priorita=`/`?nonAssegnati=1` dall'URL al primo caricamento (stesso principio
+  del deep-link `?aperto=` già esistente) e applicarli come filtro. "Non assegnati" non esisteva
+  nemmeno come filtro in Ticket: aggiunto un pulsante toggle apposta, accanto a "Solo i miei".
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
