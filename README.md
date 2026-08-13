@@ -1434,8 +1434,10 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `otp_firma_cliente`, ora referenzia un appuntamento *o* un ticket) e `rapportini_intervento`
   estesa con `firma_metodo`/`firma_email`/`firma_verificato_il` (stesso schema di `schede_lavoro`,
   `firma_url` intatto per i rapportini storici col disegno). `/api/approva/[token]` gestisce anche
-  il nuovo caso `firma_rapportino`. **Richiede l'esecuzione manuale della migrazione `0051`**
-  prima di funzionare in produzione.
+  il nuovo caso `firma_rapportino`. Migrazione `0051` eseguita e verificata in produzione: tabella
+  rinominata interrogabile con entrambe le colonne, nuove colonne su `rapportini_intervento`
+  presenti, inserimento/cancellazione di prova riusciti, e il vincolo "un riferimento solo" blocca
+  correttamente un tentativo con appuntamento e ticket impostati insieme.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
