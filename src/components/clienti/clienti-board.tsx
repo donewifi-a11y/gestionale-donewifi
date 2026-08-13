@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2, Database, ArrowUpRight } from "lucide-react";
+import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2, Database, ArrowUpRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useToast } from "@/components/ui/toast";
 import { salvaDatiContrattualiCliente } from "@/app/(app)/clienti/actions";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
@@ -290,28 +291,33 @@ function FormDatiContrattuali({
   onFatto: () => void;
 }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
-    setInCorso(true);
-    const risultato = await salvaDatiContrattualiCliente(cliente.dati?.id ?? null, {
-      nome: cliente.nome,
-      telefono: cliente.telefono || "",
-      email: cliente.email || "",
-      indirizzo: cliente.indirizzo || "",
-      tariffa_id: String(dati.get("tariffa_id") || ""),
-      canone_mensile: String(dati.get("canone_mensile") || ""),
-      scadenza_contratto: String(dati.get("scadenza_contratto") || ""),
-      note: String(dati.get("note") || ""),
+    startTransizione(async () => {
+      const risultato = await salvaDatiContrattualiCliente(cliente.dati?.id ?? null, {
+        nome: cliente.nome,
+        telefono: cliente.telefono || "",
+        email: cliente.email || "",
+        indirizzo: cliente.indirizzo || "",
+        tariffa_id: String(dati.get("tariffa_id") || ""),
+        canone_mensile: String(dati.get("canone_mensile") || ""),
+        scadenza_contratto: String(dati.get("scadenza_contratto") || ""),
+        note: String(dati.get("note") || ""),
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Dati contrattuali salvati.", "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) return setErrore(risultato.errore);
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -348,8 +354,9 @@ function FormDatiContrattuali({
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Salvataggio..." : "Salva"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Salvataggio in corso…" : "Salva"}
         </Button>
       </form>
     </>

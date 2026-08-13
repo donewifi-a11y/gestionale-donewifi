@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Send, Trash2, Check, Clock, X, FileText } from "lucide-react";
+import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { formattaValuta } from "@/lib/types";
@@ -144,32 +145,40 @@ export function PreventiviBoard({
 function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Preventivo; isAdmin: boolean; onChiudi: () => void }) {
   const router = useRouter();
   const toast = useToast();
-  const [inCorso, setInCorso] = useState(false);
+  // ★ NUOVA — stesso principio già applicato a Segnalazioni/Ticket: una
+  // useTransition() indipendente per azione, spinner Loader2 sul bottone
+  // e toast di conferma anche sul successo (prima "Invia per approvazione"
+  // non dava alcuna conferma visiva oltre al re-render del dialog).
+  const [inCorsoInvio, startInvio] = useTransition();
+  const [inCorsoElimina, startElimina] = useTransition();
   const [errore, setErrore] = useState("");
 
-  async function invia() {
-    setInCorso(true);
+  function invia() {
     setErrore("");
-    const risultato = await inviaPreventivoApprovazione(preventivo.id, window.location.origin);
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
+    startInvio(async () => {
+      const risultato = await inviaPreventivoApprovazione(preventivo.id, window.location.origin);
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        toast(risultato.errore);
+        return;
+      }
+      toast("Preventivo inviato per approvazione.", "successo");
+      router.refresh();
+    });
   }
 
-  async function elimina() {
+  function elimina() {
     if (!confirm(`Eliminare definitivamente il preventivo #${preventivo.numero} — ${preventivo.cliente_nome}?`)) return;
-    setInCorso(true);
-    const risultato = await eliminaPreventivo(preventivo.id);
-    setInCorso(false);
-    if (risultato.errore) {
-      toast(risultato.errore);
-      return;
-    }
-    onChiudi();
-    router.refresh();
+    startElimina(async () => {
+      const risultato = await eliminaPreventivo(preventivo.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Preventivo eliminato.", "successo");
+      onChiudi();
+      router.refresh();
+    });
   }
 
   return (
@@ -219,12 +228,15 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
 
         {preventivo.stato === "Bozza" && (
           <>
-            <Button onClick={invia} disabled={inCorso || !preventivo.cliente_email} className="w-full">
-              <Send className="h-4 w-4" strokeWidth={2.25} />
-              {inCorso ? "Invio…" : "Invia per approvazione"}
+            <Button onClick={invia} disabled={inCorsoInvio || !preventivo.cliente_email} className="min-h-11 w-full">
+              {inCorsoInvio ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
+              {inCorsoInvio ? "Invio in corso…" : "Invia per approvazione"}
             </Button>
             {!preventivo.cliente_email && (
-              <p className="text-xs text-warning">Serve un&apos;email per inviarlo — aggiungila creando un nuovo preventivo con il cliente collegato.</p>
+              <p className="flex items-center gap-1 text-xs text-warning">
+                Serve un&apos;email per inviarlo — aggiungila creando un nuovo preventivo con il cliente collegato.
+                <SuggerimentoCampo testo="Il link di approvazione viene inviato via email: senza un indirizzo collegato al preventivo non c'è modo di recapitarlo al cliente." />
+              </p>
             )}
             {errore && <p className="text-xs text-critical">{errore}</p>}
           </>
@@ -246,11 +258,11 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
           <button
             type="button"
             onClick={elimina}
-            disabled={inCorso}
-            className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-critical/30 px-3 py-2 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+            disabled={inCorsoElimina}
+            className="mt-1 flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
           >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Elimina preventivo
+            {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoElimina ? "Eliminazione in corso…" : "Elimina preventivo"}
           </button>
         )}
       </div>

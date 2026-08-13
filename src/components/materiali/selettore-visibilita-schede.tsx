@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { impostaVisibilitaSchedaMateriale } from "@/app/(app)/materiali/actions";
 import { useToast } from "@/components/ui/toast";
+import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import type { MaterialeMagazzino } from "@/lib/types";
 
 /** ★ NUOVA — richiesta esplicita: "quali materiali mostrare nella Scheda
@@ -110,7 +111,10 @@ export function SelettoreVisibilitaSchede({ materiali }: { materiali: MaterialeM
         <div className="overflow-hidden rounded-2xl border border-primary/30 bg-card shadow-sm">
           <div className="border-b bg-primary/5 p-2.5">
             <div className="mb-1.5 flex items-center justify-between px-1">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-primary">In Scheda di lavoro</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-primary">
+                In Scheda di lavoro
+                <SuggerimentoCampo testo="Il tecnico vede sul campo solo questi materiali nel selettore delle Schede — il catalogo completo resta comunque usabile per Preventivi e listino." />
+              </span>
               <span className="text-[11px] font-semibold text-primary">{selezionati.length}</span>
             </div>
             <div className="relative">

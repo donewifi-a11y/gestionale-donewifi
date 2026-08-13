@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, PhoneCall, ChevronDown, RotateCcw, FileText, AlertTriangle } from "lucide-react";
+import { Search, Ticket as TicketIcon, PhoneCall, ChevronDown, RotateCcw, FileText, AlertTriangle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { riapriTicket } from "@/app/(app)/archivio/actions";
@@ -128,7 +128,7 @@ export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; se
 function DettaglioTicket({ ticket }: { ticket: Ticket }) {
   const router = useRouter();
   const toast = useToast();
-  const [inCorso, setInCorso] = useState(false);
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
 
@@ -138,17 +138,18 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
     }
   }, [ticket.id, ticket.stato]);
 
-  async function riapri() {
+  function riapri() {
     if (!confirm(`Riaprire il ticket #${ticket.numero}? Tornerà in "Da gestire".`)) return;
-    setInCorso(true);
     setErrore("");
-    const risultato = await riapriTicket(ticket.id, ticket.stato);
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
+    startTransizione(async () => {
+      const risultato = await riapriTicket(ticket.id, ticket.stato);
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast(`Ticket #${ticket.numero} riaperto.`, "successo");
+      router.refresh();
+    });
   }
 
   async function vediContratto() {
@@ -185,9 +186,9 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
             Vedi contratto
           </Button>
         )}
-        <Button size="sm" variant="outline" disabled={inCorso} onClick={riapri}>
-          <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />
-          {inCorso ? "Riapertura..." : "Riapri"}
+        <Button size="sm" variant="outline" disabled={inCorso} onClick={riapri} className="min-h-9">
+          {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />}
+          {inCorso ? "Riapertura in corso…" : "Riapri"}
         </Button>
       </div>
       {errore && (

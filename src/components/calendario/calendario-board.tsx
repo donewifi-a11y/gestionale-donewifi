@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/components/ui/toast";
 import {
   Sheet,
   SheetContent,
@@ -135,6 +136,7 @@ export function CalendarioBoard({
   const [ticketPreselezionato, setTicketPreselezionato] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   // ★ "Pianifica appuntamento" dal dettaglio Ticket — apre già il form con
   // il ticket collegato, invece di doverlo ricercare nel menu a tendina.
@@ -151,19 +153,27 @@ export function CalendarioBoard({
     return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
+  // ★ NUOVA — toast di conferma anche su queste azioni rapide (stesso
+  // standard di Segnalazioni/Ticket/Preventivi): senza spinner dedicato,
+  // restano toggle "leggeri" pensati per sentirsi immediati (una casella
+  // che si spunta), ma un riscontro visivo che l'azione è andata a buon
+  // fine mancava del tutto.
   async function cambiaStato(id: string, stato: Appuntamento["stato"]) {
     await cambiaStatoAppuntamento(id, stato);
+    toast(stato === "Completato" ? "Appuntamento segnato come completato." : "Appuntamento annullato.", "successo");
     router.refresh();
   }
 
   async function alternaNota(n: NotaCalendario) {
     await completaNotaCalendario(n.id, !n.completata);
+    toast(n.completata ? "Promemoria riaperto." : "Promemoria completato.", "successo");
     router.refresh();
   }
 
   async function eliminaNota(id: string) {
     if (!confirm("Eliminare questo promemoria?")) return;
     await eliminaNotaCalendario(id);
+    toast("Promemoria eliminato.", "successo");
     router.refresh();
   }
 
@@ -690,7 +700,8 @@ function FormNuovoAppuntamento({
   onFatto: () => void;
 }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [ticketId, setTicketId] = useState(ticketIniziale || "");
 
@@ -701,7 +712,7 @@ function FormNuovoAppuntamento({
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
@@ -712,24 +723,25 @@ function FormNuovoAppuntamento({
       setErrore("Titolo, data e ora sono obbligatori.");
       return;
     }
-    setInCorso(true);
-    const risultato = await creaAppuntamento({
-      titolo,
-      indirizzo: String(dati.get("indirizzo") || ""),
-      dataOra: new Date(`${data}T${ora}`).toISOString(),
-      durataMinuti: Number(dati.get("durata") || 60),
-      tecnicoId: String(dati.get("tecnico") || ""),
-      ticketId,
-      note: String(dati.get("note") || ""),
-      tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+    startTransizione(async () => {
+      const risultato = await creaAppuntamento({
+        titolo,
+        indirizzo: String(dati.get("indirizzo") || ""),
+        dataOra: new Date(`${data}T${ora}`).toISOString(),
+        durataMinuti: Number(dati.get("durata") || 60),
+        tecnicoId: String(dati.get("tecnico") || ""),
+        ticketId,
+        note: String(dati.get("note") || ""),
+        tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Appuntamento creato.", "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -813,8 +825,9 @@ function FormNuovoAppuntamento({
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Creazione..." : "Crea Appuntamento"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Creazione in corso…" : "Crea Appuntamento"}
         </Button>
       </form>
     </>
@@ -835,14 +848,15 @@ function FormModificaAppuntamento({
   onFatto: () => void;
 }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
   const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? null;
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
@@ -853,23 +867,24 @@ function FormModificaAppuntamento({
       setErrore("Titolo, data e ora sono obbligatori.");
       return;
     }
-    setInCorso(true);
-    const risultato = await modificaAppuntamento(appuntamento.id, {
-      titolo,
-      indirizzo: String(dati.get("indirizzo") || ""),
-      dataOra: new Date(`${data}T${ora}`).toISOString(),
-      durataMinuti: Number(dati.get("durata") || 60),
-      tecnicoId: String(dati.get("tecnico") || ""),
-      note: String(dati.get("note") || ""),
-      tipoServizio: String(dati.get("tipo_servizio") || appuntamento.tipo_servizio) as TipoServizioAppuntamento,
+    startTransizione(async () => {
+      const risultato = await modificaAppuntamento(appuntamento.id, {
+        titolo,
+        indirizzo: String(dati.get("indirizzo") || ""),
+        dataOra: new Date(`${data}T${ora}`).toISOString(),
+        durataMinuti: Number(dati.get("durata") || 60),
+        tecnicoId: String(dati.get("tecnico") || ""),
+        note: String(dati.get("note") || ""),
+        tipoServizio: String(dati.get("tipo_servizio") || appuntamento.tipo_servizio) as TipoServizioAppuntamento,
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Modifiche salvate.", "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -982,8 +997,9 @@ function FormModificaAppuntamento({
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Salvataggio..." : "Salva modifiche"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Salvataggio in corso…" : "Salva modifiche"}
         </Button>
       </form>
     </>
@@ -992,11 +1008,12 @@ function FormModificaAppuntamento({
 
 function FormNuovaNota({ ticket, onFatto }: { ticket: TicketMinimo[]; onFatto: () => void }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const oggi = new Date().toISOString().slice(0, 10);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
@@ -1006,19 +1023,20 @@ function FormNuovaNota({ ticket, onFatto }: { ticket: TicketMinimo[]; onFatto: (
       setErrore("Testo e data sono obbligatori.");
       return;
     }
-    setInCorso(true);
-    const risultato = await creaNotaCalendario({
-      testo,
-      dataPromemoria,
-      ticketId: String(dati.get("ticket") || ""),
+    startTransizione(async () => {
+      const risultato = await creaNotaCalendario({
+        testo,
+        dataPromemoria,
+        ticketId: String(dati.get("ticket") || ""),
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Promemoria creato.", "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -1051,8 +1069,9 @@ function FormNuovaNota({ ticket, onFatto }: { ticket: TicketMinimo[]; onFatto: (
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Salvataggio..." : "Crea Promemoria"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Salvataggio in corso…" : "Crea Promemoria"}
         </Button>
       </form>
     </>

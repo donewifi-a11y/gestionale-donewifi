@@ -1374,6 +1374,26 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   ("Prendi in carico", "Elimina Ticket", invio nota, invio approvazione, "Assegna e fissa"
   appuntamento) portati a tocco più ampio (`min-h-11`).
 
+✅ **Extreme Makeover esteso a tutto il gestionale** (2026-08-13): terzo pezzo, dopo Segnalazioni e
+  Ticket — stesso standard applicato a **Preventivi** (dettaglio + "Nuovo Preventivo"),
+  **Calendario** (nuovo/modifica appuntamento, nuovo promemoria, e toast anche sui toggle rapidi
+  "segna completato"/"segna fatto"/elimina nota), **Vista Tecnico** (la schermata usata dai
+  tecnici da smartphone sul campo: "Avanza", nota rapida e "Crea Ticket" ora hanno spinner e toast
+  — qui conta doppio, su connessione debole un tap senza feedback viene facilmente ripetuto per
+  errore), **Clienti** (dati contrattuali), **Persone** (crea/modifica/reimposta password),
+  **Archivio** (riapri ticket) e **Richieste Clienti**, vista interna (cambio stato). Verificata
+  anche l'Anagrafica Clienti esterna: è genuinamente di sola lettura (nessun componente client,
+  dati sincronizzati da Aruba) — nessuna modifica necessaria lì. Aggiunto un tooltip anche al
+  selettore "materiali visibili in scheda" (Materiali), l'unico punto rimasto senza spiegazione
+  inline. Ogni azione scrivibile del gestionale ha ora lo stesso pattern: `useTransition()`
+  indipendente per azione, spinner `Loader2`, toast di conferma anche sul successo.
+✅ **Verifica cron "promemoria-approvazione-contratto"** (2026-08-13): nessuna evidenza nei dati
+  reali che sia mai stato eseguito (`ultimo_promemoria_approvazione_il` mai valorizzato su nessuna
+  Segnalazione) — ma al momento del controllo non esisteva nemmeno alcuna pratica con contratto
+  inviato da più di 72h e non approvato, quindi l'assenza di evidenza non prova che il cron sia
+  inattivo: il caso non si è ancora mai presentato da quando la funzione esiste. Verifica non
+  conclusiva — da confermare direttamente su cron-job.org.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

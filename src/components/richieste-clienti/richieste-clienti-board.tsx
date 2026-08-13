@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Search, Ticket as TicketIcon } from "lucide-react";
@@ -119,18 +119,16 @@ function DettaglioRichiesta({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [inCorso, setInCorso] = useState(false);
+  const [inCorso, startTransizione] = useTransition();
 
-  async function cambiaStato(nuovo: string) {
+  function cambiaStato(nuovo: string) {
     if (nuovo === richiesta.stato) return;
-    setInCorso(true);
-    try {
+    startTransizione(async () => {
       await aggiornaStatoRichiestaCliente(richiesta.id, nuovo);
       onCambiata({ ...richiesta, stato: nuovo });
+      toast(`Passata a "${nuovo}".`, "successo");
       router.refresh();
-    } finally {
-      setInCorso(false);
-    }
+    });
   }
 
   async function apriDocumento(percorso: string) {
@@ -155,7 +153,7 @@ function DettaglioRichiesta({
               key={s}
               disabled={inCorso}
               onClick={() => cambiaStato(s)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              className={`flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-60 ${
                 s === richiesta.stato
                   ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:border-primary/40"

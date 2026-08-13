@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle, Plus, Trash2, Search, X } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Plus, Trash2, Search, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
 import type { Tariffa, MaterialeMagazzino, RigaPreventivo } from "@/lib/types";
 import { creaPreventivo, cercaClientiPerPreventivo, type RisultatoRicercaCliente } from "@/app/(app)/preventivi/actions";
 
 export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]; materiali: MaterialeMagazzino[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
@@ -24,7 +26,7 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
   const [righe, setRighe] = useState<RigaPreventivo[]>([]);
   const [rigaLiberaDescrizione, setRigaLiberaDescrizione] = useState("");
   const [rigaLiberaPrezzo, setRigaLiberaPrezzo] = useState("");
-  const [inCorso, setInCorso] = useState(false);
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
 
   // ★ ricerca cliente esistente (Segnalazioni + Clienti Esterni) — collegarlo
@@ -99,26 +101,34 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
 
   const totale = useMemo(() => righe.reduce((s, r) => s + r.quantita * r.prezzoUnitario, 0), [righe]);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     if (!clienteNome.trim()) return setErrore("Il nome del cliente è obbligatorio.");
     if (righe.length === 0) return setErrore("Aggiungi almeno una voce al preventivo.");
 
-    setInCorso(true);
-    const risultato = await creaPreventivo({
-      clienteNome,
-      clienteTelefono,
-      clienteEmail,
-      tipologiaCliente,
-      segnalazioneId,
-      clienteEsternoId,
-      righe,
-      note,
+    startTransizione(async () => {
+      const risultato = await creaPreventivo({
+        clienteNome,
+        clienteTelefono,
+        clienteEmail,
+        tipologiaCliente,
+        segnalazioneId,
+        clienteEsternoId,
+        righe,
+        note,
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      // ★ il ToastProvider è montato in AppShell (sopravvive alla
+      // navigazione): il toast resta visibile anche dopo il push alla
+      // lista, a differenza di uno stato locale di questo form che
+      // sparirebbe con lo smontaggio del componente.
+      toast(`Preventivo creato per ${clienteNome}.`, "successo");
+      router.push("/preventivi");
     });
-    setInCorso(false);
-    if (risultato.errore) return setErrore(risultato.errore);
-    router.push("/preventivi");
   }
 
   return (
@@ -316,8 +326,9 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
               Annulla
             </Button>
           </Link>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? "Creazione..." : "Crea Preventivo"}
+          <Button type="submit" disabled={inCorso} className="min-h-11">
+            {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+            {inCorso ? "Creazione in corso…" : "Crea Preventivo"}
           </Button>
         </div>
       </form>

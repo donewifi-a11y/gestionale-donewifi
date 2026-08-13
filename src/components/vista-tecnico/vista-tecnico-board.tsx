@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -282,8 +282,9 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
               </div>
               {errore && <p className="text-xs text-critical">{errore}</p>}
               <div className="flex gap-2 pt-1">
-                <Button type="submit" disabled={inCorso} className="flex-1">
-                  {inCorso ? "Creazione..." : "Crea Ticket"}
+                <Button type="submit" disabled={inCorso} className="min-h-11 flex-1">
+                  {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+                  {inCorso ? "Creazione in corso…" : "Crea Ticket"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => setTipo(null)}>
                   Indietro
@@ -325,28 +326,39 @@ export function VistaTecnicoBoard({
   persone: Persona[];
 }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState<string | null>(null);
+  // ★ NUOVA — stesso standard già applicato a Segnalazioni/Ticket/
+  // Preventivi/Calendario: useTransition() per azione con spinner Loader2 e
+  // toast di conferma anche sul successo. Qui conta doppio — è la
+  // schermata che i tecnici usano da smartphone sul campo, spesso con
+  // connessione debole: senza spinner/toast, un tap su "Avanza" senza
+  // feedback immediato viene facilmente ripetuto per errore, credendo che
+  // il primo non sia partito.
+  const [ticketInCorso, setTicketInCorso] = useState<string | null>(null);
+  const [, startAvanza] = useTransition();
   const [ticketRapportino, setTicketRapportino] = useState<Ticket | null>(null);
   const [appuntamentoScheda, setAppuntamentoScheda] = useState<Appuntamento | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
-  const [invioNota, setInvioNota] = useState<string | null>(null);
+  const [notaInCorso, setNotaInCorso] = useState<string | null>(null);
   const toast = useToast();
 
-  async function inviaNota(ticketId: string) {
+  function inviaNota(ticketId: string) {
     const testo = (note[ticketId] || "").trim();
     if (!testo) return;
-    setInvioNota(ticketId);
-    const risultato = await aggiungiNotaTicket(ticketId, testo);
-    setInvioNota(null);
-    if (risultato.errore) {
-      toast(risultato.errore);
-      return;
-    }
-    setNote((n) => ({ ...n, [ticketId]: "" }));
-    router.refresh();
+    setNotaInCorso(ticketId);
+    startAvanza(async () => {
+      const risultato = await aggiungiNotaTicket(ticketId, testo);
+      setNotaInCorso(null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      setNote((n) => ({ ...n, [ticketId]: "" }));
+      toast("Nota aggiunta.", "successo");
+      router.refresh();
+    });
   }
 
-  async function avanzaTicket(t: Ticket) {
+  function avanzaTicket(t: Ticket) {
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
     if (!prossimo) return;
@@ -355,13 +367,13 @@ export function VistaTecnicoBoard({
       setTicketRapportino(t);
       return;
     }
-    setInCorso(t.id);
-    try {
+    setTicketInCorso(t.id);
+    startAvanza(async () => {
       await aggiornaStatoTicket(t.id, prossimo, t.stato);
+      setTicketInCorso(null);
+      toast(`Passato a "${prossimo}".`, "successo");
       router.refresh();
-    } finally {
-      setInCorso(null);
-    }
+    });
   }
 
   return (
@@ -476,11 +488,17 @@ export function VistaTecnicoBoard({
                   {puoAvanzare && (
                     <button
                       onClick={() => avanzaTicket(t)}
-                      disabled={inCorso === t.id}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] py-3 text-sm font-bold text-primary-foreground shadow-md shadow-primary/25"
+                      disabled={ticketInCorso === t.id}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] py-3 text-sm font-bold text-primary-foreground shadow-md shadow-primary/25 disabled:opacity-70"
                     >
-                      Avanza
-                      <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+                      {ticketInCorso === t.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+                      ) : (
+                        <>
+                          Avanza
+                          <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
@@ -494,10 +512,10 @@ export function VistaTecnicoBoard({
                   />
                   <button
                     onClick={() => inviaNota(t.id)}
-                    disabled={invioNota === t.id || !(note[t.id] || "").trim()}
+                    disabled={notaInCorso === t.id || !(note[t.id] || "").trim()}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-40"
                   >
-                    <Send className="h-4 w-4" strokeWidth={2.25} />
+                    {notaInCorso === t.id ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
                   </button>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase } from "lucide-react";
+import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { useToast } from "@/components/ui/toast";
 import {
   creaPersona,
   aggiornaPersona,
@@ -144,10 +145,11 @@ function SelettoreAccesso({ amministratore = false, reparti = [] }: { amministra
 
 function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
@@ -156,21 +158,22 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
       setErrore("Il nome è obbligatorio.");
       return;
     }
-    setInCorso(true);
-    const risultato = await creaPersona({
-      nome,
-      email: String(dati.get("email") || ""),
-      amministratore: dati.get("amministratore") === "on",
-      reparti: dati.getAll("reparti") as AreaAccesso[],
-      password: String(dati.get("password") || ""),
+    startTransizione(async () => {
+      const risultato = await creaPersona({
+        nome,
+        email: String(dati.get("email") || ""),
+        amministratore: dati.get("amministratore") === "on",
+        reparti: dati.getAll("reparti") as AreaAccesso[],
+        password: String(dati.get("password") || ""),
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast(`${nome} aggiunto.`, "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -206,8 +209,9 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Creazione..." : "Aggiungi"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Creazione in corso…" : "Aggiungi"}
         </Button>
       </form>
     </>
@@ -216,7 +220,8 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
 
 function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: () => void }) {
   const router = useRouter();
-  const [inCorso, setInCorso] = useState(false);
+  const toast = useToast();
+  const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [reset, setReset] = useState<{ inCorso: boolean; password: string | null; errore: string | null; avviso?: string | null }>({
     inCorso: false,
@@ -237,26 +242,27 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
     setReset({ inCorso: false, password: risultato.password, errore: risultato.errore, avviso: risultato.avviso });
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
-    setInCorso(true);
-    const risultato = await aggiornaPersona(persona.id, {
-      nome: String(dati.get("nome") || persona.nome),
-      email: String(dati.get("email") ?? persona.email ?? ""),
-      amministratore: dati.get("amministratore") === "on",
-      reparti: dati.getAll("reparti") as AreaAccesso[],
-      attivo: dati.get("attivo") === "on",
-      password: String(dati.get("password") || ""),
+    startTransizione(async () => {
+      const risultato = await aggiornaPersona(persona.id, {
+        nome: String(dati.get("nome") || persona.nome),
+        email: String(dati.get("email") ?? persona.email ?? ""),
+        amministratore: dati.get("amministratore") === "on",
+        reparti: dati.getAll("reparti") as AreaAccesso[],
+        attivo: dati.get("attivo") === "on",
+        password: String(dati.get("password") || ""),
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Modifiche salvate.", "successo");
+      router.refresh();
+      onFatto();
     });
-    setInCorso(false);
-    if (risultato.errore) {
-      setErrore(risultato.errore);
-      return;
-    }
-    router.refresh();
-    onFatto();
   }
 
   return (
@@ -297,9 +303,9 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
           <div className="rounded-lg border bg-muted/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-medium">Password dimenticata?</div>
-              <Button type="button" variant="outline" size="sm" onClick={onReset} disabled={reset.inCorso}>
-                <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.25} />
-                {reset.inCorso ? "Reimposto..." : "Reimposta password"}
+              <Button type="button" variant="outline" size="sm" className="min-h-9" onClick={onReset} disabled={reset.inCorso}>
+                {reset.inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                {reset.inCorso ? "Reimposto in corso…" : "Reimposta password"}
               </Button>
             </div>
             {reset.password && (
@@ -323,8 +329,9 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
             {errore}
           </p>
         )}
-        <Button type="submit" disabled={inCorso} className="mt-2">
-          {inCorso ? "Salvataggio..." : "Salva modifiche"}
+        <Button type="submit" disabled={inCorso} className="mt-2 min-h-11">
+          {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
+          {inCorso ? "Salvataggio in corso…" : "Salva modifiche"}
         </Button>
       </form>
 
