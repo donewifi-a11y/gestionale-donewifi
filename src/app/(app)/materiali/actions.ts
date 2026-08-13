@@ -6,9 +6,14 @@ import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { revalidatePath } from "next/cache";
 import type { MaterialeMagazzino } from "@/lib/types";
 
+// ★ NUOVA (2026-08) — `comodato_uso` non è più un campo scritto a mano:
+// l'amministratore sceglie solo `tipo_riga` (Comodato/Prodotto/Servizio),
+// `comodato_uso` viene sempre derivato qui sotto — le due non possono più
+// disallinearsi (prima erano due controlli indipendenti nello stesso
+// form). Vedi migrazione 0055.
 type DatiMateriale = Pick<
   MaterialeMagazzino,
-  "nome" | "categoria" | "descrizione" | "prezzo_unitario" | "unita_misura" | "comodato_uso" | "attivo" | "ordine"
+  "nome" | "categoria" | "descrizione" | "prezzo_unitario" | "unita_misura" | "attivo" | "ordine" | "tipo_riga" | "attivazione_predefinita"
 >;
 
 // ★ FIX — nessun controllo lato server sul prezzo, solo `min="0"`
@@ -16,7 +21,18 @@ type DatiMateriale = Pick<
 // silenzio nei rapportini e nei totali Dashboard.
 function erroreValidazioneMateriale(dati: DatiMateriale): string | null {
   if (!Number.isFinite(dati.prezzo_unitario) || dati.prezzo_unitario < 0) return "Il prezzo non può essere negativo.";
+  if (dati.attivazione_predefinita && dati.tipo_riga === "Comodato") {
+    return "Una riga in comodato d'uso (prezzo zero) non può essere anche l'attivazione predefinita.";
+  }
   return null;
+}
+
+/** Riga pronta per l'insert/update: comodato_uso derivato da tipo_riga,
+ * prezzo forzato a zero quando è comodato (stessa regola già applicata
+ * lato client, ripetuta qui come unica fonte di verità). */
+function normalizzaRigaMateriale(dati: DatiMateriale) {
+  const comodato = dati.tipo_riga === "Comodato";
+  return { ...dati, comodato_uso: comodato, prezzo_unitario: comodato ? 0 : dati.prezzo_unitario };
 }
 
 export async function creaMateriale(dati: DatiMateriale) {
@@ -28,7 +44,7 @@ export async function creaMateriale(dati: DatiMateriale) {
   const erroreValidazione = erroreValidazioneMateriale(dati);
   if (erroreValidazione) return { errore: erroreValidazione };
 
-  const { error } = await supabase.from("materiali_magazzino").insert(dati);
+  const { error } = await supabase.from("materiali_magazzino").insert(normalizzaRigaMateriale(dati));
   if (error) return { errore: error.message };
 
   revalidatePath("/materiali");
@@ -44,7 +60,7 @@ export async function aggiornaMateriale(id: string, dati: DatiMateriale) {
   const erroreValidazione = erroreValidazioneMateriale(dati);
   if (erroreValidazione) return { errore: erroreValidazione };
 
-  const { error } = await supabase.from("materiali_magazzino").update(dati).eq("id", id);
+  const { error } = await supabase.from("materiali_magazzino").update(normalizzaRigaMateriale(dati)).eq("id", id);
   if (error) return { errore: error.message };
 
   revalidatePath("/materiali");

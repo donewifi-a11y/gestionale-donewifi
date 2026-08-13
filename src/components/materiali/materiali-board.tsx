@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/materiali/actions";
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
 import { MagazzinoVista } from "@/components/materiali/magazzino-vista";
@@ -111,11 +112,27 @@ export function MaterialiBoard({
                     className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
                   >
                     <div className="min-w-0">
-                      <div className="font-semibold">{m.nome}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold">{m.nome}</span>
+                        <span
+                          className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                            m.tipo_riga === "Comodato" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {m.tipo_riga}
+                        </span>
+                        {m.attivazione_predefinita && (
+                          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                            ⚡ Attivazione {m.attivazione_predefinita}
+                          </span>
+                        )}
+                      </div>
                       {m.descrizione && <div className="truncate text-xs text-muted-foreground">{m.descrizione}</div>}
                       <div className="text-xs text-muted-foreground">
                         {m.comodato_uso ? (
                           "Comodato d'uso gratuito"
+                        ) : m.attivazione_predefinita ? (
+                          <>{formattaValuta(m.prezzo_unitario)} — prezzo fisso, non ricalcolato</>
                         ) : (
                           <>
                             {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Privato"))} privato · {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Business"))} business
@@ -162,7 +179,11 @@ function FormMateriale({
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
-  const [comodato, setComodato] = useState(materiale?.comodato_uso ?? false);
+  const [tipoRiga, setTipoRiga] = useState<MaterialeMagazzino["tipo_riga"]>(materiale?.tipo_riga ?? "Prodotto");
+  const [attivazionePredefinita, setAttivazionePredefinita] = useState<MaterialeMagazzino["attivazione_predefinita"]>(
+    materiale?.attivazione_predefinita ?? null
+  );
+  const comodato = tipoRiga === "Comodato";
   const [prezzo, setPrezzo] = useState<string>(materiale?.prezzo_unitario != null ? String(materiale.prezzo_unitario) : "");
   const prezzoNumero = Number(prezzo);
   const anteprima = prezzo && !Number.isNaN(prezzoNumero) && !comodato ? prezzoNumero : null;
@@ -180,7 +201,8 @@ function FormMateriale({
       descrizione: String(dati.get("descrizione") || "").trim() || null,
       prezzo_unitario: comodato ? 0 : Number(dati.get("prezzo_unitario") || 0),
       unita_misura: String(dati.get("unita_misura") || "pz").trim() || "pz",
-      comodato_uso: comodato,
+      tipo_riga: tipoRiga,
+      attivazione_predefinita: comodato ? null : attivazionePredefinita,
       attivo: dati.get("attivo") === "on" || !materiale,
       ordine: materiale?.ordine ?? 0,
     };
@@ -227,13 +249,46 @@ function FormMateriale({
           <Label htmlFor="descrizione">Descrizione (facoltativa)</Label>
           <textarea id="descrizione" name="descrizione" rows={2} defaultValue={materiale?.descrizione ?? ""} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" />
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={comodato} onChange={(e) => setComodato(e.target.checked)} className="h-4 w-4" />
-          Comodato d&apos;uso gratuito (prezzo sempre € 0)
-        </label>
+        <div>
+          <Label htmlFor="tipo_riga">
+            Classificazione <SuggerimentoCampo testo="Decide in quale dei tre gruppi questa voce compare nel passo Materiali della Scheda di Installazione/Lavorazione — Comodato forza il prezzo a € 0." />
+          </Label>
+          <div className="mt-1 flex overflow-hidden rounded-lg border">
+            {(["Comodato", "Prodotto", "Servizio"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTipoRiga(t)}
+                className={`flex-1 px-2.5 py-2 text-xs font-semibold transition ${
+                  tipoRiga === t ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {comodato && <p className="mt-1.5 text-xs text-muted-foreground">Apparato installato, non fatturato — prezzo sempre € 0.</p>}
+        </div>
+        {!comodato && (
+          <div>
+            <Label htmlFor="attivazione_predefinita">
+              Attivazione predefinita <SuggerimentoCampo testo="Se scelto, questa voce si aggiunge da sola nella Scheda per il tipo cliente indicato — il prezzo qui sotto viene usato così com'è, senza applicare la formula IVA Privato/Business." />
+            </Label>
+            <select
+              id="attivazione_predefinita"
+              value={attivazionePredefinita ?? ""}
+              onChange={(e) => setAttivazionePredefinita((e.target.value || null) as MaterialeMagazzino["attivazione_predefinita"])}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">Nessuna — voce scelta manualmente</option>
+              <option value="Privato">Aggiungi da sola per clienti Privato</option>
+              <option value="Business">Aggiungi da sola per clienti Business</option>
+            </select>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="prezzo_unitario">Prezzo cliente Privato (€, IVA incl.)</Label>
+            <Label htmlFor="prezzo_unitario">{attivazionePredefinita ? "Prezzo finale (€)" : "Prezzo cliente Privato (€, IVA incl.)"}</Label>
             <Input
               id="prezzo_unitario"
               name="prezzo_unitario"
@@ -245,13 +300,16 @@ function FormMateriale({
               onChange={(e) => setPrezzo(e.target.value)}
               className="mt-1"
             />
+            {attivazionePredefinita && (
+              <p className="mt-1 text-xs text-muted-foreground">Usato così com&apos;è nella Scheda — non passa per la formula IVA Privato/Business.</p>
+            )}
           </div>
           <div>
             <Label htmlFor="unita_misura">Unità di misura</Label>
             <Input id="unita_misura" name="unita_misura" defaultValue={materiale?.unita_misura ?? "pz"} placeholder="pz, mt..." className="mt-1" />
           </div>
         </div>
-        {anteprima != null && (
+        {anteprima != null && !attivazionePredefinita && (
           <p className="-mt-2 text-xs text-muted-foreground">
             → € {anteprima.toFixed(2)} cliente Privato · € {(anteprima * 1.22).toFixed(2)} cliente Business (IVA 22% aggiunta in fattura)
           </p>

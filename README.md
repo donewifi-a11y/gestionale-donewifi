@@ -1567,6 +1567,40 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     dichiarava esplicitamente `tracking-tight`). Nessun componente riscritto: solo i token in
     `globals.css`, coerente ovunque nel gestionale senza toccare pagina per pagina.
 
+✅ **Materiali della Scheda di lavoro — Comodato/Prodotto/Servizio + attivazione automatica**
+  (2026-08-13): richiesta esplicita — il passo "Materiali" mescolava apparati installati
+  gratuitamente (CPE, alimentatore...) con prodotti e servizi a pagamento, più un "Importo
+  fatturato" scritto a mano scollegato dall'elenco. Proposta con artifact interattivo, approvata
+  con una correzione esplicita: la classificazione si definisce **una volta per tutte nel catalogo
+  Materiali**, non riga per riga nella Scheda.
+  - `materiali_magazzino` guadagna `tipo_riga` ('Comodato'/'Prodotto'/'Servizio', migrazione
+    `0055`) — unico campo che l'amministratore edita in Materiali da ora; `comodato_uso` resta in
+    tabella ma è sempre derivato da `tipo_riga` lato server (mai più scritto a mano, non può più
+    disallinearsi). Aggiunta anche `attivazione_predefinita` ('Privato'/'Business'/null): la riga
+    marcata si aggiunge da sola nella Scheda per quel tipo cliente, con il prezzo preso così com'è
+    (mai passato per `prezzoPerTipoCliente()` — **bug reale trovato nell'analisi**: una riga già a
+    prezzo finale rischiava di subire l'IVA una seconda volta se il tecnico aveva anche
+    l'interruttore Privato/Business impostato di conseguenza).
+  - `SelettoreMateriali` (`src/components/schede/selettore-materiali.tsx`) riscritto: tre gruppi
+    fissi (🟢 Comodato d'uso, 📦 Prodotti, 🛠️ Servizi) invece di un elenco unico. Il tipo cliente
+    arriva precompilato dal Ticket collegato (`getTipologiaClientePerAppuntamento()`, nuova),
+    resta comunque modificabile per i casi in cui il dato sul Ticket sia sbagliato/mancante.
+  - "Importo totale fatturato" non è più un campo scritto a mano: `salvaSchedaLavoro()` lo calcola
+    sempre come somma delle righe materiali (le righe in comodato pesano 0 da sole) — stessa
+    "unica fonte di verità" già in uso per la firma cliente. Nuovo campo **Metodo di pagamento
+    della posa** (Contanti/POS/Non riscosso, `schede_lavoro.metodo_pagamento_posa`).
+  - Sistemato anche il catalogo reale nella stessa migrazione: le CPE installate (non le
+    sostituzioni a pagamento) passano da a-pagamento a comodato d'uso, aggiunte Alimentatore/
+    Griglia piccola/Griglia grande come nuove voci comodato, marcate ATTIVAZIONI/Privati e
+    ATTIVAZIONI/Business come attivazione predefinita per il rispettivo tipo cliente.
+  - Scoping esplicito: riguarda solo Scheda di Installazione/Lavorazione (`schede_lavoro`), non il
+    Rapportino di chiusura Ticket — i suoi materiali restano testo libero non strutturato, stessa
+    asimmetria già documentata per lo scarico automatico del magazzino.
+  Migrazione `0055` eseguita e verificata in produzione: nuove colonne interrogabili, backfill del
+  catalogo reale confermato riga per riga (CPE→comodato, nuove voci, attivazione predefinita),
+  vincoli su `tipo_riga`/`attivazione_predefinita` testati e funzionanti, scrittura di
+  `metodo_pagamento_posa` riuscita su una scheda reale.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -8,7 +8,7 @@ import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad"
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import { salvaSchedaLavoro, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -29,7 +29,7 @@ interface BozzaInstallazione {
   download: string;
   upload: string;
   materiali: MaterialeUsato[];
-  importo: string;
+  metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null;
   note: string;
 }
 
@@ -83,8 +83,14 @@ export function SchedaInstallazioneForm({
   const [upload, setUpload] = useState(bozza?.upload ?? "");
 
   const [materiali, setMateriali] = useState<MaterialeUsato[]>(bozza?.materiali ?? []);
-  const [importo, setImporto] = useState(bozza?.importo ?? "");
+  const [metodoPagamento, setMetodoPagamento] = useState<BozzaInstallazione["metodoPagamento"]>(bozza?.metodoPagamento ?? "Contanti");
   const [note, setNote] = useState(bozza?.note ?? "");
+  // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
+  // a mano nel selettore materiali (vedi selettore-materiali.tsx).
+  const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
+  useEffect(() => {
+    getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
+  }, [appuntamentoId]);
   // ★ FIX — file scelti in un passo che poi si nasconde (cambio passo)
   // andrebbero persi se restassero solo nel DOM di un input non
   // controllato: qui il File selezionato passa in stato React, che
@@ -97,9 +103,9 @@ export function SchedaInstallazioneForm({
 
   useEffect(() => {
     salvaBozzaScheda<BozzaInstallazione>(chiaveBozza, {
-      supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, importo, note,
+      supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, metodoPagamento, note,
     });
-  }, [chiaveBozza, supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, importo, note]);
+  }, [chiaveBozza, supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, metodoPagamento, note]);
 
   function rilevaGps() {
     if (!navigator.geolocation) {
@@ -138,7 +144,7 @@ export function SchedaInstallazioneForm({
       {
         esito: "Installazione certificata con successo",
         note,
-        importoFatturato: importo,
+        metodoPagamentoPosa: metodoPagamento,
         materiali,
         firmaCliente,
         firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
@@ -269,12 +275,26 @@ export function SchedaInstallazioneForm({
           <div>
             <Label>Materiali extra utilizzati</Label>
             <div className="mt-1.5">
-              <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} />
+              <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />
             </div>
           </div>
-          <Campo label="Importo totale fatturato al cliente (€, facoltativo)">
-            <input value={importo} onChange={(e) => setImporto(e.target.value)} type="number" min="0" step="0.01" placeholder="Es. 149.00" className={campoClass} />
-          </Campo>
+          <div>
+            <Label>Metodo di pagamento della posa</Label>
+            <div className="mt-1.5 flex overflow-hidden rounded-lg border">
+              {(["Contanti", "POS", "Non riscosso"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodoPagamento(m)}
+                  className={`flex-1 px-2 py-2.5 text-sm font-semibold transition ${
+                    metodoPagamento === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
           <Campo label="Note tecniche aggiuntive">
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" />
           </Campo>

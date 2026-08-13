@@ -219,7 +219,10 @@ export interface FirmaClienteApprovata {
 export interface DatiSchedaLavoro {
   esito: string;
   note: string;
-  importoFatturato: string;
+  /** ★ NUOVA (2026-08) — niente più campo scritto a mano: l'importo si
+   * calcola da solo lato server come somma di `materiali` (vedi
+   * salvaSchedaLavoro). */
+  metodoPagamentoPosa: "Contanti" | "POS" | "Non riscosso" | null;
   materiali: MaterialeUsato[];
   firmaCliente: FirmaClienteApprovata;
   firmaTecnicoDataUrl?: string;
@@ -242,6 +245,29 @@ export interface DatiSchedaLavoro {
   uploadMbps?: string;
   // solo "Lavorazione tecnica"
   interventiEseguiti?: string[];
+}
+
+/** ★ NUOVA — il passo Materiali della Scheda deve sapere se il cliente è
+ * Privato o Business per proporre il costo di attivazione giusto (vedi
+ * SelettoreMateriali), ma né Appuntamento né SchedaInstallazioneForm/
+ * SchedaLavorazioneForm hanno già a disposizione il Ticket collegato —
+ * si fa qui un fetch dedicato invece di far passare il dato attraverso
+ * i 3 punti da cui la Scheda si apre (Calendario/Vista Tecnico/Ticket).
+ * "Azienda"/"Business" (il Ticket usa entrambe le parole a seconda di
+ * come è nato) contano come Business, tutto il resto (incluso null) come
+ * Privato — di sicuro modificabile a mano dal tecnico se sbagliato. */
+export async function getTipologiaClientePerAppuntamento(appuntamentoId: string): Promise<"Privato" | "Business"> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("appuntamenti")
+    .select("tickets(tipologia_cliente)")
+    .eq("id", appuntamentoId)
+    .maybeSingle();
+  // ★ PostgREST tipizza l'embed come array anche per una relazione
+  // many-to-one nota (FK singola) — a runtime è sempre 0 o 1 elemento.
+  const righe = (data?.tickets ?? []) as unknown as { tipologia_cliente: string | null }[];
+  const tipologia = righe[0]?.tipologia_cliente;
+  return tipologia === "Azienda" || tipologia === "Business" ? "Business" : "Privato";
 }
 
 // ★ ex riceviCertificatoInstallazione()/riceviRapportoIntervento() del
@@ -307,7 +333,14 @@ export async function salvaSchedaLavoro(
   const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
   if (firmaTecnico.errore) return { errore: firmaTecnico.errore };
 
-  const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
+  // ★ NUOVA (2026-08) — non più un numero scritto a mano dal tecnico
+  // (scollegato dall'elenco materiali, fonte di errori): l'importo
+  // fatturato è sempre la somma delle righe materiali/prodotti/servizi
+  // già mostrata al tecnico nel passo Materiali. Le righe in comodato
+  // d'uso hanno prezzo_unitario 0 e contribuiscono da sole per 0, non
+  // serve escluderle a parte. Ricalcolato qui (non ricevuto dal client)
+  // per la stessa ragione di firmaCliente sopra: unica fonte di verità.
+  const importo = dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
   const { data: schedaCreata, error: erroreScheda } = await service
     .from("schede_lavoro")
@@ -318,6 +351,7 @@ export async function salvaSchedaLavoro(
       esito: dati.esito.trim() || null,
       note: dati.note.trim() || null,
       importo_fatturato: importo,
+      metodo_pagamento_posa: dati.metodoPagamentoPosa,
       materiali: dati.materiali,
       foto: fotoSalvate,
       firma_cliente_url: null,

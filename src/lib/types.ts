@@ -367,6 +367,11 @@ export interface MaterialeMagazzino {
   /** Prezzo per cliente Privato, IVA inclusa — vedi prezzoPerTipoCliente(). */
   prezzo_unitario: number;
   unita_misura: string;
+  /** ★ derivato da `tipo_riga` lato server (creaMateriale/aggiornaMateriale)
+   * — mai scritto a mano, per non poter più disallinearsi. Resta un campo
+   * a sé (invece di sostituirlo del tutto con `tipo_riga === "Comodato"`)
+   * perché letto da molto codice già esistente (prezzo forzato a zero,
+   * badge "COMODATO"...). */
   comodato_uso: boolean;
   attivo: boolean;
   ordine: number;
@@ -374,6 +379,18 @@ export interface MaterialeMagazzino {
    * Lavorazione Tecnica — indipendente da `attivo` (che resta il permesso
    * generale "esiste nel listino", usato anche da Preventivi). */
   mostra_in_schede_lavoro: boolean;
+  /** ★ NUOVA — come questa riga va raggruppata nel passo "Materiali" della
+   * Scheda di lavoro: Comodato (installato, non fatturato) / Prodotto /
+   * Servizio. Unico campo che l'amministratore edita in Materiali — vedi
+   * comment sulla colonna, migrazione 0055. */
+  tipo_riga: "Comodato" | "Prodotto" | "Servizio";
+  /** ★ NUOVA — se valorizzata, questa riga si aggiunge da sola nella
+   * Scheda per il tipo cliente indicato (tipicamente il costo di
+   * attivazione), con `prezzo_unitario` preso così com'è — mai passato
+   * per prezzoPerTipoCliente(). Al più una riga per valore, ma non è
+   * imposto a livello di database: un doppione va solo evitato in
+   * Materiali. */
+  attivazione_predefinita: "Privato" | "Business" | null;
   /** ★ NUOVA — quantità a magazzino. NULL = materiale non tracciato (resta
    * solo voce di listino, come prima di questa funzione). Si scarica da
    * solo quando il materiale è usato in una Scheda di Installazione/
@@ -429,6 +446,15 @@ export interface MaterialeUsato {
   unita_misura: string;
   prezzo_unitario: number;
   comodato_uso: boolean;
+  /** ★ NUOVA — istantanea della classificazione del catalogo al momento
+   * dell'uso (stesso principio di nome/prezzo_unitario: una riclassifica
+   * successiva in Materiali non deve alterare una Scheda già salvata).
+   * Righe salvate prima di questo campo non lo hanno: trattarle come
+   * "Prodotto" se non comodato_uso, "Comodato" altrimenti. */
+  tipo_riga?: "Comodato" | "Prodotto" | "Servizio";
+  /** ★ NUOVA — true se questa riga è stata aggiunta da sola (costo di
+   * attivazione predefinito) invece che scelta dal tecnico. */
+  automatico?: boolean;
   dettagli: string | null;
 }
 
@@ -446,7 +472,14 @@ export interface SchedaLavoro {
   tipo: TipoServizioAppuntamento;
   esito: string | null;
   note: string | null;
+  /** ★ NUOVA (2026-08) — non più scritto a mano dal tecnico: calcolato lato
+   * server come somma di `materiali` (le righe in comodato pesano 0 da
+   * sole, non serve escluderle a parte) — unica fonte di verità, vedi
+   * salvaSchedaLavoro(). */
   importo_fatturato: number | null;
+  /** ★ NUOVA — come il cliente ha pagato la posa. NULL sulle schede
+   * salvate prima di questo campo. */
+  metodo_pagamento_posa: "Contanti" | "POS" | "Non riscosso" | null;
   materiali: MaterialeUsato[];
   foto: { nome: string; percorso: string }[];
   /** ★ solo schede storiche (pre-firma via email): disegno del cliente

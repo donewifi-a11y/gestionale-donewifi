@@ -82,19 +82,34 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
         {scheda.materiali.length > 0 && (
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Materiali usati</div>
-            <ul className="mt-1 flex flex-col gap-0.5">
-              {scheda.materiali.map((m, i) => (
-                <li key={i}>
-                  {m.quantita} {m.unita_misura} — {m.nome}
-                  {m.comodato_uso ? " (comodato d'uso)" : ` (${formattaValuta(m.prezzo_unitario * m.quantita)})`}
-                  {m.dettagli && ` — ${m.dettagli}`}
-                </li>
-              ))}
-            </ul>
+            {(["Comodato", "Prodotto", "Servizio"] as const).map((gruppo) => {
+              // ★ le schede salvate prima di tipo_riga non hanno il campo:
+              // trattate come "Prodotto" se non comodato_uso.
+              const righe = scheda.materiali.filter((m) => (m.tipo_riga ?? (m.comodato_uso ? "Comodato" : "Prodotto")) === gruppo);
+              if (righe.length === 0) return null;
+              return (
+                <div key={gruppo} className="mt-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
+                    {gruppo === "Comodato" ? "Comodato d'uso" : gruppo === "Prodotto" ? "Prodotti" : "Servizi"}
+                  </div>
+                  <ul className="flex flex-col gap-0.5">
+                    {righe.map((m, i) => (
+                      <li key={i}>
+                        {m.quantita} {m.unita_misura} — {m.nome}
+                        {m.comodato_uso ? "" : ` (${formattaValuta(m.prezzo_unitario * m.quantita)})`}
+                        {m.automatico && " · automatico"}
+                        {m.dettagli && ` — ${m.dettagli}`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {scheda.importo_fatturato != null && <Campo etichetta="Importo fatturato" valore={formattaValuta(scheda.importo_fatturato)} />}
+        {scheda.metodo_pagamento_posa && <Campo etichetta="Metodo di pagamento" valore={scheda.metodo_pagamento_posa} />}
         {scheda.note && <Campo etichetta="Note" valore={scheda.note} />}
         <Campo
           etichetta="Data"

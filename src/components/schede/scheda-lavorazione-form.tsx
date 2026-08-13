@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import { salvaSchedaLavoro, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -14,7 +14,7 @@ interface BozzaLavorazione {
   interventi: string[];
   materiali: MaterialeUsato[];
   esito: string;
-  importo: string;
+  metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null;
   note: string;
 }
 
@@ -48,13 +48,19 @@ export function SchedaLavorazioneForm({
   const [materiali, setMateriali] = useState<MaterialeUsato[]>(bozza?.materiali ?? []);
   const [interventi, setInterventi] = useState<string[]>(bozza?.interventi ?? []);
   const [esito, setEsito] = useState(bozza?.esito ?? "");
-  const [importo, setImporto] = useState(bozza?.importo ?? "");
+  const [metodoPagamento, setMetodoPagamento] = useState<BozzaLavorazione["metodoPagamento"]>(bozza?.metodoPagamento ?? "Contanti");
   const [note, setNote] = useState(bozza?.note ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
+  // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
+  // a mano nel selettore materiali (vedi selettore-materiali.tsx).
+  const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
+  useEffect(() => {
+    getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
+  }, [appuntamentoId]);
 
   useEffect(() => {
-    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, importo, note });
-  }, [chiaveBozza, interventi, materiali, esito, importo, note]);
+    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note });
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note]);
 
   function toggleIntervento(nome: string) {
     setInterventi((cur) => (cur.includes(nome) ? cur.filter((i) => i !== nome) : [...cur, nome]));
@@ -73,7 +79,7 @@ export function SchedaLavorazioneForm({
       {
         esito,
         note,
-        importoFatturato: importo,
+        metodoPagamentoPosa: metodoPagamento,
         materiali,
         firmaCliente,
         interventiEseguiti: interventi,
@@ -118,7 +124,22 @@ export function SchedaLavorazioneForm({
         <div>
           <Label>Materiali e consumi</Label>
           <div className="mt-1.5">
-            <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} />
+            <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />
+          </div>
+          <Label className="mt-3 block">Metodo di pagamento della posa</Label>
+          <div className="mt-1.5 flex overflow-hidden rounded-lg border">
+            {(["Contanti", "POS", "Non riscosso"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetodoPagamento(m)}
+                className={`flex-1 px-2 py-2.5 text-sm font-semibold transition ${
+                  metodoPagamento === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
           </div>
         </div>
       ),
@@ -136,10 +157,6 @@ export function SchedaLavorazioneForm({
                 <option key={e} value={e}>{e}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <Label htmlFor="importo">Importo totale fatturato al cliente (€, facoltativo)</Label>
-            <input id="importo" value={importo} onChange={(e) => setImporto(e.target.value)} type="number" min="0" step="0.01" placeholder="Es. 49.00" className={campoClass} />
           </div>
           <div>
             <Label htmlFor="note">Note per la sede centrale</Label>
