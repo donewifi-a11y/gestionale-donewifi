@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +34,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -46,8 +44,7 @@ import {
   eliminaSegnalazione,
   inviaEmailApprovazioneContratto,
 } from "@/app/(app)/segnalazioni/actions";
-import type { AreaAccesso, RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
-import { REPARTI } from "@/lib/types";
+import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/lib/use-persisted-state";
@@ -390,10 +387,6 @@ function DettaglioSegnalazione({
   const [infoCaricamento, setInfoCaricamento] = useState<{ nome: string; data: string } | null>(null);
   const [erroreApprovazione, setErroreApprovazione] = useState("");
   const formContrattoRef = useRef<HTMLFormElement>(null);
-  // ★ FIX — il reparto del Ticket alla trasmissione era fisso nel codice
-  // ("Analisi Rete"); ora è una scelta con quello stesso default, per le
-  // eccezioni rare in cui l'installazione non la fa Analisi Rete.
-  const [repartoTrasmissione, setRepartoTrasmissione] = useState<AreaAccesso>("Analisi Rete");
 
   useEffect(() => {
     if (!contrattoUrl) {
@@ -486,9 +479,16 @@ function DettaglioSegnalazione({
 
   function trasmetti() {
     if (!puoTrasmettere) return;
-    if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket.`)) return;
+    if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket per Analisi Rete.`)) return;
     startTrasmetti(async () => {
-      const risultato = await trasmettiPerInstallazione(segnalazione.id, repartoTrasmissione);
+      // ★ FIX — richiesta esplicita: la scelta manuale del reparto (con
+      // default già "Analisi Rete") era un passaggio in più da compilare
+      // per un caso che nella pratica è sempre lo stesso — tolta del
+      // tutto, il Ticket va sempre e automaticamente ad Analisi Rete. Per
+      // l'eccezione rara in cui serve un reparto diverso, si riassegna
+      // dopo dal dettaglio del Ticket (select "Reparto" già lì, con
+      // relativo tooltip che spiega cosa fa).
+      const risultato = await trasmettiPerInstallazione(segnalazione.id, "Analisi Rete");
       if (risultato.errore || !risultato.id) {
         toast(risultato.errore || "Errore imprevisto.");
         return;
@@ -1021,29 +1021,6 @@ function DettaglioSegnalazione({
             </div>
           )}
         </div>
-        )}
-
-        {/* ★ il pulsante "Trasmetti" vero e proprio si è spostato nella
-        barra fissa in fondo al popup (vedi sotto, `azione`) — qui resta
-        solo la scelta del reparto, visibile un po' prima nel percorso
-        così è già impostata quando l'azione si sblocca. */}
-        {segnalazione.stato === "Gestione Cliente" && (
-          <div className="mt-2 flex items-center gap-1.5">
-            <Label htmlFor="repartoTrasmissione" className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Reparto installazione
-              <SuggerimentoCampo testo="Il reparto che riceverà il Ticket creato da questa Segnalazione. Di norma Analisi Rete: cambialo solo per un'eccezione." />
-            </Label>
-            <select
-              id="repartoTrasmissione"
-              value={repartoTrasmissione}
-              onChange={(e) => setRepartoTrasmissione(e.target.value as AreaAccesso)}
-              className="h-9 flex-1 rounded-md border bg-background px-2 text-xs"
-            >
-              {REPARTI.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
         )}
 
         {isAdmin && (

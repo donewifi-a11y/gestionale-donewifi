@@ -1396,6 +1396,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `{"ok":true,"sollecitate":0}` — la rotta risponde correttamente, resta da vedere il primo
   sollecito reale la prima volta che una pratica supererà le 72h di attesa.
 
+✅ **"Trasmetti per l'installazione" — reparto automatico** (2026-08-13): il select "Reparto
+  installazione" (con default già "Analisi Rete") chiedeva una scelta per un caso che nella pratica
+  è sempre lo stesso — rimosso del tutto: il Ticket va sempre e automaticamente ad Analisi Rete.
+  Per l'eccezione rara in cui serve un reparto diverso, si riassegna dopo dal dettaglio del Ticket
+  (select "Reparto" già presente lì, con tooltip che spiega cosa fa — vedi voce Ticket qui sopra).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
