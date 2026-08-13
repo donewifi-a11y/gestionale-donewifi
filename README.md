@@ -1467,8 +1467,9 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `eliminaSegnalazione`: visibile solo agli amministratori (controllo anche lato server), conferma
   prima di procedere, spinner/toast, voce in Storico Modifiche. I file caricati dal cliente restano
   nello storage — la pulizia passa dal cron `pulizia-documenti` esistente, non da qui, stessa scelta
-  già fatta per Segnalazioni. Migrazione `0052`: estende il check constraint `storico.origine` con
-  `'richiesta_cliente'`.
+  già fatta per Segnalazioni. Migrazione `0052` eseguita e verificata in produzione: constraint
+  `storico.origine` accetta `'richiesta_cliente'`, ciclo completo crea/elimina/verifica-assenza su
+  una richiesta di prova riuscito.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
