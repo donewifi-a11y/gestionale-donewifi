@@ -322,7 +322,13 @@ export interface RapportinoIntervento {
   esito: string;
   lavori_svolti: string | null;
   materiali: string | null;
+  /** ★ solo rapportini storici (pre-firma via email): disegno del cliente
+   * caricato come immagine — vedi firma_metodo/email/verificato_il sotto
+   * per i rapportini nuovi, stesso schema di SchedaLavoro. */
   firma_url: string | null;
+  firma_metodo: "otp_email" | "link_email" | null;
+  firma_email: string | null;
+  firma_verificato_il: string | null;
   foto: { nome: string; percorso: string }[];
   creato_da: string | null;
   creato_il: string;

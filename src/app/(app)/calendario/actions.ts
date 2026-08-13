@@ -390,19 +390,31 @@ export async function salvaSchedaLavoro(
   return { errore: null };
 }
 
+/** ★ NUOVA — generalizza la firma cliente via email a due punti d'origine:
+ * la Scheda di Installazione/Lavorazione (legata a un appuntamento) e il
+ * Rapportino di chiusura Ticket (nessun appuntamento coinvolto — si
+ * completa il Ticket direttamente, vedi migrazione
+ * 0051_firma_cliente_rapportino.sql). Stesse 4 funzioni sotto, un solo
+ * parametro che dice a quale dei due si riferiscono, invece di duplicarle. */
+export type RiferimentoFirmaCliente = { tipo: "appuntamento"; id: string } | { tipo: "ticket"; id: string };
+
 /** ★ NUOVA — email/nome cliente e numero Ticket per l'ultimo passo della
- * Scheda (Firme): letti al volo invece di doverli far arrivare come prop
- * da 3 punti d'accesso diversi (Ticket, Vista Tecnico, Calendario), che
- * oggi passano alla Scheda solo appuntamentoId/catalogoMateriali. */
-export async function getContattoPerFirmaScheda(appuntamentoId: string) {
+ * Scheda/Rapportino (Firme): letti al volo invece di doverli far arrivare
+ * come prop da più punti d'accesso diversi. */
+export async function getContattoPerFirmaCliente(rif: RiferimentoFirmaCliente) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, email: null, nomeCliente: null, ticketNumero: null };
 
+  if (rif.tipo === "ticket") {
+    const { data } = await supabase.from("tickets").select("numero, cliente, email").eq("id", rif.id).single();
+    return { errore: null, email: data?.email ?? null, nomeCliente: data?.cliente ?? "", ticketNumero: data?.numero ?? null };
+  }
+
   const { data } = await supabase
     .from("appuntamenti")
     .select("titolo, tickets(numero, cliente, email)")
-    .eq("id", appuntamentoId)
+    .eq("id", rif.id)
     .single();
   // ★ la FK appuntamenti→tickets è sempre un oggetto singolo o null, mai un
   // array (stesso ragionamento già applicato altrove per gli embed 1:1).
@@ -423,12 +435,18 @@ function hashCodiceOtp(codice: string) {
   return createHash("sha256").update(codice).digest("hex");
 }
 
+/** una sola colonna valorizzata alla volta, mai entrambe — vedi il check
+ * constraint otp_firma_cliente_un_riferimento nella migrazione 0051. */
+function colonnaRiferimento(rif: RiferimentoFirmaCliente) {
+  return rif.tipo === "appuntamento" ? { appuntamento_id: rif.id, ticket_id: null } : { appuntamento_id: null, ticket_id: rif.id };
+}
+
 /** ★ NUOVA — invia un codice a 6 cifre via email, che il cliente legge e
  * conferma di persona al tecnico presente sul posto: sostituisce la firma
- * disegnata su schermo con una prova più solida (vedi migrazione
- * 0050_firma_cliente_scheda.sql). Non serve essere il tecnico assegnato
- * per usarla, solo staff attivo — stesso controllo di sempre. */
-export async function inviaOtpFirmaCliente(appuntamentoId: string, email: string, nomeCliente: string, ticketNumero: number) {
+ * disegnata su schermo con una prova più solida (vedi migrazioni 0050 e
+ * 0051). Non serve essere il tecnico assegnato per usarla, solo staff
+ * attivo — stesso controllo di sempre. */
+export async function inviaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: string, nomeCliente: string, ticketNumero: number) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
@@ -436,8 +454,8 @@ export async function inviaOtpFirmaCliente(appuntamentoId: string, email: string
 
   const codice = String(randomInt(0, 1000000)).padStart(6, "0");
   const service = createServiceClient();
-  const { error } = await service.from("otp_firma_scheda").insert({
-    appuntamento_id: appuntamentoId,
+  const { error } = await service.from("otp_firma_cliente").insert({
+    ...colonnaRiferimento(rif),
     email: email.trim(),
     codice_hash: hashCodiceOtp(codice),
     scaduto_il: new Date(Date.now() + SCADENZA_OTP_MINUTI * 60 * 1000).toISOString(),
@@ -453,16 +471,17 @@ export async function inviaOtpFirmaCliente(appuntamentoId: string, email: string
 /** ★ NUOVA — verifica il codice inserito dal tecnico (dettato dal
  * cliente): tentativi limitati e scadenza breve, stesso principio di
  * qualunque OTP — non riusa un vecchio codice già consumato o scaduto. */
-export async function verificaOtpFirmaCliente(appuntamentoId: string, email: string, codice: string) {
+export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: string, codice: string) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, verificatoIl: null };
 
   const service = createServiceClient();
+  const colonna = rif.tipo === "appuntamento" ? "appuntamento_id" : "ticket_id";
   const { data: riga } = await service
-    .from("otp_firma_scheda")
+    .from("otp_firma_cliente")
     .select("id, codice_hash, tentativi, scaduto_il, verificato_il")
-    .eq("appuntamento_id", appuntamentoId)
+    .eq(colonna, rif.id)
     .eq("email", email.trim())
     .is("verificato_il", null)
     .order("creato_il", { ascending: false })
@@ -473,12 +492,12 @@ export async function verificaOtpFirmaCliente(appuntamentoId: string, email: str
   if (riga.tentativi >= TENTATIVI_MASSIMI_OTP) return { errore: "Troppi tentativi sbagliati — invia un nuovo codice.", verificatoIl: null };
 
   if (hashCodiceOtp(codice.trim()) !== riga.codice_hash) {
-    await service.from("otp_firma_scheda").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
+    await service.from("otp_firma_cliente").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
     return { errore: "Codice errato.", verificatoIl: null };
   }
 
   const adesso = new Date().toISOString();
-  const { error } = await service.from("otp_firma_scheda").update({ verificato_il: adesso }).eq("id", riga.id);
+  const { error } = await service.from("otp_firma_cliente").update({ verificato_il: adesso }).eq("id", riga.id);
   if (error) return { errore: error.message, verificatoIl: null };
   return { errore: null, verificatoIl: adesso };
 }
@@ -487,11 +506,13 @@ export async function verificaOtpFirmaCliente(appuntamentoId: string, email: str
  * usato per contratto/intervento/preventivo, vedi token_approvazione):
  * SOLO quando il tecnico lo autorizza esplicitamente (conferma richiesta
  * lato client prima di chiamare questa action), mai una scelta lasciata al
- * cliente. A differenza degli altri tre casi, la scheda potrebbe non
- * esistere ancora quando il cliente clicca — il token referenzia
- * l'appuntamento, non la scheda (vedi migrazione 0050 e
+ * cliente. Per la Scheda (legata a un appuntamento) il token referenzia
+ * l'appuntamento perché la scheda potrebbe non esistere ancora quando il
+ * cliente clicca (si salva solo al submit finale del wizard); per il
+ * Rapportino referenzia direttamente il ticket_id già esistente su
+ * token_approvazione (finora usato solo per origine "intervento" — vedi
  * /api/approva/[token]/route.ts). */
-export async function inviaLinkFirmaCliente(appuntamentoId: string, origineUrl: string, email: string, nomeCliente: string, ticketNumero: number) {
+export async function inviaLinkFirmaCliente(rif: RiferimentoFirmaCliente, origineUrl: string, email: string, nomeCliente: string, ticketNumero: number) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
@@ -500,7 +521,11 @@ export async function inviaLinkFirmaCliente(appuntamentoId: string, origineUrl: 
   const service = createServiceClient();
   const { data: creato, error } = await service
     .from("token_approvazione")
-    .insert({ appuntamento_id: appuntamentoId, origine: "firma_scheda" })
+    .insert(
+      rif.tipo === "appuntamento"
+        ? { appuntamento_id: rif.id, origine: "firma_scheda" }
+        : { ticket_id: rif.id, origine: "firma_rapportino" }
+    )
     .select("token")
     .single();
   if (error) return { errore: error.message };

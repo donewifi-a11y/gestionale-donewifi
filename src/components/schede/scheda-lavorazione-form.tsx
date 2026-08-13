@@ -162,7 +162,7 @@ export function SchedaLavorazioneForm({
         <div>
           <Label>Firma / accettazione cliente</Label>
           <div className="mt-1.5">
-            <FirmaClienteScheda appuntamentoId={appuntamentoId} value={firmaCliente} onChange={setFirmaCliente} />
+            <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />
           </div>
         </div>
       ),

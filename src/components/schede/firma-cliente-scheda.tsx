@@ -5,11 +5,12 @@ import { Mail, Send, Check, Loader2, AlertTriangle, RotateCcw } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  getContattoPerFirmaScheda,
+  getContattoPerFirmaCliente,
   inviaOtpFirmaCliente,
   verificaOtpFirmaCliente,
   inviaLinkFirmaCliente,
   type FirmaClienteApprovata,
+  type RiferimentoFirmaCliente,
 } from "@/app/(app)/calendario/actions";
 
 /** ★ NUOVA — sostituisce la firma disegnata su schermo del cliente
@@ -18,15 +19,21 @@ import {
  * disegno che chiunque potrebbe tracciare al posto del cliente. Un link
  * di approvazione via email resta come fallback, ma richiede
  * un'autorizzazione esplicita del tecnico (confirm dedicato): non è mai
- * una scelta lasciata al cliente stesso. Componente condiviso tra
- * SchedaInstallazioneForm e SchedaLavorazioneForm — stessa interazione in
- * entrambe, un solo posto da mantenere. */
+ * una scelta lasciata al cliente stesso.
+ *
+ * ★ NUOVA — generalizzato a `riferimento` (appuntamento o ticket, vedi
+ * RiferimentoFirmaCliente in calendario/actions.ts) invece di un
+ * appuntamentoId fisso: componente condiviso da SchedaInstallazioneForm,
+ * SchedaLavorazioneForm (via appuntamento) e RapportinoForm (via ticket —
+ * il Rapportino di chiusura Ticket non ha un appuntamento collegato,
+ * migrazione 0051_firma_cliente_rapportino.sql). Stessa interazione
+ * ovunque, un solo posto da mantenere. */
 export function FirmaClienteScheda({
-  appuntamentoId,
+  riferimento,
   value,
   onChange,
 }: {
-  appuntamentoId: string;
+  riferimento: RiferimentoFirmaCliente;
   value: FirmaClienteApprovata | null;
   onChange: (v: FirmaClienteApprovata | null) => void;
 }) {
@@ -41,12 +48,13 @@ export function FirmaClienteScheda({
   const [inCorsoLink, startLink] = useTransition();
 
   useEffect(() => {
-    getContattoPerFirmaScheda(appuntamentoId).then((r) => {
+    getContattoPerFirmaCliente(riferimento).then((r) => {
       setNomeCliente(r.nomeCliente || "");
       setTicketNumero(r.ticketNumero);
       if (r.email) setEmail(r.email);
     });
-  }, [appuntamentoId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- riferimento è un oggetto letterale ricreato ad ogni render dal chiamante: si confronta sul suo id, non sull'identità dell'oggetto, altrimenti il fetch ripartirebbe ad ogni render.
+  }, [riferimento.tipo, riferimento.id]);
 
   function inviaCodice() {
     setErrore("");
@@ -55,7 +63,7 @@ export function FirmaClienteScheda({
       return;
     }
     startInvio(async () => {
-      const risultato = await inviaOtpFirmaCliente(appuntamentoId, email, nomeCliente, ticketNumero ?? 0);
+      const risultato = await inviaOtpFirmaCliente(riferimento, email, nomeCliente, ticketNumero ?? 0);
       if (risultato.errore) {
         setErrore(risultato.errore);
         return;
@@ -72,7 +80,7 @@ export function FirmaClienteScheda({
       return;
     }
     startVerifica(async () => {
-      const risultato = await verificaOtpFirmaCliente(appuntamentoId, email, codice);
+      const risultato = await verificaOtpFirmaCliente(riferimento, email, codice);
       if (risultato.errore || !risultato.verificatoIl) {
         setErrore(risultato.errore || "Errore imprevisto.");
         return;
@@ -90,7 +98,7 @@ export function FirmaClienteScheda({
       return;
     setErrore("");
     startLink(async () => {
-      const risultato = await inviaLinkFirmaCliente(appuntamentoId, window.location.origin, email, nomeCliente, ticketNumero ?? 0);
+      const risultato = await inviaLinkFirmaCliente(riferimento, window.location.origin, email, nomeCliente, ticketNumero ?? 0);
       if (risultato.errore) {
         setErrore(risultato.errore);
         return;

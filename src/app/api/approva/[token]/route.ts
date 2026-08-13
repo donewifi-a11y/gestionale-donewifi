@@ -90,6 +90,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .update({ firma_cliente_verificato_il: new Date().toISOString() })
       .eq("id", scheda.id);
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+  } else if (riga.origine === "firma_rapportino" && riga.ticket_id) {
+    // ★ NUOVA — fallback della firma cliente sul Rapportino di chiusura
+    // Ticket (vedi migrazione 0051): a differenza di "firma_scheda" qui il
+    // riferimento è direttamente il ticket_id, non un appuntamento — il
+    // Rapportino non è mai legato a un appuntamento.
+    const { data: rapportino } = await supabase
+      .from("rapportini_intervento")
+      .select("id")
+      .eq("ticket_id", riga.ticket_id)
+      .order("creato_il", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!rapportino) {
+      return NextResponse.json(
+        { errore: "Il tecnico non ha ancora completato il rapportino — riprova tra qualche minuto." },
+        { status: 409 }
+      );
+    }
+    const { error } = await supabase
+      .from("rapportini_intervento")
+      .update({ firma_verificato_il: new Date().toISOString() })
+      .eq("id", rapportino.id);
+    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
   } else if (riga.ticket_id) {
     const { error } = await supabase
       .from("tickets")

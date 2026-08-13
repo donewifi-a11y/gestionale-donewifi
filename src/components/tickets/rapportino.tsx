@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Printer, FileText, AlertTriangle } from "lucide-react";
+import { Printer, FileText, AlertTriangle, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
+import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
+import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { useToast } from "@/components/ui/toast";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
 
@@ -22,7 +23,7 @@ export function RapportinoForm({
   onSalvato: () => void;
   onAnnulla: () => void;
 }) {
-  const firmaRef = useRef<FirmaPadHandle>(null);
+  const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [nomiFoto, setNomiFoto] = useState("");
@@ -34,6 +35,7 @@ export function RapportinoForm({
     const dati = new FormData(e.currentTarget);
     const esito = String(dati.get("esito") || "").trim();
     if (!esito) return setErrore("L'esito dell'intervento è obbligatorio.");
+    if (!firmaCliente) return setErrore("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
 
     const foto = Array.from(fileInputRef.current?.files ?? []);
     setInCorso(true);
@@ -44,7 +46,7 @@ export function RapportinoForm({
         esito,
         lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
         materiali: String(dati.get("materiali") || ""),
-        firmaDataUrl: firmaRef.current?.ottieniDataUrl() ?? "",
+        firmaCliente,
         importoFatturato: String(dati.get("importoFatturato") || ""),
       },
       foto
@@ -99,7 +101,7 @@ export function RapportinoForm({
       <div>
         <Label>Firma cliente</Label>
         <div className="mt-1">
-          <FirmaPad ref={firmaRef} />
+          <FirmaClienteScheda riferimento={{ tipo: "ticket", id: ticketId }} value={firmaCliente} onChange={setFirmaCliente} />
         </div>
       </div>
 
@@ -172,7 +174,11 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
             </div>
           </div>
         )}
-        {rapportino.firma_url && (
+        {/* ★ NUOVA — i rapportini vecchi hanno firma_url (disegno, mostrato
+         * come prima); quelli nuovi hanno firma_metodo valorizzato invece —
+         * OTP verificato (verde) o link inviato, ancora in attesa di
+         * conferma del cliente (giallo). Stesso schema di SchedaVista. */}
+        {rapportino.firma_url ? (
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma cliente</div>
             {urlFirma ? (
@@ -184,7 +190,24 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
               </Button>
             )}
           </div>
-        )}
+        ) : rapportino.firma_metodo ? (
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Conferma cliente</div>
+            {rapportino.firma_verificato_il ? (
+              <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-success">
+                <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.5} />
+                Confermato da {rapportino.firma_email} il{" "}
+                {new Date(rapportino.firma_verificato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {rapportino.firma_metodo === "otp_email" ? " (codice email)" : " (link email)"}.
+              </p>
+            ) : (
+              <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-warning">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+                Link inviato a {rapportino.firma_email} — in attesa che il cliente confermi.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );

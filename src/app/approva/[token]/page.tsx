@@ -11,7 +11,7 @@ import type { RigaPreventivo } from "@/lib/types";
 // 0050, mai valorizzate insieme), quindi ciascun embed è sempre un
 // oggetto singolo o null, mai un array.
 interface RigaTokenApprovazione {
-  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda";
+  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "firma_rapportino";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
   preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
@@ -29,6 +29,12 @@ interface RigaTokenApprovazione {
 // Installazione/Lavorazione (migrazione 0050): a differenza degli altri
 // tre, qui il riferimento è l'appuntamento (la scheda potrebbe non
 // esistere ancora quando il link è stato inviato).
+//
+// ★ NUOVA — quinto caso, stesso fallback ma per il Rapportino di chiusura
+// Ticket (migrazione 0051): qui il riferimento è direttamente il ticket
+// (nessun appuntamento coinvolto) — condivide l'embed `tickets` con
+// "intervento" (unica differenza: origine), va quindi controllato prima
+// di quel branch generico.
 export default async function ApprovaPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createServiceClient();
@@ -47,6 +53,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const segnalazione = dati?.segnalazioni ?? undefined;
   const preventivo = dati?.preventivi ?? undefined;
   const firmaScheda = dati?.origine === "firma_scheda" ? dati.appuntamenti : undefined;
+  const firmaRapportino = dati?.origine === "firma_rapportino" ? dati.tickets : undefined;
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -58,7 +65,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
     <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 text-center shadow-2xl">
         <img src="/brand/logo-completo.png" alt="Done Wifi" className="mb-1 h-14 w-14" />
-        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda) ? (
+        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda && !firmaRapportino) ? (
           <>
             <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
             <p className="font-heading text-lg font-bold">Link non valido</p>
@@ -72,6 +79,16 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
             <p className="text-sm text-muted-foreground">
               {firmaScheda.tickets ? `Ticket #${firmaScheda.tickets.numero} · ` : ""}
               {firmaScheda.tickets?.cliente ?? firmaScheda.titolo}, confermi che il lavoro dell&apos;installatore Done Wifi è stato svolto correttamente?
+            </p>
+            <ConfermaBottone token={token} tipo="firma_scheda" />
+          </>
+        ) : firmaRapportino ? (
+          <>
+            <h1 className="font-heading text-lg font-bold">Conferma i lavori svolti</h1>
+            <p className="text-sm text-muted-foreground">
+              Ticket #{firmaRapportino.numero}
+              <br />
+              {firmaRapportino.cliente}, confermi che il lavoro del tecnico Done Wifi è stato svolto correttamente?
             </p>
             <ConfermaBottone token={token} tipo="firma_scheda" />
           </>

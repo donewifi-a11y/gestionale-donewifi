@@ -1421,6 +1421,22 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   `otp_firma_scheda` interrogabile, le 3 nuove colonne su `schede_lavoro` e `appuntamento_id` su
   `token_approvazione` presenti, inserimento/lettura/cancellazione di prova riusciti.
 
+✅ **Firma cliente OTP estesa al Rapportino di chiusura Ticket** (2026-08-13): richiesta esplicita
+  di ripulire "tutte le parti rimaste obsolete" dopo il giro OTP sulla Scheda (migrazione 0050) —
+  trovato un secondo punto identico mai aggiornato: il **Rapportino di chiusura Ticket**
+  (`rapportini_intervento`, usato quando un Ticket si completa direttamente, senza passare da un
+  appuntamento/Scheda) aveva ancora la firma disegnata su schermo. Stesso meccanismo OTP/link
+  generalizzato: `FirmaClienteScheda` ora prende un `riferimento` (`{tipo: "appuntamento"}` per la
+  Scheda, `{tipo: "ticket"}` per il Rapportino) invece di un `appuntamentoId` fisso — le 4 azioni
+  server (`getContattoPerFirmaCliente`, `inviaOtpFirmaCliente`, `verificaOtpFirmaCliente`,
+  `inviaLinkFirmaCliente`) sono generalizzate allo stesso modo, un solo posto invece di duplicarle.
+  Migrazione `0051_firma_cliente_rapportino.sql`: la tabella OTP (rinominata `otp_firma_scheda` →
+  `otp_firma_cliente`, ora referenzia un appuntamento *o* un ticket) e `rapportini_intervento`
+  estesa con `firma_metodo`/`firma_email`/`firma_verificato_il` (stesso schema di `schede_lavoro`,
+  `firma_url` intatto per i rapportini storici col disegno). `/api/approva/[token]` gestisce anche
+  il nuovo caso `firma_rapportino`. **Richiede l'esecuzione manuale della migrazione `0051`**
+  prima di funzionare in produzione.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
