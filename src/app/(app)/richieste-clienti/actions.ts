@@ -1,7 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrente } from "@/lib/persona";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { revalidatePath } from "next/cache";
 import type { RichiestaCliente } from "@/lib/types";
@@ -43,6 +43,49 @@ export async function aggiornaStatoRichiestaCliente(id: string, nuovoStato: stri
 
   const { error } = await supabase.from("richieste_clienti").update({ stato: nuovoStato }).eq("id", id);
   if (error) return { errore: error.message };
+
+  revalidatePath("/richieste-clienti");
+  return { errore: null };
+}
+
+// ★ NUOVA — richiesta esplicita: un amministratore deve poter cancellare
+// una Richiesta Cliente (dati/documenti inviati dal cliente per Cambio
+// IBAN/Anagrafica/Trasferimento/Subentro/Richiesta Dati) — es. un test,
+// un doppione, o un invio per errore. Stesso schema già usato per
+// eliminaSegnalazione(): "richieste_clienti" non ha policy RLS di delete
+// (solo select/insert/update, vedi 0001_init.sql/0010), quindi la
+// cancellazione vera passa dalla service role, dopo aver verificato qui
+// che chi chiama sia admin. I file nello storage (documenti caricati dal
+// cliente) restano — stessa scelta già fatta per Segnalazioni: la pulizia
+// vera passa dal cron pulizia-documenti, non da qui.
+export async function eliminaRichiestaCliente(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return { errore: "Solo un amministratore può eliminare una Richiesta Cliente." };
+  const personaId = await getPersonaCorrenteId();
+
+  const { data: richiesta, error: erroreLettura } = await supabase
+    .from("richieste_clienti")
+    .select("tipo_richiesta, cliente")
+    .eq("id", id)
+    .single();
+  if (erroreLettura || !richiesta) return { errore: erroreLettura?.message || "Richiesta non trovata." };
+
+  const service = createServiceClient();
+  const { error } = await service.from("richieste_clienti").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: id,
+    operazione: "Richiesta Cliente eliminata",
+    valore_prima: `${richiesta.tipo_richiesta} — ${richiesta.cliente ?? "cliente"}`,
+    operatore_id: personaId,
+  });
 
   revalidatePath("/richieste-clienti");
   return { errore: null };

@@ -1,5 +1,6 @@
 import { ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { RichiesteClientiBoard } from "@/components/richieste-clienti/richieste-clienti-board";
 import type { RichiestaCliente } from "@/lib/types";
 
@@ -26,6 +27,7 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
 export default async function RichiesteClientiPage() {
   const supabase = await createClient();
   const richieste = await fetchTutteRichieste(supabase);
+  const persona = await getPersonaCorrente(supabase);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -41,7 +43,7 @@ export default async function RichiesteClientiPage() {
         </div>
       </div>
 
-      <RichiesteClientiBoard richieste={richieste} />
+      <RichiesteClientiBoard richieste={richieste} isAdmin={personaHaAccessoAdmin(persona)} />
     </div>
   );
 }

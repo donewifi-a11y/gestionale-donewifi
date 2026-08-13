@@ -1461,6 +1461,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     "riduci le animazioni" del sistema operativo.
   Nessuna di queste modifiche tocca dati o logica di business — solo interfaccia.
 
+✅ **Elimina Richiesta Cliente (solo admin)** (2026-08-13): richiesta esplicita — mancava la
+  possibilità di cancellare un modulo inviato dal cliente (Cambio IBAN/Anagrafica/Trasferimento/
+  Subentro/Richiesta Dati), es. un test o un invio duplicato. Stesso schema già usato per
+  `eliminaSegnalazione`: visibile solo agli amministratori (controllo anche lato server), conferma
+  prima di procedere, spinner/toast, voce in Storico Modifiche. I file caricati dal cliente restano
+  nello storage — la pulizia passa dal cron `pulizia-documenti` esistente, non da qui, stessa scelta
+  già fatta per Segnalazioni. Migrazione `0052`: estende il check constraint `storico.origine` con
+  `'richiesta_cliente'`.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

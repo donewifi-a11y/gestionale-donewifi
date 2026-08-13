@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Ticket as TicketIcon } from "lucide-react";
+import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { aggiornaStatoRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
+import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
@@ -28,7 +28,7 @@ const COLORE_TIPO: Record<string, string> = {
   "Richiesta Dati": "bg-secondary text-secondary-foreground border-transparent",
 };
 
-export function RichiesteClientiBoard({ richieste }: { richieste: RichiestaCliente[] }) {
+export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: RichiestaCliente[]; isAdmin: boolean }) {
   const [ricerca, setRicerca] = useState("");
   const [fTipo, setFTipo] = useState("");
   const [aperta, setAperta] = useState<RichiestaCliente | null>(null);
@@ -103,7 +103,14 @@ export function RichiesteClientiBoard({ richieste }: { richieste: RichiestaClien
 
       <Sheet open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
         <SheetContent>
-          {aperta && <DettaglioRichiesta richiesta={aperta} onCambiata={(r) => setAperta(r)} />}
+          {aperta && (
+            <DettaglioRichiesta
+              richiesta={aperta}
+              isAdmin={isAdmin}
+              onCambiata={(r) => setAperta(r)}
+              onEliminata={() => setAperta(null)}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>
@@ -112,14 +119,19 @@ export function RichiesteClientiBoard({ richieste }: { richieste: RichiestaClien
 
 function DettaglioRichiesta({
   richiesta,
+  isAdmin,
   onCambiata,
+  onEliminata,
 }: {
   richiesta: RichiestaCliente;
+  isAdmin: boolean;
   onCambiata: (r: RichiestaCliente) => void;
+  onEliminata: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [inCorso, startTransizione] = useTransition();
+  const [inCorsoElimina, startElimina] = useTransition();
 
   function cambiaStato(nuovo: string) {
     if (nuovo === richiesta.stato) return;
@@ -127,6 +139,29 @@ function DettaglioRichiesta({
       await aggiornaStatoRichiestaCliente(richiesta.id, nuovo);
       onCambiata({ ...richiesta, stato: nuovo });
       toast(`Passata a "${nuovo}".`, "successo");
+      router.refresh();
+    });
+  }
+
+  // ★ NUOVA — solo un amministratore la vede (pulsante non renderizzato
+  // affatto per gli altri, controllo comunque ripetuto lato server in
+  // eliminaRichiestaCliente()): cancellazione vera, pensata per moduli di
+  // prova, duplicati o inviati per errore dal cliente.
+  function elimina() {
+    if (
+      !confirm(
+        `Eliminare definitivamente questa richiesta (${richiesta.tipo_richiesta} — ${richiesta.cliente ?? "cliente"})? L'operazione non è reversibile.`
+      )
+    )
+      return;
+    startElimina(async () => {
+      const risultato = await eliminaRichiestaCliente(richiesta.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Richiesta eliminata.", "successo");
+      onEliminata();
       router.refresh();
     });
   }
@@ -201,6 +236,18 @@ function DettaglioRichiesta({
               ))}
             </div>
           </div>
+        )}
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={elimina}
+            disabled={inCorsoElimina}
+            className="mt-2 flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+          >
+            {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoElimina ? "Eliminazione in corso…" : "Elimina richiesta"}
+          </button>
         )}
       </div>
     </>
