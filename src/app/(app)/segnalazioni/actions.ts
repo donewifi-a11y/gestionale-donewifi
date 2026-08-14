@@ -80,11 +80,12 @@ export async function inviaEmailRichiestaDatiSegnalazione(segnalazioneId: string
   if (!segnalazione.email) return { errore: "Il cliente non ha un'email registrata su questa segnalazione." };
 
   const link = `${origine}/richiesta-dati/${segnalazioneId}`;
-  const { oggetto, corpoHtml } = emailRichiestaDatiSegnalazione(segnalazione.nome, link);
+  const { oggetto, corpoHtml, corpoTesto } = emailRichiestaDatiSegnalazione(segnalazione.nome, link);
   const risultato = await inviaEmail({
     a: segnalazione.email,
     oggetto,
     corpoHtml,
+    corpoTesto,
     reparto: "Commerciale",
   });
   return risultato;
@@ -230,8 +231,8 @@ export async function inviaEmailApprovazioneContratto(segnalazioneId: string, or
   if (error) return { errore: error.message };
 
   const link = `${origine}/approva/${creato.token}`;
-  const { oggetto, corpoHtml } = emailApprovazioneContratto(segnalazione.nome, segnalazione.numero, link);
-  const risultato = await inviaEmail({ a: segnalazione.email, oggetto, corpoHtml, reparto: "Commerciale" });
+  const { oggetto, corpoHtml, corpoTesto } = emailApprovazioneContratto(segnalazione.nome, segnalazione.numero, link);
+  const risultato = await inviaEmail({ a: segnalazione.email, oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
   if (risultato.errore) return { errore: risultato.errore };
 
   await supabase

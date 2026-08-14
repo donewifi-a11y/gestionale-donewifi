@@ -1613,6 +1613,25 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   un caso reale in produzione: una Lavorazione assegnata il 13/08 risultava effettivamente invisibile
   prima del fix.
 
+✅ **Email ai clienti riscritte (identità visiva + tono coerente)** (2026-08-14): richiesta
+  esplicita — "sono alquanto tristi". Proposta con artifact (diagnosi + anteprime reali),
+  approvata: tono sempre "Gentile" (prima mischiato con "Ciao" a seconda della funzione), firma
+  per reparto invece del generico "Done Wifi", footer con i dati aziendali, numero di telefono
+  fornito dall'utente (0165 1825169).
+  - `src/lib/email.ts` riscritto attorno a un'unica cornice condivisa (`involucroEmail()`):
+    intestazione scura col logo (`public/brand/logo-bianco.png`, servito da URL assoluto — i
+    client email non caricano risorse relative), card bianca arrotondata per il contenuto,
+    footer fisso con ragione sociale/indirizzo/P.IVA/telefono (dati già presenti nella pagina
+    Privacy del gestionale). Le 8 email (conferma intervento, contratto pronto, OTP/link firma
+    lavori, preventivo, pratica cliente, richiesta dati, chiusura Ticket) usano tutte la stessa
+    cornice invece di un `<div>` ricopiato ciascuna.
+  - Ogni funzione email ora ritorna anche `corpoTesto` (versione solo-testo, non generata
+    automaticamente per non produrre un risultato scadente da uno strip HTML grezzo) —
+    `inviaEmail()` la passa a nodemailer come alternativa: filtri antispam e client che bloccano
+    HTML/immagini vedono comunque un messaggio leggibile invece di un'email vuota.
+  - Verificato chiamando tutte le 8 funzioni con dati di esempio: nessuna interpolazione rotta,
+    logo/footer/tono presenti in ogni corpoHtml e corpoTesto.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

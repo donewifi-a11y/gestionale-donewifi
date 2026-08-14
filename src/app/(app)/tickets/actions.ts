@@ -408,8 +408,8 @@ export async function completaTicketConRapportino(
   });
 
   if (ticketRiga?.email) {
-    const { oggetto, corpoHtml } = emailChiusuraTicket(ticketRiga.cliente, ticketRiga.numero);
-    await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml, reparto: ticketRiga.reparto });
+    const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticketRiga.cliente, ticketRiga.numero);
+    await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml, corpoTesto, reparto: ticketRiga.reparto });
   }
 
   revalidatePath("/tickets");
@@ -441,8 +441,8 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
   if (error) return { errore: error.message };
 
   const link = `${origine}/approva/${creato.token}`;
-  const { oggetto, corpoHtml } = emailApprovazioneIntervento(ticket.cliente, ticket.numero, link);
-  await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto: ticket.reparto });
+  const { oggetto, corpoHtml, corpoTesto } = emailApprovazioneIntervento(ticket.cliente, ticket.numero, link);
+  await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
 
   return { errore: null, link };
 }
@@ -473,8 +473,8 @@ export async function inviaEmailPraticaCliente(ticketId: string, slug: string, u
   const reparto: AreaAccesso = slug === "disdetta" ? "Fatturazione" : REPARTO_PER_TIPO_RICHIESTA[config.tipo];
   if (!titolo || !reparto) return { errore: "Pratica non riconosciuta." };
 
-  const { oggetto, corpoHtml } = emailPraticaCliente(ticket.cliente, titolo, url);
-  const risultato = await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto });
+  const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(ticket.cliente, titolo, url);
+  const risultato = await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto });
   return risultato;
 }
 

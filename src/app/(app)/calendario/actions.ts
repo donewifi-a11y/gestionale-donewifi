@@ -424,8 +424,8 @@ export async function salvaSchedaLavoro(
         operatore_id: persona.id,
       });
       if (ticket.email) {
-        const { oggetto, corpoHtml } = emailChiusuraTicket(ticket.cliente, ticket.numero);
-        await inviaEmail({ a: ticket.email, oggetto, corpoHtml, reparto: ticket.reparto });
+        const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticket.cliente, ticket.numero);
+        await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
       }
     }
   }
@@ -509,8 +509,8 @@ export async function inviaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: 
   });
   if (error) return { errore: error.message };
 
-  const { oggetto, corpoHtml } = emailOtpFirmaScheda(nomeCliente, codice, ticketNumero);
-  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, reparto: "Analisi Rete" });
+  const { oggetto, corpoHtml, corpoTesto } = emailOtpFirmaScheda(nomeCliente, codice, ticketNumero);
+  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, corpoTesto, reparto: "Analisi Rete" });
   if (risultato.errore) return { errore: risultato.errore };
   return { errore: null };
 }
@@ -578,8 +578,8 @@ export async function inviaLinkFirmaCliente(rif: RiferimentoFirmaCliente, origin
   if (error) return { errore: error.message };
 
   const link = `${origineUrl}/approva/${creato.token}`;
-  const { oggetto, corpoHtml } = emailLinkFirmaScheda(nomeCliente, ticketNumero, link);
-  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, reparto: "Analisi Rete" });
+  const { oggetto, corpoHtml, corpoTesto } = emailLinkFirmaScheda(nomeCliente, ticketNumero, link);
+  const risultato = await inviaEmail({ a: email.trim(), oggetto, corpoHtml, corpoTesto, reparto: "Analisi Rete" });
   if (risultato.errore) return { errore: risultato.errore };
   return { errore: null };
 }
