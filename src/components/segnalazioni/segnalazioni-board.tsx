@@ -23,6 +23,9 @@ import {
   Send,
   Info,
   Loader2,
+  ClipboardCheck,
+  ClipboardList,
+  SkipForward,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +92,23 @@ const GRUPPI_DETTAGLI: { titolo: string; campi: string[] }[] = [
 ];
 const CAMPI_INDIRIZZO = ["via", "civico", "comune", "cap"];
 const TIPI_DOCUMENTO: Record<string, string> = { CI: "Carta d'Identità", PATENTE: "Patente", PASSAPORTO: "Passaporto" };
+// ★ NUOVA — richiesta esplicita: valori "a rischio refuso" (codici, IBAN...)
+// in monospace quando si ricopiano a mano nel gestionale esterno — più
+// facile distinguere 0/O, 1/I, cifre allineate, invece del font
+// proporzionale usato per un nome o un indirizzo.
+const CAMPI_MONOSPAZIATI = new Set([
+  "codiceFiscale",
+  "cf",
+  "codiceFiscaleAzienda",
+  "partitaIva",
+  "piva",
+  "pec",
+  "sdi",
+  "legaleRappresentanteCf",
+  "iban",
+  "ibanIntestatarioCf",
+  "cap",
+]);
 
 function formattaValoreCampo(chiave: string, valore: string) {
   if (chiave === "mandatoSepa") return valore === "on" ? "Sì" : valore;
@@ -400,6 +420,30 @@ function DettaglioSegnalazione({
   }, [contrattoUrl, segnalazione.id]);
   const [esitoEmail, setEsitoEmail] = useState("");
   const [tab, setTab] = useState<"anagrafica" | "indirizzo" | "documenti" | "piano">("anagrafica");
+  // ★ NUOVA — richiesta esplicita: quali campi sono già stati ricopiati nel
+  // gestionale contratti esterno in questa sessione (segno persistente,
+  // non solo un lampeggio al click) + "Modalità guidata" facoltativa (un
+  // campo alla volta, in sequenza, invece delle 4 tab normali).
+  const [campiCopiati, setCampiCopiati] = useState<Set<string>>(new Set());
+  const [modalitaGuidata, setModalitaGuidata] = useState(false);
+  const [indiceGuidata, setIndiceGuidata] = useState(0);
+
+  function copiaCampo(chiave: string, etichetta: string, valore: string) {
+    navigator.clipboard.writeText(valore);
+    setCampiCopiati((cur) => new Set(cur).add(chiave));
+    toast(`Copiato: ${etichetta}`, "successo");
+  }
+
+  function copiaGruppo(titolo: string, voci: { chiave: string; etichetta: string; valore: string }[]) {
+    const blocco = voci.map((v) => `${v.etichetta}: ${v.valore}`).join("\n");
+    navigator.clipboard.writeText(blocco);
+    setCampiCopiati((cur) => {
+      const nuovo = new Set(cur);
+      voci.forEach((v) => nuovo.add(v.chiave));
+      return nuovo;
+    });
+    toast(`Copiata tutta la sezione "${titolo}".`, "successo");
+  }
 
   const linkRichiestaDati = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/richiesta-dati/${segnalazione.id}` : ""),
@@ -466,6 +510,22 @@ function DettaglioSegnalazione({
   const gruppiTabAnagrafica = gruppiConDati.filter((g) => ["Anagrafica", "Contatti", "Note"].includes(g.titolo));
   const gruppiTabPagamento = gruppiConDati.filter((g) => g.titolo === "Pagamento");
   const gruppiTabPiano = gruppiConDati.filter((g) => g.titolo === "Piano scelto");
+
+  // ★ NUOVA — richiesta esplicita: "Modalità guidata", un campo alla volta
+  // invece delle 4 tab — stesso ordine di ricopiatura (anagrafica →
+  // indirizzo/pagamento → piano), i Documenti restano esclusi (sono file
+  // da aprire, non testo da copiare).
+  const elencoGuidata: { chiave: string; etichetta: string; valore: string }[] = [];
+  for (const g of [...gruppiTabAnagrafica, ...(altriCampi.length > 0 ? [{ titolo: "Altro", voci: altriCampi }] : [])]) {
+    for (const chiave of g.voci) elencoGuidata.push({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) });
+  }
+  if (indirizzoInstallazione) elencoGuidata.push({ chiave: "__indirizzo", etichetta: "Indirizzo di installazione", valore: indirizzoInstallazione });
+  for (const g of gruppiTabPagamento) {
+    for (const chiave of g.voci) elencoGuidata.push({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) });
+  }
+  for (const g of gruppiTabPiano) {
+    for (const chiave of g.voci) elencoGuidata.push({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) });
+  }
 
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (tipologia/profilo internet)");
@@ -756,153 +816,165 @@ function DettaglioSegnalazione({
 
         {richiesta && (
           <div className="rounded-lg border bg-muted/40 p-3">
-            <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
-            {/* ★ NUOVO — con più spazio in un dialog centrale largo, i gruppi si
-             * smistano su 4 tab invece di restare tutti impilati: meno scroll, un
-             * argomento alla volta. L'ordine delle tab segue quello in cui questi
-             * stessi dati vanno ricopiati nel gestionale contratti esterno
-             * (service.done.cst98.com/Contratto/cliente.aspx): anagrafica e
-             * contatti, poi indirizzo e dati di pagamento (RID), poi documenti —
-             * il profilo/apparati scelti non hanno un campo lì, si usano in un
-             * passaggio successivo, quindi restano per ultimi invece che per
-             * primi. Dentro ogni tab resta comunque etichetta sopra/valore
-             * sotto — nessun dato inviato dal cliente si tronca mai. */}
-            <div className="mb-3 flex flex-wrap gap-1 border-b">
-              {(
-                [
-                  ["anagrafica", "Anagrafica"],
-                  ["indirizzo", "Indirizzo e pagamento"],
-                  ["documenti", `Documenti${richiesta.documenti.length > 0 ? ` (${richiesta.documenti.length})` : ""}`],
-                  ["piano", "Piano scelto"],
-                ] as const
-              ).map(([valore, etichetta]) => (
-                <button
-                  key={valore}
-                  type="button"
-                  onClick={() => setTab(valore)}
-                  className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-bold transition ${
-                    tab === valore ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {etichetta}
-                </button>
-              ))}
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Dati ricevuti dal cliente</p>
+              {/* ★ NUOVA — richiesta esplicita: un campo alla volta in sequenza,
+               * invece delle tab, per chi deve ricopiare tutto senza dover
+               * scegliere ogni volta dove guardare. Facoltativa: le tab normali
+               * restano il modo di default. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModalitaGuidata((v) => !v);
+                  setIndiceGuidata(0);
+                }}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                  modalitaGuidata ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <ClipboardCheck className="h-3 w-3" strokeWidth={2.5} />
+                Modalità guidata
+              </button>
             </div>
 
-            {tab === "anagrafica" && (
-              <div key="anagrafica" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
-                {gruppiTabAnagrafica.map((gruppo) => (
-                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
-                    <div className="flex flex-col gap-2">
-                      {gruppo.voci.map((chiave) => (
-                        <RigaDatoCliente
-                          key={chiave}
-                          etichetta={etichettaDettaglio(chiave)}
-                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
-                {altriCampi.length > 0 && (
-                  <div className="rounded-lg border bg-card p-2.5">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">Altro</p>
-                    <div className="flex flex-col gap-2">
-                      {altriCampi.map((chiave) => (
-                        <RigaDatoCliente
-                          key={chiave}
-                          etichetta={etichettaDettaglio(chiave)}
-                          valore={campiRicevuti[chiave]}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {tab === "indirizzo" && (
-              <div key="indirizzo" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
-                {indirizzoInstallazione && (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
-                    <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
+            {modalitaGuidata ? (
+              <ModalitaGuidataCopia
+                elenco={elencoGuidata}
+                indice={indiceGuidata}
+                onAvanti={setIndiceGuidata}
+                onCopia={copiaCampo}
+                campiCopiati={campiCopiati}
+              />
+            ) : (
+              <>
+                {/* ★ con più spazio in un dialog centrale largo, i gruppi si
+                 * smistano su 4 tab invece di restare tutti impilati: meno scroll,
+                 * un argomento alla volta. L'ordine delle tab segue quello in cui
+                 * questi stessi dati vanno ricopiati nel gestionale contratti
+                 * esterno (service.done.cst98.com/Contratto/cliente.aspx):
+                 * anagrafica e contatti, poi indirizzo e dati di pagamento (RID),
+                 * poi documenti — il profilo/apparati scelti non hanno un campo
+                 * lì, si usano in un passaggio successivo, quindi restano per
+                 * ultimi invece che per primi. Dentro ogni tab resta comunque
+                 * etichetta sopra/valore sotto — nessun dato inviato dal cliente
+                 * si tronca mai. */}
+                <div className="mb-3 flex flex-wrap gap-1 border-b">
+                  {(
+                    [
+                      ["anagrafica", "Anagrafica"],
+                      ["indirizzo", "Indirizzo e pagamento"],
+                      ["documenti", `Documenti${richiesta.documenti.length > 0 ? ` (${richiesta.documenti.length})` : ""}`],
+                      ["piano", "Piano scelto"],
+                    ] as const
+                  ).map(([valore, etichetta]) => (
+                    <button
+                      key={valore}
+                      type="button"
+                      onClick={() => setTab(valore)}
+                      className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-bold transition ${
+                        tab === valore ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
                     >
-                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                      {indirizzoInstallazione}
-                    </a>
+                      {etichetta}
+                    </button>
+                  ))}
+                </div>
+
+                {tab === "anagrafica" && (
+                  <div key="anagrafica" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+                    {gruppiTabAnagrafica.map((gruppo) => (
+                      <GruppoDatiCliente
+                        key={gruppo.titolo}
+                        titolo={gruppo.titolo}
+                        voci={gruppo.voci.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) }))}
+                        campiCopiati={campiCopiati}
+                        onCopiaCampo={copiaCampo}
+                        onCopiaGruppo={copiaGruppo}
+                      />
+                    ))}
+
+                    {altriCampi.length > 0 && (
+                      <GruppoDatiCliente
+                        titolo="Altro"
+                        voci={altriCampi.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: campiRicevuti[chiave] }))}
+                        campiCopiati={campiCopiati}
+                        onCopiaCampo={copiaCampo}
+                        onCopiaGruppo={copiaGruppo}
+                      />
+                    )}
                   </div>
                 )}
 
-                {gruppiTabPagamento.map((gruppo) => (
-                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
-                    <div className="flex flex-col gap-2">
-                      {gruppo.voci.map((chiave) => (
-                        <RigaDatoCliente
-                          key={chiave}
-                          etichetta={etichettaDettaglio(chiave)}
-                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                {tab === "indirizzo" && (
+                  <div key="indirizzo" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+                    {indirizzoInstallazione && (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
+                        <a
+                          href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
+                        >
+                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                          {indirizzoInstallazione}
+                        </a>
+                      </div>
+                    )}
 
-            {tab === "piano" && (
-              <div key="piano" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
-                {gruppiTabPiano.map((gruppo) => (
-                  <div key={gruppo.titolo} className="rounded-lg border bg-card p-2.5">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">{gruppo.titolo}</p>
-                    <div className="flex flex-col gap-2">
-                      {gruppo.voci.map((chiave) => (
-                        <RigaDatoCliente
-                          key={chiave}
-                          etichetta={etichettaDettaglio(chiave)}
-                          valore={formattaValoreCampo(chiave, campiRicevuti[chiave])}
-                          onCopiato={(etichetta) => toast(`Copiato: ${etichetta}`, "successo")}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === "documenti" && (
-              <div key="documenti" className="rounded-lg border bg-card p-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
-                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
-                  Tipo Documento: {campiRicevuti.tipoDocumento ? (TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento) : "—"}
-                </p>
-                {richiesta.documenti.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
-                    {richiesta.documenti.map((d, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        className="h-auto min-h-11 w-full justify-start py-3 whitespace-normal"
-                        onClick={() => apriDocumento(d.percorso)}
-                      >
-                        <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                        <span className="text-left break-all">{d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}</span>
-                      </Button>
+                    {gruppiTabPagamento.map((gruppo) => (
+                      <GruppoDatiCliente
+                        key={gruppo.titolo}
+                        titolo={gruppo.titolo}
+                        voci={gruppo.voci.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) }))}
+                        campiCopiati={campiCopiati}
+                        onCopiaCampo={copiaCampo}
+                        onCopiaGruppo={copiaGruppo}
+                      />
                     ))}
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Nessun documento caricato.</p>
                 )}
-              </div>
+
+                {tab === "piano" && (
+                  <div key="piano" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+                    {gruppiTabPiano.map((gruppo) => (
+                      <GruppoDatiCliente
+                        key={gruppo.titolo}
+                        titolo={gruppo.titolo}
+                        voci={gruppo.voci.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, campiRicevuti[chiave]) }))}
+                        campiCopiati={campiCopiati}
+                        onCopiaCampo={copiaCampo}
+                        onCopiaGruppo={copiaGruppo}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {tab === "documenti" && (
+                  <div key="documenti" className="rounded-lg border bg-card p-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
+                      Tipo Documento: {campiRicevuti.tipoDocumento ? (TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento) : "—"}
+                    </p>
+                    {richiesta.documenti.length > 0 ? (
+                      <div className="flex flex-col gap-1.5">
+                        {richiesta.documenti.map((d, i) => (
+                          <Button
+                            key={i}
+                            variant="outline"
+                            className="h-auto min-h-11 w-full justify-start py-3 whitespace-normal"
+                            onClick={() => apriDocumento(d.percorso)}
+                          >
+                            <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                            <span className="text-left break-all">{d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Nessun documento caricato.</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -1093,22 +1165,152 @@ function DettaglioSegnalazione({
 // copiabile con un click (icona che compare solo al passaggio del mouse),
 // pensato per chi da qui deve poi ritrasferire questi dati a mano nel
 // contratto/altro gestionale.
-function RigaDatoCliente({ etichetta, valore, onCopiato }: { etichetta: string; valore: string; onCopiato: (etichetta: string) => void }) {
+// ★ RIFINITA — richiesta esplicita ("copiare nel migliore dei modi e più
+// velocemente"): l'icona di copia era visibile solo al passaggio del
+// mouse (invisibile su tablet/touch, dove si lavora spesso in campo/
+// ufficio senza mouse) — ora sempre visibile, solo più marcata al hover.
+// Valori "a rischio refuso" (codici fiscali, IBAN...) in monospace, per
+// distinguere 0/O e cifre allineate quando si ricopiano a mano. `copiato`
+// resta segnato (verde) finché il pannello resta aperto, non solo un
+// lampeggio al click — utile per sapere a colpo d'occhio cosa manca
+// ancora da ricopiare in un'anagrafica lunga.
+function RigaDatoCliente({
+  chiave,
+  etichetta,
+  valore,
+  copiato,
+  onCopia,
+}: {
+  chiave: string;
+  etichetta: string;
+  valore: string;
+  copiato: boolean;
+  onCopia: (chiave: string, etichetta: string, valore: string) => void;
+}) {
+  const mono = CAMPI_MONOSPAZIATI.has(chiave);
   return (
     <button
       type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(valore);
-        onCopiato(etichetta);
-      }}
+      onClick={() => onCopia(chiave, etichetta, valore)}
       className="group flex flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition hover:bg-background"
     >
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{etichetta}</span>
-      <span className="flex items-start gap-1.5 text-xs font-medium break-words">
+      <span className={`flex items-start gap-1.5 text-xs font-medium break-words ${copiato ? "text-success" : ""} ${mono ? "font-mono" : ""}`}>
+        {copiato && <Check className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2.5} />}
         {valore}
-        <Copy className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" strokeWidth={2.25} />
+        <Copy className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground opacity-40 transition group-hover:opacity-100" strokeWidth={2.25} />
       </span>
     </button>
+  );
+}
+
+// ★ NUOVA — un gruppo (es. "Anagrafica") con un pulsante "Copia tutto" in
+// più, oltre al copia-per-campo già esistente su ogni RigaDatoCliente:
+// copia l'intera sezione come blocco "etichetta: valore" (una riga
+// ciascuno), utile quando il gestionale esterno accetta un incolla unico
+// o per tenerne una copia in una nota — non sostituisce il copia-per-
+// campo, si affianca.
+function GruppoDatiCliente({
+  titolo,
+  voci,
+  campiCopiati,
+  onCopiaCampo,
+  onCopiaGruppo,
+}: {
+  titolo: string;
+  voci: { chiave: string; etichetta: string; valore: string }[];
+  campiCopiati: Set<string>;
+  onCopiaCampo: (chiave: string, etichetta: string, valore: string) => void;
+  onCopiaGruppo: (titolo: string, voci: { chiave: string; etichetta: string; valore: string }[]) => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">{titolo}</p>
+        {voci.length > 1 && (
+          <button
+            type="button"
+            onClick={() => onCopiaGruppo(titolo, voci)}
+            className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+          >
+            <ClipboardList className="h-2.5 w-2.5" strokeWidth={2.5} />
+            Copia tutto
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
+        {voci.map((v) => (
+          <RigaDatoCliente key={v.chiave} chiave={v.chiave} etichetta={v.etichetta} valore={v.valore} copiato={campiCopiati.has(v.chiave)} onCopia={onCopiaCampo} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ★ NUOVA — "Modalità guidata": un campo alla volta invece delle tab, un
+// solo pulsante da premere in sequenza (Copia e vai avanti / Salta) — per
+// chi deve ricopiare tanti campi di fila senza voler cercare ogni volta
+// quello giusto tra le tab. Facoltativa, richiamabile dal pulsante in
+// alto: le tab normali restano il modo di default.
+function ModalitaGuidataCopia({
+  elenco,
+  indice,
+  onAvanti,
+  onCopia,
+  campiCopiati,
+}: {
+  elenco: { chiave: string; etichetta: string; valore: string }[];
+  indice: number;
+  onAvanti: (i: number) => void;
+  onCopia: (chiave: string, etichetta: string, valore: string) => void;
+  campiCopiati: Set<string>;
+}) {
+  if (elenco.length === 0) {
+    return <p className="text-xs text-muted-foreground">Nessun dato da ricopiare.</p>;
+  }
+  const i = Math.min(indice, elenco.length - 1);
+  const campo = elenco[i];
+  const mono = CAMPI_MONOSPAZIATI.has(campo.chiave);
+  const ultimo = i >= elenco.length - 1;
+
+  function vai(copiaOra: boolean) {
+    if (copiaOra) onCopia(campo.chiave, campo.etichetta, campo.valore);
+    if (!ultimo) onAvanti(i + 1);
+  }
+
+  return (
+    <div>
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-primary">{i + 1} / {elenco.length}</span>
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((i + 1) / elenco.length) * 100}%` }} />
+        </div>
+      </div>
+      <div className="mb-2.5 rounded-xl border-2 border-primary bg-primary/5 p-4 text-center">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{campo.etichetta}</p>
+        <p className={`mt-1.5 text-base font-bold break-words ${mono ? "font-mono" : ""}`}>{campo.valore || "—"}</p>
+      </div>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" className="flex-1" onClick={() => vai(false)} disabled={ultimo && campiCopiati.has(campo.chiave)}>
+          <SkipForward className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Salta
+        </Button>
+        <Button type="button" className="flex-1" onClick={() => vai(true)}>
+          <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
+          {ultimo ? "Copia" : "Copia e vai avanti"}
+        </Button>
+      </div>
+      {campiCopiati.size > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {elenco.filter((c) => campiCopiati.has(c.chiave)).map((c) => (
+            <span key={c.chiave} className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+              <Check className="h-2.5 w-2.5" strokeWidth={2.5} />
+              {c.etichetta}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

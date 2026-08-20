@@ -1700,6 +1700,24 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   continua a confermare il numero del nuovo Ticket, ma non c'è più nessun salto di pagina — resta
   su Segnalazioni con la bacheca aggiornata (`router.refresh()`).
 
+✅ **Copia dati cliente più veloce e sicura** (2026-08-20): richiesta esplicita — migliorare come i
+  dati inviati dal cliente si ricopiano nel gestionale contratti esterno. Il pannello "Dati
+  ricevuti dal cliente" (dentro ogni Segnalazione) esisteva già diviso in 4 tab nello stesso
+  ordine di quel gestionale esterno, con copia-per-campo al click — qui rifinito con 3
+  miglioramenti proposti via artifact, tutti scelti dall'utente.
+  - **Rifinitura righe**: icona di copia sempre visibile (prima solo al passaggio del mouse,
+    invisibile su tablet/touch); valori "a rischio refuso" (codice fiscale, IBAN, partita IVA,
+    PEC, CAP...) in font monospace, per non confondere 0/O; un campo copiato resta segnato in
+    verde finché il pannello resta aperto — non solo un lampeggio al click.
+  - **Copia tutto**: un pulsante per sezione (quando ha più di un campo) che copia l'intera
+    sezione come blocco `etichetta: valore` in un colpo solo, in aggiunta al copia-per-campo.
+  - **Modalità guidata**: un interruttore che sostituisce le 4 tab con un campo alla volta, grande
+    e centrato, con un solo pulsante "Copia e vai avanti" (barra di avanzamento + elenco di cosa è
+    già stato copiato) — per chi ricopia tanti campi di fila senza voler cercare ogni volta quello
+    giusto. Facoltativa: le tab normali restano il comportamento di default.
+  Nuovi componenti `GruppoDatiCliente`/`ModalitaGuidataCopia` in `segnalazioni-board.tsx`, nessuna
+  migrazione (solo interfaccia, gli stessi dati già mostrati prima).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
