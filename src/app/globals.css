@@ -14,6 +14,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-critical: var(--critical);
   --color-critical-foreground: var(--critical-foreground);
   --color-reparto-analisi-rete: var(--reparto-analisi-rete);
@@ -22,6 +24,10 @@
   --color-reparto-commerciale-bg: var(--reparto-commerciale-bg);
   --color-reparto-fatturazione: var(--reparto-fatturazione);
   --color-reparto-fatturazione-bg: var(--reparto-fatturazione-bg);
+  --color-servizio-installazione: var(--servizio-installazione);
+  --color-servizio-installazione-bg: var(--servizio-installazione-bg);
+  --color-servizio-lavorazione: var(--servizio-lavorazione);
+  --color-servizio-lavorazione-bg: var(--servizio-lavorazione-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -111,6 +117,14 @@
   --success-foreground: oklch(0.99 0.01 155);
   --warning: oklch(0.72 0.15 75);
   --warning-foreground: oklch(0.2 0.05 75);
+  /* ★ FIX (2026-08) — "info" (link/nota informativa neutra, es. "automatico"
+     su un materiale, "Modifica" su un campo bloccato) era già usato in un
+     paio di punti (`text-info`) ma senza il token registrato: la classe
+     Tailwind non esisteva davvero, il testo restava del colore ereditato
+     invece che blu. Aggiunto qui, stessa tinta di --reparto-analisi-rete
+     (coerenza visiva, non e' un caso che condividano il blu). */
+  --info: #3B6FA8;
+  --info-foreground: #FFFFFF;
   --critical: oklch(0.58 0.22 45);
   --critical-foreground: oklch(0.99 0.01 45);
   /* ★ NUOVA (2026-08) — richiesta esplicita: un colore fisso per reparto
@@ -126,6 +140,14 @@
   --reparto-commerciale-bg: #F1ECFA;
   --reparto-fatturazione: #1F8A5F;
   --reparto-fatturazione-bg: #E5F5EC;
+  /* ★ NUOVA (2026-08) — richiesta esplicita: pannello Appuntamento "a prova
+     di scemo", tinte separate dalla palette reparto sopra (dimensione
+     diversa: qui è il tipo di servizio dell'appuntamento, non il reparto
+     del Ticket) — teal/indigo, lontane anche da successo/avviso/critico. */
+  --servizio-installazione: #0F766E;
+  --servizio-installazione-bg: #E1F3F1;
+  --servizio-lavorazione: #5B5FC7;
+  --servizio-lavorazione-bg: #ECEDFB;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -172,6 +194,8 @@
   --success-foreground: oklch(0.15 0.03 155);
   --warning: oklch(0.78 0.15 80);
   --warning-foreground: oklch(0.18 0.04 80);
+  --info: #7EB0E8;
+  --info-foreground: #0B1D30;
   --critical: oklch(0.68 0.2 45);
   --critical-foreground: oklch(0.15 0.03 45);
   --reparto-analisi-rete: #7EB0E8;
@@ -180,6 +204,10 @@
   --reparto-commerciale-bg: #241C38;
   --reparto-fatturazione: #4CBE8B;
   --reparto-fatturazione-bg: #123526;
+  --servizio-installazione: #4FBDB4;
+  --servizio-installazione-bg: #14322F;
+  --servizio-lavorazione: #9CA0EE;
+  --servizio-lavorazione-bg: #26285A;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

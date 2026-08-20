@@ -1736,6 +1736,30 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   CSS di produzione compilato (rischio noto di questo pattern: build pulita non basta a
   garantirlo).
 
+✅ **Pannello Appuntamento uniformato e "a prova di scemo"** (2026-08-20): richiesta esplicita —
+  "Nuovo"/"Modifica Appuntamento" (Calendario) erano rimasti al trattamento "prima serie" (campi
+  impilati senza sezioni) mentre il resto del gestionale era già stato rifinito. Proposta con
+  artifact (2 opzioni), scelta **B · Sezioni + rete di sicurezza**.
+  - Entrambi i form riorganizzati in riquadri con icona (🛠️ Servizio, 📍 Luogo, 🗓️ Quando, 👷
+    Assegnazione) — `SezioneForm`, componente condiviso nuovo, stesso linguaggio già in uso in
+    Segnalazioni/Materiali.
+  - **Tipo di servizio** (decide quale Scheda si apre dopo — Installazione o Lavorazione) non è
+    più un `<select>` anonimo: due pulsanti colorati (`SelettoreTipoServizio`) che dicono anche
+    cosa succederà, con nuovi token `--servizio-installazione`/`--servizio-lavorazione` in
+    `globals.css` (teal/indigo, separati dalla palette reparto — dimensione diversa).
+  - **Titolo bloccato per difetto** in "Modifica" (è generato in automatico da categoria +
+    sottocategoria + cliente quando l'appuntamento nasce da un Ticket): sola lettura con un
+    "Modifica" esplicito per sbloccarlo, invece di un testo libero sempre modificabile che un
+    tocco distratto poteva rompere senza nessun avviso.
+  - **Avviso se il tecnico non è assegnato** (`AvvisoTecnicoMancante`): prima si poteva salvare
+    "Da assegnare" senza che nulla lo segnalasse.
+  - **Fix collaterale**: `text-info` era già usato in un paio di punti del gestionale
+    (`selettore-materiali.tsx`) ma senza il token `--info` mai registrato in `globals.css` — la
+    classe Tailwind non esisteva davvero, il testo restava del colore ereditato invece che blu.
+    Aggiunto ora (stessa tinta di `--reparto-analisi-rete`), corregge anche quell'uso preesistente.
+  Verificato che tutte le nuove classi Tailwind dinamiche comparissero nel CSS di produzione
+  compilato.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

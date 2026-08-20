@@ -138,6 +138,17 @@ export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";
 export type TipoServizioAppuntamento = "Nuova installazione" | "Lavorazione tecnica";
 export const TIPI_SERVIZIO_APPUNTAMENTO: TipoServizioAppuntamento[] = ["Nuova installazione", "Lavorazione tecnica"];
 
+/** ★ NUOVA (2026-08) — richiesta esplicita: pannello Appuntamento "a prova
+ * di scemo" — un colore fisso per tipo di servizio, così la scelta più
+ * importante del form (decide quale Scheda si apre dopo) ha un peso
+ * visivo pari alla sua importanza invece di essere un `<select>` anonimo
+ * identico a "Durata". Separata dalla palette reparto (COLORE_REPARTO
+ * sopra): dimensione diversa, stesso principio. */
+export const COLORE_SERVIZIO: Record<TipoServizioAppuntamento, { testo: string; sfondo: string; scheda: string }> = {
+  "Nuova installazione": { testo: "text-servizio-installazione", sfondo: "bg-servizio-installazione-bg", scheda: "Apre la Scheda di Installazione" },
+  "Lavorazione tecnica": { testo: "text-servizio-lavorazione", sfondo: "bg-servizio-lavorazione-bg", scheda: "Apre la Scheda di Lavorazione" },
+};
+
 export interface Appuntamento {
   id: string;
   ticket_id: string | null;

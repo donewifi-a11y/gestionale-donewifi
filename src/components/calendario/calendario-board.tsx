@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2 } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO } from "@/lib/types";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
@@ -690,6 +690,62 @@ function VistaMese({
   );
 }
 
+// ★ NUOVE (2026-08) — richiesta esplicita: "Nuovo"/"Modifica Appuntamento"
+// uniformati al resto del gestionale (sezioni con icona, come Segnalazioni/
+// Materiali) e resi "a prova di scemo" — proposta con artifact (2 opzioni),
+// scelta B. Tre pezzi condivisi da entrambi i form invece di ricopiarli:
+// il riquadro di sezione, il selettore visivo del tipo di servizio (decide
+// quale Scheda si apre dopo — prima un <select> anonimo, ora un colore e
+// una spiegazione per opzione) e l'avviso "tecnico non assegnato".
+function SezioneForm({ icona: Icona, titolo, children }: { icona: typeof Wrench; titolo: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-muted/40 p-3">
+      <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        <Icona className="h-3.5 w-3.5" strokeWidth={2.25} />
+        {titolo}
+      </div>
+      <div className="flex flex-col gap-3">{children}</div>
+    </div>
+  );
+}
+
+function SelettoreTipoServizio({ value, onChange }: { value: TipoServizioAppuntamento; onChange: (v: TipoServizioAppuntamento) => void }) {
+  return (
+    <div>
+      <Label>Tipo di servizio *</Label>
+      <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => {
+          const colore = COLORE_SERVIZIO[t];
+          const selezionato = value === t;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onChange(t)}
+              className={`min-h-14 rounded-lg border-2 p-2.5 text-left transition ${colore.sfondo} ${colore.testo} ${
+                selezionato ? "border-current" : "border-transparent opacity-60 hover:opacity-100"
+              }`}
+            >
+              <div className="text-xs font-bold">{t}</div>
+              <div className="text-[10px] font-medium opacity-85">{colore.scheda}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AvvisoTecnicoMancante({ tecnicoId }: { tecnicoId: string }) {
+  if (tecnicoId) return null;
+  return (
+    <p className="flex items-start gap-1.5 text-[11px] font-semibold text-warning">
+      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2.5} />
+      Nessun tecnico assegnato — l&apos;appuntamento non comparirà in Vista Tecnico di nessuno.
+    </p>
+  );
+}
+
 function FormNuovoAppuntamento({
   persone,
   ticket,
@@ -706,6 +762,8 @@ function FormNuovoAppuntamento({
   const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [ticketId, setTicketId] = useState(ticketIniziale || "");
+  const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>("Lavorazione tecnica");
+  const [tecnicoId, setTecnicoId] = useState("");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la prop ticketIniziale quando cambia dopo il mount (es. riapertura del form con un altro ticket preselezionato), non è derivabile durante il render.
@@ -731,10 +789,10 @@ function FormNuovoAppuntamento({
         indirizzo: String(dati.get("indirizzo") || ""),
         dataOra: new Date(`${data}T${ora}`).toISOString(),
         durataMinuti: Number(dati.get("durata") || 60),
-        tecnicoId: String(dati.get("tecnico") || ""),
+        tecnicoId,
         ticketId,
         note: String(dati.get("note") || ""),
-        tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+        tipoServizio,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -752,24 +810,7 @@ function FormNuovoAppuntamento({
         <SheetTitle>Nuovo Appuntamento</SheetTitle>
         <SheetDescription>Programma un’installazione o una visita.</SheetDescription>
       </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
-        <div>
-          <Label htmlFor="tipo_servizio">Tipo di servizio *</Label>
-          <select
-            id="tipo_servizio"
-            name="tipo_servizio"
-            required
-            defaultValue="Lavorazione tecnica"
-            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
-          >
-            {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Decide come l&apos;installatore vede l&apos;appuntamento in Vista Tecnico.
-          </p>
-        </div>
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 px-4 pb-4">
         <div>
           <Label htmlFor="ticket">Ticket collegato (facoltativo)</Label>
           <select
@@ -784,39 +825,54 @@ function FormNuovoAppuntamento({
             ))}
           </select>
         </div>
-        <div>
-          <Label htmlFor="titolo">Titolo *</Label>
-          <Input key={ticketId} id="titolo" name="titolo" required autoFocus defaultValue={ticketSelezionato?.cliente ?? ""} className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="indirizzo">Indirizzo</Label>
-          <Input key={ticketId} id="indirizzo" name="indirizzo" defaultValue={ticketSelezionato?.indirizzo ?? ""} className="mt-1" />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2">
-            <Label htmlFor="data">Data *</Label>
-            <Input id="data" name="data" type="date" required className="mt-1" />
-          </div>
+
+        <SezioneForm icona={Wrench} titolo="Servizio">
+          <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
           <div>
-            <Label htmlFor="ora">Ora *</Label>
-            <Input id="ora" name="ora" type="time" required className="mt-1" />
+            <Label htmlFor="titolo">Titolo *</Label>
+            <Input key={ticketId} id="titolo" name="titolo" required autoFocus defaultValue={ticketSelezionato?.cliente ?? ""} className="mt-1 bg-background" />
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        </SezioneForm>
+
+        <SezioneForm icona={MapPin} titolo="Luogo">
+          <Input key={ticketId} id="indirizzo" name="indirizzo" defaultValue={ticketSelezionato?.indirizzo ?? ""} placeholder="Indirizzo" className="bg-background" />
+        </SezioneForm>
+
+        <SezioneForm icona={CalendarClock} titolo="Quando">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <Label htmlFor="data">Data *</Label>
+              <Input id="data" name="data" type="date" required className="mt-1 bg-background" />
+            </div>
+            <div>
+              <Label htmlFor="ora">Ora *</Label>
+              <Input id="ora" name="ora" type="time" required className="mt-1 bg-background" />
+            </div>
+          </div>
           <div>
             <Label htmlFor="durata">Durata (min)</Label>
-            <Input id="durata" name="durata" type="number" defaultValue={60} step={15} className="mt-1" />
+            <Input id="durata" name="durata" type="number" defaultValue={60} step={15} className="mt-1 bg-background" />
           </div>
+        </SezioneForm>
+
+        <SezioneForm icona={HardHat} titolo="Assegnazione">
           <div>
             <Label htmlFor="tecnico">Tecnico</Label>
-            <select id="tecnico" name="tecnico" className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <select
+              id="tecnico"
+              value={tecnicoId}
+              onChange={(e) => setTecnicoId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
               <option value="">Da assegnare</option>
               {persone.map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
+            <div className="mt-1"><AvvisoTecnicoMancante tecnicoId={tecnicoId} /></div>
           </div>
-        </div>
+        </SezioneForm>
+
         <div>
           <Label htmlFor="note">Note</Label>
           <Input id="note" name="note" placeholder="es. portare router di scorta" className="mt-1" />
@@ -857,6 +913,15 @@ function FormModificaAppuntamento({
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
   const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? null;
+  const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(appuntamento.tipo_servizio);
+  const [tecnicoId, setTecnicoId] = useState(appuntamento.tecnico_id ?? "");
+  // ★ NUOVA — richiesta esplicita "a prova di scemo": il Titolo è generato
+  // in automatico quando l'appuntamento nasce da un Ticket (categoria +
+  // sottocategoria + cliente, vedi PianificaAppuntamento in
+  // tickets/actions.ts) — lasciarlo un testo libero sempre modificabile
+  // rischiava di romperlo per un tocco distratto. Bloccato per difetto
+  // (sola lettura), un "Modifica" esplicito lo sblocca.
+  const [titoloSbloccato, setTitoloSbloccato] = useState(false);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -875,9 +940,9 @@ function FormModificaAppuntamento({
         indirizzo: String(dati.get("indirizzo") || ""),
         dataOra: new Date(`${data}T${ora}`).toISOString(),
         durataMinuti: Number(dati.get("durata") || 60),
-        tecnicoId: String(dati.get("tecnico") || ""),
+        tecnicoId,
         note: String(dati.get("note") || ""),
-        tipoServizio: String(dati.get("tipo_servizio") || appuntamento.tipo_servizio) as TipoServizioAppuntamento,
+        tipoServizio,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -941,54 +1006,76 @@ function FormModificaAppuntamento({
           )}
         </div>
       )}
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
-        <div>
-          <Label htmlFor="tipo_servizio-m">Tipo di servizio *</Label>
-          <select
-            id="tipo_servizio-m"
-            name="tipo_servizio"
-            required
-            defaultValue={appuntamento.tipo_servizio}
-            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
-          >
-            {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="titolo-m">Titolo *</Label>
-          <Input id="titolo-m" name="titolo" required autoFocus defaultValue={appuntamento.titolo} className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="indirizzo-m">Indirizzo</Label>
-          <Input id="indirizzo-m" name="indirizzo" defaultValue={appuntamento.indirizzo ?? ""} className="mt-1" />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2">
-            <Label htmlFor="data-m">Data *</Label>
-            <Input id="data-m" name="data" type="date" required defaultValue={dataDefault} className="mt-1" />
-          </div>
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 px-4 pb-4">
+        <SezioneForm icona={Wrench} titolo="Servizio">
+          <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
           <div>
-            <Label htmlFor="ora-m">Ora *</Label>
-            <Input id="ora-m" name="ora" type="time" required defaultValue={oraDefault} className="mt-1" />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="titolo-m">Titolo {titoloSbloccato && "*"}</Label>
+              {!titoloSbloccato && (
+                <button
+                  type="button"
+                  onClick={() => setTitoloSbloccato(true)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-info hover:underline"
+                >
+                  <Pencil className="h-3 w-3" strokeWidth={2.5} />
+                  Modifica
+                </button>
+              )}
+            </div>
+            <Input
+              id="titolo-m"
+              name="titolo"
+              required
+              readOnly={!titoloSbloccato}
+              defaultValue={appuntamento.titolo}
+              className={`mt-1 ${!titoloSbloccato ? "cursor-default border-dashed bg-muted/60 text-muted-foreground" : "bg-background"}`}
+            />
+            {!titoloSbloccato && (
+              <p className="mt-1 text-[11px] text-muted-foreground">Generato in automatico — tocca &quot;Modifica&quot; solo se serve davvero cambiarlo.</p>
+            )}
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        </SezioneForm>
+
+        <SezioneForm icona={MapPin} titolo="Luogo">
+          <Input id="indirizzo-m" name="indirizzo" defaultValue={appuntamento.indirizzo ?? ""} placeholder="Indirizzo" className="bg-background" />
+        </SezioneForm>
+
+        <SezioneForm icona={CalendarClock} titolo="Quando">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <Label htmlFor="data-m">Data *</Label>
+              <Input id="data-m" name="data" type="date" required defaultValue={dataDefault} className="mt-1 bg-background" />
+            </div>
+            <div>
+              <Label htmlFor="ora-m">Ora *</Label>
+              <Input id="ora-m" name="ora" type="time" required defaultValue={oraDefault} className="mt-1 bg-background" />
+            </div>
+          </div>
           <div>
             <Label htmlFor="durata-m">Durata (min)</Label>
-            <Input id="durata-m" name="durata" type="number" defaultValue={appuntamento.durata_minuti} step={15} className="mt-1" />
+            <Input id="durata-m" name="durata" type="number" defaultValue={appuntamento.durata_minuti} step={15} className="mt-1 bg-background" />
           </div>
+        </SezioneForm>
+
+        <SezioneForm icona={HardHat} titolo="Assegnazione">
           <div>
             <Label htmlFor="tecnico-m">Tecnico</Label>
-            <select id="tecnico-m" name="tecnico" defaultValue={appuntamento.tecnico_id ?? ""} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <select
+              id="tecnico-m"
+              value={tecnicoId}
+              onChange={(e) => setTecnicoId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
               <option value="">Da assegnare</option>
               {persone.map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
+            <div className="mt-1"><AvvisoTecnicoMancante tecnicoId={tecnicoId} /></div>
           </div>
-        </div>
+        </SezioneForm>
+
         <div>
           <Label htmlFor="note-m">Note</Label>
           <Input id="note-m" name="note" defaultValue={appuntamento.note ?? ""} className="mt-1" />
