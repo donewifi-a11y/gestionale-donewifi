@@ -1823,9 +1823,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - La bacheca Richieste Clienti e il pannello del Ticket mostrano due pallini di stato
     indipendenti (Vecchio cliente / Nuovo cliente: in attesa / confermato / rifiutato) invece di un
     unico stato generico.
-  Verificato: build/lint puliti; le due colonne nuove (`richieste_clienti.vecchio_cliente_confermato_il`/
-  `_rifiutato_il`, `token_approvazione.richiesta_cliente_id`) non esistono ancora in produzione —
-  la migrazione `0056` va applicata manualmente prima che il flusso sia operativo.
+  Verificato contro Supabase reale (migrazione `0056` applicata): giro completo crea pratica →
+  genera token → conferma vecchio cliente → pulizia, e il vincolo "un solo riferimento" su
+  `token_approvazione` rifiuta correttamente un token senza riferimenti.
+✅ Bacheca Ticket, redesign (2026-08): la card mostrava sempre tutto — striscia di priorità accesa
+  anche per "Normale" (il 90% dei Ticket), badge di reparto pieno ripetuto identico su ogni card,
+  avatar/frecce sempre visibili, ombra pesante — niente distingueva informazione da decorazione,
+  la bacheca sembrava "tutta attaccata". Tolto invece di aggiunto: via la striscia fissa (l'urgenza
+  ora è un segnale testuale, solo se davvero Urgente), il reparto è un puntino di 7px invece di un
+  badge di testo ripetuto, "prendi in carico"/"avanza stato" compaiono solo al passaggio del mouse
+  (a riposo si vede solo l'avatar se già assegnato), soglia "in attesa" alzata da 2 a 5 giorni,
+  nessuna ombra a riposo (solo un bordo sottile — le ombre impilate erano parte del problema).
+  Proposta con artifact (mockup funzionante, non solo statico), approvata dopo due giri di revisione.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

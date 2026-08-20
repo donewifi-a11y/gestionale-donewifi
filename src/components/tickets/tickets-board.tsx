@@ -62,12 +62,6 @@ const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attes
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
 
-const STRIPE_PRIORITA: Record<PrioritaTicket, string> = {
-  Urgente: "before:bg-critical",
-  Normale: "before:bg-warning",
-  Bassa: "before:bg-success",
-};
-
 const CHIAVE_FILTRI = "ticketsFiltri";
 
 const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
@@ -253,21 +247,24 @@ export function TicketsBoard({
                 {items.map((t) => {
                   const assegnatario = trovaPersona(t.tecnico_assegnato);
                   const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
-                  // ★ NUOVA — richiesta esplicita "a prova di scemo": priorità
-                  // e reparto comparivano sempre come 2 badge, anche per il
-                  // caso normale (priorità Normale, nessuna attesa) — stesso
-                  // principio già applicato a Segnalazioni: un solo segnale,
-                  // il più urgente, e solo quando c'è davvero qualcosa da
-                  // notare. La striscia colorata a sinistra continua comunque
-                  // a mostrare la priorità in ogni caso, senza bisogno di un
-                  // badge in più per "Normale"/"Bassa".
+                  // ★ REDESIGN (2026-08) — richiesta esplicita "troppo caotico,
+                  // tutto attaccato": la card mostrava sempre tutto (striscia
+                  // priorità anche per "Normale", badge reparto pieno ripetuto
+                  // identico su ogni card, avatar/frecce sempre visibili, ombra
+                  // pesante) — niente distingueva "informazione" da
+                  // "decorazione". Ora un solo elemento domina (il nome), il
+                  // reparto è un puntino invece di un badge di testo, la
+                  // priorità è un segnale testuale SOLO se Urgente (non più una
+                  // striscia sempre accesa), e la soglia "in attesa" è più alta
+                  // (5g invece di 2g) per comparire solo quando conta davvero.
                   const giorni = giorniAperta(t.data_creazione);
                   let segnale: { testo: string; critico: boolean } | null = null;
                   if (t.priorita === "Urgente") {
                     segnale = { testo: "🔴 Urgente", critico: true };
-                  } else if (t.stato === "Da gestire" && giorni >= 2) {
-                    segnale = { testo: `⏳ Da gestire da ${giorni}g`, critico: giorni >= 5 };
+                  } else if (t.stato === "Da gestire" && giorni >= 5) {
+                    segnale = { testo: `⏳ Ferma da ${giorni}g`, critico: giorni >= 10 };
                   }
+                  const colore = coloreReparto(t.reparto);
                   return (
                     <div
                       key={t.id}
@@ -275,72 +272,53 @@ export function TicketsBoard({
                       tabIndex={0}
                       onClick={() => setAperto(t)}
                       onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_PRIORITA[t.priorita]}`}
+                      className="group relative cursor-pointer rounded-lg border bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
                     >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="font-semibold">{t.cliente}</span>
-                        <span className="font-mono text-[11px] text-muted-foreground">#{t.numero}</span>
+                      <div className="flex items-baseline gap-1.5">
+                        {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
+                        <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                       </div>
-                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
+                      <div className="mt-0.5 pl-3 text-xs text-muted-foreground line-clamp-1">
                         {t.categoria}
                         {t.sottocategoria && ` · ${t.sottocategoria}`}
                       </div>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {/* ★ NUOVA — richiesta esplicita: colore fisso per reparto
-                        (proposta con artifact, opzione "C · Badge + fascia"), al
-                        posto del testo grigio "· Analisi Rete" in fondo alla riga
-                        sopra — un colore e un nome sempre insieme (mai il colore
-                        da solo), per riconoscere il reparto senza dover leggere
-                        tutto il testo della card. */}
-                        {(() => {
-                          const colore = coloreReparto(t.reparto);
-                          return colore ? (
-                            <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold ${colore.sfondo} ${colore.testo}`}>
-                              {t.reparto}
-                            </span>
-                          ) : null;
-                        })()}
-                        {segnale && (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
-                              segnale.critico ? "bg-critical/10 text-critical" : "bg-warning/10 text-warning"
-                            }`}
-                          >
-                            {segnale.testo}
-                          </span>
-                        )}
+                      {segnale && (
+                        <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
+                      )}
 
-                        <div className="ml-auto flex items-center gap-1.5">
-                          {assegnatario ? (
-                            <span
-                              title={assegnatario.nome}
-                              className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${
-                                assegnatario.id === currentPersonaId
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-secondary text-secondary-foreground"
-                              }`}
-                            >
-                              {iniziali(assegnatario)}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={(e) => prendiInCarico(t, e)}
-                              title="Prendi in carico"
-                              className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed text-muted-foreground transition hover:border-primary hover:text-primary"
-                            >
-                              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                            </button>
-                          )}
-                          {puoAvanzare && (
-                            <button
-                              onClick={(e) => avanzaStato(t, e)}
-                              title="Avanza allo stato successivo"
-                              className="flex h-7 w-7 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
-                            >
-                              <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
-                            </button>
-                          )}
-                        </div>
+                      {/* ★ avatar (se già assegnato) visibile a riposo, sostituito
+                      dalle azioni solo al passaggio del mouse — non più due
+                      cerchi sempre accesi su ogni riga a riposo. */}
+                      {assegnatario && (
+                        <span
+                          title={assegnatario.nome}
+                          className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold transition group-hover:opacity-0 ${
+                            assegnatario.id === currentPersonaId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                          }`}
+                        >
+                          {iniziali(assegnatario)}
+                        </span>
+                      )}
+                      <div className="absolute right-2 top-2 flex translate-x-1 items-center gap-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
+                        {!assegnatario && (
+                          <button
+                            onClick={(e) => prendiInCarico(t, e)}
+                            title="Prendi in carico"
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
+                          >
+                            <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                          </button>
+                        )}
+                        {puoAvanzare && (
+                          <button
+                            onClick={(e) => avanzaStato(t, e)}
+                            title="Avanza allo stato successivo"
+                            className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
