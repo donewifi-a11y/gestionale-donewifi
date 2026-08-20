@@ -267,17 +267,20 @@ export function CalendarioBoard({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+      {/* ★ FIX — segnalato dall'utente: aprire la Scheda lasciava questo
+      Sheet "aperto" dietro — il velo scuro a piena pagina della Scheda
+      finiva sopra anche la X di questo Sheet, spenta/non cliccabile
+      finché non si chiudeva prima la Scheda. `!schedaAperta` lo nasconde
+      (non lo chiude: `modifica` resta valorizzato) finché la Scheda è
+      sopra — ricompare da solo se la Scheda viene annullata. */}
+      <Sheet open={!!modifica && !schedaAperta} onOpenChange={(v) => !v && setModifica(null)}>
         <SheetContent>
           {modifica && (
             <FormModificaAppuntamento
               appuntamento={modifica}
               persone={persone}
               ticket={ticket}
-              onApriScheda={() => {
-                setSchedaAperta(modifica);
-                setModifica(null);
-              }}
+              onApriScheda={() => setSchedaAperta(modifica)}
               onFatto={() => setModifica(null)}
             />
           )}
@@ -297,6 +300,7 @@ export function CalendarioBoard({
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
                   setSchedaAperta(null);
+                  setModifica(null);
                   router.refresh();
                 }}
               />
@@ -307,6 +311,7 @@ export function CalendarioBoard({
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
                   setSchedaAperta(null);
+                  setModifica(null);
                   router.refresh();
                 }}
               />

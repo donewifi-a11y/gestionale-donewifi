@@ -337,7 +337,15 @@ export function TicketsBoard({
       illeggibile — troppo stretto per la quantità di dati reali di un
       Ticket. Passato a Dialog centrale, stessa larghezza e trattamento
       già usati per Segnalazioni. */}
-      <Dialog open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
+      {/* ★ FIX — segnalato dall'utente: con la Scheda di lavoro aperta sopra
+      (vedi Dialog subito sotto), questo dialog restava comunque "aperto"
+      dietro — il suo velo scuro a piena pagina finiva sopra anche la X di
+      questo, spenta/non cliccabile finché non si chiudeva prima la Scheda.
+      `!schedaAperta` lo tiene semplicemente nascosto (non chiuso: `aperto`
+      resta valorizzato) finché la Scheda è sopra — ricompare da solo se la
+      Scheda viene annullata, si chiude per davvero solo al salvataggio
+      riuscito (vedi onSalvato più sotto, che azzera anche `aperto`). */}
+      <Dialog open={!!aperto && !schedaAperta} onOpenChange={(v) => !v && setAperto(null)}>
         <DialogContent className="sm:max-w-2xl">
           {aperto && (
             <DettaglioTicket

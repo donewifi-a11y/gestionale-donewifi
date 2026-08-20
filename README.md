@@ -1641,7 +1641,18 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Corretto con `z-20` sulla X in entrambi i componenti condivisi: sta sempre sopra qualunque
   contenuto sticky del popup, in tutto il gestionale, senza dover toccare ogni pagina.
   Segnalata anche una seconda casistica (popup impilati, es. la Scheda che si apre sopra il
-  dettaglio Ticket/Appuntamento ancora aperto dietro) — proposta con artifact, in attesa di scelta.
+  dettaglio Ticket/Appuntamento ancora aperto dietro) — proposta con artifact (3 opzioni), scelta
+  **A**: il popup di dietro si nasconde (non si chiude) quando se ne apre uno sopra, ricompare da
+  solo se quello sopra viene annullato.
+  - `tickets-board.tsx`: il Dialog dettaglio Ticket ora è `open={!!aperto && !schedaAperta}` — la X
+    della Scheda sopra non copre più (sotto il suo velo) quella del dettaglio Ticket dietro, che
+    torna visibile da solo annullando la Scheda; si chiude per davvero solo al salvataggio riuscito
+    (comportamento già esistente, invariato).
+  - `calendario-board.tsx`: stesso principio sul Sheet di modifica appuntamento
+    (`open={!!modifica && !schedaAperta}`) — prima veniva chiuso subito all'apertura della Scheda
+    (`setModifica(null)`) e non si riapriva più annullandola; ora resta "in pausa" e ricompare.
+  - Vista Tecnico verificata: lì la Scheda si apre direttamente da una card della lista, non da un
+    popup già aperto — nessuna sovrapposizione possibile, nessuna modifica necessaria.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
