@@ -2,17 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase, Loader2 } from "lucide-react";
+import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase, Loader2, Copy, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import {
   creaPersona,
@@ -23,10 +19,21 @@ import {
   type AttivitaPersona,
   type CaricoPersona,
 } from "@/app/(app)/persone/actions";
-import { REPARTI } from "@/lib/types";
+import { UtentiBoard } from "@/components/utenti/utenti-board";
+import type { StaffCompleto } from "@/app/(app)/utenti/page";
+import { REPARTI, coloreReparto } from "@/lib/types";
 import type { AreaAccesso, Persona } from "@/lib/types";
 
-export function PersoneBoard({ persone }: { persone: Persona[] }) {
+// ★ NUOVA (2026-08) — richiesta esplicita: uniformare Persone/Utenti al
+// resto del gestionale — proposta con artifact (audit grafico completo),
+// implementata la consigliata "B · tab dentro Persone": "Utenti" (accessi
+// condivisi, sistema precedente) non è più una pagina a sé introvabile
+// dal menu, ma una seconda tab qui — stesso pattern già in uso in
+// Materiali (Catalogo/Magazzino/Antenne/Schede). La pagina /utenti resta
+// comunque raggiungibile per compatibilità con eventuali link salvati,
+// ma il punto d'ingresso vero è sempre questo.
+export function PersoneBoard({ persone, staff, currentUserId }: { persone: Persona[]; staff: StaffCompleto[]; currentUserId: string }) {
+  const [vista, setVista] = useState<"persone" | "utenti">("persone");
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Persona | null>(null);
 
@@ -34,75 +41,112 @@ export function PersoneBoard({ persone }: { persone: Persona[] }) {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <Button onClick={() => setNuova(true)}>
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Aggiungi Persona
-        </Button>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex overflow-hidden rounded-lg border">
+          <button
+            onClick={() => setVista("persone")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "persone" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Persone
+          </button>
+          <button
+            onClick={() => setVista("utenti")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "utenti" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Accessi condivisi
+          </button>
+        </div>
+        {vista === "persone" && (
+          <Button onClick={() => setNuova(true)}>
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Aggiungi Persona
+          </Button>
+        )}
       </div>
 
-      {senzaLogin.length > 0 && (
-        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning-foreground">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2.25} />
-          <div>
-            <div className="font-semibold">
-              {senzaLogin.length} persona{senzaLogin.length > 1 ? "e" : ""} senza login individuale
-            </div>
-            <div className="text-xs text-muted-foreground">{senzaLogin.map((p) => p.nome).join(", ")}</div>
-          </div>
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {persone.length === 0 && (
-          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna persona ancora. Aggiungine una sopra.</p>
-        )}
-        {persone.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => setModifica(p)}
-            className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
-                {p.nome.slice(0, 2).toUpperCase()}
-              </span>
+      {vista === "utenti" ? (
+        <UtentiBoard staff={staff} currentUserId={currentUserId} />
+      ) : (
+        <>
+          {senzaLogin.length > 0 && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning-foreground">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2.25} />
               <div>
-                <div className="flex items-center gap-1.5 font-semibold">
-                  {p.nome}
-                  {p.ha_login ? (
-                    <KeyRound className="h-3 w-3 text-success" strokeWidth={2.25} />
-                  ) : (
-                    p.richiede_password && <Lock className="h-3 w-3 text-muted-foreground" strokeWidth={2.25} />
-                  )}
+                <div className="font-semibold">
+                  {senzaLogin.length} persona{senzaLogin.length > 1 ? "e" : ""} senza login individuale
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {p.amministratore ? "Amministratore" : p.reparti.length > 0 ? p.reparti.join(" · ") : "Nessun reparto"}
-                  {p.email && ` · ${p.email}`}
-                  {p.ha_login && " · login individuale"}
-                </div>
+                <div className="text-xs text-muted-foreground">{senzaLogin.map((p) => p.nome).join(", ")}</div>
               </div>
             </div>
-            {p.attivo ? (
-              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
-            ) : (
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivata</span>
-            )}
-          </button>
-        ))}
-      </div>
+          )}
 
-      <Sheet open={nuova} onOpenChange={setNuova}>
-        <SheetContent>
+          {persone.length === 0 ? (
+            <StatoVuoto icona={KeyRound} titolo="Nessuna persona ancora." compatto />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {persone.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setModifica(p)}
+                  className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-secondary-foreground">
+                      {p.nome.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <span className="truncate">{p.nome}</span>
+                        {p.ha_login ? (
+                          <KeyRound className="h-3 w-3 shrink-0 text-success" strokeWidth={2.25} />
+                        ) : (
+                          p.richiede_password && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                        {p.amministratore ? (
+                          "Amministratore"
+                        ) : p.reparti.length > 0 ? (
+                          p.reparti.map((r) => {
+                            const colore = coloreReparto(r);
+                            return colore ? (
+                              <span key={r} className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${colore.sfondo} ${colore.testo}`}>
+                                {r}
+                              </span>
+                            ) : (
+                              <span key={r}>{r}</span>
+                            );
+                          })
+                        ) : (
+                          "Nessun reparto"
+                        )}
+                        {p.email && <span>· {p.email}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {p.attivo ? (
+                    <Badge variant="outline" className="shrink-0 bg-success/10 text-success border-success/20">Attiva</Badge>
+                  ) : (
+                    <Badge variant="outline" className="shrink-0 bg-muted text-muted-foreground border-transparent">Disattivata</Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <Dialog open={nuova} onOpenChange={setNuova}>
+        <DialogContent>
           <FormNuovaPersona onFatto={() => setNuova(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>
           {modifica && <FormModificaPersona persona={modifica} onFatto={() => setModifica(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -178,11 +222,11 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>Aggiungi Persona</SheetTitle>
-        <SheetDescription>Un membro reale del team, con il proprio livello di accesso.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>Aggiungi Persona</DialogTitle>
+        <DialogDescription>Un membro reale del team, con il proprio livello di accesso.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome e cognome *</Label>
           <Input id="nome" name="nome" autoFocus required className="mt-1" />
@@ -267,11 +311,11 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{persona.nome}</SheetTitle>
-        <SheetDescription>Modifica livello di accesso, stato e password.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{persona.nome}</DialogTitle>
+        <DialogDescription>Modifica livello di accesso, stato e password.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome e cognome</Label>
           <Input id="nome" name="nome" defaultValue={persona.nome} autoFocus className="mt-1" />
@@ -308,12 +352,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
                 {reset.inCorso ? "Reimposto in corso…" : "Reimposta password"}
               </Button>
             </div>
-            {reset.password && (
-              <p className="mt-2 rounded-md bg-success/10 p-2 text-xs text-success">
-                Nuova password provvisoria: <span className="font-mono font-semibold">{reset.password}</span> — comunicala a{" "}
-                {persona.nome} e falla cambiare al primo accesso.
-              </p>
-            )}
+            {reset.password && <RigaPasswordProvvisoria password={reset.password} nomePersona={persona.nome} />}
             {reset.errore && (
               <p className="mt-2 rounded-md bg-critical/10 p-2 text-xs text-critical">{reset.errore}</p>
             )}
@@ -335,7 +374,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
         </Button>
       </form>
 
-      <div className="mx-4 mb-4 flex flex-col gap-3 border-t pt-4">
+      <div className="mb-4 flex flex-col gap-3 border-t pt-4">
         {carico && (
           <div className="flex items-center gap-2.5 rounded-lg border bg-muted/30 p-3 text-sm">
             <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />
@@ -365,5 +404,36 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
         )}
       </div>
     </>
+  );
+}
+
+// ★ NUOVA — richiesta esplicita (audit grafico completo): la password
+// provvisoria era solo testo da selezionare a mano — un pulsante "copia"
+// evita l'errore di trascrizione mentre la si comunica alla persona.
+function RigaPasswordProvvisoria({ password, nomePersona }: { password: string; nomePersona: string }) {
+  const toast = useToast();
+  const [copiato, setCopiato] = useState(false);
+
+  function copia() {
+    navigator.clipboard.writeText(password);
+    setCopiato(true);
+    toast("Password copiata.", "successo");
+  }
+
+  return (
+    <div className="mt-2 rounded-md bg-success/10 p-2 text-xs text-success">
+      <p>
+        Nuova password provvisoria: <span className="font-mono font-semibold">{password}</span> — comunicala a {nomePersona} e
+        falla cambiare al primo accesso.
+      </p>
+      <button
+        type="button"
+        onClick={copia}
+        className="mt-1.5 flex items-center gap-1 rounded-md border border-success/30 bg-card px-2 py-1 font-semibold text-success transition hover:bg-success/10"
+      >
+        {copiato ? <Check className="h-3 w-3" strokeWidth={2.5} /> : <Copy className="h-3 w-3" strokeWidth={2.25} />}
+        {copiato ? "Copiata" : "Copia password"}
+      </button>
+    </div>
   );
 }

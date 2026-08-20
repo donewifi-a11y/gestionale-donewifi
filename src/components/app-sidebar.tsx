@@ -37,6 +37,13 @@ interface VoceNav {
   etichetta: string;
   icona: typeof Ticket;
   esatto?: boolean;
+  // ★ NUOVA (2026-08) — richiesta esplicita (audit grafico completo): nel
+  // mondo "Team", "Lavorazioni Interne" (lavoro operativo, visibile a
+  // chiunque) e "Persone"/"Stato Sistema" (amministrazione) stavano nella
+  // stessa lista piatta senza nessuna separazione — un divisore leggero
+  // dopo questa voce basta a distinguerli senza bisogno di un sesto
+  // "mondo" per una manciata di pagine.
+  separatoreDopo?: boolean;
 }
 
 interface Mondo {
@@ -153,7 +160,7 @@ export function AppSidebar({
         // individuale, l'accesso vero passa da Persone — Utenti resta
         // raggiungibile su /utenti per chi lo conosce già, solo non in menu.
         voci: [
-          { href: "/lavorazioni", etichetta: "Lavorazioni Interne", icona: Wrench },
+          { href: "/lavorazioni", etichetta: "Lavorazioni Interne", icona: Wrench, separatoreDopo: isAdmin },
           ...(isAdmin
             ? [
                 { href: "/persone", etichetta: "Persone", icona: UserCircle },
@@ -242,19 +249,27 @@ export function AppSidebar({
             const attivo = voce.esatto ? pathname === voce.href : pathname.startsWith(voce.href);
             const Icona = voce.icona;
             return (
-              <Link
-                key={voce.href}
-                href={voce.href}
-                onClick={() => setAperta(false)}
-                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
-                  attivo
-                    ? "bg-gradient-to-r from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
-                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                }`}
-              >
-                <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                <span className="truncate">{voce.etichetta}</span>
-              </Link>
+              <div key={voce.href}>
+                <Link
+                  href={voce.href}
+                  onClick={() => setAperta(false)}
+                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
+                    attivo
+                      ? "bg-gradient-to-r from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
+                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  <span className="truncate">{voce.etichetta}</span>
+                </Link>
+                {voce.separatoreDopo && (
+                  <div className="my-1.5 flex items-center gap-1.5 px-1.5">
+                    <div className="h-px flex-1 bg-sidebar-border" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-sidebar-foreground/35">Amministrazione</span>
+                    <div className="h-px flex-1 bg-sidebar-border" />
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

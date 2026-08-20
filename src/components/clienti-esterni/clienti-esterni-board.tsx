@@ -123,18 +123,22 @@ export function ClientiEsterniBoard({
               <RefreshCw className={`h-3.5 w-3.5 ${inCorsoAnagrafica ? "animate-spin" : ""}`} strokeWidth={2.25} />
               {inCorsoAnagrafica ? "Sincronizzo..." : "Sincronizza anagrafica"}
             </Button>
-            <Button size="sm" variant="outline" onClick={sincronizzaFatture} disabled={inCorsoFatture}>
+            <Button size="sm" variant="outline" onClick={sincronizzaFatture} disabled={inCorsoFatture} title="Può richiedere fino a un minuto — migliaia di righe da scaricare.">
               <FileText className={`h-3.5 w-3.5 ${inCorsoFatture ? "animate-pulse" : ""}`} strokeWidth={2.25} />
-              {inCorsoFatture ? "Sincronizzo fatture..." : "Sincronizza fatture"}
+              {inCorsoFatture ? "Sincronizzo fatture… (fino a 1 minuto)" : "Sincronizza fatture"}
             </Button>
           </div>
         )}
       </div>
 
+      {/* ★ FIX — richiesta esplicita (audit grafico completo): una
+      sincronizzazione riuscita restava sempre grigia/neutra, mai verde
+      come il resto dei successi nel gestionale (toast, badge di stato) —
+      solo l'errore aveva un colore (giallo). */}
       {esito && (
         <p
           className={`mb-4 rounded-lg p-2.5 text-sm ${
-            esitoErrore ? "bg-warning/10 text-warning" : "bg-muted/60 text-muted-foreground"
+            esitoErrore ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
           }`}
         >
           {esito}

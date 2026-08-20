@@ -2,23 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Check } from "lucide-react";
+import { Plus, AlertTriangle, Check, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { creaStaff, aggiornaStaff } from "@/app/(app)/utenti/actions";
 import type { StaffCompleto } from "@/app/(app)/utenti/page";
 import type { AreaAccesso } from "@/lib/types";
 
 const AREE = ["Tutto", "Admin", "Analisi Rete", "Commerciale", "Fatturazione"];
 
+// ★ RIFINITA (2026-08) — richiesta esplicita: uniformare Utenti al resto
+// del gestionale — proposta con artifact (audit grafico completo),
+// implementata la consigliata: righe con avatar/icona e Badge component
+// al posto della `<table>` grezza (era l'unica lista rimasta a tabella
+// nativa), Sheet→Dialog per coerenza con tutti i popup del gestionale,
+// conferma esplicita nel disattivare un accesso.
 export function UtentiBoard({ staff, currentUserId }: { staff: StaffCompleto[]; currentUserId: string }) {
   const [nuovo, setNuovo] = useState(false);
   const [modifica, setModifica] = useState<StaffCompleto | null>(null);
@@ -32,63 +34,55 @@ export function UtentiBoard({ staff, currentUserId }: { staff: StaffCompleto[]; 
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Nome / Email</th>
-              <th className="px-4 py-3">Ruolo</th>
-              <th className="px-4 py-3">Stato</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {staff.map((s) => (
-              <tr key={s.id} className="border-t">
-                <td className="px-4 py-3">
-                  <div className="font-semibold">{s.nome || "—"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {s.email} {s.id === currentUserId && "(tu)"}
+      {staff.length === 0 ? (
+        <StatoVuoto icona={Users} titolo="Nessun accesso condiviso ancora." compatto />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {staff.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setModifica(s)}
+              className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-secondary-foreground">
+                  {(s.nome || s.email).slice(0, 2).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">
+                    {s.nome || "—"} {s.id === currentUserId && <span className="text-xs font-normal text-muted-foreground">(tu)</span>}
                   </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
-                    {s.area_accesso}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {s.attivo ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                      <Check className="h-3 w-3" strokeWidth={2.5} /> Attivo
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                      Disattivato
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Button size="sm" variant="outline" onClick={() => setModifica(s)}>
-                    Modifica
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <p className="truncate text-xs text-muted-foreground">{s.email}</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge variant="outline" className="bg-accent text-accent-foreground border-transparent">
+                  {s.area_accesso}
+                </Badge>
+                {s.attivo ? (
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                    <Check className="h-3 w-3" strokeWidth={2.5} /> Attivo
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-muted text-muted-foreground border-transparent">Disattivato</Badge>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-      <Sheet open={nuovo} onOpenChange={setNuovo}>
-        <SheetContent>
+      <Dialog open={nuovo} onOpenChange={setNuovo}>
+        <DialogContent>
           <FormNuovoUtente onFatto={() => setNuovo(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>
           {modifica && <FormModificaUtente utente={modifica} onFatto={() => setModifica(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -126,11 +120,11 @@ function FormNuovoUtente({ onFatto }: { onFatto: () => void }) {
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>Nuovo Utente</SheetTitle>
-        <SheetDescription>Crea un accesso al gestionale per un collega.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>Nuovo Utente</DialogTitle>
+        <DialogDescription>Crea un accesso al gestionale per un collega.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome</Label>
           <Input id="nome" name="nome" autoFocus className="mt-1" />
@@ -174,11 +168,17 @@ function FormModificaUtente({ utente, onFatto }: { utente: StaffCompleto; onFatt
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
+    const attivo = dati.get("attivo") === "on";
+    // ★ NUOVA — richiesta esplicita: disattivare un accesso condiviso
+    // avveniva senza nessun avviso distinto dal salvataggio normale —
+    // stesso principio del confirm() già usato per le altre azioni
+    // irreversibili/rischiose del gestionale.
+    if (utente.attivo && !attivo && !confirm(`Disattivare l'accesso di ${utente.email}? Non potrà più accedere al gestionale.`)) return;
     setInCorso(true);
     const risultato = await aggiornaStaff(utente.id, {
       nome: String(dati.get("nome") || ""),
       area_accesso: String(dati.get("area_accesso") || utente.area_accesso) as AreaAccesso,
-      attivo: dati.get("attivo") === "on",
+      attivo,
     });
     setInCorso(false);
     if (risultato.errore) {
@@ -191,11 +191,11 @@ function FormModificaUtente({ utente, onFatto }: { utente: StaffCompleto; onFatt
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{utente.email}</SheetTitle>
-        <SheetDescription>Modifica ruolo e stato dell&apos;accesso.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{utente.email}</DialogTitle>
+        <DialogDescription>Modifica ruolo e stato dell&apos;accesso.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome</Label>
           <Input id="nome" name="nome" defaultValue={utente.nome ?? ""} autoFocus className="mt-1" />

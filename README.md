@@ -1781,6 +1781,34 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   manuale e lascia di nuovo che sia la pagina corrente a decidere il mondo attivo — cliccare
   un'icona del rail resta comunque immediato, dato che da sola non naviga.
 
+✅ **Attuazione dell'audit grafico completo — opzioni consigliate** (2026-08-20): richiesta
+  esplicita ("fai come suggerito") — implementate tutte le opzioni consigliate + i piccoli fix
+  segnalati dall'audit precedente.
+  - **Tariffe** (opzione B): righe piatte → card con icona (Wifi) come Preventivi, `Badge`
+    component al posto degli `<span>` ad-hoc, `StatoVuoto` per le liste vuote, Sheet → Dialog per
+    tutti i form (Tariffa, Promozione), stesso trattamento anche in `TariffeArchivioBoard`
+    ("Non sottoscrivibili").
+  - **Dashboard** (opzione A): la tabella "per reparto" entra in un pannello con titolo/icona come
+    le card KPI circostanti, righe con hover, reparto colorato con lo stesso
+    `COLORE_REPARTO`/`coloreReparto()` già introdotto per i Ticket.
+  - **Persone + Utenti** (opzione B): "Accessi condivisi" (ex pagina `/utenti`, introvabile dal
+    menu ma ancora pienamente modificabile) è ora una seconda tab dentro "Persone" — stesso
+    pattern già in uso in Materiali (Catalogo/Magazzino/Antenne). `/utenti` resta comunque
+    raggiungibile per compatibilità con link salvati. `UtentiBoard` rifinita nello stesso giro:
+    righe con avatar/`Badge` al posto della `<table>` nativa (era l'ultima rimasta nel
+    gestionale), Sheet → Dialog, conferma esplicita nel disattivare un accesso. `PersoneBoard`:
+    reparti colorati per persona, pulsante "Copia password" sulla password provvisoria di reset
+    (prima solo testo da selezionare a mano), Sheet → Dialog.
+  - **Anagrafica Clienti**: il banner di esito sincronizzazione ora è verde su successo (prima
+    restava grigio anche quando riusciva, solo l'errore aveva un colore); avviso "può richiedere
+    fino a un minuto" sul pulsante di sincronizzazione fatture (~59.000 righe).
+  - **Navigazione**: nel mondo "Team" un separatore leggero ("Amministrazione") distingue ora
+    "Lavorazioni Interne" (lavoro operativo, per chiunque) da "Persone"/"Stato Sistema" (solo
+    admin), prima nella stessa lista piatta senza nessuna distinzione visiva.
+  Verificato contro dati reali: le due query di Persone/Utenti (ora eseguite insieme dalla stessa
+  pagina) restituiscono correttamente le righe reali di produzione (6 persone, 2 accessi
+  condivisi).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

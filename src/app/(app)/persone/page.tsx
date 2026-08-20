@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { UserCircle, Info } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { PersoneBoard } from "@/components/persone/persone-board";
+import type { StaffCompleto } from "@/app/(app)/utenti/page";
 import type { Persona } from "@/lib/types";
 
 export default async function PersonePage() {
@@ -19,10 +19,17 @@ export default async function PersonePage() {
   // ★ la colonna password_hash si legge qui (Server Component, mai
   // inviata al browser di suo) solo per calcolare un booleano — l'hash
   // vero non viene mai passato al componente client sotto.
-  const { data: righe } = await supabase
-    .from("persone")
-    .select("id, nome, email, attivo, amministratore, reparti, password_hash, auth_user_id")
-    .order("creato_il", { ascending: true });
+  // ★ NUOVA (2026-08) — "Utenti" (accessi condivisi) è ora una seconda tab
+  // qui invece di una pagina a sé introvabile dal menu (vedi PersoneBoard)
+  // — stessa lettura via service role già usata da /utenti/page.tsx, la
+  // RLS di "staff" lascia leggere solo la propria riga.
+  const [{ data: righe }, { data: staff }] = await Promise.all([
+    supabase
+      .from("persone")
+      .select("id, nome, email, attivo, amministratore, reparti, password_hash, auth_user_id")
+      .order("creato_il", { ascending: true }),
+    createServiceClient().from("staff").select("*").order("creato_il", { ascending: true }),
+  ]);
 
   const persone: Persona[] = (righe ?? []).map((p) => ({
     id: p.id,
@@ -50,22 +57,17 @@ export default async function PersonePage() {
       </div>
 
       {/* ★ FIX — "Persone" e "Utenti" gestiscono entrambe l'accesso, con
-      nomi simili e nessun rimando tra loro: chi assume qualcuno di nuovo
-      doveva già sapere quale delle due usare. Per un nuovo membro dello
-      staff, è sempre qui: "Utenti" è il vecchio sistema ad account
-      condivisi, non promosso più in menu, ancora raggiungibile solo per
-      chi lo conosce già. */}
+      nomi simili: chi assume qualcuno di nuovo doveva già sapere quale
+      delle due usare. Ora sono nella stessa pagina (tab "Accessi
+      condivisi" qui sotto), non serve più saperlo in anticipo. */}
       <p className="mb-4 flex items-start gap-2 rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
-        Per aggiungere un nuovo membro dello staff è sempre da qui: login individuale, password e
-        reparti propri. La pagina{" "}
-        <Link href="/utenti" className="font-semibold text-primary underline-offset-2 hover:underline">
-          Utenti
-        </Link>{" "}
-        è il vecchio sistema ad account condivisi, mantenuto solo per compatibilità.
+        Per aggiungere un nuovo membro dello staff resta sempre la tab &quot;Persone&quot;: login individuale, password e
+        reparti propri. &quot;Accessi condivisi&quot; è il vecchio sistema ad account condivisi, mantenuto solo per
+        compatibilità.
       </p>
 
-      <PersoneBoard persone={persone} />
+      <PersoneBoard persone={persone} staff={(staff as StaffCompleto[]) ?? []} currentUserId={user.id} />
     </div>
   );
 }

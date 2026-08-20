@@ -3,17 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw, Archive, Eye, EyeOff } from "lucide-react";
+import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw, Archive, Eye, EyeOff, Wifi, Tag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { StatoVuoto } from "@/components/ui/stato-vuoto";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   creaTariffa,
   aggiornaTariffa,
@@ -30,6 +26,17 @@ import type { Promozione, Tariffa, TipoPromozione } from "@/lib/types";
 
 const TIPOLOGIE: Tariffa["tipologia_cliente"][] = ["Tutti", "Privato", "Azienda"];
 const TIPI_PROMO: TipoPromozione[] = ["Sconto % / mese", "Sconto fisso / mese", "Mesi omaggio", "Attivazione gratuita"];
+
+// ★ NUOVA (2026-08) — richiesta esplicita: uniformare Tariffe al resto del
+// gestionale — proposta con artifact (audit grafico completo), opzione
+// "B · Card-row come Preventivi" scelta implicitamente ("fai come
+// suggerito" = la consigliata). Badge component al posto di `<span>`
+// ad-hoc, stesso principio di COLORE_STATO in preventivi-board.tsx.
+const COLORE_STATO_PROMO: Record<"Attiva" | "Programmata" | "Scaduta", string> = {
+  Attiva: "bg-success/10 text-success border-success/20",
+  Programmata: "bg-primary/10 text-primary border-primary/20",
+  Scaduta: "bg-muted text-muted-foreground border-transparent",
+};
 
 function statoPromozione(promo: Promozione): "Attiva" | "Programmata" | "Scaduta" {
   const oggi = new Date().toISOString().slice(0, 10);
@@ -79,33 +86,34 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
       <h2 className="mb-2 font-heading text-sm font-bold text-muted-foreground">
         Attive ({tariffeAttive.length}) — proposte ai nuovi clienti
       </h2>
-      <div className="mb-8 overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {tariffeAttive.length === 0 && (
-          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna tariffa attiva. Aggiungine una sopra.</p>
-        )}
-        {tariffeAttive.map((t) => (
-          <RigaTariffa
-            key={t.id}
-            t={t}
-            onApri={() => setModifica(t)}
-            onDuplica={() => duplica(t)}
-            onToggle={() => toggleSottoscrivibile(t)}
-            onTogglePubblica={() => togglePubblica(t)}
-          />
-        ))}
-      </div>
+      {tariffeAttive.length === 0 ? (
+        <StatoVuoto icona={Wifi} titolo="Nessuna tariffa attiva ancora." compatto />
+      ) : (
+        <div className="mb-8 flex flex-col gap-2">
+          {tariffeAttive.map((t) => (
+            <RigaTariffa
+              key={t.id}
+              t={t}
+              onApri={() => setModifica(t)}
+              onDuplica={() => duplica(t)}
+              onToggle={() => toggleSottoscrivibile(t)}
+              onTogglePubblica={() => togglePubblica(t)}
+            />
+          ))}
+        </div>
+      )}
 
-      <Sheet open={nuova} onOpenChange={setNuova}>
-        <SheetContent>
+      <Dialog open={nuova} onOpenChange={setNuova}>
+        <DialogContent>
           <FormTariffa onFatto={() => setNuova(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>
           {modifica && <FormTariffa tariffa={modifica} isAdmin={isAdmin} onFatto={() => setModifica(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-10 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -129,53 +137,51 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        {promozioni.length === 0 && (
-          <p className="p-5 text-center text-sm text-muted-foreground">Nessuna promozione ancora.</p>
-        )}
-        {promozioni.map((p) => {
-          const stato = statoPromozione(p);
-          return (
-            <button
-              key={p.id}
-              onClick={() => setModificaPromo(p)}
-              className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40"
-            >
-              <div>
-                <div className="font-semibold">{p.nome}</div>
-                <div className="text-xs text-muted-foreground">
-                  {p.tipo}
-                  {p.valore != null && ` · ${p.valore}`}
-                  {p.codice && ` · codice ${p.codice}`} · {p.da} → {p.a}
-                </div>
-              </div>
-              <span
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  stato === "Attiva"
-                    ? "bg-success/10 text-success"
-                    : stato === "Programmata"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground"
-                }`}
+      {promozioni.length === 0 ? (
+        <StatoVuoto icona={Percent} titolo="Nessuna promozione ancora." compatto />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {promozioni.map((p) => {
+            const stato = statoPromozione(p);
+            return (
+              <button
+                key={p.id}
+                onClick={() => setModificaPromo(p)}
+                className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               >
-                {stato}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Tag className="h-4 w-4" strokeWidth={2.25} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">{p.nome}</div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {p.tipo}
+                      {p.valore != null && ` · ${p.valore}`}
+                      {p.codice && ` · codice ${p.codice}`} · {p.da} → {p.a}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline" className={`shrink-0 ${COLORE_STATO_PROMO[stato]}`}>
+                  {stato}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      <Sheet open={nuovaPromo} onOpenChange={setNuovaPromo}>
-        <SheetContent>
+      <Dialog open={nuovaPromo} onOpenChange={setNuovaPromo}>
+        <DialogContent>
           <FormPromozione tariffe={tariffe} onFatto={() => setNuovaPromo(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
-        <SheetContent>
+      <Dialog open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
+        <DialogContent>
           {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} isAdmin={isAdmin} onFatto={() => setModificaPromo(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-10 border-t pt-6 text-center">
         <Link
@@ -204,29 +210,34 @@ export function RigaTariffa({
   onTogglePubblica: () => void;
 }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:bg-muted/40">
-      <button onClick={onApri} className="flex-1 text-left">
-        <div className="font-semibold">{t.nome}</div>
-        <div className="text-xs text-muted-foreground">
-          {t.tipologia_cliente}
-          {t.velocita && ` · ${t.velocita}`}
-          {t.prezzo_mensile != null && (() => {
-            const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
-            return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
-          })()}
-          {t.prezzo_attivazione != null && ` · attivazione € ${t.prezzo_attivazione.toFixed(2)} una tantum`}
+    <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md">
+      <button onClick={onApri} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Wifi className="h-4 w-4" strokeWidth={2.25} />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate font-semibold">{t.nome}</div>
+          <p className="truncate text-xs text-muted-foreground">
+            {t.tipologia_cliente}
+            {t.velocita && ` · ${t.velocita}`}
+            {t.prezzo_mensile != null && (() => {
+              const { netto, lordo } = prezziNettoLordo(t.prezzo_mensile, t.iva_inclusa);
+              return ` · €${lordo.toFixed(2)}/mese IVA incl. (€${netto.toFixed(2)} netto)`;
+            })()}
+            {t.prezzo_attivazione != null && ` · attivazione € ${t.prezzo_attivazione.toFixed(2)} una tantum`}
+          </p>
         </div>
       </button>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         {t.attivo && !t.pubblica && (
-          <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning" title="Non compare nella documentazione inviata al cliente">
+          <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20" title="Non compare nella documentazione inviata al cliente">
             Solo trattativa diretta
-          </span>
+          </Badge>
         )}
         {t.attivo ? (
-          <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attiva</span>
+          <Badge variant="outline" className="bg-success/10 text-success border-success/20">Attiva</Badge>
         ) : (
-          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non sottoscrivibile</span>
+          <Badge variant="outline" className="bg-muted text-muted-foreground border-transparent">Non sottoscrivibile</Badge>
         )}
         {t.attivo && (
           <Button
@@ -302,11 +313,11 @@ export function FormTariffa({ tariffa, isAdmin = false, onFatto }: { tariffa?: T
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{tariffa ? tariffa.nome : "Aggiungi Tariffa"}</SheetTitle>
-        <SheetDescription>Visibile nel form pubblico &quot;scegli il tuo piano&quot; per Nuovo Contratto.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{tariffa ? tariffa.nome : "Aggiungi Tariffa"}</DialogTitle>
+        <DialogDescription>Visibile nel form pubblico &quot;scegli il tuo piano&quot; per Nuovo Contratto.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome piano *</Label>
           <Input id="nome" name="nome" defaultValue={tariffa?.nome} autoFocus required className="mt-1" />
@@ -485,11 +496,11 @@ function FormPromozione({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{promozione ? promozione.nome : "Aggiungi Promozione"}</SheetTitle>
-        <SheetDescription>Lo stato (Attiva/Programmata/Scaduta) si calcola da sé dalle date.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{promozione ? promozione.nome : "Aggiungi Promozione"}</DialogTitle>
+        <DialogDescription>Lo stato (Attiva/Programmata/Scaduta) si calcola da sé dalle date.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome promozione *</Label>
           <Input id="nome" name="nome" defaultValue={promozione?.nome} autoFocus required className="mt-1" />

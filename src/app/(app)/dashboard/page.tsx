@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
+import { coloreReparto } from "@/lib/types";
 
 // ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
 // migliaia di righe (clienti_esterni, fatture_esterne) — più dei 10s di
@@ -291,34 +292,58 @@ function SezionePeriodo({
         </div>
       </div>
 
-      <div className="mb-5 overflow-x-auto rounded-2xl border bg-card p-5 shadow-md">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="pb-2 font-semibold">Reparto</th>
-              <th className="pb-2 text-right font-semibold">Aperti</th>
-              <th className="pb-2 text-right font-semibold">Completati</th>
-              <th className="pb-2 text-right font-semibold">Urgenti</th>
-              <th className="pb-2 text-right font-semibold">SLA medio</th>
-            </tr>
-          </thead>
-          <tbody>
-            {REPARTI_ELENCO.map((r) => {
-              const d = dati.perReparto[r];
-              return (
-                <tr key={r} className="border-b last:border-0">
-                  <td className="py-2 font-medium">{r}</td>
-                  <td className="py-2 text-right tabular-nums">{d.aperti}</td>
-                  <td className="py-2 text-right tabular-nums">{d.completati}</td>
-                  <td className="py-2 text-right tabular-nums text-critical">{d.urgenti || ""}</td>
-                  <td className="py-2 text-right tabular-nums" title={`basato su ${d.slaCampione} ticket`}>
-                    {fmtSla(d.slaOreMedia)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* ★ NUOVA (2026-08) — richiesta esplicita: uniformare Dashboard al
+      resto del gestionale — proposta con artifact (audit grafico
+      completo), opzione "A · stesso pannello delle card sopra" scelta
+      implicitamente ("fai come suggerito" = la consigliata). La tabella
+      resta una tabella (è il modo giusto di leggere questi numeri), ma
+      entra nello stesso trattamento a pannello con titolo/icona delle
+      card KPI/Pannello circostanti, invece di essere un elemento a sé;
+      il reparto usa lo stesso colore fisso già introdotto per i Ticket
+      (COLORE_REPARTO/coloreReparto, src/lib/types.ts). */}
+      <div className="mb-5 overflow-hidden rounded-2xl border bg-card shadow-md">
+        <div className="flex items-center gap-2 border-b p-5 pb-4">
+          <Users2 className="h-4 w-4 text-primary" strokeWidth={2.5} />
+          <h2 className="font-heading text-sm font-bold">Per reparto</h2>
+        </div>
+        <div className="overflow-x-auto p-5 pt-3">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="pb-2 font-semibold">Reparto</th>
+                <th className="pb-2 text-right font-semibold">Aperti</th>
+                <th className="pb-2 text-right font-semibold">Completati</th>
+                <th className="pb-2 text-right font-semibold">Urgenti</th>
+                <th className="pb-2 text-right font-semibold">SLA medio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REPARTI_ELENCO.map((r) => {
+                const d = dati.perReparto[r];
+                const colore = coloreReparto(r);
+                return (
+                  <tr key={r} className="border-b transition last:border-0 hover:bg-muted/40">
+                    <td className="py-2 font-medium">
+                      {colore ? (
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold ${colore.sfondo} ${colore.testo}`}>
+                          {r}
+                        </span>
+                      ) : (
+                        r
+                      )}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">{d.aperti}</td>
+                    <td className="py-2 text-right tabular-nums">{d.completati}</td>
+                    <td className="py-2 text-right tabular-nums text-critical">{d.urgenti || ""}</td>
+                    <td className="py-2 text-right tabular-nums" title={`basato su ${d.slaCampione} ticket`}>
+                      {fmtSla(d.slaOreMedia)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
