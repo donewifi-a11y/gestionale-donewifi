@@ -493,9 +493,14 @@ function DettaglioSegnalazione({
         toast(risultato.errore || "Errore imprevisto.");
         return;
       }
+      // ★ FIX — richiesta esplicita: dopo la trasmissione non si deve più
+      // saltare da soli sulla pagina Ticket con il nuovo Ticket già aperto
+      // — chi trasmette resta su Segnalazioni (il toast conferma comunque
+      // il numero del Ticket appena creato, raggiungibile a mano da lì
+      // quando serve davvero).
       toast(`Trasmessa — Ticket #${risultato.numero} creato.`, "successo");
       onChiudi();
-      router.push(`/tickets?aperto=${risultato.id}`);
+      router.refresh();
     });
   }
 

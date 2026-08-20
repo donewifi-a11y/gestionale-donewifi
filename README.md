@@ -1693,6 +1693,13 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Verificato contro dati reali (stessa interrogazione replicata in sola lettura): comportamento
   coerente con quanto già osservato per la sezione "Installazioni effettuate" della Scheda Cliente.
 
+✅ **Fix: "Trasmetti per l'installazione" non salta più sul nuovo Ticket** (2026-08-20): richiesta
+  esplicita — dopo aver trasmesso una Segnalazione, chi trasmette (commerciale o chi per esso)
+  restava catapultato sulla pagina Ticket con il Ticket appena creato già aperto
+  (`router.push(/tickets?aperto=...)`), invece di restare su Segnalazioni. Rimosso: il toast
+  continua a confermare il numero del nuovo Ticket, ma non c'è più nessun salto di pagina — resta
+  su Segnalazioni con la bacheca aggiornata (`router.refresh()`).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
