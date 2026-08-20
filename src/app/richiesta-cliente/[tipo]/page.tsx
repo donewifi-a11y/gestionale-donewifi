@@ -7,10 +7,10 @@ export default async function RichiestaClientePage({
   searchParams,
 }: {
   params: Promise<{ tipo: string }>;
-  searchParams: Promise<{ ticketId?: string }>;
+  searchParams: Promise<{ ticketId?: string; praticaId?: string }>;
 }) {
   const { tipo } = await params;
-  const { ticketId } = await searchParams;
+  const { ticketId, praticaId } = await searchParams;
 
   if (!SLUG_RICHIESTE_CLIENTE.includes(tipo as SlugRichiestaCliente)) notFound();
   const config = RICHIESTE_CLIENTE_CONFIG[tipo as SlugRichiestaCliente];
@@ -26,7 +26,7 @@ export default async function RichiestaClientePage({
           <p className="text-xs font-bold uppercase tracking-wide text-white/60">{config.titolo}</p>
           <p className="mt-2 max-w-xs text-sm text-white/70">{config.intro}</p>
         </div>
-        <RichiestaClienteForm slug={tipo as SlugRichiestaCliente} ticketId={ticketId || null} />
+        <RichiestaClienteForm slug={tipo as SlugRichiestaCliente} ticketId={ticketId || null} praticaId={praticaId || null} />
       </div>
     </div>
   );

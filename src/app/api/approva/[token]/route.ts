@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: riga } = await supabase
     .from("token_approvazione")
-    .select("ticket_id, segnalazione_id, preventivo_id, appuntamento_id, origine, creato_il")
+    .select("ticket_id, segnalazione_id, preventivo_id, appuntamento_id, richiesta_cliente_id, origine, creato_il")
     .eq("token", token)
     .maybeSingle();
   if (!riga) {
@@ -121,6 +121,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .update({ firma_verificato_il: new Date().toISOString() })
       .eq("id", rapportino.id);
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+  } else if (riga.origine === "subentro_vecchio_cliente" && riga.richiesta_cliente_id) {
+    // ★ NUOVA (2026-08) — Sistema Subentro, traccia del vecchio cliente
+    // (Opzione B, doppio consenso in parallelo): a differenza di
+    // "contratto" qui non si tocca lo stato della pratica (resta gestita
+    // dallo staff in Richieste Clienti) — si registra solo QUANDO e SE il
+    // vecchio cliente ha confermato o rifiutato, indipendentemente da
+    // quello che sta facendo (o ha già fatto) il nuovo cliente.
+    const adesso = new Date().toISOString();
+    const campo = azione === "rifiuta" ? "vecchio_cliente_rifiutato_il" : "vecchio_cliente_confermato_il";
+    const { error } = await supabase.from("richieste_clienti").update({ [campo]: adesso }).eq("id", riga.richiesta_cliente_id);
+    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+
+    await supabase.from("storico").insert({
+      origine: "richiesta_cliente",
+      riferimento_id: riga.richiesta_cliente_id,
+      operazione: azione === "rifiuta" ? "Subentro — cessione NON confermata dal vecchio cliente" : "Subentro — cessione confermata dal vecchio cliente",
+      valore_dopo: `${azione === "rifiuta" ? "Rifiutata" : "Confermata"} via link email il ${adesso}`,
+    });
   } else if (riga.ticket_id) {
     const { error } = await supabase
       .from("tickets")

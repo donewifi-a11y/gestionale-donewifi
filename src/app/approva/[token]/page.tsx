@@ -11,11 +11,12 @@ import type { RigaPreventivo } from "@/lib/types";
 // 0050, mai valorizzate insieme), quindi ciascun embed è sempre un
 // oggetto singolo o null, mai un array.
 interface RigaTokenApprovazione {
-  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "firma_rapportino";
+  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "firma_rapportino" | "subentro_vecchio_cliente";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
   preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
   appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
+  richieste_clienti: { cliente: string | null; tickets: { numero: number; cliente: string } | null } | null;
 }
 
 // ★ NUOVA — lo stesso link/token monouso usato per l'approvazione
@@ -42,7 +43,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select(
-      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente))"
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tickets(numero, cliente))"
     )
     .eq("token", token)
     .maybeSingle();
@@ -54,6 +55,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const preventivo = dati?.preventivi ?? undefined;
   const firmaScheda = dati?.origine === "firma_scheda" ? dati.appuntamenti : undefined;
   const firmaRapportino = dati?.origine === "firma_rapportino" ? dati.tickets : undefined;
+  const subentro = dati?.origine === "subentro_vecchio_cliente" ? dati.richieste_clienti : undefined;
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -65,7 +67,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
     <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 text-center shadow-2xl">
         <img src="/brand/logo-completo.png" alt="Done Wifi" className="mb-1 h-14 w-14" />
-        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda && !firmaRapportino) ? (
+        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda && !firmaRapportino && !subentro) ? (
           <>
             <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
             <p className="font-heading text-lg font-bold">Link non valido</p>
@@ -91,6 +93,17 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
               {firmaRapportino.cliente}, confermi che il lavoro del tecnico Done Wifi è stato svolto correttamente?
             </p>
             <ConfermaBottone token={token} tipo="firma_scheda" />
+          </>
+        ) : subentro ? (
+          <>
+            <h1 className="font-heading text-lg font-bold">Conferma la cessione del contratto</h1>
+            <p className="text-sm text-muted-foreground">
+              {subentro.tickets ? `Ticket #${subentro.tickets.numero} · ` : ""}
+              {subentro.tickets?.cliente ?? "Gentile cliente"}, ci hai comunicato che il tuo contratto Done Wifi passerà a
+              {subentro.cliente ? ` ${subentro.cliente}` : " un nuovo titolare"}. Confermi di voler procedere con la
+              cessione?
+            </p>
+            <ConfermaBottone token={token} tipo="subentro_vecchio_cliente" />
           </>
         ) : ticket ? (
           <>

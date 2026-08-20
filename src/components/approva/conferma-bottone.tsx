@@ -15,7 +15,19 @@ const TESTI = {
 // invece di uno solo, `azione` viaggia nel corpo della POST e la route la
 // usa per decidere quale stato scrivere. Gli altri due tipi continuano a
 // non mandare corpo — la route li interpreta comunque come "approva".
-export function ConfermaBottone({ token, tipo }: { token: string; tipo: "intervento" | "contratto" | "preventivo" | "firma_scheda" }) {
+//
+// ★ NUOVA (2026-08) — "subentro_vecchio_cliente" (Sistema Subentro,
+// Opzione B) è il secondo caso con due esiti: il vecchio cliente può
+// anche NON confermare la cessione, non solo approvarla.
+const DUE_ESITI = new Set(["preventivo", "subentro_vecchio_cliente"]);
+
+export function ConfermaBottone({
+  token,
+  tipo,
+}: {
+  token: string;
+  tipo: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "subentro_vecchio_cliente";
+}) {
   const [stato, setStato] = useState<"idle" | "inCorso" | "approvato" | "rifiutato" | "errore">("idle");
   const [errore, setErrore] = useState("");
 
@@ -37,7 +49,12 @@ export function ConfermaBottone({ token, tipo }: { token: string; tipo: "interve
   }
 
   if (stato === "approvato") {
-    const titolo = tipo === "preventivo" ? "Preventivo approvato" : TESTI[tipo as "intervento" | "contratto" | "firma_scheda"].titolo;
+    const titolo =
+      tipo === "preventivo"
+        ? "Preventivo approvato"
+        : tipo === "subentro_vecchio_cliente"
+          ? "Cessione confermata"
+          : TESTI[tipo as "intervento" | "contratto" | "firma_scheda"].titolo;
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
         <CheckCircle2 className="h-10 w-10 text-success" strokeWidth={2} />
@@ -48,24 +65,29 @@ export function ConfermaBottone({ token, tipo }: { token: string; tipo: "interve
   }
 
   if (stato === "rifiutato") {
+    const titolo = tipo === "subentro_vecchio_cliente" ? "Cessione non confermata" : "Preventivo rifiutato";
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
         <XCircle className="h-10 w-10 text-muted-foreground" strokeWidth={2} />
-        <p className="font-heading text-lg font-bold">Preventivo rifiutato</p>
+        <p className="font-heading text-lg font-bold">{titolo}</p>
         <p className="text-sm text-muted-foreground">Grazie per averci fatto sapere. Se cambi idea o hai domande, scrivici pure.</p>
       </div>
     );
   }
 
-  if (tipo === "preventivo") {
+  if (DUE_ESITI.has(tipo)) {
+    const testi =
+      tipo === "subentro_vecchio_cliente"
+        ? { conferma: "Confermo la cessione", rifiuta: "Non confermo" }
+        : { conferma: "Approvo il preventivo", rifiuta: "Rifiuto" };
     return (
       <div className="flex flex-col items-center gap-3">
         <div className="flex gap-2">
           <Button size="lg" disabled={stato === "inCorso"} onClick={() => conferma("approva")}>
-            {stato === "inCorso" ? "Invio…" : "Approvo il preventivo"}
+            {stato === "inCorso" ? "Invio…" : testi.conferma}
           </Button>
           <Button size="lg" variant="outline" disabled={stato === "inCorso"} onClick={() => conferma("rifiuta")}>
-            Rifiuto
+            {testi.rifiuta}
           </Button>
         </div>
         {stato === "errore" && (
@@ -78,7 +100,7 @@ export function ConfermaBottone({ token, tipo }: { token: string; tipo: "interve
     );
   }
 
-  const testi = TESTI[tipo];
+  const testi = TESTI[tipo as "intervento" | "contratto" | "firma_scheda"];
   return (
     <div className="flex flex-col items-center gap-3">
       <Button size="lg" disabled={stato === "inCorso"} onClick={() => conferma("approva")}>

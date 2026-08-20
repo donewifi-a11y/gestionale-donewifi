@@ -1809,6 +1809,24 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   pagina) restituiscono correttamente le righe reali di produzione (6 persone, 2 accessi
   condivisi).
 
+✅ Sistema Subentro — doppio consenso in parallelo (2026-08, migrazione `0056`, proposta con
+  artifact, Opzione B scelta): il modulo pubblico di Subentro raccoglieva solo i dati del nuovo
+  titolare, nessun passaggio chiedeva mai una conferma esplicita al vecchio cliente. Ora la
+  pratica ha due tracce indipendenti, in qualsiasi ordine:
+  - Dal Ticket, "Invia una pratica al cliente → Subentro" avvia la pratica
+    (`avviaPraticaSubentro`, crea la riga `richieste_clienti` prima ancora che qualcuno risponda) e
+    apre due invii separati: un link di **sola conferma** (Sì/No, nessun dato) al vecchio cliente —
+    riusa `token_approvazione`/`/api/approva/[token]` come contratto/preventivo/firma, nuova
+    origine `subentro_vecchio_cliente` — e il modulo dati+documenti esistente al nuovo cliente
+    (contatto non ancora noto al sistema, l'operatore lo inserisce a mano), con una spunta di
+    volontà esplicita distinta dalla privacy ("Confermo di voler subentrare in questo contratto").
+  - La bacheca Richieste Clienti e il pannello del Ticket mostrano due pallini di stato
+    indipendenti (Vecchio cliente / Nuovo cliente: in attesa / confermato / rifiutato) invece di un
+    unico stato generico.
+  Verificato: build/lint puliti; le due colonne nuove (`richieste_clienti.vecchio_cliente_confermato_il`/
+  `_rifiutato_il`, `token_approvazione.richiesta_cliente_id`) non esistono ancora in produzione —
+  la migrazione `0056` va applicata manualmente prima che il flusso sia operativo.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

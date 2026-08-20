@@ -75,11 +75,19 @@ async function invia(dati: FormData, setInCorso: (v: boolean) => void, setErrore
   }
 }
 
-export function RichiestaClienteForm({ slug, ticketId }: { slug: SlugRichiestaCliente; ticketId: string | null }) {
+export function RichiestaClienteForm({
+  slug,
+  ticketId,
+  praticaId,
+}: {
+  slug: SlugRichiestaCliente;
+  ticketId: string | null;
+  praticaId?: string | null;
+}) {
   if (slug === "cambio-iban") return <FormCambioIban ticketId={ticketId} />;
   if (slug === "cambio-anagrafica") return <FormCambioAnagrafica ticketId={ticketId} />;
   if (slug === "trasferimento") return <FormTrasferimento ticketId={ticketId} />;
-  return <FormSubentro ticketId={ticketId} />;
+  return <FormSubentro ticketId={ticketId} praticaId={praticaId ?? null} />;
 }
 
 function FormCambioIban({ ticketId }: { ticketId: string | null }) {
@@ -252,7 +260,7 @@ function FormTrasferimento({ ticketId }: { ticketId: string | null }) {
   );
 }
 
-function FormSubentro({ ticketId }: { ticketId: string | null }) {
+function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; praticaId: string | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -265,6 +273,8 @@ function FormSubentro({ ticketId }: { ticketId: string | null }) {
     e.preventDefault();
     setErrore("");
     const dati = new FormData(e.currentTarget);
+
+    if (!dati.get("volontaSubentro")) return setErrore("Devi confermare di voler subentrare in questo contratto per procedere.");
 
     if (tipologia === "privato") {
       const cf = String(dati.get("cf") || "").trim();
@@ -285,6 +295,7 @@ function FormSubentro({ ticketId }: { ticketId: string | null }) {
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG.subentro.tipo);
     dati.set("nomeCliente", tipologia === "privato" ? String(dati.get("nome") || "") : String(dati.get("ragioneSociale") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
+    if (praticaId) dati.set("praticaId", praticaId);
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 
@@ -398,6 +409,15 @@ function FormSubentro({ ticketId }: { ticketId: string | null }) {
         <Label htmlFor="note">Note (facoltativo)</Label>
         <textarea id="note" name="note" rows={2} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" />
       </div>
+      {/* ★ NUOVA (2026-08) — distinta dalla spunta privacy sotto: qui è la
+      dichiarazione di volontà del nuovo cliente a voler assumere il
+      contratto (richiesta esplicita — vedi proposta "Sistema Subentro").
+      La cessione del vecchio cliente si conferma separatamente, sul link
+      che riceve lui, non qui. */}
+      <label className="flex items-start gap-2 rounded-lg bg-primary/5 p-2.5 text-xs font-medium text-primary">
+        <input type="checkbox" name="volontaSubentro" required className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        Confermo di voler subentrare in questo contratto, assumendone la titolarità.
+      </label>
       <Consenso />
       {errore && <Errore testo={errore} />}
       <Button type="submit" disabled={inCorso} size="lg" className="mt-2">

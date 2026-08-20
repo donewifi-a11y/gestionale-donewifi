@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2 } from "lucide-react";
+import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, CheckCircle2, XCircle, Clock3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,33 @@ import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
 
 const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
+
+// ★ NUOVA (2026-08) — Sistema Subentro, doppio consenso in parallelo
+// (Opzione B): a differenza delle altre pratiche, qui lo stato non basta
+// da solo a dire "cosa manca" — servono le due tracce indipendenti (vedi
+// avviaPraticaSubentro/inviaLinkVecchioClienteSubentro).
+function traccePratica(r: RichiestaCliente): { vecchio: "ok" | "no" | "attesa"; nuovo: "ok" | "attesa" } | null {
+  if (r.tipo_richiesta !== "Subentro") return null;
+  return {
+    vecchio: r.vecchio_cliente_confermato_il ? "ok" : r.vecchio_cliente_rifiutato_il ? "no" : "attesa",
+    nuovo: Object.keys(r.dettagli || {}).length > 0 ? "ok" : "attesa",
+  };
+}
+
+function PallinoTraccia({ etichetta, stato }: { etichetta: string; stato: "ok" | "no" | "attesa" }) {
+  const config = {
+    ok: { icona: CheckCircle2, classi: "bg-success/10 text-success" },
+    no: { icona: XCircle, classi: "bg-critical/10 text-critical" },
+    attesa: { icona: Clock3, classi: "bg-muted text-muted-foreground" },
+  }[stato];
+  const Icona = config.icona;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${config.classi}`}>
+      <Icona className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+      {etichetta}
+    </span>
+  );
+}
 
 const COLORE_TIPO: Record<string, string> = {
   "Cambio IBAN": "bg-success/10 text-success border-success/20",
@@ -93,6 +120,12 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
                     <Badge variant="outline" className={COLORE_TIPO[r.tipo_richiesta] ?? ""}>
                       {r.tipo_richiesta}
                     </Badge>
+                    {traccePratica(r) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        <PallinoTraccia etichetta="Vecchio cliente" stato={traccePratica(r)!.vecchio} />
+                        <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(r)!.nuovo} />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -198,6 +231,13 @@ function DettaglioRichiesta({
             </button>
           ))}
         </div>
+
+        {traccePratica(richiesta) && (
+          <div className="flex flex-wrap gap-1.5">
+            <PallinoTraccia etichetta="Vecchio cliente" stato={traccePratica(richiesta)!.vecchio} />
+            <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(richiesta)!.nuovo} />
+          </div>
+        )}
 
         {richiesta.ticket_id && (
           <Link

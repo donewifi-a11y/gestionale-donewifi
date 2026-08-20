@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, CheckCircle2, XCircle, Clock3 } from "lucide-react";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   aggiornaStatoTicket,
   assegnaTicket,
@@ -14,9 +16,11 @@ import {
   getNoteTicket,
   inviaEmailApprovazioneTicket,
   inviaEmailPraticaCliente,
+  inviaEmailPraticaGenerica,
   cambiaRepartoTicket,
   eliminaTicket,
 } from "@/app/(app)/tickets/actions";
+import { avviaPraticaSubentro, inviaLinkVecchioClienteSubentro } from "@/app/(app)/richieste-clienti/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
@@ -500,6 +504,18 @@ function DettaglioTicket({
   // sulla tab per sapere a colpo d'occhio se c'è qualcosa da guardare.
   const [tab, setTab] = useState<"dettagli" | "documenti" | "note">("dettagli");
   const [richieste, setRichieste] = useState<RichiestaCliente[]>([]);
+  // ★ NUOVA (2026-08) — Sistema Subentro, doppio consenso in parallelo
+  // (Opzione B): a differenza delle altre pratiche pubbliche (un solo
+  // link, generato al volo), qui la pratica va prima "avviata" (crea la
+  // riga richieste_clienti che aggancerà entrambe le conferme) — vedi
+  // avviaPraticaSubentro/inviaLinkVecchioClienteSubentro.
+  const [nomeNuovoTitolare, setNomeNuovoTitolare] = useState("");
+  const [telefonoNuovoCliente, setTelefonoNuovoCliente] = useState("");
+  const [emailNuovoCliente, setEmailNuovoCliente] = useState("");
+  const [inCorsoAvvioSubentro, startAvvioSubentro] = useTransition();
+  const [inCorsoLinkVecchio, startLinkVecchio] = useTransition();
+  const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
+  const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
 
   useEffect(() => {
@@ -538,6 +554,45 @@ function DettaglioTicket({
     return `${origine}/richiesta-cliente/${praticaScelta}?ticketId=${ticket.id}`;
   }, [praticaScelta, ticket.numero, ticket.id]);
   const primoNomeCliente = ticket.cliente.trim().split(/\s+/)[0];
+
+  // ★ NUOVA (2026-08) — Sistema Subentro: se una pratica esiste già per
+  // questo Ticket (richieste è già caricato per la tab Documenti, vedi
+  // getRichiesteClientiPerTicket nell'useEffect sopra), usiamo quella
+  // invece di ripartire da zero ad ogni apertura del Ticket.
+  const praticaSubentro = useMemo(() => richieste.find((r) => r.tipo_richiesta === "Subentro" && r.ticket_id === ticket.id), [richieste, ticket.id]);
+  const linkNuovoClienteSubentro = useMemo(() => {
+    if (!praticaSubentro || typeof window === "undefined") return "";
+    return `${window.location.origin}/richiesta-cliente/subentro?ticketId=${ticket.id}&praticaId=${praticaSubentro.id}`;
+  }, [praticaSubentro, ticket.id]);
+  const nuovoClienteHaRisposto = !!praticaSubentro && Object.keys(praticaSubentro.dettagli || {}).length > 0;
+
+  function avviaSubentro() {
+    startAvvioSubentro(async () => {
+      const risultato = await avviaPraticaSubentro(ticket.id, nomeNuovoTitolare || null);
+      if (risultato.errore || !risultato.richiesta) {
+        toast(risultato.errore || "Errore imprevisto.");
+        return;
+      }
+      setRichieste((prev) => [risultato.richiesta!, ...prev]);
+      toast("Pratica di Subentro avviata — invia ora i due link qui sotto.", "successo");
+    });
+  }
+
+  function inviaLinkVecchio() {
+    if (!praticaSubentro) return;
+    startLinkVecchio(async () => {
+      const risultato = await inviaLinkVecchioClienteSubentro(praticaSubentro.id, ticket.id, window.location.origin);
+      if (risultato.errore || !risultato.link) {
+        toast(risultato.errore || "Errore imprevisto.");
+        return;
+      }
+      setLinkVecchioCliente(risultato.link);
+      setEsitoLinkVecchio(
+        risultato.email ? `Email inviata a ${risultato.email}.` : "Il Ticket non ha un'email registrata — usa WhatsApp o copia il link."
+      );
+      toast("Link di conferma inviato al vecchio cliente.", "successo");
+    });
+  }
   const messaggioPratica = `Ciao ${primoNomeCliente}, per la tua pratica Done Wifi apri questo link: ${linkPratica}`;
 
   function inviaApprovazione() {
@@ -893,16 +948,40 @@ function DettaglioTicket({
               </option>
             ))}
           </select>
-          {praticaScelta && (
+          {praticaScelta === "subentro" ? (
             <div className="mt-2.5">
-              <InvioLinkCliente
-                url={linkPratica}
-                telefono={ticket.telefono}
-                email={ticket.email}
-                messaggio={messaggioPratica}
-                onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
+              <SubentroDoppioConsenso
+                praticaSubentro={praticaSubentro}
+                nuovoClienteHaRisposto={nuovoClienteHaRisposto}
+                nomeNuovoTitolare={nomeNuovoTitolare}
+                setNomeNuovoTitolare={setNomeNuovoTitolare}
+                inCorsoAvvioSubentro={inCorsoAvvioSubentro}
+                avviaSubentro={avviaSubentro}
+                linkVecchioCliente={linkVecchioCliente}
+                esitoLinkVecchio={esitoLinkVecchio}
+                inCorsoLinkVecchio={inCorsoLinkVecchio}
+                inviaLinkVecchio={inviaLinkVecchio}
+                ticketTelefono={ticket.telefono}
+                linkNuovoClienteSubentro={linkNuovoClienteSubentro}
+                telefonoNuovoCliente={telefonoNuovoCliente}
+                setTelefonoNuovoCliente={setTelefonoNuovoCliente}
+                emailNuovoCliente={emailNuovoCliente}
+                setEmailNuovoCliente={setEmailNuovoCliente}
+                nomeCliente={ticket.cliente}
               />
             </div>
+          ) : (
+            praticaScelta && (
+              <div className="mt-2.5">
+                <InvioLinkCliente
+                  url={linkPratica}
+                  telefono={ticket.telefono}
+                  email={ticket.email}
+                  messaggio={messaggioPratica}
+                  onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
+                />
+              </div>
+            )
           )}
 
           {ticket.email && (
@@ -979,6 +1058,173 @@ function DettaglioTicket({
         )}
       </div>
     </>
+  );
+}
+
+// ★ NUOVA (2026-08) — Sistema Subentro, Opzione B (doppio consenso in
+// parallelo — proposta approvata, vedi README): sostituisce il singolo
+// InvioLinkCliente usato dalle altre pratiche pubbliche con due tracce
+// indipendenti — il VECCHIO cliente (contatto già noto, quello del
+// Ticket) conferma solo sì/no la cessione; il NUOVO cliente (contatto
+// ancora sconosciuto al sistema, l'operatore lo digita qui) compila dati e
+// documenti nel modulo pubblico esistente. Le due possono rispondere in
+// qualsiasi ordine — nessuna delle due blocca l'altra.
+function SubentroDoppioConsenso({
+  praticaSubentro,
+  nuovoClienteHaRisposto,
+  nomeNuovoTitolare,
+  setNomeNuovoTitolare,
+  inCorsoAvvioSubentro,
+  avviaSubentro,
+  linkVecchioCliente,
+  esitoLinkVecchio,
+  inCorsoLinkVecchio,
+  inviaLinkVecchio,
+  ticketTelefono,
+  linkNuovoClienteSubentro,
+  telefonoNuovoCliente,
+  setTelefonoNuovoCliente,
+  emailNuovoCliente,
+  setEmailNuovoCliente,
+  nomeCliente,
+}: {
+  praticaSubentro: RichiestaCliente | undefined;
+  nuovoClienteHaRisposto: boolean;
+  nomeNuovoTitolare: string;
+  setNomeNuovoTitolare: (v: string) => void;
+  inCorsoAvvioSubentro: boolean;
+  avviaSubentro: () => void;
+  linkVecchioCliente: string;
+  esitoLinkVecchio: string;
+  inCorsoLinkVecchio: boolean;
+  inviaLinkVecchio: () => void;
+  ticketTelefono: string | null;
+  linkNuovoClienteSubentro: string;
+  telefonoNuovoCliente: string;
+  setTelefonoNuovoCliente: (v: string) => void;
+  emailNuovoCliente: string;
+  setEmailNuovoCliente: (v: string) => void;
+  nomeCliente: string;
+}) {
+  if (!praticaSubentro) {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+        <div>
+          <Label htmlFor="nomeNuovoTitolare">Nome del nuovo titolare (facoltativo)</Label>
+          <Input
+            id="nomeNuovoTitolare"
+            value={nomeNuovoTitolare}
+            onChange={(e) => setNomeNuovoTitolare(e.target.value)}
+            placeholder="Se già lo conosci — comparirà nel link di conferma"
+            className="mt-1 h-9 text-xs"
+          />
+        </div>
+        <Button size="sm" onClick={avviaSubentro} disabled={inCorsoAvvioSubentro} className="min-h-9">
+          {inCorsoAvvioSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />}
+          {inCorsoAvvioSubentro ? "Avvio in corso…" : "Avvia pratica di Subentro"}
+        </Button>
+        <p className="text-[11px] text-muted-foreground">
+          Crea la pratica: dopo puoi inviare separatamente il link di conferma al vecchio cliente e il modulo dati al nuovo.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <StatoTraccia
+        etichetta="Vecchio cliente"
+        stato={praticaSubentro.vecchio_cliente_confermato_il ? "ok" : praticaSubentro.vecchio_cliente_rifiutato_il ? "no" : "attesa"}
+        testoOk="Cessione confermata"
+        testoNo="Non ha confermato"
+        testoAttesa="In attesa di conferma"
+      />
+      <div className="rounded-lg border bg-muted/40 p-3">
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
+        </p>
+        <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
+          {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
+          {inCorsoLinkVecchio ? "Invio…" : linkVecchioCliente ? "Invia di nuovo" : "Invia link di conferma al vecchio cliente"}
+        </Button>
+        {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
+        {linkVecchioCliente && (
+          <div className="mt-2">
+            {/* ★ solo WhatsApp/copia: l'email è già stata inviata dal
+            pulsante sopra (stesso link) — un secondo pulsante Email qui
+            manderebbe una seconda email identica invece di aprire un vero
+            client locale, inutile. */}
+            <InvioLinkCliente
+              url={linkVecchioCliente}
+              telefono={ticketTelefono}
+              email={null}
+              messaggio={`Ciao, conferma la cessione del contratto Done Wifi: ${linkVecchioCliente}`}
+              onInviaEmail={async () => ({ errore: null })}
+            />
+          </div>
+        )}
+      </div>
+
+      <StatoTraccia
+        etichetta="Nuovo cliente"
+        stato={nuovoClienteHaRisposto ? "ok" : "attesa"}
+        testoOk="Dati e documenti ricevuti"
+        testoNo=""
+        testoAttesa="In attesa dei dati"
+      />
+      <div className="rounded-lg border bg-muted/40 p-3">
+        <p className="mb-2 text-[11px] text-muted-foreground">Modulo dati + documenti — il contatto del nuovo titolare non è ancora noto al sistema, inseriscilo qui.</p>
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          <Input
+            value={telefonoNuovoCliente}
+            onChange={(e) => setTelefonoNuovoCliente(e.target.value)}
+            placeholder="Telefono nuovo cliente"
+            className="h-9 text-xs"
+          />
+          <Input
+            value={emailNuovoCliente}
+            onChange={(e) => setEmailNuovoCliente(e.target.value)}
+            placeholder="Email nuovo cliente"
+            type="email"
+            className="h-9 text-xs"
+          />
+        </div>
+        <InvioLinkCliente
+          url={linkNuovoClienteSubentro}
+          telefono={telefonoNuovoCliente || null}
+          email={emailNuovoCliente || null}
+          messaggio={`Ciao, per completare il subentro sul contratto ${nomeCliente} apri questo link: ${linkNuovoClienteSubentro}`}
+          onInviaEmail={() => inviaEmailPraticaGenerica(emailNuovoCliente, nomeNuovoTitolare, "Dati per il Subentro", linkNuovoClienteSubentro, "Commerciale")}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatoTraccia({
+  etichetta,
+  stato,
+  testoOk,
+  testoNo,
+  testoAttesa,
+}: {
+  etichetta: string;
+  stato: "ok" | "no" | "attesa";
+  testoOk: string;
+  testoNo: string;
+  testoAttesa: string;
+}) {
+  const config = {
+    ok: { icona: CheckCircle2, classi: "bg-success/10 text-success", testo: testoOk },
+    no: { icona: XCircle, classi: "bg-critical/10 text-critical", testo: testoNo },
+    attesa: { icona: Clock3, classi: "bg-muted text-muted-foreground", testo: testoAttesa },
+  }[stato];
+  const Icona = config.icona;
+  return (
+    <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${config.classi}`}>
+      <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+      {etichetta} — {config.testo}
+    </div>
   );
 }
 

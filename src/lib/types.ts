@@ -199,6 +199,9 @@ export interface RichiestaCliente {
   dettagli: Record<string, string>;
   documenti: { nome: string; percorso: string; tipo?: string }[];
   stato: string;
+  /** Solo per tipo_richiesta "Subentro" — le due tracce di consenso indipendenti (Opzione B, 2026-08). */
+  vecchio_cliente_confermato_il?: string | null;
+  vecchio_cliente_rifiutato_il?: string | null;
 }
 
 export interface Tariffa {

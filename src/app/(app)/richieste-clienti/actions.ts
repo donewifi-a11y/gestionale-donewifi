@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import type { RichiestaCliente } from "@/lib/types";
 
@@ -46,6 +47,86 @@ export async function aggiornaStatoRichiestaCliente(id: string, nuovoStato: stri
 
   revalidatePath("/richieste-clienti");
   return { errore: null };
+}
+
+// ★ NUOVA (2026-08) — Subentro, doppio consenso in parallelo (Opzione B
+// della proposta): a differenza delle altre 3 pratiche (create solo al
+// momento in cui il cliente compila il modulo pubblico), qui la riga
+// richieste_clienti nasce PRIMA, quando l'operatore avvia la pratica dal
+// Ticket — serve un posto dove agganciare la conferma del vecchio cliente
+// anche se il nuovo cliente non ha ancora compilato nulla. "richieste_clienti"
+// non ha policy RLS di insert per lo staff (solo select/update, vedi
+// 0001_init.sql/0010), quindi si passa dalla service role dopo aver
+// verificato qui che chi chiama sia staff attivo — stesso principio già
+// usato per eliminaRichiestaCliente().
+export async function avviaPraticaSubentro(ticketId: string, nomeNuovoTitolare: string | null) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", richiesta: null };
+
+  const { data: ticket } = await supabase.from("tickets").select("cliente").eq("id", ticketId).single();
+  if (!ticket) return { errore: "Ticket non trovato.", richiesta: null };
+
+  const service = createServiceClient();
+  const { data: richiesta, error } = await service
+    .from("richieste_clienti")
+    .insert({
+      tipo_richiesta: "Subentro",
+      cliente: nomeNuovoTitolare?.trim() || null,
+      ticket_id: ticketId,
+      dettagli: {},
+      documenti: [],
+      stato: "Da Lavorare",
+    })
+    .select("*")
+    .single();
+  if (error) return { errore: error.message, richiesta: null };
+
+  const personaId = await getPersonaCorrenteId();
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: richiesta.id,
+    operazione: "Pratica di Subentro avviata",
+    valore_dopo: `Vecchio titolare: ${ticket.cliente}${nomeNuovoTitolare ? ` — Nuovo titolare indicato: ${nomeNuovoTitolare}` : ""}`,
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/richieste-clienti");
+  return { errore: null, richiesta: richiesta as RichiestaCliente };
+}
+
+// ★ NUOVA (2026-08) — genera (o rigenera, sostituendo quello precedente
+// non ancora usato — stesso principio del token per ticket in
+// inviaEmailApprovazioneTicket) il link di conferma per il VECCHIO cliente
+// di una pratica di Subentro, e lo invia via email se il Ticket ne ha una
+// registrata. Riusa token_approvazione/api/approva/[token] — stesso
+// meccanismo già in produzione per contratto/preventivo/firma, qui con
+// origine='subentro_vecchio_cliente' e richiesta_cliente_id al posto di
+// ticket_id/segnalazione_id.
+export async function inviaLinkVecchioClienteSubentro(richiestaClienteId: string, ticketId: string, origineUrl: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", link: null, telefono: null, email: null };
+
+  const { data: ticket } = await supabase.from("tickets").select("numero, cliente, telefono, email, reparto").eq("id", ticketId).single();
+  if (!ticket) return { errore: "Ticket non trovato.", link: null, telefono: null, email: null };
+
+  const service = createServiceClient();
+  await service.from("token_approvazione").delete().eq("richiesta_cliente_id", richiestaClienteId);
+  const { data: creato, error } = await service
+    .from("token_approvazione")
+    .insert({ richiesta_cliente_id: richiestaClienteId, origine: "subentro_vecchio_cliente" })
+    .select("token")
+    .single();
+  if (error) return { errore: error.message, link: null, telefono: null, email: null };
+
+  const link = `${origineUrl}/approva/${creato.token}`;
+  if (ticket.email) {
+    const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(ticket.cliente, "Conferma cessione del contratto (Subentro)", link);
+    await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
+  }
+
+  return { errore: null, link, telefono: ticket.telefono, email: ticket.email };
 }
 
 // ★ NUOVA — richiesta esplicita: un amministratore deve poter cancellare

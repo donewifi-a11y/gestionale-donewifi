@@ -478,6 +478,23 @@ export async function inviaEmailPraticaCliente(ticketId: string, slug: string, u
   return risultato;
 }
 
+// ★ NUOVA (2026-08) — Subentro, traccia del NUOVO cliente (Opzione B): a
+// differenza di inviaEmailPraticaCliente() sopra, qui il destinatario non
+// è quello registrato sul Ticket (quella è l'email del vecchio titolare) —
+// il nuovo titolare non è ancora un contatto noto al sistema, l'operatore
+// la digita a mano nel pannello di invio.
+export async function inviaEmailPraticaGenerica(destinatarioEmail: string, nomeDestinatario: string, titolo: string, url: string, reparto: AreaAccesso) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  if (!destinatarioEmail?.trim()) return { errore: "Email non specificata." };
+
+  const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(nomeDestinatario || "Cliente", titolo, url);
+  return inviaEmail({ a: destinatarioEmail.trim(), oggetto, corpoHtml, corpoTesto, reparto });
+}
+
 export async function urlDocumentoRapportino(percorso: string) {
   const supabase = await createClient();
   // ★ FIX SICUREZZA — vedi urlDocumentoRichiesta(): controllava solo la

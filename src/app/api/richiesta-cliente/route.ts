@@ -4,7 +4,7 @@ import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
-const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "consenso"]);
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "consenso", "volontaSubentro"]);
 const CAMPI_FILE: Record<string, string> = {
   fronteDoc: "Fronte documento",
   retroDoc: "Retro documento",
@@ -29,6 +29,13 @@ export async function POST(request: NextRequest) {
   }
 
   const ticketId = String(dati.get("ticketId") || "") || null;
+  // ★ NUOVA (2026-08) — Subentro, doppio consenso in parallelo: se la
+  // pratica è già stata avviata dall'operatore (vedi avviaPraticaSubentro
+  // in richieste-clienti/actions.ts), il modulo pubblico arriva con
+  // l'id di quella riga già esistente e va AGGIORNATA — non se ne crea
+  // una seconda — per non perdere l'eventuale conferma del vecchio cliente
+  // già registrata su quella stessa riga.
+  const praticaId = String(dati.get("praticaId") || "") || null;
 
   const dettagli: Record<string, string> = {};
   for (const [chiave, valore] of dati.entries()) {
@@ -37,6 +44,13 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
+
+  if (praticaId) {
+    const { data: esistente } = await supabase.from("richieste_clienti").select("id, tipo_richiesta").eq("id", praticaId).maybeSingle();
+    if (!esistente || esistente.tipo_richiesta !== tipo) {
+      return NextResponse.json({ errore: "Pratica non valida o già gestita diversamente." }, { status: 400 });
+    }
+  }
 
   const documenti: { nome: string; percorso: string; tipo: string }[] = [];
   for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
@@ -52,15 +66,11 @@ export async function POST(request: NextRequest) {
     documenti.push({ nome: file.name, percorso, tipo: etichetta });
   }
 
-  const { error: erroreInsert } = await supabase.from("richieste_clienti").insert({
-    tipo_richiesta: tipo,
-    cliente: nomeCliente,
-    ticket_id: ticketId,
-    dettagli,
-    documenti,
-  });
-  if (erroreInsert) {
-    return NextResponse.json({ errore: erroreInsert.message }, { status: 500 });
+  const erroreScrittura = praticaId
+    ? (await supabase.from("richieste_clienti").update({ cliente: nomeCliente, dettagli, documenti }).eq("id", praticaId)).error
+    : (await supabase.from("richieste_clienti").insert({ tipo_richiesta: tipo, cliente: nomeCliente, ticket_id: ticketId, dettagli, documenti })).error;
+  if (erroreScrittura) {
+    return NextResponse.json({ errore: erroreScrittura.message }, { status: 500 });
   }
 
   const reparto = REPARTO_PER_TIPO_RICHIESTA[tipo as TipoRichiestaCliente];
