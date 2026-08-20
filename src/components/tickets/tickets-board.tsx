@@ -74,6 +74,29 @@ function iniziali(persona: Persona) {
   return persona.nome.slice(0, 2).toUpperCase();
 }
 
+// ★ REDESIGN (2026-08), giro 2 — richiesta esplicita dopo aver rivisto lo
+// screenshot reale: il caos non erano più i colori (già tolti al giro
+// precedente) ma il testo di categoria, quasi sempre identico su ogni
+// card di una colonna (es. 4 Ticket di fila con scritto "Assistenza ·
+// Pianificazione installazione") — nessuna informazione nuova, solo
+// ripetizione. Qui si raggruppano i Ticket per categoria/sottocategoria
+// UNA VOLTA per colonna, invece che ripeterla su ogni riga — mantiene
+// l'ordine con cui `items` è già stato ordinato (priorità prima, vedi
+// ORDINE_PRIORITA), il gruppo compare nella posizione del suo primo Ticket.
+function raggruppaPerCategoria(items: Ticket[]): { chiave: string; ticket: Ticket[] }[] {
+  const gruppi: { chiave: string; ticket: Ticket[] }[] = [];
+  const indice = new Map<string, number>();
+  for (const t of items) {
+    const chiave = t.categoria + (t.sottocategoria ? ` · ${t.sottocategoria}` : "");
+    if (!indice.has(chiave)) {
+      indice.set(chiave, gruppi.length);
+      gruppi.push({ chiave, ticket: [] });
+    }
+    gruppi[indice.get(chiave)!].ticket.push(t);
+  }
+  return gruppi;
+}
+
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
@@ -238,91 +261,94 @@ export function TicketsBoard({
                   {items.length}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 {items.length === 0 && (
                   <div className="flex items-center justify-center px-4 py-8 text-center text-xs text-muted-foreground/70">
                     {col.vuoto}
                   </div>
                 )}
-                {items.map((t) => {
-                  const assegnatario = trovaPersona(t.tecnico_assegnato);
-                  const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
-                  // ★ REDESIGN (2026-08) — richiesta esplicita "troppo caotico,
-                  // tutto attaccato": la card mostrava sempre tutto (striscia
-                  // priorità anche per "Normale", badge reparto pieno ripetuto
-                  // identico su ogni card, avatar/frecce sempre visibili, ombra
-                  // pesante) — niente distingueva "informazione" da
-                  // "decorazione". Ora un solo elemento domina (il nome), il
-                  // reparto è un puntino invece di un badge di testo, la
-                  // priorità è un segnale testuale SOLO se Urgente (non più una
-                  // striscia sempre accesa), e la soglia "in attesa" è più alta
-                  // (5g invece di 2g) per comparire solo quando conta davvero.
-                  const giorni = giorniAperta(t.data_creazione);
-                  let segnale: { testo: string; critico: boolean } | null = null;
-                  if (t.priorita === "Urgente") {
-                    segnale = { testo: "🔴 Urgente", critico: true };
-                  } else if (t.stato === "Da gestire" && giorni >= 5) {
-                    segnale = { testo: `⏳ Ferma da ${giorni}g`, critico: giorni >= 10 };
-                  }
-                  const colore = coloreReparto(t.reparto);
-                  return (
-                    <div
-                      key={t.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setAperto(t)}
-                      onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                      className="group relative cursor-pointer rounded-lg border bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
-                    >
-                      <div className="flex items-baseline gap-1.5">
-                        {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
-                        <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
-                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
-                      </div>
-                      <div className="mt-0.5 pl-3 text-xs text-muted-foreground line-clamp-1">
-                        {t.categoria}
-                        {t.sottocategoria && ` · ${t.sottocategoria}`}
-                      </div>
-                      {segnale && (
-                        <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
-                      )}
-
-                      {/* ★ avatar (se già assegnato) visibile a riposo, sostituito
-                      dalle azioni solo al passaggio del mouse — non più due
-                      cerchi sempre accesi su ogni riga a riposo. */}
-                      {assegnatario && (
-                        <span
-                          title={assegnatario.nome}
-                          className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold transition group-hover:opacity-0 ${
-                            assegnatario.id === currentPersonaId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                          }`}
-                        >
-                          {iniziali(assegnatario)}
-                        </span>
-                      )}
-                      <div className="absolute right-2 top-2 flex translate-x-1 items-center gap-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
-                        {!assegnatario && (
-                          <button
-                            onClick={(e) => prendiInCarico(t, e)}
-                            title="Prendi in carico"
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
-                          >
-                            <UserPlus className="h-3 w-3" strokeWidth={2.5} />
-                          </button>
-                        )}
-                        {puoAvanzare && (
-                          <button
-                            onClick={(e) => avanzaStato(t, e)}
-                            title="Avanza allo stato successivo"
-                            className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
-                          </button>
-                        )}
-                      </div>
+                {raggruppaPerCategoria(items).map((gruppo) => (
+                  <div key={gruppo.chiave}>
+                    {/* ★ l'etichetta di categoria/sottocategoria si scrive una
+                    volta per gruppo invece che su ogni card — vedi
+                    raggruppaPerCategoria() sopra. Il numero a destra è un
+                    dato che prima non c'era da nessuna parte: quanti Ticket
+                    sono fermi allo stesso identico passaggio. */}
+                    <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                      <span className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground" title={gruppo.chiave}>
+                        {gruppo.chiave}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
                     </div>
-                  );
-                })}
+                    <div className="flex flex-col gap-1.5">
+                      {gruppo.ticket.map((t) => {
+                        const assegnatario = trovaPersona(t.tecnico_assegnato);
+                        const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
+                        const giorni = giorniAperta(t.data_creazione);
+                        let segnale: { testo: string; critico: boolean } | null = null;
+                        if (t.priorita === "Urgente") {
+                          segnale = { testo: "🔴 Urgente", critico: true };
+                        } else if (t.stato === "Da gestire" && giorni >= 5) {
+                          segnale = { testo: `⏳ Ferma da ${giorni}g`, critico: giorni >= 10 };
+                        }
+                        const colore = coloreReparto(t.reparto);
+                        return (
+                          <div
+                            key={t.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setAperto(t)}
+                            onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
+                            className="group relative cursor-pointer rounded-lg border bg-card p-2 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
+                          >
+                            <div className="flex items-baseline gap-1.5">
+                              {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
+                              <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
+                              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
+                            </div>
+                            {segnale && (
+                              <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
+                            )}
+
+                            {/* ★ avatar (se già assegnato) visibile a riposo,
+                            sostituito dalle azioni solo al passaggio del mouse —
+                            non più due cerchi sempre accesi su ogni riga a riposo. */}
+                            {assegnatario && (
+                              <span
+                                title={assegnatario.nome}
+                                className={`absolute right-2.5 top-2 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold transition group-hover:opacity-0 ${
+                                  assegnatario.id === currentPersonaId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                                }`}
+                              >
+                                {iniziali(assegnatario)}
+                              </span>
+                            )}
+                            <div className="absolute right-2 top-1.5 flex translate-x-1 items-center gap-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
+                              {!assegnatario && (
+                                <button
+                                  onClick={(e) => prendiInCarico(t, e)}
+                                  title="Prendi in carico"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
+                                >
+                                  <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                                </button>
+                              )}
+                              {puoAvanzare && (
+                                <button
+                                  onClick={(e) => avanzaStato(t, e)}
+                                  title="Avanza allo stato successivo"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                                >
+                                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           );

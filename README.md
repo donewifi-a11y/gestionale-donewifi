@@ -1835,6 +1835,15 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   (a riposo si vede solo l'avatar se già assegnato), soglia "in attesa" alzata da 2 a 5 giorni,
   nessuna ombra a riposo (solo un bordo sottile — le ombre impilate erano parte del problema).
   Proposta con artifact (mockup funzionante, non solo statico), approvata dopo due giri di revisione.
+✅ Bacheca Ticket, raggruppamento per categoria (2026-08, terzo giro): tolti i colori, il vero
+  disturbo restava il testo — la riga di categoria/sottocategoria era quasi identica su gran parte
+  delle card di una colonna (es. 4 Ticket di fila con scritto "Assistenza · Pianificazione
+  installazione"), pura ripetizione senza informazione nuova. `raggruppaPerCategoria()` ora scrive
+  quell'etichetta una volta sola per gruppo (mantenendo l'ordine di priorità già esistente — il
+  gruppo compare dov'è il suo primo Ticket), con accanto il conteggio di quanti Ticket sono fermi
+  allo stesso passaggio — un dato che prima non c'era da nessuna parte. Le righe sotto mostrano solo
+  nome e numero. Proposta con artifact (zoom sullo screenshot reale mandato dall'utente), Opzione 1
+  scelta su 3.
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
