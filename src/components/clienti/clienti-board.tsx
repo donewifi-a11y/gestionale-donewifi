@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
-import { salvaDatiContrattualiCliente } from "@/app/(app)/clienti/actions";
+import { salvaDatiContrattualiCliente, type RigaInstallazione } from "@/app/(app)/clienti/actions";
+import { InstallazioniTabella } from "@/components/clienti/installazioni-tabella";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
 function normalizzaTelefono(t: string | null) {
@@ -45,14 +46,20 @@ export function ClientiBoard({
   clienti: clientiAttivi,
   tariffe,
   clientiEsterni,
+  installazioni,
   puoModificare,
 }: {
   tickets: Ticket[];
   clienti: ClienteAttivo[];
   tariffe: Tariffa[];
   clientiEsterni: ClienteEsternoRidotto[];
+  installazioni: RigaInstallazione[];
   puoModificare: boolean;
 }) {
+  // ★ NUOVA — richiesta esplicita: elenco dei clienti installati coi dati
+  // dalla Scheda di lavoro, come nuova tab qui invece di una pagina a sé
+  // (proposta con artifact, scelta A — tabella, dentro "Clienti").
+  const [vista, setVista] = useState<"clienti" | "installazioni">("clienti");
   const [ricerca, setRicerca] = useState("");
   const [aperto, setAperto] = useState<string | null>(null);
   const [modifica, setModifica] = useState<Cliente | null>(null);
@@ -122,6 +129,25 @@ export function ClientiBoard({
 
   return (
     <div>
+      <div className="mb-5 flex overflow-hidden rounded-lg border" style={{ width: "fit-content" }}>
+        <button
+          onClick={() => setVista("clienti")}
+          className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "clienti" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+        >
+          Clienti
+        </button>
+        <button
+          onClick={() => setVista("installazioni")}
+          className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "installazioni" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+        >
+          Installazioni ({installazioni.length})
+        </button>
+      </div>
+
+      {vista === "installazioni" ? (
+        <InstallazioniTabella installazioni={installazioni} />
+      ) : (
+        <>
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border bg-card p-4 shadow-md">
           <Users2 className="mb-2 h-4 w-4 text-primary" strokeWidth={2.25} />
@@ -274,6 +300,8 @@ export function ClientiBoard({
           {modifica && <FormDatiContrattuali cliente={modifica} tariffe={tariffe} onFatto={() => setModifica(null)} />}
         </SheetContent>
       </Sheet>
+        </>
+      )}
     </div>
   );
 }

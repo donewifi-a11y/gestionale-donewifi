@@ -2,6 +2,7 @@ import { Users2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiBoard } from "@/components/clienti/clienti-board";
+import { getInstallazioni } from "./actions";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
@@ -36,11 +37,12 @@ async function fetchTuttiTicket(supabase: Awaited<ReturnType<typeof createClient
 export default async function ClientiPage() {
   const supabase = await createClient();
 
-  const [tickets, { data: clienti }, { data: tariffe }, clientiEsterni] = await Promise.all([
+  const [tickets, { data: clienti }, { data: tariffe }, clientiEsterni, installazioni] = await Promise.all([
     fetchTuttiTicket(supabase),
     supabase.from("clienti").select("*"),
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
     fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, attivo, profilo_internet, id_contratto"),
+    getInstallazioni(),
   ]);
 
   const personaCorrente = await getPersonaCorrente(supabase);
@@ -65,6 +67,7 @@ export default async function ClientiPage() {
         clienti={(clienti as ClienteAttivo[]) ?? []}
         tariffe={(tariffe as Tariffa[]) ?? []}
         clientiEsterni={clientiEsterni}
+        installazioni={installazioni}
         puoModificare={puoModificare}
       />
     </div>

@@ -1677,6 +1677,22 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   reali confermata (una scheda reale trovata senza ticket_id collegato — esclusa correttamente
   dall'elenco, comportamento atteso).
 
+✅ **Elenco Installazioni — nuova tab in Clienti** (2026-08-20): richiesta esplicita — "un listato
+  dei clienti installati con i dati inseriti nella scheda di lavoro". Proposta con artifact (3
+  stili: tabella/schede/per tecnico), scelta **A** (tabella), come nuova tab dentro "Clienti"
+  invece di una pagina a sé, visibile a tutto lo staff (stesso livello di "Clienti"/"Ticket" oggi).
+  - `getInstallazioni()` (nuova, `clienti/actions.ts`): una riga per Scheda di Installazione
+    completata (`schede_lavoro` con `tipo='Nuova installazione'`), arricchita col Ticket collegato
+    (cliente/indirizzo/contratto) e il nome del tecnico (`creato_da` → `persone.nome`). Paginata a
+    1000 righe come le altre liste "tutto lo storico" del gestionale.
+  - `InstallazioniTabella` (nuova, `components/clienti/installazioni-tabella.tsx`): colonne
+    Cliente/indirizzo, Data, Tecnico, CPE/MAC, Segnale (RSSI/SNR — evidenziato in arancione sotto
+    una soglia indicativa, per intercettare installazioni da ricontrollare), Materiali (conteggio
+    comodato/prodotti/servizi), Importo, Documenti (Contratto + link alla Scheda completa sul
+    Ticket). Ricerca libera + filtri Tutte/Questo mese/Segnale debole.
+  Verificato contro dati reali (stessa interrogazione replicata in sola lettura): comportamento
+  coerente con quanto già osservato per la sezione "Installazioni effettuate" della Scheda Cliente.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
