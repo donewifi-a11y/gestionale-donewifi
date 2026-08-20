@@ -16,6 +16,12 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-critical: var(--critical);
   --color-critical-foreground: var(--critical-foreground);
+  --color-reparto-analisi-rete: var(--reparto-analisi-rete);
+  --color-reparto-analisi-rete-bg: var(--reparto-analisi-rete-bg);
+  --color-reparto-commerciale: var(--reparto-commerciale);
+  --color-reparto-commerciale-bg: var(--reparto-commerciale-bg);
+  --color-reparto-fatturazione: var(--reparto-fatturazione);
+  --color-reparto-fatturazione-bg: var(--reparto-fatturazione-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -107,6 +113,19 @@
   --warning-foreground: oklch(0.2 0.05 75);
   --critical: oklch(0.58 0.22 45);
   --critical-foreground: oklch(0.99 0.01 45);
+  /* ★ NUOVA (2026-08) — richiesta esplicita: un colore fisso per reparto
+     (Ticket, opzione "C · Badge + fascia" scelta via artifact), mai
+     ciclato — blu/viola/verde a distanza di tinta sufficiente per restare
+     distinguibili anche a chi ha una forma comune di daltonismo. Separati
+     dai colori di stato sopra (successo/avviso/critico): un reparto non è
+     mai un giudizio di urgenza, la priorità Urgente resta sempre e solo
+     rossa, in nessun caso si confonde con questi. */
+  --reparto-analisi-rete: #3B6FA8;
+  --reparto-analisi-rete-bg: #E7F0FA;
+  --reparto-commerciale: #7A5CB8;
+  --reparto-commerciale-bg: #F1ECFA;
+  --reparto-fatturazione: #1F8A5F;
+  --reparto-fatturazione-bg: #E5F5EC;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -155,6 +174,12 @@
   --warning-foreground: oklch(0.18 0.04 80);
   --critical: oklch(0.68 0.2 45);
   --critical-foreground: oklch(0.15 0.03 45);
+  --reparto-analisi-rete: #7EB0E8;
+  --reparto-analisi-rete-bg: #132840;
+  --reparto-commerciale: #B49BE0;
+  --reparto-commerciale-bg: #241C38;
+  --reparto-fatturazione: #4CBE8B;
+  --reparto-fatturazione-bg: #123526;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

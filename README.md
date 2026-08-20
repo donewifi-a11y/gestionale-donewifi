@@ -1718,6 +1718,24 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Nuovi componenti `GruppoDatiCliente`/`ModalitaGuidataCopia` in `segnalazioni-board.tsx`, nessuna
   migrazione (solo interfaccia, gli stessi dati già mostrati prima).
 
+✅ **Colore fisso per reparto sul Ticket** (2026-08-20): richiesta esplicita — bacheca/dettaglio
+  Ticket "caotici". Proposta con artifact (3 direzioni: cruscotto a blocchi/colore per reparto/
+  timeline), poi una seconda proposta di dettaglio con 4 intensità del colore per reparto, scelta
+  **C · Badge + fascia** in entrambe.
+  - `globals.css`: nuovi token `--reparto-analisi-rete`/`--reparto-commerciale`/
+    `--reparto-fatturazione` (+ varianti `-bg`, luce/buio) — blu/viola/verde a distanza di tinta
+    sufficiente per restare distinguibili anche a chi ha una forma comune di daltonismo, separati
+    dai colori di stato (successo/avviso/critico): un reparto non è mai un giudizio di urgenza.
+  - `COLORE_REPARTO`/`coloreReparto()` (nuovi, `src/lib/types.ts`): mappa centralizzata, riusabile
+    ovunque serva lo stesso colore di reparto in futuro.
+  - Bacheca Ticket: badge colorato col nome del reparto (colore *e* testo insieme, mai il colore
+    da solo) al posto del testo grigio "· Analisi Rete" in fondo alla riga categoria.
+  - Dettaglio Ticket: fascia colorata in cima al Dialog (stesso "bleed" a bordi pieni già usato per
+    l'intestazione sticky), riconoscibile ancora prima di leggere il campo "Reparto".
+  Verificato che le classi Tailwind generate dinamicamente dalla mappa comparissero davvero nel
+  CSS di produzione compilato (rischio noto di questo pattern: build pulita non basta a
+  garantirlo).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

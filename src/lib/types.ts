@@ -13,6 +13,25 @@ export const STATI_TICKET: StatoTicket[] = [
 ];
 
 export const REPARTI: AreaAccesso[] = ["Analisi Rete", "Commerciale", "Fatturazione"];
+
+/** ★ NUOVA (2026-08) — richiesta esplicita: colore fisso per reparto sulla
+ * bacheca/dettaglio Ticket (proposta con artifact, opzione "C · Badge +
+ * fascia" scelta), mai ciclato — vedi i token --reparto-* in globals.css.
+ * Separato dai colori di stato (successo/avviso/critico): un reparto non
+ * è mai un giudizio di urgenza. */
+export const COLORE_REPARTO: Record<"Analisi Rete" | "Commerciale" | "Fatturazione", { testo: string; sfondo: string; fascia: string }> = {
+  "Analisi Rete": { testo: "text-reparto-analisi-rete", sfondo: "bg-reparto-analisi-rete-bg", fascia: "bg-reparto-analisi-rete" },
+  Commerciale: { testo: "text-reparto-commerciale", sfondo: "bg-reparto-commerciale-bg", fascia: "bg-reparto-commerciale" },
+  Fatturazione: { testo: "text-reparto-fatturazione", sfondo: "bg-reparto-fatturazione-bg", fascia: "bg-reparto-fatturazione" },
+};
+
+/** `ticket.reparto`/`persona.reparti` sono tipizzati come `AreaAccesso`
+ * (include anche "Tutto"/"Admin", mai un vero reparto assegnabile a un
+ * Ticket) — questo accessor evita un errore a runtime/tipo per quei due
+ * casi, tornando `null` invece di forzare un colore inventato. */
+export function coloreReparto(reparto: AreaAccesso): { testo: string; sfondo: string; fascia: string } | null {
+  return reparto in COLORE_REPARTO ? COLORE_REPARTO[reparto as keyof typeof COLORE_REPARTO] : null;
+}
 export const CATEGORIE_TICKET = ["Assistenza", "Commerciale", "Amministrativa"] as const;
 
 // ★ ex 14 categorie puntuali del vecchio gestionale — qui come dettaglio

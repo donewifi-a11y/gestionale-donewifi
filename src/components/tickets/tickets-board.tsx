@@ -30,7 +30,7 @@ import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -279,9 +279,23 @@ export function TicketsBoard({
                       </div>
                       <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
                         {t.categoria}
-                        {t.sottocategoria && ` · ${t.sottocategoria}`} · {t.reparto}
+                        {t.sottocategoria && ` · ${t.sottocategoria}`}
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
+                        {/* ★ NUOVA — richiesta esplicita: colore fisso per reparto
+                        (proposta con artifact, opzione "C · Badge + fascia"), al
+                        posto del testo grigio "· Analisi Rete" in fondo alla riga
+                        sopra — un colore e un nome sempre insieme (mai il colore
+                        da solo), per riconoscere il reparto senza dover leggere
+                        tutto il testo della card. */}
+                        {(() => {
+                          const colore = coloreReparto(t.reparto);
+                          return colore ? (
+                            <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold ${colore.sfondo} ${colore.testo}`}>
+                              {t.reparto}
+                            </span>
+                          ) : null;
+                        })()}
                         {segnale && (
                           <span
                             className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
@@ -620,6 +634,14 @@ function DettaglioTicket({
       visibile scorrendo il dialog invece di sparire lasciando al suo
       posto un campo qualsiasi senza etichetta. */}
       <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
+        {/* ★ NUOVA — richiesta esplicita: fascia colorata per reparto in
+        cima al dettaglio (stessa "C · Badge + fascia" del badge sulla
+        card), riconoscibile ancora prima di leggere "Reparto" più sotto
+        nella tab Dettagli. */}
+        {(() => {
+          const colore = coloreReparto(ticket.reparto);
+          return colore ? <div className={`-mx-4 -mt-4 mb-3 h-1 rounded-t-xl ${colore.fascia}`} /> : null;
+        })()}
         <DialogTitle>{ticket.cliente}</DialogTitle>
         <DialogDescription>
           #{ticket.numero} · {ticket.categoria}
