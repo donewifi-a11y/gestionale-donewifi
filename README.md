@@ -1843,7 +1843,12 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   gruppo compare dov'è il suo primo Ticket), con accanto il conteggio di quanti Ticket sono fermi
   allo stesso passaggio — un dato che prima non c'era da nessuna parte. Le righe sotto mostrano solo
   nome e numero. Proposta con artifact (zoom sullo screenshot reale mandato dall'utente), Opzione 1
-  scelta su 3.
+  scelta su 3. Seguito da: le etichette di gruppo hanno ora un colore distinto l'una dall'altra
+  (`coloreGruppo()`, hash deterministico sulla stringa → 6 tinte terrose dedicate, `--tag-*` in
+  globals.css) — a differenza di `COLORE_REPARTO`, qui l'insieme di categorie/sottocategorie non è
+  fisso, quindi un colore "per identità" invece che "per significato", deliberatamente lontano da
+  reparto/servizio/stato per non essere scambiato per un giudizio di reparto o urgenza. Verificato
+  che Tailwind genera davvero le 12 classi dinamiche (grep sul CSS compilato).
 
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),

@@ -32,6 +32,32 @@ export const COLORE_REPARTO: Record<"Analisi Rete" | "Commerciale" | "Fatturazio
 export function coloreReparto(reparto: AreaAccesso): { testo: string; sfondo: string; fascia: string } | null {
   return reparto in COLORE_REPARTO ? COLORE_REPARTO[reparto as keyof typeof COLORE_REPARTO] : null;
 }
+
+/** ★ NUOVA (2026-08) — richiesta esplicita: colore per le etichette di
+ * gruppo della bacheca Ticket (raggruppaPerCategoria() in
+ * tickets-board.tsx) — a differenza di COLORE_REPARTO sopra, l'insieme di
+ * chiavi non è fisso (categoria + sottocategoria libere, vedi
+ * campi-ticket.ts): non un colore "per significato" ma un colore "per
+ * identità", assegnato con un hash deterministico sulla stringa — stesso
+ * gruppo, stesso colore sempre, senza dover mantenere un elenco esaustivo.
+ * Palette dedicata (--tag-* in globals.css), deliberatamente lontana da
+ * reparto/servizio/stato per non essere scambiata per un giudizio di
+ * reparto o urgenza. */
+const PALETTE_GRUPPO_TICKET: { testo: string; sfondo: string }[] = [
+  { testo: "text-tag-1", sfondo: "bg-tag-1-bg" },
+  { testo: "text-tag-2", sfondo: "bg-tag-2-bg" },
+  { testo: "text-tag-3", sfondo: "bg-tag-3-bg" },
+  { testo: "text-tag-4", sfondo: "bg-tag-4-bg" },
+  { testo: "text-tag-5", sfondo: "bg-tag-5-bg" },
+  { testo: "text-tag-6", sfondo: "bg-tag-6-bg" },
+];
+
+export function coloreGruppo(chiave: string): { testo: string; sfondo: string } {
+  let hash = 0;
+  for (let i = 0; i < chiave.length; i++) hash = (hash * 31 + chiave.charCodeAt(i)) >>> 0;
+  return PALETTE_GRUPPO_TICKET[hash % PALETTE_GRUPPO_TICKET.length];
+}
+
 export const CATEGORIE_TICKET = ["Assistenza", "Commerciale", "Amministrativa"] as const;
 
 // ★ ex 14 categorie puntuali del vecchio gestionale — qui come dettaglio

@@ -34,7 +34,7 @@ import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -267,15 +267,24 @@ export function TicketsBoard({
                     {col.vuoto}
                   </div>
                 )}
-                {raggruppaPerCategoria(items).map((gruppo) => (
+                {raggruppaPerCategoria(items).map((gruppo) => {
+                  // ★ NUOVA — richiesta esplicita: distinzione di colore tra
+                  // un'etichetta di gruppo e l'altra (prima erano tutte lo
+                  // stesso grigio) — coloreGruppo() assegna una tinta fissa
+                  // e stabile per stringa, non un giudizio di reparto/stato.
+                  const coloreG = coloreGruppo(gruppo.chiave);
+                  return (
                   <div key={gruppo.chiave}>
                     {/* ★ l'etichetta di categoria/sottocategoria si scrive una
                     volta per gruppo invece che su ogni card — vedi
                     raggruppaPerCategoria() sopra. Il numero a destra è un
                     dato che prima non c'era da nessuna parte: quanti Ticket
                     sono fermi allo stesso identico passaggio. */}
-                    <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                      <span className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground" title={gruppo.chiave}>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span
+                        className={`min-w-0 truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${coloreG.sfondo} ${coloreG.testo}`}
+                        title={gruppo.chiave}
+                      >
                         {gruppo.chiave}
                       </span>
                       <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
@@ -348,7 +357,8 @@ export function TicketsBoard({
                       })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );

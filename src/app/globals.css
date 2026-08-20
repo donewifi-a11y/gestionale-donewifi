@@ -28,6 +28,18 @@
   --color-servizio-installazione-bg: var(--servizio-installazione-bg);
   --color-servizio-lavorazione: var(--servizio-lavorazione);
   --color-servizio-lavorazione-bg: var(--servizio-lavorazione-bg);
+  --color-tag-1: var(--tag-1);
+  --color-tag-1-bg: var(--tag-1-bg);
+  --color-tag-2: var(--tag-2);
+  --color-tag-2-bg: var(--tag-2-bg);
+  --color-tag-3: var(--tag-3);
+  --color-tag-3-bg: var(--tag-3-bg);
+  --color-tag-4: var(--tag-4);
+  --color-tag-4-bg: var(--tag-4-bg);
+  --color-tag-5: var(--tag-5);
+  --color-tag-5-bg: var(--tag-5-bg);
+  --color-tag-6: var(--tag-6);
+  --color-tag-6-bg: var(--tag-6-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -148,6 +160,28 @@
   --servizio-installazione-bg: #E1F3F1;
   --servizio-lavorazione: #5B5FC7;
   --servizio-lavorazione-bg: #ECEDFB;
+  /* ★ NUOVA (2026-08) — richiesta esplicita: distinzione di colore per le
+     etichette di gruppo della bacheca Ticket (raggruppaPerCategoria() in
+     tickets-board.tsx) — a differenza di reparto/servizio sopra, qui
+     l'insieme di stringhe non è fisso (categoria + sottocategoria libere,
+     vedi campi-ticket.ts), quindi non un colore "per significato" ma un
+     colore "per identità": 6 tinte terrose/desaturate, deliberatamente
+     lontane da blu/viola/verde (reparto), teal/indigo (servizio) e
+     rosso/arancio/verde (stato) per non essere scambiate per un giudizio
+     di reparto o urgenza — vedi coloreGruppo() in types.ts (hash
+     deterministico sulla stringa, stesso gruppo sempre stesso colore). */
+  --tag-1: #9C5A32;
+  --tag-1-bg: #F5E9DE;
+  --tag-2: #8C7A1E;
+  --tag-2-bg: #F3F0DC;
+  --tag-3: #8C4A7A;
+  --tag-3-bg: #F5E4F0;
+  --tag-4: #55677A;
+  --tag-4-bg: #E6EBEF;
+  --tag-5: #5E7A4A;
+  --tag-5-bg: #E9F0E2;
+  --tag-6: #A65252;
+  --tag-6-bg: #F7E5E5;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -208,6 +242,18 @@
   --servizio-installazione-bg: #14322F;
   --servizio-lavorazione: #9CA0EE;
   --servizio-lavorazione-bg: #26285A;
+  --tag-1: #D69A6E;
+  --tag-1-bg: #3A2A1C;
+  --tag-2: #C9B855;
+  --tag-2-bg: #3A3618;
+  --tag-3: #CB8FBB;
+  --tag-3-bg: #3A2536;
+  --tag-4: #9AAAB8;
+  --tag-4-bg: #263038;
+  --tag-5: #9FBE86;
+  --tag-5-bg: #26311E;
+  --tag-6: #D08888;
+  --tag-6-bg: #3A2424;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
