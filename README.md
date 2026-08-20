@@ -1773,6 +1773,14 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
     se la Scheda viene annullata — comportamento preesistente, verificato intatto dopo la
     conversione da Sheet a Dialog.
 
+✅ **Fix: il mondo attivo in sidebar restava "incollato" dopo aver cliccato il rail** (2026-08-20):
+  bug reale trovato durante un audit grafico completo (subagent dedicato) — cliccare a mano
+  un'icona del rail (es. "Vendita") impostava una scelta che restava valida per sempre, anche dopo
+  aver navigato altrove (link, ricerca globale): il rail continuava a mostrare il mondo sbagliato
+  rispetto alla pagina reale. Ora un vero cambio pagina (`pathname` diverso) azzera la scelta
+  manuale e lascia di nuovo che sia la pagina corrente a decidere il mondo attivo — cliccare
+  un'icona del rail resta comunque immediato, dato che da sola non naviga.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -175,6 +175,19 @@ export function AppSidebar({
     return mondi[0]?.id ?? "ticket";
   }, [pathname, mondi]);
   const [mondoScelto, setMondoScelto] = useState<string | null>(null);
+  // ★ FIX — la scelta manuale (click sul rail) restava valida per sempre,
+  // anche dopo aver navigato altrove: aprire "Vendita" a mano e poi
+  // arrivare su un Ticket (Assistenza) da un link/dalla ricerca globale
+  // lasciava il rail ancora su "Vendita", mostrando le voci del mondo
+  // sbagliato mentre la pagina reale era un'altra. Un vero cambio pagina
+  // (pathname diverso) azzera la scelta manuale e lascia che sia di nuovo
+  // la pagina corrente a decidere il mondo attivo — cliccare un'icona del
+  // rail resta comunque immediato: non naviga da sola, quindi non fa
+  // scattare questo reset.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la navigazione (pathname cambiato da un Link/dalla ricerca globale), non derivabile durante il render: qui l'intento è proprio "un vero cambio pagina annulla la scelta manuale precedente".
+    setMondoScelto(null);
+  }, [pathname]);
   const mondoAttivoId = mondoScelto ?? mondoDaPercorso;
   const mondoAttivo = mondi.find((m) => m.id === mondoAttivoId) ?? mondi[0];
 
