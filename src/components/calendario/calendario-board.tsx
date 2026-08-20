@@ -10,14 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   creaAppuntamento,
   modificaAppuntamento,
@@ -130,7 +123,7 @@ export function CalendarioBoard({
   const [nuovaNota, setNuovaNota] = useState(false);
   const [modifica, setModifica] = useState<Appuntamento | null>(null);
   // ★ NUOVA — sollevato qui (invece che dentro FormModificaAppuntamento)
-  // perché la Scheda ora si apre in un Dialog centrale separato dal Sheet
+  // perché la Scheda ora si apre in un Dialog centrale separato dal Dialog
   // di modifica, non più annidato dentro — "visuale centrale" richiesta
   // esplicitamente, coerente con lo stesso trattamento in Vista Tecnico.
   const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
@@ -253,8 +246,17 @@ export function CalendarioBoard({
         <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} eventiGoogle={eventiGoogle} />
       )}
 
-      <Sheet open={nuovo} onOpenChange={setNuovo}>
-        <SheetContent>
+      {/* ★ NUOVA — richiesta esplicita: "visuale centrale" anche qui, non più
+      un pannello laterale — uniforma Calendario a Segnalazioni/Ticket/
+      Materiali, dove questo trattamento è già lo standard. */}
+      <Dialog
+        open={nuovo}
+        onOpenChange={(v) => {
+          setNuovo(v);
+          if (!v) setTicketPreselezionato("");
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
           <FormNuovoAppuntamento
             persone={persone}
             ticket={ticket}
@@ -264,17 +266,17 @@ export function CalendarioBoard({
               setTicketPreselezionato("");
             }}
           />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ★ FIX — segnalato dall'utente: aprire la Scheda lasciava questo
-      Sheet "aperto" dietro — il velo scuro a piena pagina della Scheda
-      finiva sopra anche la X di questo Sheet, spenta/non cliccabile
-      finché non si chiudeva prima la Scheda. `!schedaAperta` lo nasconde
-      (non lo chiude: `modifica` resta valorizzato) finché la Scheda è
-      sopra — ricompare da solo se la Scheda viene annullata. */}
-      <Sheet open={!!modifica && !schedaAperta} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      popup "aperto" dietro — il velo scuro a piena pagina della Scheda
+      finiva sopra anche la sua X, spenta/non cliccabile finché non si
+      chiudeva prima la Scheda. `!schedaAperta` lo nasconde (non lo
+      chiude: `modifica` resta valorizzato) finché la Scheda è sopra —
+      ricompare da solo se la Scheda viene annullata. */}
+      <Dialog open={!!modifica && !schedaAperta} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent className="sm:max-w-lg">
           {modifica && (
             <FormModificaAppuntamento
               appuntamento={modifica}
@@ -284,11 +286,11 @@ export function CalendarioBoard({
               onFatto={() => setModifica(null)}
             />
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
-      Sheet di modifica (vedi sopra): stesso identico trattamento di Vista
+      Dialog di modifica (vedi sopra): stesso identico trattamento di Vista
       Tecnico, "visuale centrale" richiesta esplicitamente. */}
       <Dialog open={!!schedaAperta} onOpenChange={(v) => !v && setSchedaAperta(null)}>
         <DialogContent className="sm:max-w-xl">
@@ -320,11 +322,11 @@ export function CalendarioBoard({
         </DialogContent>
       </Dialog>
 
-      <Sheet open={nuovaNota} onOpenChange={setNuovaNota}>
-        <SheetContent>
+      <Dialog open={nuovaNota} onOpenChange={setNuovaNota}>
+        <DialogContent>
           <FormNuovaNota ticket={ticket} onFatto={() => setNuovaNota(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -806,11 +808,11 @@ function FormNuovoAppuntamento({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>Nuovo Appuntamento</SheetTitle>
-        <SheetDescription>Programma un’installazione o una visita.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 px-4 pb-4">
+      <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
+        <DialogTitle>Nuovo Appuntamento</DialogTitle>
+        <DialogDescription>Programma un’installazione o una visita.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div>
           <Label htmlFor="ticket">Ticket collegato (facoltativo)</Label>
           <select
@@ -956,34 +958,29 @@ function FormModificaAppuntamento({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>Modifica Appuntamento</SheetTitle>
-        <SheetDescription>Cambia data, ora, tecnico o dettagli.</SheetDescription>
-      </SheetHeader>
-      {/* ★ NUOVA — richiesta esplicita: la Scheda di Installazione/
-       * Lavorazione era apribile solo da Vista Tecnico (dal tecnico
-       * assegnato, il giorno stesso dell'appuntamento) — ora anche da qui,
-       * per chi pianifica/controlla senza aspettare o senza essere il
-       * tecnico assegnato. Si apre in un popup centrale (Dialog, vedi
-       * CalendarioBoard) invece che dentro questo stesso pannello
-       * laterale — "visuale centrale" richiesta esplicitamente, uguale
-       * ovunque nel gestionale. Solo per appuntamenti ancora
-       * "Programmato": un appuntamento già Completato ha la sua scheda
-       * visibile in sola lettura dal Ticket collegato (SchedaVista). */}
+      <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
+        <DialogTitle>Modifica Appuntamento</DialogTitle>
+        <DialogDescription>Cambia data, ora, tecnico o dettagli.</DialogDescription>
+      </DialogHeader>
+      {/* ★ richiesta esplicita: la Scheda di Installazione/Lavorazione era
+       * apribile solo da Vista Tecnico (dal tecnico assegnato, il giorno
+       * stesso dell'appuntamento) — ora anche da qui, per chi pianifica/
+       * controlla senza aspettare o senza essere il tecnico assegnato. Si
+       * apre in un popup centrale separato (Dialog, vedi CalendarioBoard),
+       * "visuale centrale" richiesta esplicitamente, uguale ovunque nel
+       * gestionale. Solo per appuntamenti ancora "Programmato": uno già
+       * Completato ha la sua scheda visibile in sola lettura dal Ticket
+       * collegato (SchedaVista). */}
       {appuntamento.stato === "Programmato" && (
-        <div className="px-4">
-          <Button type="button" variant="outline" size="sm" onClick={onApriScheda}>
-            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Apri scheda di lavoro
-          </Button>
-        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onApriScheda} className="w-fit">
+          <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Apri scheda di lavoro
+        </Button>
       )}
-      {/* ★ NUOVO — richiesta esplicita: telefono cliccabile per chiamare
-       * subito, indirizzo cliccabile che apre Google Maps direttamente —
-       * prima l'indirizzo era solo un campo di testo modificabile, senza
-       * modo di aprirlo, e il telefono non compariva affatto qui. */}
+      {/* ★ telefono cliccabile per chiamare subito, indirizzo cliccabile
+       * che apre Google Maps direttamente. */}
       {(telefonoCliente || appuntamento.indirizzo) && (
-        <div className="mb-1 flex flex-wrap gap-1.5 px-4">
+        <div className="flex flex-wrap gap-1.5">
           {telefonoCliente && (
             <a
               href={`tel:${telefonoCliente}`}
@@ -1006,7 +1003,7 @@ function FormModificaAppuntamento({
           )}
         </div>
       )}
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 px-4 pb-4">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <SezioneForm icona={Wrench} titolo="Servizio">
           <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
           <div>
@@ -1130,11 +1127,11 @@ function FormNuovaNota({ ticket, onFatto }: { ticket: TicketMinimo[]; onFatto: (
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>Nuovo Promemoria</SheetTitle>
-        <SheetDescription>Un appunto libero con una data, non serve un orario preciso.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>Nuovo Promemoria</DialogTitle>
+        <DialogDescription>Un appunto libero con una data, non serve un orario preciso.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="testo">Promemoria *</Label>
           <Input id="testo" name="testo" required autoFocus placeholder="Es. richiamare il cliente per conferma" className="mt-1" />

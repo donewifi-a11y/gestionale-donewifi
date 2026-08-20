@@ -1760,6 +1760,19 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   Verificato che tutte le nuove classi Tailwind dinamiche comparissero nel CSS di produzione
   compilato.
 
+✅ **Nuovo/Modifica Appuntamento e Nuovo Promemoria: da pannello laterale a popup centrale**
+  (2026-08-20): richiesta esplicita — "non vorrei sul menu laterale ma centrale, uniformando tutto
+  il sistema". I tre Sheet rimasti in Calendario (Nuovo/Modifica Appuntamento, Nuovo Promemoria)
+  erano l'ultimo punto del gestionale ancora sul trattamento a pannello laterale, mentre
+  Segnalazioni/Ticket/Materiali/Scheda di lavoro sono già tutti Dialog centrali.
+  - Tutti e 3 convertiti a `Dialog`/`DialogContent`, stessa intestazione sticky a bordi pieni già
+    usata altrove (`-mx-4 -mt-4 border-b bg-popover`); rimossi i `px-4`/`pb-4` manuali diventati
+    ridondanti (il contenitore del Dialog li fornisce già, a differenza dello Sheet).
+  - Stesso fix già applicato a Ticket/Segnalazioni per i popup impilati: aprire la Scheda di
+    lavoro nasconde (non chiude) il Dialog di modifica appuntamento dietro, che ricompare da solo
+    se la Scheda viene annullata — comportamento preesistente, verificato intatto dopo la
+    conversione da Sheet a Dialog.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
