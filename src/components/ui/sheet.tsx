@@ -84,10 +84,13 @@ function SheetContent({
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">{children}</div>
         {showCloseButton && (
+          // ★ FIX — stesso bug corretto in dialog.tsx: senza z-index
+          // esplicito la X finisce coperta da qualunque intestazione/
+          // contenuto sticky con z-10 dentro lo Sheet.
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 z-20"
               size="icon-sm"
             >
               <XIcon

@@ -84,10 +84,18 @@ function DialogContent({
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">{children}</div>
         {showCloseButton && (
+          // ★ FIX — segnalato dall'utente: "molte volte non c'è la crocetta".
+          // C'era, ma senza z-index esplicito finiva sotto un'intestazione
+          // sticky con z-10 (Segnalazioni/Ticket/ogni Scheda di lavoro,
+          // vedi DialogHeader className="sticky top-0 z-10 ..." nei
+          // rispettivi componenti) — la X restava tecnicamente presente e
+          // cliccabile nel DOM ma visivamente coperta dall'intestazione
+          // opaca, indistinguibile da "assente". z-20 la tiene sempre sopra
+          // qualunque contenuto sticky/z-10 del dialog.
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
+              className="absolute top-2 right-2 z-20"
               size="icon-sm"
             >
               <XIcon

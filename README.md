@@ -1632,6 +1632,17 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - Verificato chiamando tutte le 8 funzioni con dati di esempio: nessuna interpolazione rotta,
     logo/footer/tono presenti in ogni corpoHtml e corpoTesto.
 
+✅ **Fix: la X per chiudere Dialog/Sheet a volte "spariva"** (2026-08-20): bug reale segnalato
+  dall'utente — la X (`src/components/ui/dialog.tsx`/`sheet.tsx`) c'era sempre nel DOM ma senza
+  z-index esplicito, quindi finiva coperta da qualunque intestazione sticky con `z-10` dentro il
+  popup (il pattern `DialogHeader className="sticky top-0 z-10 ..."` usato in Segnalazioni, Ticket
+  e in ogni passo di ogni Scheda di Installazione/Lavorazione — cioè nei popup più usati del
+  gestionale) — visivamente indistinguibile da "assente", anche se tecnicamente ancora cliccabile.
+  Corretto con `z-20` sulla X in entrambi i componenti condivisi: sta sempre sopra qualunque
+  contenuto sticky del popup, in tutto il gestionale, senza dover toccare ogni pagina.
+  Segnalata anche una seconda casistica (popup impilati, es. la Scheda che si apre sopra il
+  dettaglio Ticket/Appuntamento ancora aperto dietro) — proposta con artifact, in attesa di scelta.
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
