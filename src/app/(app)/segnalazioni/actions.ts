@@ -389,38 +389,50 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
 // sempre l'installazione) ma senza modo di derogare per un'eccezione.
 // Ora è un parametro con quello stesso default, scelto da chi trasmette
 // invece che cablato.
-export async function trasmettiPerInstallazione(segnalazioneId: string, reparto: AreaAccesso = "Analisi Rete") {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+/** Riga di segnalazione minima necessaria per trasmettere — sia dal
+ * pulsante manuale (client con sessione) sia dal trigger automatico
+ * (service role, senza sessione) leggono/passano lo stesso shape. */
+type SegnalazioneDaTrasmettere = {
+  id: string;
+  numero: number;
+  nome: string;
+  telefono: string;
+  email: string;
+  via: string;
+  civico: string;
+  comune: string;
+  cap: string;
+  note: string | null;
+  stato: StatoSegnalazione;
+  tipologia_cliente: string | null;
+  profilo_internet: string | null;
+  contratto_pdf_url: string | null;
+  contratto_approvato_cliente_il: string | null;
+};
 
-  const { data: segnalazione, error: erroreLettura } = await supabase
-    .from("segnalazioni")
-    .select("*")
-    .eq("id", segnalazioneId)
-    .single();
-  if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
-
-  // ★ FIX — questo controllo esisteva solo nel componente React
-  // (pulsante disabilitato finché mancano dati/contratto): chi chiamasse
-  // l'azione direttamente (o un pulsante aggiunto altrove in futuro)
-  // poteva trasmettere una pratica incompleta senza che nulla lo
-  // impedisse davvero. Ripetuto qui, unica fonte di verità.
+/** Stessa validazione ("unica fonte di verità") usata sia dal pulsante
+ * manuale sia dal trigger automatico all'approvazione del cliente — vedi
+ * eseguiTrasmissione() più sotto. */
+function mancantiPerTrasmissione(segnalazione: SegnalazioneDaTrasmettere): string[] {
   const mancanti: string[] = [];
   if (!segnalazione.tipologia_cliente || !segnalazione.profilo_internet) mancanti.push("dati del cliente (Richiesta Dati)");
   if (!segnalazione.contratto_pdf_url) mancanti.push("contratto firmato");
-  // ★ FIX — mancava qui il controllo sull'approvazione del cliente, presente
-  // solo lato UI (pulsante disabilitato): questa funzione, chiamata
-  // direttamente, avrebbe trasmesso una pratica il cui contratto non è mai
-  // stato approvato dal cliente. Stesso identico controllo del componente,
-  // qui davvero come unica fonte di verità.
   else if (!segnalazione.contratto_approvato_cliente_il) mancanti.push("approvazione del contratto da parte del cliente");
-  if (mancanti.length > 0) return { errore: `Mancano ancora: ${mancanti.join(", ")}.` };
+  return mancanti;
+}
 
+/** ★ NUOVA — crea il Ticket di installazione e passa la Segnalazione a
+ * "Trasmessa". Un client Supabase già passato (service role per il
+ * trigger automatico, quello con sessione per il pulsante manuale) e un
+ * `personaId` nullable (null = trasmissione automatica, nessun operatore
+ * umano coinvolto — storico/creato_da restano null, stesso principio già
+ * in uso per i cron: un'azione di sistema, non di una persona). */
+async function eseguiTrasmissione(
+  supabase: ReturnType<typeof createServiceClient> | Awaited<ReturnType<typeof createClient>>,
+  segnalazione: SegnalazioneDaTrasmettere,
+  reparto: AreaAccesso,
+  personaId: string | null
+): Promise<{ errore: string; id?: undefined; numero?: undefined } | { errore: null; id: string; numero: number }> {
   const { data: ticket, error: erroreTicket } = await supabase
     .from("tickets")
     .insert({
@@ -445,14 +457,14 @@ export async function trasmettiPerInstallazione(segnalazioneId: string, reparto:
   const { error: erroreStato } = await supabase
     .from("segnalazioni")
     .update({ stato: "Trasmessa", aggiornato_il: new Date().toISOString() })
-    .eq("id", segnalazioneId);
+    .eq("id", segnalazione.id);
   if (erroreStato) return { errore: erroreStato.message };
 
   await supabase.from("storico").insert([
     {
       origine: "segnalazione",
-      riferimento_id: segnalazioneId,
-      operazione: "Trasmessa per installazione",
+      riferimento_id: segnalazione.id,
+      operazione: personaId ? "Trasmessa per installazione" : "Trasmessa per installazione (automatico, all'approvazione del cliente)",
       valore_prima: segnalazione.stato,
       valore_dopo: "Trasmessa",
       operatore_id: personaId,
@@ -466,7 +478,67 @@ export async function trasmettiPerInstallazione(segnalazioneId: string, reparto:
     },
   ]);
 
+  if (!personaId) {
+    await inviaMessaggioChatSistema(reparto, `📄 Ticket #${ticket.numero} creato automaticamente — contratto approvato dal cliente (Segnalazione #${segnalazione.numero}).`);
+  }
+
   revalidatePath("/segnalazioni");
   revalidatePath("/tickets");
   return { errore: null, id: ticket.id, numero: ticket.numero };
+}
+
+export async function trasmettiPerInstallazione(
+  segnalazioneId: string,
+  reparto: AreaAccesso = "Analisi Rete"
+): Promise<{ errore: string; id?: undefined; numero?: undefined } | { errore: null; id: string; numero: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const { data: segnalazione, error: erroreLettura } = await supabase
+    .from("segnalazioni")
+    .select("*")
+    .eq("id", segnalazioneId)
+    .single();
+  if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
+
+  // ★ FIX — questo controllo esisteva solo nel componente React
+  // (pulsante disabilitato finché mancano dati/contratto): chi chiamasse
+  // l'azione direttamente (o un pulsante aggiunto altrove in futuro)
+  // poteva trasmettere una pratica incompleta senza che nulla lo
+  // impedisse davvero. Ripetuto qui, unica fonte di verità.
+  const mancanti = mancantiPerTrasmissione(segnalazione);
+  if (mancanti.length > 0) return { errore: `Mancano ancora: ${mancanti.join(", ")}.` };
+
+  return eseguiTrasmissione(supabase, segnalazione, reparto, personaId);
+}
+
+/** ★ NUOVA — richiesta esplicita: "una volta approvato dal cliente, la
+ * segnalazione deve andare nella scheda trasmessa e non rimanere in
+ * gestione cliente" — prima l'approvazione del contratto (via link email,
+ * vedi /api/approva/[token]) si fermava lì, e la trasmissione vera e
+ * propria (creazione del Ticket, stato "Trasmessa") restava un secondo
+ * passo manuale che un operatore doveva ricordarsi di fare. Chiamata
+ * subito dopo aver registrato l'approvazione, con service role (nessuna
+ * sessione: è il cliente che ha cliccato il link, non uno staff). Se
+ * mancano ancora dati (caso raro: dati/contratto incompleti nonostante
+ * l'approvazione) non blocca né segnala errore al cliente — resta in
+ * "Gestione Cliente" e il pulsante "Trasmetti per l'installazione" resta
+ * disponibile in Segnalazioni come rete di sicurezza manuale. */
+export async function trasmettiPerInstallazioneAutomatico(segnalazioneId: string, reparto: AreaAccesso = "Analisi Rete") {
+  try {
+    const service = createServiceClient();
+    const { data: segnalazione } = await service.from("segnalazioni").select("*").eq("id", segnalazioneId).maybeSingle();
+    if (!segnalazione) return;
+    if (segnalazione.stato === "Trasmessa") return; // già trasmessa (es. manualmente, prima di questo trigger)
+    if (mancantiPerTrasmissione(segnalazione).length > 0) return;
+
+    await eseguiTrasmissione(service, segnalazione, reparto, null);
+  } catch (errore) {
+    console.error("trasmettiPerInstallazioneAutomatico:", errore);
+  }
 }

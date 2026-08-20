@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { trasmettiPerInstallazioneAutomatico } from "@/app/(app)/segnalazioni/actions";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -64,6 +65,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       operazione: "Contratto approvato dal cliente",
       valore_dopo: `Approvato via link email il ${adesso}`,
     });
+
+    // ★ NUOVA — richiesta esplicita: l'approvazione da sola non basta più a
+    // lasciare la pratica "in Gestione Cliente" in attesa che un operatore
+    // se ne accorga e clicchi Trasmetti a mano — vedi
+    // trasmettiPerInstallazioneAutomatico() per i dettagli (non blocca né
+    // fa fallire questa risposta se qualcosa manca ancora).
+    await trasmettiPerInstallazioneAutomatico(riga.segnalazione_id);
   } else if (riga.origine === "firma_scheda" && riga.appuntamento_id) {
     // ★ NUOVA — fallback della firma cliente sulla Scheda di Installazione/
     // Lavorazione (vedi migrazione 0050): a differenza degli altri tre casi

@@ -1654,6 +1654,29 @@ sorgente: la sincronizzazione li deduplica prima di scrivere (tiene l'ultimo).
   - Vista Tecnico verificata: lì la Scheda si apre direttamente da una card della lista, non da un
     popup già aperto — nessuna sovrapposizione possibile, nessuna modifica necessaria.
 
+✅ **Trasmissione automatica all'approvazione del contratto + elenco installazioni in Scheda
+  Cliente** (2026-08-20): due richieste esplicite.
+  - **Trasmissione automatica**: prima l'approvazione del contratto via link email si fermava lì
+    (`contratto_approvato_cliente_il` valorizzato) — la Segnalazione restava in "Gestione Cliente"
+    finché un operatore non si accorgeva dell'approvazione e cliccava a mano "Trasmetti per
+    l'installazione". Ora `/api/approva/[token]` chiama subito dopo
+    `trasmettiPerInstallazioneAutomatico()` (nuova, `segnalazioni/actions.ts`): stessa identica
+    validazione/creazione Ticket della funzione manuale (fattorizzata in un `eseguiTrasmissione()`
+    condiviso), ma con service role e `operatore_id` null (azione di sistema, non di una persona —
+    stesso principio dei cron). Se manca ancora qualcosa (raro) non blocca né segnala errore al
+    cliente: resta in "Gestione Cliente" e il pulsante manuale rimane come rete di sicurezza.
+    Avviso in Chat ad Analisi Rete quando scatta automaticamente.
+  - **Elenco installazioni in Scheda Cliente**: nuova sezione "Installazioni effettuate" in fondo
+    a `clienti-esterni/[id]`, una riga per Scheda di Installazione completata (`schede_lavoro` con
+    `tipo='Nuova installazione'`, stesso confronto per telefono di Ticket/Preventivi collegati) —
+    pulsante "Contratto" (URL firmata generata al click, mai incorporata nella pagina) e link
+    "Scheda di lavoro" che apre il Ticket collegato (dove la Scheda è già mostrata per intero da
+    `SchedaVista`, non duplicata qui).
+  Verificato contro dati reali: ciclo completo crea-segnalazione-pronta/trasmetti-automatico/
+  verifica-stato-Trasmessa/pulizia riuscito; interrogazione delle Schede "Nuova installazione"
+  reali confermata (una scheda reale trovata senza ticket_id collegato — esclusa correttamente
+  dall'elenco, comportamento atteso).
+
 Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratti si continuano a
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.

@@ -339,6 +339,63 @@ export async function getTicketCollegati(telefono: string | null) {
   return data ?? [];
 }
 
+export interface InstallazioneCliente {
+  schedaId: string;
+  ticketId: string;
+  ticketNumero: number;
+  contrattoUrl: string | null;
+  completataIl: string;
+}
+
+/** ★ NUOVA — richiesta esplicita: "una volta che i tecnici installano, la
+ * scheda cliente deve avere sotto un elenco delle installazioni fatte con
+ * sia il contratto che la scheda di lavoro" — stesso confronto per
+ * telefono già in uso per getTicketCollegati()/getPreventiviCollegati(),
+ * poi filtrato alle sole Schede di tipo "Nuova installazione" (le uniche
+ * che chiudono davvero un'installazione — una Lavorazione tecnica non lo
+ * è). Il contratto è quello già allegato al Ticket
+ * (`tickets.contratto_pdf_url`, ereditato dalla Segnalazione all'origine);
+ * la Scheda vera e propria si vede aprendo il Ticket collegato (già
+ * mostrata lì da SchedaVista), non duplicata qui. */
+export async function getInstallazioniCliente(telefono: string | null): Promise<InstallazioneCliente[]> {
+  if (!telefono) return [];
+  const ultimeCifre = telefono.replace(/\D/g, "").slice(-9);
+  if (ultimeCifre.length < 6) return [];
+
+  const supabase = await createClient();
+  const { data: ticketsCliente } = await supabase
+    .from("tickets")
+    .select("id, numero, contratto_pdf_url")
+    .ilike("telefono", `%${ultimeCifre}%`);
+  const idTicket = (ticketsCliente ?? []).map((t) => t.id);
+  if (idTicket.length === 0) return [];
+
+  const { data: schede, error } = await supabase
+    .from("schede_lavoro")
+    .select("id, ticket_id, creato_il")
+    .eq("tipo", "Nuova installazione")
+    .in("ticket_id", idTicket)
+    .order("creato_il", { ascending: false });
+  if (error) {
+    console.error("getInstallazioniCliente:", error.message);
+    return [];
+  }
+
+  const ticketPerId = new Map((ticketsCliente ?? []).map((t) => [t.id, t]));
+  return (schede ?? [])
+    .filter((s): s is typeof s & { ticket_id: string } => !!s.ticket_id)
+    .map((s) => {
+      const ticket = ticketPerId.get(s.ticket_id);
+      return {
+        schedaId: s.id,
+        ticketId: s.ticket_id,
+        ticketNumero: ticket?.numero ?? 0,
+        contrattoUrl: ticket?.contratto_pdf_url ?? null,
+        completataIl: s.creato_il,
+      };
+    });
+}
+
 /** ★ NUOVA — "che gli stessi (i Preventivi) siano presenti nella scheda
  * cliente", richiesta esplicita: stesso principio di getTicketCollegati()
  * sopra, ma con un match più preciso quando disponibile — un Preventivo
