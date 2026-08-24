@@ -1983,3 +1983,10 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   finché la pratica resta in quello stato — si ferma da sola quando avanza oltre "Gestione Cliente"
   (il segnale sparisce insieme allo stato che lo genera, niente da spuntare a mano). Verificato:
   build/lint puliti.
+✅ Segnale "Dati ricevuti" più vistoso e blu (2026-08, richiesta esplicita): il verde si confondeva
+  con gli altri toni di successo già in uso ovunque nel gestionale — passato al blu (`--info`,
+  già registrato) per essere una tinta a sé, mai usata per altri segnali della bacheca Segnalazioni.
+  Aggiunto anche un puntino con animazione "ping" (l'anello che si espande e sparisce, poi
+  ricomincia) prima del testo — stesso pattern delle notifiche di WhatsApp/iOS, il segnale più
+  riconoscibile in assoluto per "cosa è appena arrivato". Verificato: build/lint puliti, le 4 classi
+  dinamiche (`bg-info`, `bg-info/15`, `ring-info/40`, `text-info`) confermate nel CSS compilato.

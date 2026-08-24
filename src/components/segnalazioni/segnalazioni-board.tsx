@@ -315,14 +315,26 @@ export function SegnalazioniBoard({
                 </div>
                 {segnale ? (
                   <span
-                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
-                      segnale.critico
-                        ? "bg-critical/10 text-critical"
-                        : segnale.testo.startsWith("✓")
-                          ? "bg-success/10 text-success"
-                          : "bg-warning/10 text-warning"
-                    } ${segnale.pulsante ? "animate-pulse" : ""}`}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold ${
+                      segnale.pulsante
+                        ? "bg-info/15 text-info ring-1 ring-info/40 animate-pulse"
+                        : segnale.critico
+                          ? "bg-critical/10 text-critical"
+                          : segnale.testo.startsWith("✓")
+                            ? "bg-success/10 text-success"
+                            : "bg-warning/10 text-warning"
+                    }`}
                   >
+                    {/* ★ NUOVA — richiesta esplicita "più vistoso, blu": oltre
+                    al badge che pulsa nel suo insieme, un puntino con
+                    animazione "ping" (l'anello che si espande e sparisce,
+                    poi ricomincia) è il segnale più riconoscibile in
+                    assoluto per "notifica nuova" — lo stesso pattern delle
+                    notifiche di WhatsApp/iOS. */}
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-info" />
+                    </span>
                     {segnale.testo}
                   </span>
                 ) : (
