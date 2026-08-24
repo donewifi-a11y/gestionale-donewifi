@@ -1958,3 +1958,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   icona/colore "ok/no/attesa" scritta due volte — estratta in `src/lib/stato-traccia.ts`, condivisa
   da entrambi (il layout resta specifico di ciascuno, sono contesti visivamente diversi). Verificato:
   build/lint puliti.
+✅ Navigazione Clienti semplificata (2026-08, proposta con artifact, Opzione B scelta): "Clienti" e
+  "Anagrafica Clienti" erano due voci quasi omonime nel menu, senza nessun indizio su quale aprire
+  per fare cosa (verificato: rappresentano davvero due dati diversi — clienti derivati dai Ticket
+  vs anagrafica Aruba completa, 3900+ clienti — non un doppione da fondere alla cieca). Stesso
+  schema già usato per Persone+Utenti e Materiali: una sola voce "Clienti" nel menu, "Anagrafica"
+  diventa una terza tab dentro `/clienti` invece di una pagina a sé — `clienti/page.tsx` ora recupera
+  anche i dati dell'anagrafica (solo se chi guarda ha il permesso Commerciale/Fatturazione/admin,
+  stesso controllo che prima nascondeva la voce nel menu — senza permesso quei dati pesanti non
+  vengono nemmeno recuperati dal server). `/clienti-esterni` resta comunque raggiungibile per i link
+  diretti già in giro (stesso principio già usato per `/utenti` dopo la fusione Persone+Utenti).
+  Verificato: query della pagina fusa contro Supabase reale (199 tariffe, 3914 clienti esterni,
+  14 Ticket); build/lint puliti.

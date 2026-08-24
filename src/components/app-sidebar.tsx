@@ -20,7 +20,6 @@ import {
   LayoutGrid,
   BarChart3,
   UsersRound,
-  Database,
   MessageCircle,
   ListChecks,
   ShieldCheck,
@@ -132,10 +131,13 @@ export function AppSidebar({
         id: "clienti",
         etichetta: "Clienti",
         icona: Users2,
-        voci: [
-          { href: "/clienti", etichetta: "Clienti", icona: Users2 },
-          ...(vedeRichieste ? [{ href: "/clienti-esterni", etichetta: "Anagrafica Clienti", icona: Database }] : []),
-        ],
+        // ★ FIX (2026-08) — "Clienti" e "Anagrafica Clienti" erano due voci
+        // quasi omonime senza indizio su quale aprire (proposta con
+        // artifact, Opzione B scelta): l'Anagrafica ora è una tab dentro
+        // "Clienti" (vedi clienti-board.tsx), non più una voce a sé — resta
+        // comunque raggiungibile da /clienti-esterni per i link diretti già
+        // in giro, semplicemente non più nel menu.
+        voci: [{ href: "/clienti", etichetta: "Clienti", icona: Users2 }],
       },
       {
         id: "analisi",

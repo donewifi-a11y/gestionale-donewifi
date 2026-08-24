@@ -13,7 +13,25 @@ import { useToast } from "@/components/ui/toast";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { salvaDatiContrattualiCliente, type RigaInstallazione } from "@/app/(app)/clienti/actions";
 import { InstallazioniTabella } from "@/components/clienti/installazioni-tabella";
+import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
+import type { ClienteInsoluto, ClienteBuyGo } from "@/app/(app)/clienti-esterni/actions";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
+
+// ★ NUOVA (2026-08) — "Clienti" e "Anagrafica Clienti" erano due voci quasi
+// omonime nel menu, senza indizio su quale aprire — proposta con artifact,
+// Opzione B: una voce sola, questa tab in più invece di una pagina a sé
+// (stesso schema già usato per Persone+Utenti e Materiali). `null` quando
+// chi guarda non ha il permesso (Commerciale/Fatturazione/admin) — vedi
+// clienti/page.tsx: in quel caso i dati pesanti non vengono nemmeno
+// recuperati dal server, non solo nascosti qui.
+export interface DatiAnagrafica {
+  clienti: ClienteEsterno[];
+  isAdmin: boolean;
+  ultimaSincronizzazione: string | null;
+  clientiAttivi: number;
+  insoluti: { totale: number; numeroFatture: number; clienti: ClienteInsoluto[] } | null;
+  clientiBuyGo: ClienteBuyGo[];
+}
 
 function normalizzaTelefono(t: string | null) {
   return (t || "").replace(/\D/g, "").slice(-9);
@@ -48,6 +66,7 @@ export function ClientiBoard({
   clientiEsterni,
   installazioni,
   puoModificare,
+  anagrafica,
 }: {
   tickets: Ticket[];
   clienti: ClienteAttivo[];
@@ -55,11 +74,12 @@ export function ClientiBoard({
   clientiEsterni: ClienteEsternoRidotto[];
   installazioni: RigaInstallazione[];
   puoModificare: boolean;
+  anagrafica: DatiAnagrafica | null;
 }) {
   // ★ NUOVA — richiesta esplicita: elenco dei clienti installati coi dati
   // dalla Scheda di lavoro, come nuova tab qui invece di una pagina a sé
   // (proposta con artifact, scelta A — tabella, dentro "Clienti").
-  const [vista, setVista] = useState<"clienti" | "installazioni">("clienti");
+  const [vista, setVista] = useState<"clienti" | "installazioni" | "anagrafica">("clienti");
   const [ricerca, setRicerca] = useState("");
   const [aperto, setAperto] = useState<string | null>(null);
   const [modifica, setModifica] = useState<Cliente | null>(null);
@@ -142,10 +162,27 @@ export function ClientiBoard({
         >
           Installazioni ({installazioni.length})
         </button>
+        {anagrafica && (
+          <button
+            onClick={() => setVista("anagrafica")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "anagrafica" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Anagrafica
+          </button>
+        )}
       </div>
 
       {vista === "installazioni" ? (
         <InstallazioniTabella installazioni={installazioni} />
+      ) : vista === "anagrafica" && anagrafica ? (
+        <ClientiEsterniBoard
+          clienti={anagrafica.clienti}
+          isAdmin={anagrafica.isAdmin}
+          ultimaSincronizzazione={anagrafica.ultimaSincronizzazione}
+          clientiAttivi={anagrafica.clientiAttivi}
+          insoluti={anagrafica.insoluti}
+          clientiBuyGo={anagrafica.clientiBuyGo}
+        />
       ) : (
         <>
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
