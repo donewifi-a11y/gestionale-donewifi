@@ -79,8 +79,23 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
 
   let risposta: Response;
   try {
-    risposta = await fetch(`${url}?secret=${encodeURIComponent(segreto)}`, { cache: "no-store" });
-  } catch {
+    // ★ FIX (2026-08) — segnalato dall'utente: "Impossibile raggiungere il
+    // ponte Aruba" da Vercel, mentre lo stesso URL rispondeva subito
+    // (200 OK, <1s) chiamato da fuori — l'hosting condiviso Aruba/cPanel
+    // spesso ha una protezione anti-bot (mod_security o simile) che blocca
+    // richieste senza uno User-Agent da browser reale, tipico di
+    // `fetch()` lato server (Node/undici manda un UA generico o nessuno).
+    // Aggiunto uno User-Agent normale per non farla scambiare per uno
+    // scraper. Il catch prima scartava l'errore vero: ora resta loggato
+    // (visibile nei log di Vercel) invece di sparire silenziosamente —
+    // finora impossibile capire SE fosse un timeout, un blocco o altro.
+    risposta = await fetch(`${url}?secret=${encodeURIComponent(segreto)}`, {
+      cache: "no-store",
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; GestionaleDoneWifi/1.0; +https://gestione.donewifi.it)" },
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    console.error("sincronizzaAnagraficaAruba — fetch ponte fallita:", err);
     return { errore: "Impossibile raggiungere il ponte Aruba.", sincronizzati: 0 };
   }
   if (!risposta.ok) return { errore: `Ponte Aruba: HTTP ${risposta.status}`, sincronizzati: 0 };
@@ -225,11 +240,19 @@ export async function sincronizzaFattureAruba(): Promise<{ errore: string | null
   do {
     let risposta: Response;
     try {
+      // ★ FIX — stesso principio di sincronizzaAnagraficaAruba() sopra:
+      // User-Agent da browser (anti-bot dell'hosting Aruba/cPanel) e
+      // l'errore vero loggato invece di sparire nel catch.
       risposta = await fetch(
         `${url}?secret=${encodeURIComponent(segreto)}&tabella=fatture&offset=${offset}&limite=${LIMITE_PAGINA}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; GestionaleDoneWifi/1.0; +https://gestione.donewifi.it)" },
+          signal: AbortSignal.timeout(30000),
+        }
       );
-    } catch {
+    } catch (err) {
+      console.error(`sincronizzaFattureAruba — fetch ponte fallita (offset ${offset}):`, err);
       return {
         errore: `Impossibile raggiungere il ponte Aruba (offset ${offset}). ${sincronizzati > 0 ? `Fatture parzialmente aggiornate (${sincronizzati} scritte) — riprova per completare.` : ""}`,
         sincronizzati,

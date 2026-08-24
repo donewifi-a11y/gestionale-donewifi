@@ -1885,3 +1885,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   `clienti_esterni.profilo_internet` e `fatture_esterne` già sincronizzati, raggruppando per CF/PIVA
   (una persona può avere più righe anagrafiche). Verificato: query standalone contro Supabase reale,
   153 clienti unici, 1071 fatture collegate correttamente; build/lint puliti.
+✅ Fix sincronizzazione Aruba (2026-08): due problemi trovati insieme.
+  1. `ARUBA_BRIDGE_SECRET` era sparita dalle variabili d'ambiente di Vercel (restava solo
+     `ARUBA_BRIDGE_URL`) — ripristinata (Production e Preview) col valore letto direttamente dal
+     ponte PHP (`ponte-anagrafica.php`), poi redeploy per renderla effettiva.
+  2. Con la variabile ripristinata, la sincronizzazione falliva comunque con "Impossibile
+     raggiungere il ponte Aruba" — ma lo stesso URL rispondeva 200 OK in <1s chiamato da fuori
+     Vercel. Causa probabile: l'hosting condiviso Aruba/cPanel ha una protezione anti-bot che
+     blocca richieste senza uno User-Agent da browser (`fetch()` lato server ne manda uno generico/
+     assente). Aggiunto uno User-Agent esplicito e un timeout (20s anagrafica, 30s per pagina
+     fatture) a entrambe le chiamate in `sincronizzaAnagraficaAruba()`/`sincronizzaFattureAruba()`
+     (`clienti-esterni/actions.ts`); l'errore vero ora resta anche loggato (`console.error`) invece
+     di sparire nel `catch` — prima impossibile capire se fosse un timeout, un blocco o altro.
