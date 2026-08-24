@@ -379,6 +379,66 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   return { errore: null };
 }
 
+// ★ NUOVA (2026-08) — richiesta esplicita: "parcheggio" per un cliente già
+// contattato ma ancora indeciso, senza forzarlo avanti a "Gestione Cliente"
+// (che avvierebbe subito la richiesta dati) né lasciarlo invisibile in
+// mezzo ai lead appena arrivati — Opzione C della proposta con artifact,
+// un'etichetta trasversale (motivo + data di richiamo) invece di un nuovo
+// valore di `stato`, vedi segnalazioni-board.tsx per il raggruppamento
+// visivo "In attesa di decisione" dentro la colonna "In Contatto".
+export async function impostaDubbioso(id: string, motivo: string, richiamareIl: string | null) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const { error } = await supabase
+    .from("segnalazioni")
+    .update({ dubbioso_dal: new Date().toISOString(), motivo_dubbio: motivo || null, richiamare_il: richiamareIl || null })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: id,
+    operazione: "Segnata come dubbiosa",
+    valore_dopo: motivo || "(nessun motivo indicato)",
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/segnalazioni");
+  return { errore: null };
+}
+
+export async function rimuoviDubbioso(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const { error } = await supabase
+    .from("segnalazioni")
+    .update({ dubbioso_dal: null, motivo_dubbio: null, richiamare_il: null })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: id,
+    operazione: "Non più dubbiosa",
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/segnalazioni");
+  return { errore: null };
+}
+
 // ★ NUOVA — a differenza del gestionale precedente (dove "Trasmetti per
 // l'installazione" creava il Ticket in un foglio separato senza un
 // collegamento affidabile alla Segnalazione d'origine, vedi bug risolto

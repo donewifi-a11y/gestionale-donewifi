@@ -122,6 +122,12 @@ export interface Segnalazione {
   contratto_inviato_approvazione_il: string | null;
   contratto_approvato_cliente_il: string | null;
   ultimo_promemoria_approvazione_il: string | null;
+  /** ★ NUOVA (2026-08) — "parcheggio" per un cliente già contattato ma
+   * ancora indeciso (Opzione C, proposta con artifact): un'etichetta
+   * trasversale, non un nuovo valore di `stato` — vedi segnalazioni-board.tsx. */
+  dubbioso_dal: string | null;
+  motivo_dubbio: string | null;
+  richiamare_il: string | null;
 }
 
 export type StatoPreventivo = "Bozza" | "Inviato" | "Approvato" | "Rifiutato";

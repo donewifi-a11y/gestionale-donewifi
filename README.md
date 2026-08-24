@@ -1897,3 +1897,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
      fatture) a entrambe le chiamate in `sincronizzaAnagraficaAruba()`/`sincronizzaFattureAruba()`
      (`clienti-esterni/actions.ts`); l'errore vero ora resta anche loggato (`console.error`) invece
      di sparire nel `catch` — prima impossibile capire se fosse un timeout, un blocco o altro.
+✅ Segnalazioni — "parcheggio" per clienti dubbiosi (2026-08, migrazione `0057`, proposta con
+  artifact, Opzione C scelta): il percorso pre-contratto era rigidamente lineare (Da Contattare →
+  In Contatto → Gestione Cliente → Trasmessa) e passare a "Gestione Cliente" avviava subito la
+  richiesta dati — nessun modo di dire "l'ho sentito, sta pensandoci" senza forzarlo avanti o
+  perderlo tra i lead appena arrivati. Aggiunta un'etichetta trasversale (non un nuovo stato):
+  - Dal pannello di dettaglio, solo in "In Contatto" (l'unico punto dove ha senso), "Segna come
+    dubbioso" apre un mini-form (motivo a pillole + data di richiamo facoltativa) —
+    `impostaDubbioso()`/`rimuoviDubbioso()` in `segnalazioni/actions.ts`.
+  - La colonna "In Contatto" della bacheca si divide in due gruppi — "Da richiamare" e "🤔 In
+    attesa di decisione" — stesso principio già collaudato per la bacheca Ticket
+    (`raggruppaPerCategoria`), qui applicato ai dubbiosi invece che alla categoria.
+  - La card mostra motivo e data di richiamo direttamente in bacheca; se la data è oggi o passata
+    il segnale diventa critico ("Richiamalo oggi").
+  Verificato: build/lint puliti. Migrazione `0057` (colonne `dubbioso_dal`/`motivo_dubbio`/
+  `richiamare_il` su `segnalazioni`) da applicare manualmente prima che il flusso sia operativo.

@@ -26,6 +26,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   SkipForward,
+  HelpCircle,
+  CalendarClock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,8 @@ import {
   getUltimoCaricamentoContratto,
   eliminaSegnalazione,
   inviaEmailApprovazioneContratto,
+  impostaDubbioso,
+  rimuoviDubbioso,
 } from "@/app/(app)/segnalazioni/actions";
 import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
@@ -237,6 +241,87 @@ export function SegnalazioniBoard({
             items.sort((a, b) => Number(!!b.dati_ricevuti_at) - Number(!!a.dati_ricevuti_at));
           }
           const mostraGiorni = col.stato === "Da Contattare" || col.stato === "In Contatto";
+
+          // ★ NUOVA (2026-08) — richiesta esplicita: "In Contatto" mescolava
+          // lead appena chiamati e clienti indecisi da settimane, nessuna
+          // distinzione. Opzione C della proposta con artifact: un
+          // raggruppamento visivo (non un nuovo stato) — i "dubbiosi"
+          // (impostaDubbioso/rimuoviDubbioso, dal pannello di dettaglio)
+          // scendono in una sezione a parte dentro la stessa colonna.
+          const soloContatto = col.stato === "In Contatto";
+          const daRichiamare = soloContatto ? items.filter((s) => !s.dubbioso_dal) : items;
+          const dubbiosi = soloContatto ? items.filter((s) => s.dubbioso_dal) : [];
+
+          function rigaSegnalazione(s: Segnalazione) {
+            const giorni = giorniAperta(s.data);
+            const inAttesaDati = col.stato === "Gestione Cliente" && !s.dati_ricevuti_at && !!s.documenti_richiesti_at;
+            const giorniAttesa = inAttesaDati ? giorniAperta(s.documenti_richiesti_at as string) : 0;
+            // ★ NUOVA — richiesta esplicita "a prova di scemo": prima la
+            // card impilava fino a 4-5 badge piccoli da leggere e
+            // interpretare tutti insieme, senza dire quale richiedesse
+            // davvero attenzione. Ora un solo segnale, il più urgente
+            // tra quelli possibili — e dice anche cosa fare, non solo
+            // il problema. Nessun problema in corso → card pulita,
+            // senza badge (il "tutto normale" non ha bisogno di un
+            // colore acceso addosso).
+            let segnale: { testo: string; critico: boolean } | null = null;
+            if (s.dubbioso_dal) {
+              const oggiOSuperato = s.richiamare_il ? s.richiamare_il <= new Date().toISOString().slice(0, 10) : false;
+              segnale = s.richiamare_il
+                ? {
+                    testo: oggiOSuperato
+                      ? `🤔 Richiamalo oggi${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`
+                      : `🤔 Richiama il ${new Date(s.richiamare_il).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`,
+                    critico: oggiOSuperato,
+                  }
+                : { testo: `🤔 Dubbioso${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`, critico: false };
+            } else if (inAttesaDati && giorniAttesa >= 3) {
+              segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, critico: giorniAttesa >= 7 };
+            } else if (mostraGiorni && giorni >= 2) {
+              segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, critico: giorni >= 5 };
+            } else if (col.stato === "Gestione Cliente" && s.dati_ricevuti_at) {
+              segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false };
+            }
+            return (
+              <div
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setAperta(s)}
+                onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
+                className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="font-semibold">{s.nome}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
+                </div>
+                <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
+                  {s.comune}
+                  {s.tipologia_cliente ? ` · ${s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}` : ` · ${s.telefono}`}
+                </div>
+                {segnale ? (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
+                      segnale.critico
+                        ? "bg-critical/10 text-critical"
+                        : segnale.testo.startsWith("✓")
+                          ? "bg-success/10 text-success"
+                          : "bg-warning/10 text-warning"
+                    }`}
+                  >
+                    {segnale.testo}
+                  </span>
+                ) : (
+                  s.copertura !== "si" && (
+                    <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
+                      {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
+                    </Badge>
+                  )
+                )}
+              </div>
+            );
+          }
+
           return (
             <div key={col.stato} className="rounded-2xl bg-muted/50 p-3">
               <div className="mb-3 flex items-center justify-between px-1">
@@ -251,65 +336,23 @@ export function SegnalazioniBoard({
                     Vuoto.
                   </div>
                 )}
-                {items.map((s) => {
-                  const giorni = giorniAperta(s.data);
-                  const inAttesaDati = col.stato === "Gestione Cliente" && !s.dati_ricevuti_at && !!s.documenti_richiesti_at;
-                  const giorniAttesa = inAttesaDati ? giorniAperta(s.documenti_richiesti_at as string) : 0;
-                  // ★ NUOVA — richiesta esplicita "a prova di scemo": prima la
-                  // card impilava fino a 4-5 badge piccoli da leggere e
-                  // interpretare tutti insieme, senza dire quale richiedesse
-                  // davvero attenzione. Ora un solo segnale, il più urgente
-                  // tra quelli possibili — e dice anche cosa fare, non solo
-                  // il problema. Nessun problema in corso → card pulita,
-                  // senza badge (il "tutto normale" non ha bisogno di un
-                  // colore acceso addosso).
-                  let segnale: { testo: string; critico: boolean } | null = null;
-                  if (inAttesaDati && giorniAttesa >= 3) {
-                    segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, critico: giorniAttesa >= 7 };
-                  } else if (mostraGiorni && giorni >= 2) {
-                    segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, critico: giorni >= 5 };
-                  } else if (col.stato === "Gestione Cliente" && s.dati_ricevuti_at) {
-                    segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false };
-                  }
-                  return (
-                    <div
-                      key={s.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setAperta(s)}
-                      onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
-                      className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="font-semibold">{s.nome}</span>
-                        <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
-                      </div>
-                      <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
-                        {s.comune}
-                        {s.tipologia_cliente ? ` · ${s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}` : ` · ${s.telefono}`}
-                      </div>
-                      {segnale ? (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
-                            segnale.critico
-                              ? "bg-critical/10 text-critical"
-                              : segnale.testo.startsWith("✓")
-                                ? "bg-success/10 text-success"
-                                : "bg-warning/10 text-warning"
-                          }`}
-                        >
-                          {segnale.testo}
-                        </span>
-                      ) : (
-                        s.copertura !== "si" && (
-                          <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
-                            {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
-                          </Badge>
-                        )
-                      )}
+                {soloContatto && dubbiosi.length > 0 && daRichiamare.length > 0 && (
+                  <div className="mb-0.5 flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <span>Da richiamare</span>
+                    <span>{daRichiamare.length}</span>
+                  </div>
+                )}
+                {daRichiamare.map((s) => rigaSegnalazione(s))}
+
+                {soloContatto && dubbiosi.length > 0 && (
+                  <>
+                    <div className="mt-1.5 mb-0.5 flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wide text-warning">
+                      <span>🤔 In attesa di decisione</span>
+                      <span>{dubbiosi.length}</span>
                     </div>
-                  );
-                })}
+                    {dubbiosi.map((s) => rigaSegnalazione(s))}
+                  </>
+                )}
               </div>
             </div>
           );
@@ -400,6 +443,15 @@ function DettaglioSegnalazione({
   const [inCorsoElimina, startElimina] = useTransition();
   const [inCorsoApprovazione, startApprovazione] = useTransition();
   const [inCorsoEmail, startEmail] = useTransition();
+  const [inCorsoDubbioso, startDubbioso] = useTransition();
+  // ★ NUOVA (2026-08) — "parcheggio" per un cliente indeciso, Opzione C
+  // della proposta con artifact: un mini-form (motivo + data di richiamo
+  // facoltativa) invece di un semplice interruttore, per capire poi DA
+  // BACHECA perché è fermo e quando richiamarlo, senza dover riaprire il
+  // pannello ogni volta.
+  const [formDubbiosoAperto, setFormDubbiosoAperto] = useState(false);
+  const [motivoDubbio, setMotivoDubbio] = useState(segnalazione.motivo_dubbio ?? "");
+  const [richiamareIl, setRichiamareIl] = useState(segnalazione.richiamare_il ?? "");
 
   const [copiato, setCopiato] = useState(false);
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
@@ -462,6 +514,33 @@ function DettaglioSegnalazione({
       }
       onCambiata({ ...segnalazione, stato: nuovo });
       toast(`Passata a "${nuovo}".`, "successo");
+      router.refresh();
+    });
+  }
+
+  function salvaDubbioso() {
+    startDubbioso(async () => {
+      const risultato = await impostaDubbioso(segnalazione.id, motivoDubbio.trim(), richiamareIl || null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      onCambiata({ ...segnalazione, dubbioso_dal: new Date().toISOString(), motivo_dubbio: motivoDubbio.trim() || null, richiamare_il: richiamareIl || null });
+      setFormDubbiosoAperto(false);
+      toast("Segnata come dubbiosa.", "successo");
+      router.refresh();
+    });
+  }
+
+  function toglliDubbioso() {
+    startDubbioso(async () => {
+      const risultato = await rimuoviDubbioso(segnalazione.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      onCambiata({ ...segnalazione, dubbioso_dal: null, motivo_dubbio: null, richiamare_il: null });
+      toast("Non è più segnata come dubbiosa.", "successo");
       router.refresh();
     });
   }
@@ -739,6 +818,85 @@ function DettaglioSegnalazione({
             ))}
           </div>
         </div>
+
+        {/* ★ NUOVA (2026-08) — "parcheggio" per un cliente indeciso
+        (Opzione C, proposta con artifact): visibile solo in "In Contatto",
+        l'unico punto del percorso dove ha senso dire "l'ho sentito, sta
+        pensandoci" — prima di "Gestione Cliente" (che avvia subito la
+        richiesta dati) e dopo "Da Contattare" (non l'hai ancora chiamato). */}
+        {segnalazione.stato === "In Contatto" && (
+          <div className="rounded-xl border border-warning/25 bg-warning/5 p-3">
+            {segnalazione.dubbioso_dal ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-warning">
+                  <HelpCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  Segnata come dubbiosa
+                </div>
+                {segnalazione.motivo_dubbio && <p className="text-xs text-muted-foreground">{segnalazione.motivo_dubbio}</p>}
+                {segnalazione.richiamare_il && (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    Richiamalo il {new Date(segnalazione.richiamare_il).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </p>
+                )}
+                <Button size="sm" variant="outline" onClick={toglliDubbioso} disabled={inCorsoDubbioso} className="w-fit">
+                  {inCorsoDubbioso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
+                  Non è più dubbioso
+                </Button>
+              </div>
+            ) : formDubbiosoAperto ? (
+              <div className="flex flex-col gap-2.5">
+                <div>
+                  <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Motivo del dubbio</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Confronta prezzi", "Deve parlarne in famiglia", "Aspetta un altro operatore", "Altro"].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMotivoDubbio(m)}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                          motivoDubbio === m ? "border-warning bg-warning/15 text-warning" : "text-muted-foreground hover:border-warning/40"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="richiamare_il" className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Richiamalo il (facoltativo)
+                  </label>
+                  <input
+                    id="richiamare_il"
+                    type="date"
+                    value={richiamareIl}
+                    onChange={(e) => setRichiamareIl(e.target.value)}
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={salvaDubbioso} disabled={inCorsoDubbioso}>
+                    {inCorsoDubbioso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
+                    Salva
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setFormDubbiosoAperto(false)} disabled={inCorsoDubbioso}>
+                    Annulla
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFormDubbiosoAperto(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-warning transition hover:opacity-80"
+              >
+                <HelpCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                Segna come dubbioso
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ★ FIX — una volta arrivata la Richiesta Dati, Telefono/Email qui
          * duplicavano esattamente lo stesso valore già nella tab Anagrafica →
