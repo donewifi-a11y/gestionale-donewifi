@@ -142,7 +142,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
         </div>
         {fatture.length === 0 && <p className="text-sm text-muted-foreground">Nessuna fattura importata per questo cliente.</p>}
         {fatture.length > 0 && (
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-x-auto overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">

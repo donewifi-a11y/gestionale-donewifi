@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { salvaDatiContrattualiCliente, type RigaInstallazione } from "@/app/(app)/clienti/actions";
@@ -295,11 +295,15 @@ export function ClientiBoard({
         })}
       </div>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      {/* ★ FIX (2026-08, controllo d'oro) — questo era l'unico popup rimasto
+      a pannello laterale (Sheet) in Clienti, mentre tutto il resto del
+      gestionale è già stato uniformato al popup centrale (Dialog) — vedi
+      Tickets/Segnalazioni/Calendario/Tariffe/Persone/Utenti/Preventivi. */}
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>
           {modifica && <FormDatiContrattuali cliente={modifica} tariffe={tariffe} onFatto={() => setModifica(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
         </>
       )}
     </div>
@@ -347,11 +351,11 @@ function FormDatiContrattuali({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{cliente.nome}</SheetTitle>
-        <SheetDescription>Dati contrattuali — tariffa, canone, scadenza.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{cliente.nome}</DialogTitle>
+        <DialogDescription>Dati contrattuali — tariffa, canone, scadenza.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="tariffa_id">Tariffa attiva</Label>
           <select id="tariffa_id" name="tariffa_id" defaultValue={cliente.dati?.tariffa_id ?? ""} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">

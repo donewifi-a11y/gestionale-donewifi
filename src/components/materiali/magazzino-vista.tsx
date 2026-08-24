@@ -5,7 +5,7 @@ import { Search, PackageX, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { impostaGiacenzaMateriale } from "@/app/(app)/materiali/actions";
 import { useToast } from "@/components/ui/toast";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,9 +71,12 @@ export function MagazzinoVista({ materiali, isAdmin }: { materiali: MaterialeMag
         </div>
       )}
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>{modifica && <FormGiacenza materiale={modifica} onFatto={() => setModifica(null)} />}</SheetContent>
-      </Sheet>
+      {/* ★ FIX (2026-08, controllo d'oro) — ultimo popup a pannello laterale
+      (Sheet) rimasto qui, uniformato al popup centrale (Dialog) come il
+      resto del gestionale. */}
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>{modifica && <FormGiacenza materiale={modifica} onFatto={() => setModifica(null)} />}</DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -139,11 +142,11 @@ function FormGiacenza({ materiale, onFatto }: { materiale: MaterialeMagazzino; o
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{materiale.nome}</SheetTitle>
-        <SheetDescription>Giacenza e soglia di avviso a magazzino.</SheetDescription>
-      </SheetHeader>
-      <div className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{materiale.nome}</DialogTitle>
+        <DialogDescription>Giacenza e soglia di avviso a magazzino.</DialogDescription>
+      </DialogHeader>
+      <div className="flex flex-col gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={tracciato} onChange={(e) => setTracciato(e.target.checked)} className="h-4 w-4" />
           Traccia la giacenza di questo materiale

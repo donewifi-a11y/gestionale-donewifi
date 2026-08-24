@@ -7,12 +7,12 @@ import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, CheckCircle2, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
@@ -134,8 +134,11 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
         })}
       </div>
 
-      <Sheet open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
-        <SheetContent>
+      {/* ★ FIX (2026-08, controllo d'oro) — ultimo popup a pannello laterale
+      (Sheet) rimasto in Richieste Clienti, uniformato al popup centrale
+      (Dialog) come il resto del gestionale. */}
+      <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
+        <DialogContent>
           {aperta && (
             <DettaglioRichiesta
               richiesta={aperta}
@@ -144,8 +147,8 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
               onEliminata={() => setAperta(null)}
             />
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -210,11 +213,11 @@ function DettaglioRichiesta({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{richiesta.cliente || "Richiesta"}</SheetTitle>
-        <SheetDescription>{richiesta.tipo_richiesta}</SheetDescription>
-      </SheetHeader>
-      <div className="flex min-w-0 flex-col gap-4 px-4 pb-4 text-sm">
+      <DialogHeader>
+        <DialogTitle>{richiesta.cliente || "Richiesta"}</DialogTitle>
+        <DialogDescription>{richiesta.tipo_richiesta}</DialogDescription>
+      </DialogHeader>
+      <div className="flex min-w-0 flex-col gap-4 text-sm">
         <div className="flex flex-wrap gap-1.5">
           {STATI.map((s) => (
             <button

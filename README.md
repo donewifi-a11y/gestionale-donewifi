@@ -1854,6 +1854,20 @@ Fuori scope per ora: Storico Modifiche (UI, non prioritario per ora). I contratt
 generare sul gestionale esterno esistente — qui si carica solo il PDF già pronto (vedi sopra),
 niente generazione automatica.
 
+✅ Controllo d'oro sull'interfaccia (2026-08): audit mirato a bug/sovrapposizioni/incoerenze, non
+  estetico. Trovato e corretto: 5 punti dell'app erano rimasti sul vecchio popup a pannello
+  laterale (Sheet) mentre tutto il resto del gestionale era già stato uniformato al popup centrale
+  (Dialog) in un giro precedente — Clienti (dati contrattuali), Materiali (nuovo/modifica
+  materiale), Magazzino (giacenza), Vista Tecnico (Nuovo Ticket + Rapportino — la stessa schermata
+  mostrava un pannello laterale per un pulsante e un popup centrale per un altro, la Scheda, a
+  seconda di quale si premeva), Richieste Clienti (dettaglio pratica). Tutti e 5 convertiti a
+  Dialog, `src/components/ui/sheet.tsx` rimosso (zero importatori rimasti, verificato via grep).
+  Fix minore: tabella fatture in Clienti Esterni aveva `overflow-y-auto` ma non `overflow-x-auto`
+  — aggiunto per coerenza con la regola già in uso altrove (contenuto largo sempre nel proprio
+  contenitore scrollabile). Verificato: zero conflitti di `z-index` reali tra i popup fissi
+  dell'app (sidebar/chat/todo/persona-switcher/toast/Dialog), tutti già su livelli coerenti.
+  Verificato: build/lint puliti dopo ogni modifica.
+
 Con Portale e Approvazione migrati, il vecchio gestionale Apps Script non ha più flussi pubblici
 esclusivi (restano solo `approvaEmail`/`Portale`/`RichiestaDati`/ecc. come fallback per i link già
 inviati ai clienti prima di questa migrazione) — valutare in futuro se e quando reindirizzare

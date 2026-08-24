@@ -6,7 +6,7 @@ import { Plus, AlertTriangle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/materiali/actions";
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
@@ -152,17 +152,20 @@ export function MaterialiBoard({
         </>
       )}
 
-      <Sheet open={nuovo} onOpenChange={setNuovo}>
-        <SheetContent>
+      {/* ★ FIX (2026-08, controllo d'oro) — ultimo popup a pannello laterale
+      (Sheet) rimasto in Materiali, mentre il resto del gestionale è già
+      uniformato al popup centrale (Dialog). */}
+      <Dialog open={nuovo} onOpenChange={setNuovo}>
+        <DialogContent>
           <FormMateriale categorieEsistenti={categorieEsistenti} onFatto={() => setNuovo(false)} />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <SheetContent>
+      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DialogContent>
           {modifica && <FormMateriale materiale={modifica} categorieEsistenti={categorieEsistenti} onFatto={() => setModifica(null)} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -227,11 +230,11 @@ function FormMateriale({
 
   return (
     <>
-      <SheetHeader>
-        <SheetTitle>{materiale ? materiale.nome : "Aggiungi Materiale"}</SheetTitle>
-        <SheetDescription>Selezionabile nelle Schede di Installazione e Lavorazione Tecnica.</SheetDescription>
-      </SheetHeader>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
+      <DialogHeader>
+        <DialogTitle>{materiale ? materiale.nome : "Aggiungi Materiale"}</DialogTitle>
+        <DialogDescription>Selezionabile nelle Schede di Installazione e Lavorazione Tecnica.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div>
           <Label htmlFor="nome">Nome *</Label>
           <Input id="nome" name="nome" defaultValue={materiale?.nome} autoFocus required className="mt-1" />

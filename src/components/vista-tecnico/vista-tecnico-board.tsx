@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/status-badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
@@ -155,13 +154,18 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
   }
 
   return (
-    <Sheet open={aperto} onOpenChange={(v) => !v && chiudi()}>
-      <SheetContent className="sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>Nuovo Ticket</SheetTitle>
-          <SheetDescription>Per un nuovo contratto o un intervento tecnico sul posto.</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-4 px-4 pb-4">
+    // ★ FIX (2026-08, controllo d'oro) — questo Sheet a pannello laterale
+    // era rimasto disallineato dal resto della pagina: la Scheda (Dialog
+    // poco sotto) si apre già centrale, quindi la stessa schermata Vista
+    // Tecnico mostrava due trattamenti diversi a seconda del pulsante
+    // premuto. Uniformato al popup centrale come il resto del gestionale.
+    <Dialog open={aperto} onOpenChange={(v) => !v && chiudi()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Nuovo Ticket</DialogTitle>
+          <DialogDescription>Per un nuovo contratto o un intervento tecnico sul posto.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
           {!tipo ? (
             <div className="flex flex-col gap-2.5">
               {(Object.keys(CONFIG_RICHIESTA_RAPIDA) as TipoRichiestaRapida[]).map((t) => {
@@ -294,8 +298,8 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
             </form>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -534,15 +538,15 @@ export function VistaTecnicoBoard({
         </section>
       )}
 
-      <Sheet open={!!ticketRapportino} onOpenChange={(v) => !v && setTicketRapportino(null)}>
-        <SheetContent>
+      <Dialog open={!!ticketRapportino} onOpenChange={(v) => !v && setTicketRapportino(null)}>
+        <DialogContent>
           {ticketRapportino && (
             <>
-              <SheetHeader>
-                <SheetTitle>{ticketRapportino.cliente}</SheetTitle>
-                <SheetDescription>Chiudi il ticket con il rapportino di intervento.</SheetDescription>
-              </SheetHeader>
-              <div className="px-4 pb-4">
+              <DialogHeader>
+                <DialogTitle>{ticketRapportino.cliente}</DialogTitle>
+                <DialogDescription>Chiudi il ticket con il rapportino di intervento.</DialogDescription>
+              </DialogHeader>
+              <div>
                 <RapportinoForm
                   ticketId={ticketRapportino.id}
                   ticketNumero={ticketRapportino.numero}
@@ -556,8 +560,8 @@ export function VistaTecnicoBoard({
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ★ NUOVA — richiesta esplicita: la Scheda ora si apre in un popup
       centrale (Dialog) invece che in un pannello laterale (Sheet), stessa
