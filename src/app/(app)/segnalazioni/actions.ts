@@ -3,7 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto } from "@/lib/email";
+import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto, emailAvvisoInterno } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
@@ -344,6 +344,18 @@ export async function creaSegnalazione(dati: {
     valore_dopo: "Da Contattare",
     operatore_id: personaId,
   });
+
+  // ★ NUOVA (2026-08) — richiesta esplicita: promemoria via email verso
+  // attivazioni@donewifi.it ad ogni nuova Segnalazione — non blocca la
+  // creazione se l'invio fallisce (stesso principio delle notifiche
+  // Telegram/Chat già in uso altrove).
+  const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
+    `Nuova segnalazione #${data.numero}`,
+    `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${dati.nome}</b><br>Comune: ${dati.comune}<br>Telefono: ${dati.telefono}${dati.email ? `<br>Email: ${dati.email}` : ""}${dati.tipologiaCliente ? `<br>Tipologia: ${dati.tipologiaCliente}` : ""}</p>`,
+    `Cliente: ${dati.nome}\nComune: ${dati.comune}\nTelefono: ${dati.telefono}${dati.email ? `\nEmail: ${dati.email}` : ""}${dati.tipologiaCliente ? `\nTipologia: ${dati.tipologiaCliente}` : ""}`,
+    "https://gestione.donewifi.it/segnalazioni"
+  );
+  await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
 
   revalidatePath("/segnalazioni");
   return { errore: null, id: data.id, numero: data.numero };

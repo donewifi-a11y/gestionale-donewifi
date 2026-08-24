@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
 
 const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloInternet", "consenso", "documenti"]);
@@ -126,6 +127,18 @@ export async function POST(request: NextRequest) {
     "Commerciale",
     `📋 Nuovi dati ricevuti da ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Verifica i documenti e procedi con il contratto.`
   );
+
+  // ★ NUOVA (2026-08) — richiesta esplicita: stesso evento, anche via email
+  // verso attivazioni@donewifi.it — non blocca la risposta se l'invio fallisce.
+  const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
+    `Nuovi dati ricevuti — Segnalazione #${segnalazione.numero}`,
+    `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${segnalazione.nome}</b>${
+      tipologiaCliente ? `<br>Tipologia: ${tipologiaCliente}` : ""
+    }${profiloInternet ? `<br>Profilo: ${profiloInternet}` : ""}</p>`,
+    `Cliente: ${segnalazione.nome}${tipologiaCliente ? `\nTipologia: ${tipologiaCliente}` : ""}${profiloInternet ? `\nProfilo: ${profiloInternet}` : ""}`,
+    `${request.nextUrl.origin}/segnalazioni`
+  );
+  await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
 
   return NextResponse.json({ ok: true });
 }

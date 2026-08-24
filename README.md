@@ -1912,3 +1912,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     il segnale diventa critico ("Richiamalo oggi").
   Verificato: build/lint puliti. Migrazione `0057` (colonne `dubbioso_dal`/`motivo_dubbio`/
   `richiamare_il` su `segnalazioni`) da applicare manualmente prima che il flusso sia operativo.
+✅ Promemoria email verso attivazioni@donewifi.it (2026-08, richiesta esplicita): tre notifiche,
+  tutte via `emailAvvisoInterno()` (nuovo template condiviso in `lib/email.ts`, tono interno —
+  niente "Gentile [nome]", solo i fatti e un link diretto al gestionale):
+  - **Nuova Segnalazione** — `creaSegnalazione()` (`segnalazioni/actions.ts`), non blocca la
+    creazione se l'invio fallisce.
+  - **Nuovi dati/documenti ricevuti dal cliente** — `api/richiesta-dati/route.ts`, stesso evento
+    già notificato via Telegram/Chat al reparto Commerciale, ora anche via email.
+  - **Riepilogo mattutino delle Segnalazioni non prese in carico** (`stato = "Da Contattare"`,
+    nessuna soglia di giorni — è un riepilogo giornaliero, non un allarme) — aggiunto al cron
+    `promemoria-ticket` già esistente (il piano Vercel Hobby permette solo 2 cron job, entrambi già
+    occupati). Orario spostato da `"0 8 * * 1-6"` a `"0 9 * * *"` in `vercel.json` apposta per
+    questo — sposta di un'ora, e a tutti i giorni invece di lun-sab, anche i due controlli Telegram
+    già presenti in quel cron (ticket fermi, richiesta dati ferma), effetto collaterale accettato
+    per non consumare l'ultimo slot di cron libero.
+  Verificato: email di test reale inviata e ricevuta su attivazioni@donewifi.it; build/lint puliti.

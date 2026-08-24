@@ -354,3 +354,28 @@ Assistenza Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
   };
 }
+
+// ★ NUOVA (2026-08) — richiesta esplicita: promemoria interni verso un
+// indirizzo fisso (attivazioni@donewifi.it) invece che verso il cliente —
+// a differenza di tutte le email sopra, qui il destinatario è lo staff
+// stesso, quindi niente "Gentile [nome]", solo i fatti e un link diretto
+// al gestionale. Un'unica funzione condivisa (invece di tre quasi
+// identiche) per le tre notifiche richieste: nuova Segnalazione, nuovi
+// dati/documenti ricevuti, riepilogo mattutino delle Segnalazioni non
+// ancora prese in carico — vedi segnalazioni/actions.ts,
+// api/richiesta-dati/route.ts, api/cron/promemoria-ticket/route.ts.
+export function emailAvvisoInterno(titolo: string, corpoHtml: string, corpoTesto: string, link: string) {
+  return {
+    oggetto: `Done Wifi — ${titolo}`,
+    corpoHtml: involucroEmail({
+      eyebrow: "Notifica gestionale",
+      corpoHtml: `
+        <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">${titolo}</h1>
+        ${corpoHtml}
+        ${bottoneEmail("Apri il gestionale", link)}
+      `,
+      footerExtra: "Notifica automatica del gestionale — non serve rispondere a questa email.",
+    }),
+    corpoTesto: `${titolo}\n\n${corpoTesto}\n\n${link}`,
+  };
+}
