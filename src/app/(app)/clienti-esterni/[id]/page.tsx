@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus, FileCheck2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente } from "../actions";
+import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno } from "../actions";
 import { InstallazioniCliente } from "@/components/clienti-esterni/installazioni-cliente";
+import { NuovaPraticaClienteEsterno } from "@/components/clienti-esterni/nuova-pratica";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
 
@@ -22,12 +23,13 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
   const c = cliente as ClienteEsterno;
 
-  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni] = await Promise.all([
+  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni, pratiche] = await Promise.all([
     getStoricoProfiloCliente(c.id),
     getFattureCliente(c.codice_fiscale, c.partita_iva),
     getTicketCollegati(c.telefono),
     getPreventiviCollegati(c.id, c.telefono),
     getInstallazioniCliente(c.telefono),
+    getPraticheClienteEsterno(c.id),
   ]);
 
   const fatturatoTotale = fatture.reduce((s, f) => s + (Number(f.importo) || 0), 0);
@@ -207,6 +209,16 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           Installazioni effettuate ({installazioni.length})
         </h2>
         <InstallazioniCliente installazioni={installazioni} />
+      </div>
+
+      <div className="mb-5">
+        <NuovaPraticaClienteEsterno
+          clienteId={c.id}
+          telefono={c.telefono}
+          email={c.email}
+          nome={nomeVisualizzato(c)}
+          praticheEsistenti={pratiche}
+        />
       </div>
 
       <div className="rounded-2xl border bg-card p-5 shadow-md">

@@ -2,9 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
-const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "consenso", "volontaSubentro"]);
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro"]);
 const CAMPI_FILE: Record<string, string> = {
   fronteDoc: "Fronte documento",
   retroDoc: "Retro documento",
@@ -36,6 +37,14 @@ export async function POST(request: NextRequest) {
   // una seconda — per non perdere l'eventuale conferma del vecchio cliente
   // già registrata su quella stessa riga.
   const praticaId = String(dati.get("praticaId") || "") || null;
+  // ★ NUOVA (2026-08) — "Pratiche cliente senza Ticket": collega la
+  // richiesta al vero cliente (anagrafica Aruba) — valorizzato quando il
+  // cliente si identifica da solo dal Portale (telefono+CF, vedi
+  // /api/portale/trova-cliente) o quando l'operatore la avvia dalla scheda
+  // Cliente Esterno. Facoltativo: le pratiche legate a un Ticket (incluso
+  // Subentro) continuano a funzionare come prima, senza questo campo.
+  const clienteEsternoIdRaw = String(dati.get("clienteEsternoId") || "");
+  const clienteEsternoId = clienteEsternoIdRaw && Number.isFinite(Number(clienteEsternoIdRaw)) ? Number(clienteEsternoIdRaw) : null;
 
   const dettagli: Record<string, string> = {};
   for (const [chiave, valore] of dati.entries()) {
@@ -68,7 +77,16 @@ export async function POST(request: NextRequest) {
 
   const erroreScrittura = praticaId
     ? (await supabase.from("richieste_clienti").update({ cliente: nomeCliente, dettagli, documenti }).eq("id", praticaId)).error
-    : (await supabase.from("richieste_clienti").insert({ tipo_richiesta: tipo, cliente: nomeCliente, ticket_id: ticketId, dettagli, documenti })).error;
+    : (
+        await supabase.from("richieste_clienti").insert({
+          tipo_richiesta: tipo,
+          cliente: nomeCliente,
+          ticket_id: ticketId,
+          cliente_esterno_id: clienteEsternoId,
+          dettagli,
+          documenti,
+        })
+      ).error;
   if (erroreScrittura) {
     return NextResponse.json({ errore: erroreScrittura.message }, { status: 500 });
   }
@@ -85,6 +103,18 @@ export async function POST(request: NextRequest) {
   // modulo non è collegato a un Ticket, apre comunque l'elenco filtrabile.
   const link = ticketId ? `${request.nextUrl.origin}/tickets?aperto=${ticketId}` : `${request.nextUrl.origin}/richieste-clienti`;
   await inviaMessaggioChatSistema(reparto, `📋 Nuova richiesta ${tipo} da ${nomeCliente}. ${link}`);
+
+  // ★ NUOVA (2026-08) — stesso evento, anche via email verso
+  // attivazioni@donewifi.it (richiesta esplicita, stesso principio già
+  // applicato a Segnalazioni/Richiesta Dati) — non blocca la risposta se
+  // l'invio fallisce.
+  const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
+    `Nuova richiesta: ${tipo}`,
+    `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${nomeCliente}</b>${clienteEsternoId ? `<br>Collegata alla scheda cliente #${clienteEsternoId}` : ""}</p>`,
+    `Cliente: ${nomeCliente}${clienteEsternoId ? `\nCollegata alla scheda cliente #${clienteEsternoId}` : ""}`,
+    link
+  );
+  await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto });
 
   return NextResponse.json({ ok: true });
 }

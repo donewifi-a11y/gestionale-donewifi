@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, CheckCircle2, XCircle, Clock3 } from "lucide-react";
+import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, CheckCircle2, XCircle, Clock3, Users2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -249,6 +249,19 @@ function DettaglioRichiesta({
           >
             <TicketIcon className="h-3.5 w-3.5" strokeWidth={2.25} />
             Vedi il Ticket collegato
+          </Link>
+        )}
+
+        {/* ★ NUOVA (2026-08) — "Pratiche cliente senza Ticket": molte
+        pratiche ora non hanno più un Ticket, solo il cliente vero
+        (anagrafica Aruba) — stesso trattamento del link sopra. */}
+        {richiesta.cliente_esterno_id && (
+          <Link
+            href={`/clienti-esterni/${richiesta.cliente_esterno_id}`}
+            className="flex w-fit items-center gap-1.5 rounded-lg border bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-muted/60"
+          >
+            <Users2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Vedi la scheda cliente
           </Link>
         )}
 

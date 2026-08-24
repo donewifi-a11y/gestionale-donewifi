@@ -1927,3 +1927,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     già presenti in quel cron (ticket fermi, richiesta dati ferma), effetto collaterale accettato
     per non consumare l'ultimo slot di cron libero.
   Verificato: email di test reale inviata e ricevuta su attivazioni@donewifi.it; build/lint puliti.
+✅ Pratiche cliente senza Ticket (2026-08, migrazione `0058`, proposta con artifact, doppia via
+  scelta): Trasferimento, Cambio IBAN e Cambio Anagrafica non passano più necessariamente da un
+  Ticket — sono censite con data direttamente sulla scheda del Cliente Esterno vero, avviabili sia
+  dal cliente sia dall'operatore:
+  - `richieste_clienti.cliente_esterno_id` (nuova colonna) collega la pratica al cliente reale
+    (anagrafica Aruba) invece che solo, facoltativamente, a un Ticket.
+  - **Lato cliente** — nuova tab "Le mie pratiche" nel Portale pubblico (`/portale`):
+    identificazione con telefono + CF/PIVA insieme (Opzione C della proposta "Come trovare il
+    cliente" — mai un caso ambiguo di più risultati), poi lo stesso modulo pubblico di sempre.
+    Nuova rotta pubblica `/api/portale/trova-cliente`.
+  - **Lato operatore** — nuova sezione "Pratiche" nella scheda Cliente Esterno
+    (`clienti-esterni/[id]`): elenco delle pratiche esistenti + "Avvia una nuova pratica" (stesso
+    pannello "Invia una pratica al cliente" di Tickets, spostato qui — nessuna identificazione da
+    rifare, l'operatore è già sulla scheda giusta).
+  - Subentro resta escluso da questa semplificazione — ha il suo flusso dedicato a doppio consenso
+    (vecchio + nuovo cliente), costruito a parte in Ticket poche settimane fa, requisiti diversi
+    dalle altre 3. Disdetta resta fuori: è solo una pagina di istruzioni per una comunicazione
+    scritta (la normativa lo richiede), non un modulo compilabile.
+  Verificato: build/lint puliti. Migrazione `0058` da applicare manualmente prima che il flusso sia
+  operativo.

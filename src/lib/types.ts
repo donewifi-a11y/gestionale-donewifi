@@ -228,6 +228,11 @@ export interface RichiestaCliente {
   cliente: string | null;
   segnalazione_id: string | null;
   ticket_id: string | null;
+  /** ★ NUOVA (2026-08) — collega la pratica al vero cliente (anagrafica Aruba),
+   * non più solo a un Ticket facoltativo — vedi proposta "Pratiche cliente
+   * senza Ticket". Permesso l'avvio sia dal cliente stesso (Portale, dopo
+   * identificazione telefono+CF) sia dall'operatore (scheda Cliente Esterno). */
+  cliente_esterno_id: number | null;
   dettagli: Record<string, string>;
   documenti: { nome: string; percorso: string; tipo?: string }[];
   stato: string;

@@ -6,33 +6,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CATEGORIE_TICKET } from "@/lib/types";
+import { PraticheTab } from "@/components/portale/pratiche-tab";
 
 export function PortaleTabs() {
-  const [tab, setTab] = useState<"apri" | "verifica">("apri");
+  const [tab, setTab] = useState<"apri" | "verifica" | "pratiche">("apri");
 
   return (
     <div className="rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
-      <div className="mb-5 flex gap-2">
+      <div className="mb-5 flex gap-1.5">
         <button
           type="button"
           onClick={() => setTab("apri")}
-          className={`flex-1 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide transition ${
+          className={`flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wide transition ${
             tab === "apri" ? "bg-primary text-primary-foreground" : "border text-muted-foreground"
           }`}
         >
           Apri un Ticket
         </button>
+        {/* ★ NUOVA (2026-08) — richiesta esplicita: Trasferimento/Cambio IBAN/
+        Cambio Anagrafica non passano più necessariamente da un Ticket — il
+        cliente può avviarli da solo da qui, vedi PraticheTab. */}
+        <button
+          type="button"
+          onClick={() => setTab("pratiche")}
+          className={`flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wide transition ${
+            tab === "pratiche" ? "bg-primary text-primary-foreground" : "border text-muted-foreground"
+          }`}
+        >
+          Le mie pratiche
+        </button>
         <button
           type="button"
           onClick={() => setTab("verifica")}
-          className={`flex-1 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wide transition ${
+          className={`flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wide transition ${
             tab === "verifica" ? "bg-primary text-primary-foreground" : "border text-muted-foreground"
           }`}
         >
           Verifica Stato
         </button>
       </div>
-      {tab === "apri" ? <FormApriTicket /> : <FormVerificaStato />}
+      {tab === "apri" ? <FormApriTicket /> : tab === "pratiche" ? <PraticheTab /> : <FormVerificaStato />}
     </div>
   );
 }

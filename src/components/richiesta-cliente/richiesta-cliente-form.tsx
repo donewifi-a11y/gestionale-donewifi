@@ -79,18 +79,25 @@ export function RichiestaClienteForm({
   slug,
   ticketId,
   praticaId,
+  clienteEsternoId,
 }: {
   slug: SlugRichiestaCliente;
   ticketId: string | null;
   praticaId?: string | null;
+  /** ★ NUOVA (2026-08) — collega la pratica al cliente vero (anagrafica
+   * Aruba) invece che a un Ticket, vedi proposta "Pratiche cliente senza
+   * Ticket". Solo per le 3 pratiche che non hanno bisogno di un secondo
+   * consenso (Subentro resta sul suo flusso dedicato — doppio consenso via
+   * Ticket, già costruito a parte). */
+  clienteEsternoId?: number | null;
 }) {
-  if (slug === "cambio-iban") return <FormCambioIban ticketId={ticketId} />;
-  if (slug === "cambio-anagrafica") return <FormCambioAnagrafica ticketId={ticketId} />;
-  if (slug === "trasferimento") return <FormTrasferimento ticketId={ticketId} />;
+  if (slug === "cambio-iban") return <FormCambioIban ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
+  if (slug === "cambio-anagrafica") return <FormCambioAnagrafica ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
+  if (slug === "trasferimento") return <FormTrasferimento ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
   return <FormSubentro ticketId={ticketId} praticaId={praticaId ?? null} />;
 }
 
-function FormCambioIban({ ticketId }: { ticketId: string | null }) {
+function FormCambioIban({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -105,6 +112,7 @@ function FormCambioIban({ ticketId }: { ticketId: string | null }) {
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG["cambio-iban"].tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
+    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 
@@ -136,7 +144,7 @@ function FormCambioIban({ ticketId }: { ticketId: string | null }) {
   );
 }
 
-function FormCambioAnagrafica({ ticketId }: { ticketId: string | null }) {
+function FormCambioAnagrafica({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -151,6 +159,7 @@ function FormCambioAnagrafica({ ticketId }: { ticketId: string | null }) {
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG["cambio-anagrafica"].tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
+    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 
@@ -191,7 +200,7 @@ function FormCambioAnagrafica({ ticketId }: { ticketId: string | null }) {
   );
 }
 
-function FormTrasferimento({ ticketId }: { ticketId: string | null }) {
+function FormTrasferimento({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -209,6 +218,7 @@ function FormTrasferimento({ ticketId }: { ticketId: string | null }) {
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG.trasferimento.tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
+    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 

@@ -3,8 +3,9 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
-import type { ClienteEsterno, FatturaEsterna } from "@/lib/types";
+import type { AreaAccesso, ClienteEsterno, FatturaEsterna, RichiestaCliente } from "@/lib/types";
 
 async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
@@ -515,6 +516,43 @@ export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFa
     numeroFatture: righe.length,
     clienti,
   };
+}
+
+// ★ NUOVA (2026-08) — "Pratiche cliente senza Ticket": elenco delle
+// pratiche (Trasferimento/Cambio IBAN/Cambio Anagrafica/Subentro) collegate
+// a questo Cliente Esterno tramite cliente_esterno_id — indipendentemente
+// da chi le ha avviate (il cliente stesso dal Portale, o l'operatore da
+// qui). Mostrata nella scheda cliente insieme a Preventivi/Ticket/Installazioni.
+export async function getPraticheClienteEsterno(clienteEsternoId: number): Promise<RichiestaCliente[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("richieste_clienti")
+    .select("*")
+    .eq("cliente_esterno_id", clienteEsternoId)
+    .order("data", { ascending: false });
+  if (error) console.error("getPraticheClienteEsterno:", error.message);
+  return (data as RichiestaCliente[] | null) ?? [];
+}
+
+// ★ NUOVA (2026-08) — avvia dalla scheda Cliente Esterno (invece che da un
+// Ticket) il link pubblico di una delle 3 pratiche self-service: stesso
+// modulo di sempre, con cliente_esterno_id già noto (l'operatore è già
+// sulla scheda del cliente giusto, nessuna identificazione da rifare).
+export async function inviaEmailPraticaClienteEsterno(clienteEsternoId: number, titolo: string, url: string, reparto: AreaAccesso) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+
+  const service = createServiceClient();
+  const { data: cliente } = await service.from("clienti_esterni").select("nome, cognome, ragionesociale, email").eq("id", clienteEsternoId).maybeSingle();
+  if (!cliente) return { errore: "Cliente non trovato." };
+  if (!cliente.email) return { errore: "Il cliente non ha un'email registrata in anagrafica." };
+
+  const nome = cliente.ragionesociale || [cliente.nome, cliente.cognome].filter(Boolean).join(" ") || "Cliente";
+  const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(nome, titolo, url);
+  return inviaEmail({ a: cliente.email, oggetto, corpoHtml, corpoTesto, reparto });
 }
 
 export interface AttivazioneBuyGo {
