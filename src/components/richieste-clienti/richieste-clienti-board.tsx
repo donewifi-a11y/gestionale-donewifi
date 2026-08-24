@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, CheckCircle2, XCircle, Clock3, Users2 } from "lucide-react";
+import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, Users2 } from "lucide-react";
+import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,7 @@ const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 // (Opzione B): a differenza delle altre pratiche, qui lo stato non basta
 // da solo a dire "cosa manca" — servono le due tracce indipendenti (vedi
 // avviaPraticaSubentro/inviaLinkVecchioClienteSubentro).
-function traccePratica(r: RichiestaCliente): { vecchio: "ok" | "no" | "attesa"; nuovo: "ok" | "attesa" } | null {
+function traccePratica(r: RichiestaCliente): { vecchio: StatoTraccia; nuovo: "ok" | "attesa" } | null {
   if (r.tipo_richiesta !== "Subentro") return null;
   return {
     vecchio: r.vecchio_cliente_confermato_il ? "ok" : r.vecchio_cliente_rifiutato_il ? "no" : "attesa",
@@ -32,15 +33,10 @@ function traccePratica(r: RichiestaCliente): { vecchio: "ok" | "no" | "attesa"; 
   };
 }
 
-function PallinoTraccia({ etichetta, stato }: { etichetta: string; stato: "ok" | "no" | "attesa" }) {
-  const config = {
-    ok: { icona: CheckCircle2, classi: "bg-success/10 text-success" },
-    no: { icona: XCircle, classi: "bg-critical/10 text-critical" },
-    attesa: { icona: Clock3, classi: "bg-muted text-muted-foreground" },
-  }[stato];
-  const Icona = config.icona;
+function PallinoTraccia({ etichetta, stato }: { etichetta: string; stato: StatoTraccia }) {
+  const { icona: Icona, classi } = CONFIG_STATO_TRACCIA[stato];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${config.classi}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${classi}`}>
       <Icona className="h-3 w-3 shrink-0" strokeWidth={2.5} />
       {etichetta}
     </span>

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, CheckCircle2, XCircle, Clock3 } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import { SchedaVista } from "@/components/schede/scheda-vista";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
-import { SLUG_RICHIESTE_CLIENTE, RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
+import { RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
@@ -40,20 +41,27 @@ import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/lib/use-persisted-state";
 
+// ★ FIX (2026-08, controllo d'oro) — Trasferimento/Cambio IBAN/Cambio
+// Anagrafica non passano più da qui: si avviano dalla scheda del Cliente
+// Esterno (vedi NuovaPraticaClienteEsterno), non serve più un Ticket per
+// loro (proposta "Pratiche cliente senza Ticket"). Tenerle anche qui
+// sarebbe stato un secondo modo di fare la stessa cosa — esattamente il
+// doppione da evitare. Restano solo Subentro (ha un flusso a doppio
+// consenso costruito apposta su Ticket) e Disdetta (mai stata legata a
+// questo problema, resta una pagina di istruzioni).
 const PRATICHE_INVIABILI = [
   { slug: "disdetta" as const, titolo: "Disdetta contratto" },
-  ...SLUG_RICHIESTE_CLIENTE.map((slug) => ({ slug, titolo: RICHIESTE_CLIENTE_CONFIG[slug].titolo })),
+  { slug: "subentro" as const, titolo: RICHIESTE_CLIENTE_CONFIG.subentro.titolo },
 ];
 
 // ★ collega le sottocategoria di Ticket (SOTTOCATEGORIE_TICKET) alla
-// pratica pubblica corrispondente per nome — Trasferimento/Subentro/Cambio
-// IBAN non hanno campi extra propri (vedi campi-ticket.ts) perché tutta la
-// raccolta dati passa da qui.
+// pratica pubblica corrispondente per nome — solo Subentro/Disdetta restano
+// avviabili da qui (vedi nota sopra); Trasferimento/Cambio IBAN/Cambio
+// Anagrafica come sottocategoria Ticket restano scelte valide per
+// classificare un intervento di assistenza legato al tema, ma non
+// suggeriscono più automaticamente un invio pratica da questo pannello.
 const PRATICA_PER_SOTTOCATEGORIA: Record<string, (typeof PRATICHE_INVIABILI)[number]["slug"]> = {
-  Trasferimento: "trasferimento",
   Subentro: "subentro",
-  "Cambio IBAN": "cambio-iban",
-  "Cambio Anagrafica": "cambio-anagrafica",
   Disdetta: "disdetta",
 };
 
@@ -1223,21 +1231,17 @@ function StatoTraccia({
   testoAttesa,
 }: {
   etichetta: string;
-  stato: "ok" | "no" | "attesa";
+  stato: TipoStatoTraccia;
   testoOk: string;
   testoNo: string;
   testoAttesa: string;
 }) {
-  const config = {
-    ok: { icona: CheckCircle2, classi: "bg-success/10 text-success", testo: testoOk },
-    no: { icona: XCircle, classi: "bg-critical/10 text-critical", testo: testoNo },
-    attesa: { icona: Clock3, classi: "bg-muted text-muted-foreground", testo: testoAttesa },
-  }[stato];
-  const Icona = config.icona;
+  const { icona: Icona, classi } = CONFIG_STATO_TRACCIA[stato];
+  const testo = { ok: testoOk, no: testoNo, attesa: testoAttesa }[stato];
   return (
-    <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${config.classi}`}>
+    <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${classi}`}>
       <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-      {etichetta} — {config.testo}
+      {etichetta} — {testo}
     </div>
   );
 }

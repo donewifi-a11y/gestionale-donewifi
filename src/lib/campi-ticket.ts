@@ -93,7 +93,7 @@ export const CONFIG_SOTTOCATEGORIE: Record<string, ConfigSottocategoria> = {
     ],
   },
   Trasferimento: {
-    info: "Nessun dato da raccogliere qui: dopo la creazione, invia al cliente la pratica pubblica \"Trasferimento\" dal dettaglio del Ticket (pannello \"Invia una pratica al cliente\") — è lì che vengono chiesti indirizzo, data preferita e note.",
+    info: "Questo Ticket serve solo per tracciare l'assistenza legata al tema — la pratica vera e propria (indirizzo, data preferita, note) si avvia dalla scheda del Cliente Esterno (Anagrafica Clienti → cerca il cliente → \"Avvia una nuova pratica\"), non più da qui.",
     campi: [],
   },
   Subentro: {
@@ -101,11 +101,11 @@ export const CONFIG_SOTTOCATEGORIE: Record<string, ConfigSottocategoria> = {
     campi: [],
   },
   "Cambio IBAN": {
-    info: "Nessun dato da raccogliere qui: dopo la creazione, invia al cliente la pratica pubblica \"Cambio IBAN\" dal dettaglio del Ticket (pannello \"Invia una pratica al cliente\").",
+    info: "Questo Ticket serve solo per tracciare l'assistenza legata al tema — la pratica vera e propria si avvia dalla scheda del Cliente Esterno (Anagrafica Clienti → cerca il cliente → \"Avvia una nuova pratica\"), non più da qui.",
     campi: [],
   },
   "Cambio Anagrafica": {
-    info: "Per indirizzo e dati di fatturazione usa i campi qui sotto. Per telefono/email puoi anche far compilare al cliente la pratica pubblica \"Cambio Anagrafica\" dal dettaglio del Ticket.",
+    info: "Per indirizzo e dati di fatturazione usa i campi qui sotto. Per telefono/email, la pratica pubblica \"Cambio Anagrafica\" si avvia ora dalla scheda del Cliente Esterno (Anagrafica Clienti → cerca il cliente → \"Avvia una nuova pratica\"), non più da qui.",
     campi: [
       { id: "cosa_modificare", label: "Cosa vuoi modificare", tipo: "select", obbligatorio: true, opzioni: ["Indirizzo", "Telefono", "Email", "Dati fatturazione"] },
       { id: "nuovo_valore", label: "Nuovo valore", tipo: "text", obbligatorio: true },

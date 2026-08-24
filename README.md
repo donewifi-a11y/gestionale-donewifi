@@ -1947,3 +1947,14 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     scritta (la normativa lo richiede), non un modulo compilabile.
   Verificato: build/lint puliti. Migrazione `0058` da applicare manualmente prima che il flusso sia
   operativo.
+✅ Controllo d'oro post-"Pratiche senza Ticket" (2026-08): trovato un vero doppione lasciato dal
+  giro precedente — il pannello "Invia una pratica al cliente" dentro il Ticket permetteva ancora
+  di inviare Trasferimento/Cambio IBAN/Cambio Anagrafica da lì, un secondo modo di fare la stessa
+  cosa ora avviabile (correttamente) dalla scheda Cliente Esterno. Tolte le 3 dal menu del pannello
+  Ticket (resta solo Subentro, che ha il suo flusso dedicato, e Disdetta, mai stata parte del
+  problema); aggiornati i testi informativi delle sottocategoria Ticket corrispondenti per puntare
+  alla scheda Cliente Esterno invece che al pannello Ticket. Consolidato anche un doppione più
+  vecchio: `StatoTraccia` (Ticket) e `PallinoTraccia` (Richieste Clienti) erano la stessa mappa
+  icona/colore "ok/no/attesa" scritta due volte — estratta in `src/lib/stato-traccia.ts`, condivisa
+  da entrambi (il layout resta specifico di ciascuno, sono contesti visivamente diversi). Verificato:
+  build/lint puliti.
