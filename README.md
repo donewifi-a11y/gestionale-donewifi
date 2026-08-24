@@ -1977,3 +1977,9 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   pattern del modulo "Nuova Segnalazione") precompilato coi valori esistenti — `aggiornaDatiSegnalazione()`
   in `segnalazioni/actions.ts`, registra "Dati modificati" nello storico. Verificato: giro
   aggiorna→storico→pulizia contro una Segnalazione reale (nessun valore alterato); build/lint puliti.
+✅ Segnale pulsante quando arrivano i dati del cliente (2026-08, richiesta esplicita): il badge
+  "✓ Dati ricevuti — pronta per il contratto" nella colonna "Gestione Cliente" era statico, identico
+  a tutti gli altri badge della bacheca — facile da perdere scorrendo. Ora pulsa (`animate-pulse`)
+  finché la pratica resta in quello stato — si ferma da sola quando avanza oltre "Gestione Cliente"
+  (il segnale sparisce insieme allo stato che lo genera, niente da spuntare a mano). Verificato:
+  build/lint puliti.

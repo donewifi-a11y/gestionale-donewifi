@@ -270,7 +270,7 @@ export function SegnalazioniBoard({
             // il problema. Nessun problema in corso → card pulita,
             // senza badge (il "tutto normale" non ha bisogno di un
             // colore acceso addosso).
-            let segnale: { testo: string; critico: boolean } | null = null;
+            let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
             if (s.dubbioso_dal) {
               const oggiOSuperato = s.richiamare_il ? s.richiamare_il <= new Date().toISOString().slice(0, 10) : false;
               segnale = s.richiamare_il
@@ -286,7 +286,15 @@ export function SegnalazioniBoard({
             } else if (mostraGiorni && giorni >= 2) {
               segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, critico: giorni >= 5 };
             } else if (col.stato === "Gestione Cliente" && s.dati_ricevuti_at) {
-              segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false };
+              // ★ NUOVA (2026-08) — richiesta esplicita: "un segnale che
+              // lampeggia o pulsa sulla carta del cliente quando invia la
+              // documentazione" — prima il badge "Dati ricevuti" era statico,
+              // identico a tutti gli altri, facile da perdere scorrendo la
+              // colonna. `pulsante` aggiunge un'animazione (Tailwind
+              // `animate-pulse`) solo qui — si ferma da sola quando la
+              // pratica avanza oltre "Gestione Cliente" (il segnale sparisce
+              // insieme allo stato che lo genera, niente da "spuntare" a mano).
+              segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false, pulsante: true };
             }
             return (
               <div
@@ -313,7 +321,7 @@ export function SegnalazioniBoard({
                         : segnale.testo.startsWith("✓")
                           ? "bg-success/10 text-success"
                           : "bg-warning/10 text-warning"
-                    }`}
+                    } ${segnale.pulsante ? "animate-pulse" : ""}`}
                   >
                     {segnale.testo}
                   </span>
