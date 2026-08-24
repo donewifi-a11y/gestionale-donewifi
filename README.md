@@ -1872,3 +1872,16 @@ Con Portale e Approvazione migrati, il vecchio gestionale Apps Script non ha pi�
 esclusivi (restano solo `approvaEmail`/`Portale`/`RichiestaDati`/ecc. come fallback per i link già
 inviati ai clienti prima di questa migrazione) — valutare in futuro se e quando reindirizzare
 anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi in circolazione.
+
+✅ Sezione Buy&Go in Clienti Esterni (2026-08): i clienti con profilo "Buy & Go"/"Buy Pro" non hanno
+  un canone fisso come gli altri — pagano a consumo, attivando e pagando periodi quando vogliono
+  (confermato incrociando dal vivo anagrafica e fatture Aruba: stessi clienti con importi diversi —
+  6,50€/9,50€/13€/16€/19€/39,50€... — a cadenza irregolare, mai un ciclo mensile fisso). Prima erano
+  mescolati con tutti gli altri profili internet, senza nessuna vista dedicata. Nuovo tab "Buy&Go"
+  nella pagina Anagrafica Clienti (stesso principio "vista" già usato per Materiali/Persone-Utenti/
+  Clienti-Installazioni): elenco cliccabile con totale incassato/attivazioni per cliente, dettaglio
+  (Dialog) con lo storico completo di ogni fattura — data, importo, pagata sì/no, metodo. Nessuna
+  sincronizzazione nuova: `getClientiBuyGo()` (`clienti-esterni/actions.ts`) incrocia
+  `clienti_esterni.profilo_internet` e `fatture_esterne` già sincronizzati, raggruppando per CF/PIVA
+  (una persona può avere più righe anagrafiche). Verificato: query standalone contro Supabase reale,
+  153 clienti unici, 1071 fatture collegate correttamente; build/lint puliti.

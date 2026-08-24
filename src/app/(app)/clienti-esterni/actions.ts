@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import { revalidatePath } from "next/cache";
-import type { FatturaEsterna } from "@/lib/types";
+import type { ClienteEsterno, FatturaEsterna } from "@/lib/types";
 
 async function verificaAdmin(): Promise<string | null> {
   const supabase = await createClient();
@@ -492,4 +492,112 @@ export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFa
     numeroFatture: righe.length,
     clienti,
   };
+}
+
+export interface AttivazioneBuyGo {
+  numero: string;
+  emissione: string | null;
+  scadenza: string | null;
+  importo: number | null;
+  pagata: boolean | null;
+  tipo_pagamento: string | null;
+}
+
+export interface ClienteBuyGo {
+  chiave: string;
+  nome: string;
+  telefono: string | null;
+  comune: string | null;
+  profilo: string;
+  attivazioni: AttivazioneBuyGo[];
+  numeroAttivazioni: number;
+  totalePagato: number;
+  totaleNonPagato: number;
+  ultimaAttivazione: string | null;
+}
+
+/** ★ NUOVA (2026-08) — richiesta esplicita: i clienti Buy&Go/Buy Pro non
+ * hanno un canone fisso come gli altri, pagano "a consumo" per periodi che
+ * attivano quando vogliono (verificato sui dati reali: stessi clienti con
+ * importi diversi — 6,50€/9,50€/13€/16€/19€/39,50€... — a cadenza
+ * irregolare, non un abbonamento mensile). Non serve una sincronizzazione
+ * nuova: il profilo "Buy & Go"/"Buy Pro" è già dentro clienti_esterni
+ * (profilo_internet, sincronizzato da sincronizzaAnagraficaAruba) e lo
+ * storico delle attivazioni/pagamenti è già dentro fatture_esterne
+ * (sincronizzato da sincronizzaFattureAruba) — qui si incrociano i due per
+ * la prima volta.
+ */
+export async function getClientiBuyGo(): Promise<ClienteBuyGo[]> {
+  const supabase = await createClient();
+
+  const tuttiClienti = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const buygo = tuttiClienti.filter((c) => c.profilo_internet && /buy/i.test(c.profilo_internet));
+  if (buygo.length === 0) return [];
+
+  // ★ una stessa persona/azienda può avere più righe anagrafiche (più
+  // contratti importati con lo stesso CF/PIVA — stesso principio già noto
+  // altrove in questo file, vedi chiaviClientiAttivi in page.tsx): si
+  // raggruppa per CF/PIVA, non per riga, altrimenti lo stesso cliente
+  // comparirebbe due volte con lo storico attivazioni diviso a metà.
+  const perChiave = new Map<string, ClienteEsterno[]>();
+  for (const c of buygo) {
+    const chiave = (c.codice_fiscale || c.partita_iva || `id:${c.id}`).trim();
+    if (!perChiave.has(chiave)) perChiave.set(chiave, []);
+    perChiave.get(chiave)!.push(c);
+  }
+
+  const chiaviCf = Array.from(new Set(buygo.map((c) => c.codice_fiscale).filter((v): v is string => !!v)));
+  const chiaviPiva = Array.from(new Set(buygo.map((c) => c.partita_iva).filter((v): v is string => !!v)));
+
+  // ★ .in() diretto sulle chiavi note (poche centinaia) invece di scandire
+  // tutte le ~60mila fatture come fa getRiepilogoInsoluti — qui il
+  // sottoinsieme di clienti è già piccolo e mirato.
+  const [{ data: perCf }, { data: perPiva }] = await Promise.all([
+    chiaviCf.length
+      ? supabase.from("fatture_esterne").select("*").in("codice_fiscale", chiaviCf)
+      : Promise.resolve({ data: [] as FatturaEsterna[] }),
+    chiaviPiva.length
+      ? supabase.from("fatture_esterne").select("*").in("partita_iva", chiaviPiva)
+      : Promise.resolve({ data: [] as FatturaEsterna[] }),
+  ]);
+
+  const fattureViste = new Set<number>();
+  const fatturePerChiave = new Map<string, FatturaEsterna[]>();
+  for (const f of [...((perCf ?? []) as FatturaEsterna[]), ...((perPiva ?? []) as FatturaEsterna[])]) {
+    if (fattureViste.has(f.id)) continue; // una fattura con sia CF che PIVA valorizzati comparirebbe in entrambe le query sopra
+    fattureViste.add(f.id);
+    const chiave = (f.codice_fiscale || f.partita_iva || "").trim();
+    if (!chiave) continue;
+    if (!fatturePerChiave.has(chiave)) fatturePerChiave.set(chiave, []);
+    fatturePerChiave.get(chiave)!.push(f);
+  }
+
+  return Array.from(perChiave.entries())
+    .map(([chiave, righe]) => {
+      const c = righe[0];
+      const fatture = (fatturePerChiave.get(chiave) ?? []).sort((a, b) => (b.emissione ?? "").localeCompare(a.emissione ?? ""));
+      const attivazioni: AttivazioneBuyGo[] = fatture.map((f) => ({
+        numero: f.numero,
+        emissione: f.emissione,
+        scadenza: f.scadenza,
+        importo: f.importo,
+        pagata: f.pagata,
+        tipo_pagamento: f.tipo_pagamento,
+      }));
+      const nome = c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—";
+      const profili = Array.from(new Set(righe.map((r) => r.profilo_internet?.trim()).filter((v): v is string => !!v)));
+      return {
+        chiave,
+        nome,
+        telefono: c.telefono,
+        comune: c.comune,
+        profilo: profili.join(" / "),
+        attivazioni,
+        numeroAttivazioni: attivazioni.length,
+        totalePagato: attivazioni.filter((a) => a.pagata).reduce((s, a) => s + (a.importo ?? 0), 0),
+        totaleNonPagato: attivazioni.filter((a) => !a.pagata).reduce((s, a) => s + (a.importo ?? 0), 0),
+        ultimaAttivazione: attivazioni[0]?.emissione ?? null,
+      };
+    })
+    .sort((a, b) => (b.ultimaAttivazione ?? "").localeCompare(a.ultimaAttivazione ?? ""));
 }

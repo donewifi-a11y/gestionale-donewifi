@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, RefreshCw, AlertTriangle, FileText, ChevronRight, Users2, TriangleAlert } from "lucide-react";
+import { Search, Phone, MapPin, RefreshCw, AlertTriangle, FileText, ChevronRight, Users2, TriangleAlert, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
-import { sincronizzaAnagraficaAruba, sincronizzaFattureAruba, type ClienteInsoluto } from "@/app/(app)/clienti-esterni/actions";
+import { sincronizzaAnagraficaAruba, sincronizzaFattureAruba, type ClienteInsoluto, type ClienteBuyGo } from "@/app/(app)/clienti-esterni/actions";
+import { BuyGoTabella } from "@/components/clienti-esterni/buygo-tabella";
 import type { ClienteEsterno } from "@/lib/types";
 
 function nomeVisualizzato(c: ClienteEsterno): string {
@@ -19,12 +20,14 @@ export function ClientiEsterniBoard({
   ultimaSincronizzazione,
   clientiAttivi,
   insoluti,
+  clientiBuyGo,
 }: {
   clienti: ClienteEsterno[];
   isAdmin: boolean;
   ultimaSincronizzazione: string | null;
   clientiAttivi: number;
   insoluti: { totale: number; numeroFatture: number; clienti: ClienteInsoluto[] } | null;
+  clientiBuyGo: ClienteBuyGo[];
 }) {
   const router = useRouter();
   const [ricerca, setRicerca] = useState("");
@@ -33,6 +36,11 @@ export function ClientiEsterniBoard({
   const [inCorsoFatture, setInCorsoFatture] = useState(false);
   const [esito, setEsito] = useState("");
   const [esitoErrore, setEsitoErrore] = useState(false);
+  // ★ NUOVA (2026-08) — richiesta esplicita: sezione dedicata per i clienti
+  // Buy&Go/Buy Pro, stesso principio "vista" già usato altrove nel
+  // gestionale (Materiali, Persone/Utenti, Clienti/Installazioni) invece di
+  // una pagina separata.
+  const [vista, setVista] = useState<"anagrafica" | "buygo">("anagrafica");
 
   const numeroNonAttivi = useMemo(() => clienti.filter((c) => !c.attivo).length, [clienti]);
 
@@ -73,6 +81,33 @@ export function ClientiEsterniBoard({
 
   return (
     <div>
+      <div className="mb-5 flex gap-1.5 rounded-xl bg-muted/60 p-1">
+        <button
+          onClick={() => setVista("anagrafica")}
+          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+            vista === "anagrafica" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Anagrafica
+        </button>
+        <button
+          onClick={() => setVista("buygo")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${
+            vista === "buygo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Zap className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Buy&amp;Go
+          {clientiBuyGo.length > 0 && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-primary">{clientiBuyGo.length}</span>
+          )}
+        </button>
+      </div>
+
+      {vista === "buygo" ? (
+        <BuyGoTabella clienti={clientiBuyGo} />
+      ) : (
+        <>
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border bg-card p-4 shadow-md">
           <Users2 className="mb-2 h-4 w-4 text-primary" strokeWidth={2.25} />
@@ -191,6 +226,8 @@ export function ClientiEsterniBoard({
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
           Se la sincronizzazione dà errore, controlla le variabili ARUBA_BRIDGE_URL/ARUBA_BRIDGE_SECRET.
         </p>
+      )}
+        </>
       )}
     </div>
   );

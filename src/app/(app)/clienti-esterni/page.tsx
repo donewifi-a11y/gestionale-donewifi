@@ -2,7 +2,7 @@ import { Database } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
-import { getRiepilogoInsoluti } from "./actions";
+import { getRiepilogoInsoluti, getClientiBuyGo } from "./actions";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import type { ClienteEsterno } from "@/lib/types";
 
@@ -32,6 +32,7 @@ export default async function ClientiEsterniPage() {
   );
   const clientiAttivi = chiaviClientiAttivi.size;
   const insoluti = isAdmin ? await getRiepilogoInsoluti() : null;
+  const clientiBuyGo = await getClientiBuyGo();
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -53,6 +54,7 @@ export default async function ClientiEsterniPage() {
         ultimaSincronizzazione={ultimaSincronizzazione}
         clientiAttivi={clientiAttivi}
         insoluti={insoluti}
+        clientiBuyGo={clientiBuyGo}
       />
     </div>
   );
