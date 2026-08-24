@@ -391,6 +391,69 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   return { errore: null };
 }
 
+// ★ NUOVA (2026-08) — richiesta esplicita: "i dati inseriti devono essere
+// tutti editabili e modificabili perché possono nascere errori quando
+// l'operatore prende i dati" — prima, una volta creata, una Segnalazione
+// non aveva NESSUN modo di correggere un refuso su nome/telefono/email/
+// indirizzo/copertura/tipologia/note: bisognava eliminarla e ricrearla da
+// capo. Un solo campo alla volta non serviva (l'errore più comune è un
+// numero o un indirizzo scritto male mentre si è al telefono) — un unico
+// modulo con tutti i campi, come già in creaSegnalazione().
+export async function aggiornaDatiSegnalazione(
+  id: string,
+  dati: {
+    nome: string;
+    telefono: string;
+    email: string;
+    via: string;
+    civico: string;
+    comune: string;
+    cap: string;
+    copertura: Copertura;
+    tipologiaCliente: "Privato" | "Azienda";
+    note: string;
+  }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  if (!dati.nome.trim()) return { errore: "Il nome è obbligatorio." };
+  if (!dati.telefono.trim()) return { errore: "Il telefono è obbligatorio." };
+
+  const { error } = await supabase
+    .from("segnalazioni")
+    .update({
+      nome: dati.nome.trim(),
+      telefono: dati.telefono.trim(),
+      email: dati.email.trim() || null,
+      via: dati.via.trim(),
+      civico: dati.civico.trim(),
+      comune: dati.comune.trim(),
+      cap: dati.cap.trim(),
+      copertura: dati.copertura,
+      tipologia_cliente: dati.tipologiaCliente,
+      note: dati.note.trim() || null,
+      aggiornato_il: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "segnalazione",
+    riferimento_id: id,
+    operazione: "Dati modificati",
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/segnalazioni");
+  return { errore: null };
+}
+
 // ★ NUOVA (2026-08) — richiesta esplicita: "parcheggio" per un cliente già
 // contattato ma ancora indeciso, senza forzarlo avanti a "Gestione Cliente"
 // (che avvierebbe subito la richiesta dati) né lasciarlo invisibile in

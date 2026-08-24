@@ -28,9 +28,13 @@ import {
   SkipForward,
   HelpCircle,
   CalendarClock,
+  Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +43,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -50,8 +55,9 @@ import {
   inviaEmailApprovazioneContratto,
   impostaDubbioso,
   rimuoviDubbioso,
+  aggiornaDatiSegnalazione,
 } from "@/app/(app)/segnalazioni/actions";
-import type { RichiestaCliente, Segnalazione, StatoSegnalazione } from "@/lib/types";
+import type { RichiestaCliente, Segnalazione, StatoSegnalazione, Copertura } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/lib/use-persisted-state";
@@ -452,6 +458,11 @@ function DettaglioSegnalazione({
   const [formDubbiosoAperto, setFormDubbiosoAperto] = useState(false);
   const [motivoDubbio, setMotivoDubbio] = useState(segnalazione.motivo_dubbio ?? "");
   const [richiamareIl, setRichiamareIl] = useState(segnalazione.richiamare_il ?? "");
+  // ★ NUOVA (2026-08) — richiesta esplicita: "i dati inseriti devono essere
+  // tutti editabili... possono nascere errori quando l'operatore prende i
+  // dati" — prima non c'era alcun modo di correggere un refuso su nome/
+  // telefono/email/indirizzo/copertura/tipologia/note dopo la creazione.
+  const [modificaAperta, setModificaAperta] = useState(false);
 
   const [copiato, setCopiato] = useState(false);
   const [contrattoUrl, setContrattoUrl] = useState(segnalazione.contratto_pdf_url);
@@ -788,11 +799,29 @@ function DettaglioSegnalazione({
        * dell'Email, senza la sua etichetta) — sembrava un'interfaccia rotta.
        * `sticky top-0` tiene il titolo sempre visibile mentre si scorre. */}
       <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
-        <DialogTitle>{segnalazione.nome}</DialogTitle>
-        <DialogDescription>
-          #{segnalazione.numero} · {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
-        </DialogDescription>
+        <div className="flex items-start justify-between gap-2 pr-6">
+          <div className="min-w-0">
+            <DialogTitle>{segnalazione.nome}</DialogTitle>
+            <DialogDescription>
+              #{segnalazione.numero} · {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
+            </DialogDescription>
+          </div>
+          <button
+            type="button"
+            onClick={() => setModificaAperta(true)}
+            className="flex shrink-0 items-center gap-1 rounded-lg border bg-card px-2 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Modifica dati
+          </button>
+        </div>
       </DialogHeader>
+
+      <Dialog open={modificaAperta} onOpenChange={setModificaAperta}>
+        <DialogContent>
+          <FormModificaSegnalazione segnalazione={segnalazione} onSalvato={(s) => { onCambiata(s); setModificaAperta(false); }} onAnnulla={() => setModificaAperta(false)} />
+        </DialogContent>
+      </Dialog>
 
       <div className="flex min-w-0 flex-col gap-4 text-sm">
         <div>
@@ -1469,6 +1498,180 @@ function ModalitaGuidataCopia({
         </div>
       )}
     </div>
+  );
+}
+
+// ★ NUOVA (2026-08) — richiesta esplicita: tutti i dati raccolti alla
+// creazione della Segnalazione (nome/telefono/email/indirizzo/copertura/
+// tipologia/note) tornano modificabili da qui — prima l'unico modo di
+// correggere un refuso era eliminare e ricreare la Segnalazione da capo.
+// Stesso set di campi/pattern del modulo "Nuova Segnalazione"
+// (segnalazioni/nuovo/page.tsx), qui precompilato coi valori esistenti.
+function FormModificaSegnalazione({
+  segnalazione,
+  onSalvato,
+  onAnnulla,
+}: {
+  segnalazione: Segnalazione;
+  onSalvato: (s: Segnalazione) => void;
+  onAnnulla: () => void;
+}) {
+  const router = useRouter();
+  const [inCorso, startTransizione] = useTransition();
+  const [errore, setErrore] = useState("");
+  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">(
+    segnalazione.tipologia_cliente === "Azienda" ? "Azienda" : "Privato"
+  );
+  const [via, setVia] = useState(segnalazione.via);
+  const [comune, setComune] = useState(segnalazione.comune);
+  const [cap, setCap] = useState(segnalazione.cap);
+
+  function onSelezionaIndirizzo(d: DettagliIndirizzo) {
+    setVia(d.via);
+    if (d.comune) setComune(d.comune);
+    if (d.cap) setCap(d.cap);
+  }
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrore("");
+    const dati = new FormData(e.currentTarget);
+    const nome = String(dati.get("nome") || "").trim();
+    const telefono = String(dati.get("telefono") || "").trim();
+    if (!nome) return setErrore("Il nome è obbligatorio.");
+    if (!telefono) return setErrore("Il telefono è obbligatorio.");
+
+    startTransizione(async () => {
+      const risultato = await aggiornaDatiSegnalazione(segnalazione.id, {
+        nome,
+        telefono,
+        email: String(dati.get("email") || "").trim(),
+        via,
+        civico: String(dati.get("civico") || "").trim(),
+        comune,
+        cap,
+        copertura: String(dati.get("copertura") || segnalazione.copertura) as Copertura,
+        tipologiaCliente,
+        note: String(dati.get("note") || "").trim(),
+      });
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      onSalvato({
+        ...segnalazione,
+        nome,
+        telefono,
+        email: String(dati.get("email") || "").trim() || null,
+        via,
+        civico: String(dati.get("civico") || "").trim(),
+        comune,
+        cap,
+        copertura: String(dati.get("copertura") || segnalazione.copertura) as Copertura,
+        tipologia_cliente: tipologiaCliente,
+        note: String(dati.get("note") || "").trim() || null,
+      });
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Modifica dati</DialogTitle>
+        <DialogDescription>Correggi qui eventuali errori inseriti alla creazione — nome, contatti, indirizzo, copertura.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div>
+          <Label>Tipologia Cliente</Label>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTipologiaCliente("Privato")}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              👤 Privato
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipologiaCliente("Azienda")}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              🏢 Azienda
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="mod-nome">Nome cliente *</Label>
+            <Input id="mod-nome" name="nome" defaultValue={segnalazione.nome} autoFocus required className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="mod-telefono">Telefono *</Label>
+            <Input id="mod-telefono" name="telefono" type="tel" defaultValue={segnalazione.telefono} required className="mt-1" />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="mod-email">Email</Label>
+          <Input id="mod-email" name="email" type="email" defaultValue={segnalazione.email ?? ""} className="mt-1" />
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <Label htmlFor="mod-via">Via *</Label>
+            <IndirizzoAutocomplete id="mod-via" name="via" value={via} onChange={setVia} onSeleziona={onSelezionaIndirizzo} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="mod-civico">Civico *</Label>
+            <Input id="mod-civico" name="civico" defaultValue={segnalazione.civico} required className="mt-1" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="mod-comune">Comune *</Label>
+            <Input id="mod-comune" name="comune" value={comune} onChange={(e) => setComune(e.target.value)} required className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="mod-cap">CAP *</Label>
+            <Input id="mod-cap" name="cap" value={cap} onChange={(e) => setCap(e.target.value)} required className="mt-1" />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="mod-copertura">Copertura</Label>
+          <select id="mod-copertura" name="copertura" defaultValue={segnalazione.copertura} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <option value="daVerificare">Da verificare</option>
+            <option value="si">Sì</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+
+        <div>
+          <Label htmlFor="mod-note">Note</Label>
+          <Textarea id="mod-note" name="note" rows={3} defaultValue={segnalazione.note ?? ""} className="mt-1" />
+        </div>
+
+        {errore && (
+          <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+            {errore}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <Button type="submit" disabled={inCorso} className="flex-1">
+            {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
+            {inCorso ? "Salvataggio…" : "Salva modifiche"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onAnnulla} disabled={inCorso}>
+            Annulla
+          </Button>
+        </div>
+      </form>
+    </>
   );
 }
 

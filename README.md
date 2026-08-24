@@ -1970,3 +1970,10 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   diretti già in giro (stesso principio già usato per `/utenti` dopo la fusione Persone+Utenti).
   Verificato: query della pagina fusa contro Supabase reale (199 tariffe, 3914 clienti esterni,
   14 Ticket); build/lint puliti.
+✅ Dati Segnalazione modificabili dopo la creazione (2026-08, richiesta esplicita): prima non c'era
+  nessun modo di correggere un refuso su nome/telefono/email/indirizzo/copertura/tipologia/note una
+  volta creata la Segnalazione — bisognava eliminarla e ricrearla da capo. Nuovo pulsante "Modifica
+  dati" nell'intestazione del dettaglio, apre un modulo (Dialog annidato, stesso set di campi/
+  pattern del modulo "Nuova Segnalazione") precompilato coi valori esistenti — `aggiornaDatiSegnalazione()`
+  in `segnalazioni/actions.ts`, registra "Dati modificati" nello storico. Verificato: giro
+  aggiorna→storico→pulizia contro una Segnalazione reale (nessun valore alterato); build/lint puliti.
