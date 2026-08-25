@@ -2087,3 +2087,16 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   ogni gruppo con almeno una riga attiva, la riga scelta come canonica è sempre quella attiva — 0
   violazioni su 2397 gruppi; i 27 gruppi con 2+ righe attive allo stesso indirizzo restano intatti
   al 100%. Risultato: 3914 righe → 2684 dopo i due livelli di dedup; build/lint puliti.
+✅ Flag "attivo" — combinata contratto Aruba + fatturato 12 mesi (2026-08-25, richiesta esplicita:
+  "quanti clienti ti risultano? dovrebbero essere circa 1800"). Dopo il dedup risultavano 2397
+  installazioni "attive" per `contratto_attivo` — molto più del previsto. Incrociando con le
+  fatture reali (non solo negli ultimi 90 giorni, ogni fattura mai emessa): 531 di quelle 2397 non
+  fatturano da oltre un anno (179 da oltre 2 anni, 221 mai fatturato una volta) — il flag
+  `contratto_attivo` di Aruba non si aggiorna in modo affidabile alla chiusura di un contratto,
+  come temuto prima della migrazione `0059`. Né "fatturato negli ultimi 90 giorni" da solo (logica
+  originale, troppo severa) né "contratto_attivo" da solo (0059, troppo permissiva) erano
+  sufficienti. Migrazione `0060` (da eseguire manualmente): `attivo = contratto_attivo AND
+  fatturato negli ultimi 12 mesi` — le due condizioni insieme. Simulato sui dati reali fuori dal
+  database (stessa logica della funzione SQL): 1866 installazioni attive con la regola combinata,
+  vicino al numero atteso (~1800) — verifica definitiva contro il flag reale dopo l'esecuzione
+  della migrazione; build/lint puliti.

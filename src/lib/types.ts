@@ -317,12 +317,18 @@ export interface ClienteEsterno {
    */
   codice_gestionale: string | null;
   id_contratto: string | null;
-  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — fonte primaria di `attivo` (vedi sotto). */
+  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — da solo NON è affidabile per "attivo"
+   * (vedi sotto): 531 installazioni su dati reali risultavano contratto_attivo=true pur non
+   * fatturando da oltre un anno (o mai) — Aruba non lo aggiorna in modo affidabile alla chiusura
+   * di un contratto. */
   contratto_attivo: boolean | null;
-  /** ★ Stato del contratto (2026-08: allineato a `contratto_attivo`, non più al fatturato). Prima
-   * si usava "fatturato negli ultimi 90 giorni", ma è un segnale sbagliato per chi fattura a
-   * ciclo più lungo (trimestrale/annuale/Buy&Go a consumo) — 868 clienti con contratto Aruba
-   * davvero attivo risultavano "non attivo" solo perché non avevano una fattura recentissima. */
+  /** ★ Stato del contratto (2026-08-25, migrazione 0060): `contratto_attivo=true` E almeno una
+   * fattura emessa negli ultimi 12 mesi — nessuno dei due segnali da solo bastava. "Fatturato
+   * negli ultimi 90 giorni" da solo (logica originale) era troppo severo per chi fattura a ciclo
+   * lungo (trimestrale/annuale/Buy&Go a consumo). `contratto_attivo` da solo (migrazione 0059) era
+   * troppo permissivo: 531 installazioni marcate attive su Aruba non fatturavano da oltre un anno.
+   * Verificato sui dati reali: 1866 installazioni attive con la regola combinata, vicino al numero
+   * atteso (~1800). */
   attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;
