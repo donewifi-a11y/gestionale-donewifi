@@ -94,13 +94,23 @@ export function AppSidebar({
   // (Persone) e strumento tecnico (Stato Sistema). Proposta con artifact,
   // confermata: 5 mondi, ognuno risponde a UNA sola domanda —
   // Assistenza = "sto lavorando una pratica sul campo?", Vendita = "sto
-  // vendendo?", Clienti = "chi è questo cliente?", Analisi = "come vanno
-  // le cose?", Team = solo amministratori. Segnalazioni si sposta da
-  // Assistenza a Vendita (è un contatto commerciale, non un ticket di
-  // assistenza); Richieste Clienti resta in Assistenza (nascono quasi
-  // sempre da un Ticket esistente); Materiali si sposta vicino a
+  // vendendo o gestendo un cliente?", Clienti = "chi è questo cliente?",
+  // Analisi = "come vanno le cose?", Team = solo amministratori.
+  // Segnalazioni si sposta da Assistenza a Vendita (è un contatto
+  // commerciale, non un ticket di assistenza); Materiali si sposta vicino a
   // Calendario/Vista Tecnico in Assistenza (catalogo dei tecnici, non
   // strumento di vendita).
+  //
+  // ★ RIVISTA ANCORA (2026-08) — richiesta esplicita, proposta con
+  // artifact: "Segnalazioni" ridiventa "Nuovi Clienti" (era ambiguo: quella
+  // pagina gestisce solo i contatti NUOVI, non un cliente già esistente).
+  // "Richieste Clienti" si sposta qui in Vendita (prima era in Assistenza
+  // solo perché nasceva spesso da un Ticket) e diventa "Gestione Cliente":
+  // le pratiche di un cliente esistente (Trasferimento/Cambio IBAN/Cambio
+  // Anagrafica/Subentro/Disdetta) sono lavoro commerciale-amministrativo,
+  // non assistenza tecnica sul campo — le due voci "Nuovi Clienti" e
+  // "Gestione Cliente" ora coprono insieme tutto il ciclo di vita del
+  // rapporto con un cliente, fianco a fianco nello stesso mondo.
   const mondi: Mondo[] = useMemo(() => {
     const lista: Mondo[] = [
       {
@@ -113,7 +123,6 @@ export function AppSidebar({
           { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat },
           { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
           { href: "/materiali", etichetta: "Materiali", icona: Boxes },
-          ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Richieste Clienti", icona: ClipboardList }] : []),
           { href: "/archivio", etichetta: "Archivio", icona: Archive },
         ],
       },
@@ -121,8 +130,19 @@ export function AppSidebar({
         id: "vendita",
         etichetta: "Vendita",
         icona: PhoneCall,
+        // ★ FIX (2026-08) — richiesta esplicita, proposta con artifact:
+        // "Segnalazioni" era in realtà solo il flusso NUOVI contatti, nome
+        // ambiguo per chi cercava dove gestire un cliente già esistente
+        // (Trasferimento/Cambio IBAN/Cambio Anagrafica/Subentro — che
+        // scrivono già tutti in richieste_clienti, vedi Passo 3 sotto).
+        // "Richieste Clienti" si sposta qui da Assistenza (era lì solo
+        // perché nasce spesso da un Ticket, ma concettualmente è lavoro
+        // commerciale/fatturazione su un cliente, non assistenza tecnica) e
+        // cambia nome — stesse pagine, stessi indirizzi (/segnalazioni,
+        // /richieste-clienti), zero rischio.
         voci: [
-          { href: "/segnalazioni", etichetta: "Segnalazioni", icona: PhoneCall },
+          { href: "/segnalazioni", etichetta: "Nuovi Clienti", icona: PhoneCall },
+          ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Gestione Cliente", icona: ClipboardList }] : []),
           ...(vedeTariffe ? [{ href: "/preventivi", etichetta: "Preventivi", icona: FileText }] : []),
           ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
         ],

@@ -61,7 +61,11 @@ export default async function SegnalazioniPage() {
             <PhoneCall className="h-5 w-5" strokeWidth={2.25} />
           </div>
           <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight">Segnalazioni</h1>
+            {/* ★ RINOMINATA (2026-08, proposta con artifact) — "Segnalazioni"
+            era ambiguo: questa pagina gestisce solo i contatti NUOVI, non un
+            cliente già esistente (per quello vedi "Gestione Cliente"). Solo
+            l'etichetta cambia, l'indirizzo resta /segnalazioni. */}
+            <h1 className="font-heading text-2xl font-bold tracking-tight">Nuovi Clienti</h1>
             <p className="text-sm text-muted-foreground">
               Nuovi contatti, richiesta dati e trasmissione per l&apos;installazione.
             </p>
@@ -70,7 +74,7 @@ export default async function SegnalazioniPage() {
         <Link href="/segnalazioni/nuovo">
           <Button>
             <Plus className="h-4 w-4" strokeWidth={2.5} />
-            Nuova Segnalazione
+            Nuovo Cliente
           </Button>
         </Link>
       </div>

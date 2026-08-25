@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FileSignature, MapPinned, CreditCard, FileEdit } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FileSignature, MapPinned, CreditCard, FileEdit, FileX2, Loader2 } from "lucide-react";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
-import { inviaEmailPraticaClienteEsterno } from "@/app/(app)/clienti-esterni/actions";
+import { inviaEmailPraticaClienteEsterno, segnaDisdettaRicevuta } from "@/app/(app)/clienti-esterni/actions";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA, type RichiestaCliente } from "@/lib/types";
+import { useToast } from "@/components/ui/toast";
 
 const PRATICHE_DISPONIBILI: { slug: SlugRichiestaCliente; icona: typeof FileEdit }[] = [
   { slug: "trasferimento", icona: MapPinned },
@@ -32,7 +35,23 @@ export function NuovaPraticaClienteEsterno({
   nome: string;
   praticheEsistenti: RichiestaCliente[];
 }) {
+  const router = useRouter();
+  const toast = useToast();
   const [slug, setSlug] = useState<SlugRichiestaCliente | "">("");
+  const [inCorsoDisdetta, startDisdetta] = useTransition();
+
+  function segnaDisdetta() {
+    if (!confirm(`Segnare la disdetta di "${nome}" come ricevuta? Non sostituisce la comunicazione scritta ufficiale, serve solo a tracciarla qui.`)) return;
+    startDisdetta(async () => {
+      const risultato = await segnaDisdettaRicevuta(clienteId);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Disdetta segnata come ricevuta.", "successo");
+      router.refresh();
+    });
+  }
 
   const link = useMemo(() => {
     if (!slug || typeof window === "undefined") return "";
@@ -89,6 +108,34 @@ export function NuovaPraticaClienteEsterno({
             />
           </div>
         )}
+      </div>
+
+      {/* ★ NUOVA (2026-08) — Disdetta, a differenza delle 3 sopra, non ha un
+      modulo pubblico (la normativa richiede una comunicazione scritta
+      tracciabile — vedi /disdetta, resta di sole istruzioni, invariata).
+      Questo pulsante non la sostituisce: serve solo a far comparire la
+      pratica qui insieme alle altre, invece di restare invisibile. */}
+      <div className="mt-3 border-t pt-3">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Disdetta</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/disdetta"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            Vedi le istruzioni ufficiali
+          </Link>
+          <button
+            type="button"
+            onClick={segnaDisdetta}
+            disabled={inCorsoDisdetta}
+            className="ml-auto flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-critical/40 hover:text-critical disabled:opacity-50"
+          >
+            {inCorsoDisdetta ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileX2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoDisdetta ? "Salvataggio…" : "Segna disdetta ricevuta"}
+          </button>
+        </div>
       </div>
     </div>
   );

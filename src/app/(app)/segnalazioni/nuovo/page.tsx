@@ -97,9 +97,10 @@ export default function NuovaSegnalazionePage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.5} />
-          Torna alle Segnalazioni
+          Torna a Nuovi Clienti
         </Link>
-        <h1 className="font-heading mt-1 text-2xl font-bold tracking-tight">Nuova Segnalazione</h1>
+        {/* ★ RINOMINATA (2026-08) — solo l'etichetta, vedi segnalazioni/page.tsx. */}
+        <h1 className="font-heading mt-1 text-2xl font-bold tracking-tight">Nuovo Cliente</h1>
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm">

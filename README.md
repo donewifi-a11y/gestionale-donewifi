@@ -2011,3 +2011,19 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Bottone "Elimina segnalazione": aggiunto un separatore (bordo + spazio) sopra, per distinguere
     visivamente l'unica azione distruttiva del pannello dalle sezioni "normali" che la precedono.
   Verificato: build/lint puliti.
+✅ Riordino mondo Vendita — "Nuovi Clienti" + "Gestione Cliente" (2026-08, proposta con artifact,
+  3 passi): "Segnalazioni" era ambiguo — gestiva solo i contatti NUOVI, non un cliente già
+  esistente.
+  - **Passo 1** (solo etichetta): "Segnalazioni" → "Nuovi Clienti" (menu, H1, pulsante "Nuovo
+    Cliente"). Indirizzo invariato (`/segnalazioni`).
+  - **Passo 2** (solo etichetta + posizione): "Richieste Clienti" → "Gestione Cliente", spostata dal
+    mondo Assistenza al mondo Vendita, accanto a "Nuovi Clienti". Indirizzo invariato
+    (`/richieste-clienti`) — Trasferimento/Cambio IBAN/Cambio Anagrafica/Subentro ci sono già tutti
+    (Subentro ci arriva da tempo tramite `avviaPraticaSubentro()`).
+  - **Passo 3** (Opzione A scelta): la Disdetta non aveva mai lasciato traccia nel gestionale — resta
+    una pagina di sole istruzioni (`/disdetta`, la normativa richiede una comunicazione scritta, non
+    un modulo web) ma un nuovo pulsante "Segna disdetta ricevuta" nella scheda Cliente Esterno
+    (`segnaDisdettaRicevuta()`) crea una riga in `richieste_clienti` — non sostituisce la
+    comunicazione ufficiale, la fa solo comparire in "Gestione Cliente" insieme alle altre pratiche.
+  Verificato: giro insert→lettura→pulizia contro un cliente reale (`cliente_esterno_id` collegato
+  correttamente); build/lint puliti.

@@ -49,6 +49,10 @@ const COLORE_TIPO: Record<string, string> = {
   Trasferimento: "bg-accent text-accent-foreground border-accent",
   Subentro: "bg-accent text-accent-foreground border-accent",
   "Richiesta Dati": "bg-secondary text-secondary-foreground border-transparent",
+  // ★ NUOVA (2026-08) — Disdetta, tracciata solo come promemoria (vedi
+  // segnaDisdettaRicevuta() in clienti-esterni/actions.ts) — colore critico
+  // perché, a differenza delle altre, segnala la perdita di un cliente.
+  Disdetta: "bg-critical/10 text-critical border-critical/20",
 };
 
 export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: RichiestaCliente[]; isAdmin: boolean }) {

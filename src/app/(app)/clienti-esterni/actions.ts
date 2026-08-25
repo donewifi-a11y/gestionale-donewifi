@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
@@ -553,6 +553,55 @@ export async function inviaEmailPraticaClienteEsterno(clienteEsternoId: number, 
   const nome = cliente.ragionesociale || [cliente.nome, cliente.cognome].filter(Boolean).join(" ") || "Cliente";
   const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(nome, titolo, url);
   return inviaEmail({ a: cliente.email, oggetto, corpoHtml, corpoTesto, reparto });
+}
+
+// ★ NUOVA (2026-08) — richiesta esplicita, proposta con artifact (Passo 3,
+// Opzione A): a differenza delle altre 4 pratiche, la Disdetta non ha un
+// modulo pubblico da compilare — la normativa richiede una comunicazione
+// scritta tracciabile (raccomandata/email), non un semplice form web (vedi
+// /disdetta, resta una pagina di sole istruzioni, invariata). Questo
+// pulsante NON sostituisce quella comunicazione ufficiale — serve solo a
+// far comparire la pratica in "Gestione Cliente" insieme alle altre, invece
+// di restare invisibile finché qualcuno non se la ricorda a voce in
+// ufficio. Stessa tabella (richieste_clienti) delle altre 4, tipo_richiesta
+// "Disdetta" — non è tra i TIPI_RICHIESTA_CLIENTE (quelli validano il
+// modulo pubblico, qui non c'è nessun modulo) ma la colonna è testo libero,
+// stesso principio già usato per "Richiesta Dati".
+export async function segnaDisdettaRicevuta(clienteEsternoId: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: "Persona non impostata." };
+
+  const service = createServiceClient();
+  const { data: cliente } = await service
+    .from("clienti_esterni")
+    .select("nome, cognome, ragionesociale")
+    .eq("id", clienteEsternoId)
+    .maybeSingle();
+  if (!cliente) return { errore: "Cliente non trovato." };
+  const nome = cliente.ragionesociale || [cliente.nome, cliente.cognome].filter(Boolean).join(" ") || "Cliente";
+
+  const { data: richiesta, error } = await service
+    .from("richieste_clienti")
+    .insert({ tipo_richiesta: "Disdetta", cliente: nome, cliente_esterno_id: clienteEsternoId, dettagli: {}, documenti: [] })
+    .select("id")
+    .single();
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: richiesta.id,
+    operazione: "Disdetta segnata come ricevuta",
+    operatore_id: personaId,
+  });
+
+  revalidatePath("/richieste-clienti");
+  revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
+  return { errore: null };
 }
 
 export interface AttivazioneBuyGo {

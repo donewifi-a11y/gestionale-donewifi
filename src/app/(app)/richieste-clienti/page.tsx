@@ -36,9 +36,13 @@ export default async function RichiesteClientiPage() {
           <ClipboardList className="h-5 w-5" strokeWidth={2.25} />
         </div>
         <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">Richieste Clienti</h1>
+          {/* ★ RINOMINATA (2026-08, proposta con artifact) — "Richieste
+          Clienti" era un nome tecnico in un mondo (Assistenza) sbagliato
+          per chi gestisce un cliente già esistente — vedi app-sidebar.tsx.
+          Solo l'etichetta cambia, l'indirizzo resta /richieste-clienti. */}
+          <h1 className="font-heading text-2xl font-bold tracking-tight">Gestione Cliente</h1>
           <p className="text-sm text-muted-foreground">
-            Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro e Richiesta Dati inviati dai clienti.
+            Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro, Disdetta e Richiesta Dati per un cliente già esistente.
           </p>
         </div>
       </div>
