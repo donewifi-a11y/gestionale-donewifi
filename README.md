@@ -1990,3 +1990,12 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   ricomincia) prima del testo — stesso pattern delle notifiche di WhatsApp/iOS, il segnale più
   riconoscibile in assoluto per "cosa è appena arrivato". Verificato: build/lint puliti, le 4 classi
   dinamiche (`bg-info`, `bg-info/15`, `ring-info/40`, `text-info`) confermate nel CSS compilato.
+✅ Riepilogo mattutino "documenti arrivati" (2026-08, richiesta esplicita — segnalato come "non
+  arrivano le email": diagnosi confermata che non era un bug, mancava proprio questo pezzo).
+  Distinto dal riepilogo "non prese in carico" già esistente: elenca invece tutto ciò che è arrivato
+  da `richieste_clienti` nelle ultime 24 ore — Richiesta Dati + tutte le pratiche (Cambio IBAN/
+  Anagrafica/Trasferimento/Subentro), non solo le Segnalazioni. Aggiunto allo stesso cron
+  `promemoria-ticket` (nessun terzo slot di cron disponibile su piano Hobby), stesso orario (9 del
+  mattino, tutti i giorni), verso attivazioni@donewifi.it. Verificato: chiamata reale all'endpoint di
+  produzione (`ticketFermi: 5, segnalazioniFerme: 1, segnalazioniNonPrese: 0` prima della modifica,
+  confermando che il cron funzionava già correttamente); build/lint puliti dopo l'aggiunta.

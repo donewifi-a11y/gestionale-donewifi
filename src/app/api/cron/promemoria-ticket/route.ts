@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { verificaRichiestaCron } from "@/lib/cron";
 import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
-import type { AreaAccesso, Segnalazione, Ticket } from "@/lib/types";
+import type { AreaAccesso, RichiestaCliente, Segnalazione, Ticket } from "@/lib/types";
 
 const ORE_SOGLIA = 24;
 // ★ stessa soglia usata per il badge "in attesa da Ng" nella bacheca
@@ -29,6 +29,11 @@ const GIORNI_SOGLIA_SEGNALAZIONI = 3;
 // solo lun-sab) apposta per questo — sposta di un'ora anche i due controlli
 // sopra (ticket fermi, richiesta dati ferma), effetto collaterale accettato
 // per non consumare il secondo slot di cron rimasto libero.
+//
+// ★ NUOVA (2026-08) — quarta aggiunta, richiesta esplicita: un secondo
+// riepilogo mattutino, distinto dal terzo sopra — non "chi non è stato
+// contattato" ma "cosa ci hanno mandato i clienti nelle ultime 24 ore"
+// (documenti/dati di ogni pratica, non solo Richiesta Dati).
 export async function GET(request: NextRequest) {
   const nonAutorizzato = verificaRichiestaCron(request);
   if (nonAutorizzato) return nonAutorizzato;
@@ -124,10 +129,44 @@ export async function GET(request: NextRequest) {
     await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
   }
 
+  // ★ NUOVA (2026-08) — richiesta esplicita: riepilogo mattutino separato da
+  // quello sopra — non "chi non è stato ancora contattato" ma "cosa ci hanno
+  // mandato i clienti nelle ultime 24 ore" (Richiesta Dati + tutte le
+  // pratiche — Cambio IBAN/Anagrafica/Trasferimento/Subentro — vedi
+  // richieste_clienti, popolata sia da api/richiesta-dati che da
+  // api/richiesta-cliente). Le notifiche immediate esistono già per ogni
+  // singolo arrivo; questa è in più, un colpo d'occhio di tutto quello
+  // successo durante la notte/il giorno prima, verso attivazioni@donewifi.it.
+  const soglia24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: praticheRecenti, error: erroreRecenti } = await supabase
+    .from("richieste_clienti")
+    .select("*")
+    .gte("data", soglia24hIso)
+    .order("data", { ascending: true });
+  if (erroreRecenti) return NextResponse.json({ errore: erroreRecenti.message }, { status: 500 });
+
+  const documentiArrivati = (praticheRecenti as RichiestaCliente[]) ?? [];
+  if (documentiArrivati.length > 0) {
+    const righeHtml = documentiArrivati
+      .map((r) => `<li><b>${r.tipo_richiesta}</b> — ${r.cliente ?? "—"} (${new Date(r.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})</li>`)
+      .join("");
+    const righeTesto = documentiArrivati
+      .map((r) => `- ${r.tipo_richiesta} — ${r.cliente ?? "—"} (${new Date(r.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`)
+      .join("\n");
+    const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
+      `${documentiArrivati.length} documenti/pratiche arrivati nelle ultime 24 ore`,
+      `<ul style="font-size:14px;color:#141414;line-height:1.7;padding-left:20px;margin:0 0 12px;">${righeHtml}</ul>`,
+      righeTesto,
+      "https://gestione.donewifi.it/richieste-clienti"
+    );
+    await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
+  }
+
   return NextResponse.json({
     ok: true,
     ticketFermi: tickets?.length ?? 0,
     segnalazioniFerme: segnalazioniFerme.length,
     segnalazioniNonPrese: segnalazioniNonPrese.length,
+    documentiArrivati: documentiArrivati.length,
   });
 }
