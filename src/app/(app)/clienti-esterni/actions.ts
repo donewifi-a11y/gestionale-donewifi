@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
-import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso, ClienteEsterno, FatturaEsterna, RichiestaCliente } from "@/lib/types";
@@ -163,6 +163,25 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
 
   revalidatePath("/clienti-esterni");
   return { errore: null, sincronizzati: righe.length };
+}
+
+/**
+ * ★ NUOVA (2026-08) — controparte di `dedupClientiPerContratto()`: la
+ * scheda cliente mostra ora solo l'ultima riga per `codice_gestionale`
+ * (vedi clienti-esterni/page.tsx e clienti/page.tsx), ma le righe superate
+ * dai rinnovi Aruba non vanno perse, solo spostate qui come storico.
+ */
+export async function getContrattiPrecedenti(codiceGestionale: string | null, idAttuale: number) {
+  if (!codiceGestionale) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clienti_esterni")
+    .select("id, id_contratto, profilo_internet, contratto_attivo, aggiornato_il")
+    .eq("codice_gestionale", codiceGestionale)
+    .neq("id", idAttuale)
+    .order("id", { ascending: false });
+  if (error) console.error("getContrattiPrecedenti:", error.message);
+  return data ?? [];
 }
 
 export async function getStoricoProfiloCliente(clienteEsternoId: number) {
@@ -640,7 +659,7 @@ export interface ClienteBuyGo {
 export async function getClientiBuyGo(): Promise<ClienteBuyGo[]> {
   const supabase = await createClient();
 
-  const tuttiClienti = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const tuttiClienti = dedupClientiPerContratto(await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*"));
   const buygo = tuttiClienti.filter((c) => c.profilo_internet && /buy/i.test(c.profilo_internet));
   if (buygo.length === 0) return [];
 

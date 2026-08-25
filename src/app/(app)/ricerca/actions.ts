@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { dedupClientiPerContratto } from "@/lib/clienti-esterni";
 
 export interface RisultatoRicerca {
   tipo: "ticket" | "segnalazione" | "cliente";
@@ -56,12 +57,16 @@ export async function ricercaGlobale(query: string, ambito: "tutti" | "clienti" 
           .limit(8),
     supabase
       .from("clienti_esterni")
-      .select("id, nome, cognome, ragionesociale, telefono, comune")
+      .select("id, nome, cognome, ragionesociale, telefono, comune, codice_gestionale")
       .eq("attivo", true)
       .or(
         `nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%,codice_fiscale.ilike.%${testoSicuro}%`
       )
-      .limit(limiteClienti),
+      // ★ presa più righe del limite finale: un rinnovo Aruba crea una riga
+      // per contratto (vedi dedupClientiPerContratto in lib/clienti-esterni.ts)
+      // — senza margine, il dedup dopo la query potrebbe restituire meno
+      // risultati del limite richiesto pur essendocene altri disponibili.
+      .limit(limiteClienti * 2),
   ]);
 
   const risultatiTicket: RisultatoRicerca[] = (tickets ?? []).map((t) => ({
@@ -78,7 +83,8 @@ export async function ricercaGlobale(query: string, ambito: "tutti" | "clienti" 
     titolo: s.nome,
     sottotitolo: `Segnalazione #${s.numero} · ${s.comune} · ${s.stato}`,
   }));
-  const risultatiCliente: RisultatoRicerca[] = (clienti ?? []).map((c) => ({
+  const clientiDeduplicati = dedupClientiPerContratto(clienti ?? []).slice(0, limiteClienti);
+  const risultatiCliente: RisultatoRicerca[] = clientiDeduplicati.map((c) => ({
     tipo: "cliente",
     id: String(c.id),
     numero: null,

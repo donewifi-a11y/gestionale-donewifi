@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { ClientiBoard, type DatiAnagrafica } from "@/components/clienti/clienti-board";
 import { getInstallazioni } from "./actions";
-import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
 import { getRiepilogoInsoluti, getClientiBuyGo } from "@/app/(app)/clienti-esterni/actions";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
@@ -12,7 +12,7 @@ import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types
 // era una pagina a sé (clienti-esterni/page.tsx), vedi fusione sotto.
 export const maxDuration = 60;
 
-type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto">;
+type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto" | "codice_gestionale">;
 
 // ★ FIX — una `.select()` senza `.range()` è limitata a 1000 righe da
 // Supabase/PostgREST: questa pagina raggruppa TUTTI i ticket per
@@ -55,7 +55,9 @@ export default async function ClientiPage() {
     fetchTuttiTicket(supabase),
     supabase.from("clienti").select("*"),
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
-    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, attivo, profilo_internet, id_contratto"),
+    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, attivo, profilo_internet, id_contratto, codice_gestionale").then(
+      dedupClientiPerContratto
+    ),
     getInstallazioni(),
     vedeAnagrafica ? caricaDatiAnagrafica(supabase, isAdmin) : Promise.resolve(null),
   ]);
@@ -89,7 +91,8 @@ export default async function ClientiPage() {
 }
 
 async function caricaDatiAnagrafica(supabase: Awaited<ReturnType<typeof createClient>>, isAdmin: boolean): Promise<DatiAnagrafica> {
-  const clientiNonOrdinati = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const clientiGrezzi = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const clientiNonOrdinati = dedupClientiPerContratto(clientiGrezzi);
   const clienti = [...clientiNonOrdinati].sort((a, b) => (a.cognome || "").localeCompare(b.cognome || ""));
 
   const ultimaSincronizzazione = clienti.reduce<string | null>(

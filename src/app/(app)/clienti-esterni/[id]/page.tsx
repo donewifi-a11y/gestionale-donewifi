@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus, FileCheck2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno } from "../actions";
+import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno, getContrattiPrecedenti } from "../actions";
 import { InstallazioniCliente } from "@/components/clienti-esterni/installazioni-cliente";
 import { NuovaPraticaClienteEsterno } from "@/components/clienti-esterni/nuova-pratica";
 import { formattaValuta } from "@/lib/types";
@@ -23,13 +23,14 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
   const c = cliente as ClienteEsterno;
 
-  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni, pratiche] = await Promise.all([
+  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni, pratiche, contrattiPrecedenti] = await Promise.all([
     getStoricoProfiloCliente(c.id),
     getFattureCliente(c.codice_fiscale, c.partita_iva),
     getTicketCollegati(c.telefono),
     getPreventiviCollegati(c.id, c.telefono),
     getInstallazioniCliente(c.telefono),
     getPraticheClienteEsterno(c.id),
+    getContrattiPrecedenti(c.codice_gestionale, c.id),
   ]);
 
   const fatturatoTotale = fatture.reduce((s, f) => s + (Number(f.importo) || 0), 0);
@@ -126,6 +127,30 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
               </div>
             ))}
           </div>
+
+          {/* ★ NUOVA (2026-08) — controparte di dedupClientiPerContratto(): un
+          rinnovo Aruba dello stesso codice_gestionale crea una riga nuova
+          invece di aggiornare quella esistente. Le liste mostrano solo
+          l'ultima riga (questa), le altre restano visibili qui come storico
+          invece di sparire o comparire come clienti a sé. */}
+          {contrattiPrecedenti.length > 0 && (
+            <>
+              <div className="mt-3 flex items-center gap-1.5 border-t pt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <History className="h-3 w-3" strokeWidth={2.25} />
+                Contratti precedenti su questo codice gestionale
+              </div>
+              <div className="mt-1 flex flex-col gap-1 text-xs">
+                {contrattiPrecedenti.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 border-t py-1 first:border-t-0">
+                    <span>
+                      <span className="font-mono text-muted-foreground">{p.id_contratto || "—"}</span> — {p.profilo_internet || "—"}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">{new Date(p.aggiornato_il).toLocaleDateString("it-IT")}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

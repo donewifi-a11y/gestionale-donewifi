@@ -306,11 +306,23 @@ export interface ClienteEsterno {
   cap: string | null;
   comune: string | null;
   provincia: string | null;
+  /** ★ identifica il CONTRATTO/installazione su Aruba — stabile tra i rinnovi. Più righe di
+   * `clienti_esterni` possono condividere lo stesso `codice_gestionale` (ogni rinnovo/adeguamento
+   * crea una riga nuova invece di aggiornare quella esistente): quella con `id` più alto è
+   * l'attuale, le altre sono storico. Vedi `dedupClientiPerContratto()` in `lib/clienti-esterni.ts`
+   * — va sempre applicato prima di mostrare/contare "i clienti", altrimenti ogni rinnovo conta
+   * come un cliente a sé (bug reale trovato in produzione, 2026-08: 696 righe su 3914 erano
+   * duplicati di questo tipo). Un CF/PIVA con più `codice_gestionale` diversi è invece legittimo:
+   * la stessa persona con più punti installati (indirizzi/contratti distinti).
+   */
   codice_gestionale: string | null;
   id_contratto: string | null;
-  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — inaffidabile, tenuto solo per riferimento. Per lo stato reale usare `attivo`. */
+  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — fonte primaria di `attivo` (vedi sotto). */
   contratto_attivo: boolean | null;
-  /** Fatturato negli ultimi 90 giorni — è questo il segnale usato ovunque nell'app per "cliente attivo". */
+  /** ★ Stato del contratto (2026-08: allineato a `contratto_attivo`, non più al fatturato). Prima
+   * si usava "fatturato negli ultimi 90 giorni", ma è un segnale sbagliato per chi fattura a
+   * ciclo più lungo (trimestrale/annuale/Buy&Go a consumo) — 868 clienti con contratto Aruba
+   * davvero attivo risultavano "non attivo" solo perché non avevano una fattura recentissima. */
   attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;

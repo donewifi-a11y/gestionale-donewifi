@@ -2044,3 +2044,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   (non elenca più "Richiesta Dati" tra le pratiche gestite qui). Verificato contro Supabase reale:
   una riga "Trasferimento" e una "Richiesta Dati" in tabella, la query filtrata ne restituisce solo
   1 (la "Trasferimento"); build/lint puliti.
+✅ Clienti duplicati / flag "attivo" sbagliato (2026-08-25, bug reale segnalato dall'utente).
+  Diagnosi contro dati reali: ogni rinnovo/adeguamento di un contratto su Aruba scrive una riga
+  NUOVA in `clienti_esterni` invece di aggiornare quella esistente (stesso `codice_gestionale`,
+  `id` diverso) — 696 righe su 3914 erano versioni superate dello stesso contratto, non clienti
+  diversi. Due fix:
+  - **Duplicati**: nuova `dedupClientiPerContratto()` (`lib/clienti-esterni.ts`) — raggruppa per
+    `codice_gestionale` (non per CF/PIVA: un CF/PIVA con più `codice_gestionale` resta legittimo,
+    è la stessa persona con più punti installati) e tiene la riga con `id` più alto. Applicato
+    ovunque si mostrino/contino "i clienti": lista Anagrafica, tab Anagrafica di Clienti, Buy&Go,
+    ricerca globale. Le righe superate non spariscono: restano visibili nella scheda cliente sotto
+    "Contratti precedenti su questo codice gestionale" (`getContrattiPrecedenti()`).
+  - **Flag "attivo"**: `ricalcola_clienti_attivi()` usava "fatturato negli ultimi 90 giorni" — segnale
+    sbagliato per chi fattura trimestralmente/annualmente/a consumo (Buy&Go): 868 clienti con
+    contratto Aruba davvero attivo risultavano "non attivo". Migrazione `0059` (da eseguire
+    manualmente) ridefinisce `attivo = contratto_attivo` (il flag grezzo Aruba, prima tenuto solo
+    come riferimento, ora fonte primaria) — la fatturazione resta visibile in scheda ma non decide
+    più lo stato.
+  Verificato contro Supabase reale: dedup passa da 3914 a 3218 righe (-696, tutte rinnovi
+  confermati stesso `codice_gestionale`); build/lint puliti. **Residuo noto, non ancora toccato**:
+  546 CF/PIVA hanno ancora più righe allo stesso indirizzo ma con `codice_gestionale` diverso
+  (verosimilmente un ricodifica Aruba passata, non un secondo punto installato — la riga più
+  vecchia ha quasi sempre `contratto_attivo=false`) — serve una decisione esplicita prima di
+  toccarlo, per non rischiare di fondere due installazioni reali della stessa persona.

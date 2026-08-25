@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
 import { getRiepilogoInsoluti, getClientiBuyGo } from "./actions";
-import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
 import type { ClienteEsterno } from "@/lib/types";
 
 // ★ "Sincronizza fatture" scarica/scrive 59mila righe: più dei 10s di
@@ -13,7 +13,10 @@ export const maxDuration = 60;
 
 export default async function ClientiEsterniPage() {
   const supabase = await createClient();
-  const clientiNonOrdinati = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  const clientiGrezzi = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
+  // ★ dedup per contratto (vedi dedupClientiPerContratto) — un rinnovo Aruba
+  // non deve comparire come un cliente a sé, vedi lib/clienti-esterni.ts.
+  const clientiNonOrdinati = dedupClientiPerContratto(clientiGrezzi);
   const clienti = [...clientiNonOrdinati].sort((a, b) => (a.cognome || "").localeCompare(b.cognome || ""));
 
   const personaCorrente = await getPersonaCorrente(supabase);
