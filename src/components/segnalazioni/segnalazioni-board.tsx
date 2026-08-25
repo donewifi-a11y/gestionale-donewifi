@@ -868,11 +868,44 @@ function DettaglioSegnalazione({
           </div>
         </div>
 
-        {/* ★ NUOVA (2026-08) — "parcheggio" per un cliente indeciso
-        (Opzione C, proposta con artifact): visibile solo in "In Contatto",
-        l'unico punto del percorso dove ha senso dire "l'ho sentito, sta
-        pensandoci" — prima di "Gestione Cliente" (che avvia subito la
-        richiesta dati) e dopo "Da Contattare" (non l'hai ancora chiamato). */}
+        {/* ★ FIX — una volta arrivata la Richiesta Dati, Telefono/Email qui
+         * duplicavano esattamente lo stesso valore già nella tab Anagrafica →
+         * Contatti (la route li risincronizza sulla Segnalazione quando
+         * arrivano): tenerli entrambi allungava lo scroll prima di arrivare
+         * alle tab senza aggiungere informazione. */}
+        {!richiesta && (
+          <>
+            <Campo
+              etichetta="Tipologia Cliente"
+              valore={segnalazione.tipologia_cliente ? `${segnalazione.tipologia_cliente === "Azienda" ? "🏢" : "👤"} ${segnalazione.tipologia_cliente}` : "—"}
+            />
+            <Campo etichetta="Telefono" valore={segnalazione.telefono} />
+            <Campo etichetta="Email" valore={segnalazione.email || "—"} />
+          </>
+        )}
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(`${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} ${segnalazione.cap}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-0.5 flex items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+            {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
+          </a>
+        </div>
+        <Campo etichetta="Note" valore={segnalazione.note || "—"} />
+
+        {/* ★ SPOSTATA (2026-08, audit di layout) — "parcheggio" per un
+        cliente indeciso (Opzione C, proposta con artifact): visibile solo
+        in "In Contatto", l'unico punto del percorso dove ha senso dire
+        "l'ho sentito, sta pensandoci" — prima di "Gestione Cliente" (che
+        avvia subito la richiesta dati) e dopo "Da Contattare" (non l'hai
+        ancora chiamato). Prima compariva PRIMA di Tipologia/Telefono/
+        Email/Indirizzo/Note — chi apriva il pannello vedeva prima
+        l'indecisione, poi chi fosse il cliente. Ora è qui, dopo i dati di
+        contatto: prima l'identità, poi lo stato della trattativa. */}
         {segnalazione.stato === "In Contatto" && (
           <div className="rounded-xl border border-warning/25 bg-warning/5 p-3">
             {segnalazione.dubbioso_dal ? (
@@ -946,35 +979,6 @@ function DettaglioSegnalazione({
             )}
           </div>
         )}
-
-        {/* ★ FIX — una volta arrivata la Richiesta Dati, Telefono/Email qui
-         * duplicavano esattamente lo stesso valore già nella tab Anagrafica →
-         * Contatti (la route li risincronizza sulla Segnalazione quando
-         * arrivano): tenerli entrambi allungava lo scroll prima di arrivare
-         * alle tab senza aggiungere informazione. */}
-        {!richiesta && (
-          <>
-            <Campo
-              etichetta="Tipologia Cliente"
-              valore={segnalazione.tipologia_cliente ? `${segnalazione.tipologia_cliente === "Azienda" ? "🏢" : "👤"} ${segnalazione.tipologia_cliente}` : "—"}
-            />
-            <Campo etichetta="Telefono" valore={segnalazione.telefono} />
-            <Campo etichetta="Email" valore={segnalazione.email || "—"} />
-          </>
-        )}
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(`${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} ${segnalazione.cap}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-0.5 flex items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
-          >
-            <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-            {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
-          </a>
-        </div>
-        <Campo etichetta="Note" valore={segnalazione.note || "—"} />
 
         {segnalazione.stato === "Gestione Cliente" && !richiesta && (
           <div className="rounded-xl border bg-card p-3 shadow-sm">
@@ -1246,77 +1250,81 @@ function DettaglioSegnalazione({
             </p>
           )}
 
-          {/* ★ NUOVA — richiesta esplicita: prima di "Trasmetti" il cliente
-           * deve approvare davvero il contratto, non basta averlo caricato.
-           * Stesso link monouso via email già usato per l'approvazione
-           * dell'intervento sui Ticket — un click da quella casella è la
-           * prova di data/ora e autenticità richiesta, tracciata anche in
-           * Storico Modifiche. */}
-          {contrattoUrl && (
-            <div className="mt-3 border-t pt-3">
-              {segnalazione.contratto_approvato_cliente_il ? (
-                <p className="flex items-start gap-1.5 text-xs font-semibold text-success">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-                  Contratto approvato dal cliente il{" "}
-                  {new Date(segnalazione.contratto_approvato_cliente_il).toLocaleString("it-IT", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                  .
-                </p>
-              ) : segnalazione.contratto_inviato_approvazione_il ? (
-                <>
-                  <p className="flex items-start gap-1.5 text-xs text-warning">
-                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                    In attesa di approvazione dal cliente — inviato il{" "}
-                    {new Date(segnalazione.contratto_inviato_approvazione_il).toLocaleString("it-IT", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    .
+          {/* ★ RIVISTA (2026-08, audit di layout) — richiesta esplicita:
+           * prima di "Trasmetti" il cliente deve approvare davvero il
+           * contratto, non basta averlo caricato. Stesso link monouso via
+           * email già usato per l'approvazione dell'intervento sui Ticket —
+           * un click da quella casella è la prova di data/ora e
+           * autenticità richiesta, tracciata anche in Storico Modifiche.
+           * Prima erano 3 paragrafi di testo separati (icona/colore scelti
+           * uno per uno) per raccontare lo stesso concetto — "a che punto
+           * è il contratto" — invece di un segnale unico leggibile a colpo
+           * d'occhio, come già fatto ovunque altrove nel gestionale (badge
+           * nei kanban). Ora un solo badge colorato, con l'azione "invia di
+           * nuovo" incorporata invece che su una riga a parte. */}
+          {contrattoUrl && (() => {
+            const statoContratto = segnalazione.contratto_approvato_cliente_il
+              ? {
+                  colore: "bg-success/10 text-success",
+                  icona: Check,
+                  testo: `Approvato dal cliente il ${new Date(segnalazione.contratto_approvato_cliente_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+                }
+              : segnalazione.contratto_inviato_approvazione_il
+                ? {
+                    colore: "bg-warning/10 text-warning",
+                    icona: Clock,
+                    testo: `In attesa di approvazione — inviato il ${new Date(segnalazione.contratto_inviato_approvazione_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`,
+                  }
+                : {
+                    colore: "bg-muted text-muted-foreground",
+                    icona: Info,
+                    testo: "Caricato — invia per approvazione col pulsante in fondo",
+                  };
+            return (
+              <div className="mt-3 border-t pt-3">
+                <div className={`flex flex-wrap items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold ${statoContratto.colore}`}>
+                  <statoContratto.icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  <span className="flex-1">{statoContratto.testo}</span>
+                  {segnalazione.contratto_inviato_approvazione_il && !segnalazione.contratto_approvato_cliente_il && (
+                    <button
+                      type="button"
+                      onClick={inviaApprovazioneContratto}
+                      disabled={inCorsoApprovazione}
+                      className="shrink-0 underline-offset-2 hover:underline disabled:opacity-50"
+                    >
+                      {inCorsoApprovazione ? "Invio…" : "Invia di nuovo"}
+                    </button>
+                  )}
+                </div>
+                {erroreApprovazione && (
+                  <p className="mt-1.5 flex items-start gap-1.5 text-xs text-critical">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    {erroreApprovazione}
                   </p>
-                  <button
-                    type="button"
-                    onClick={inviaApprovazioneContratto}
-                    disabled={inCorsoApprovazione}
-                    className="mt-1.5 flex items-center gap-1.5 text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50"
-                  >
-                    {inCorsoApprovazione && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />}
-                    {inCorsoApprovazione ? "Invio in corso…" : "Invia di nuovo al cliente"}
-                  </button>
-                </>
-              ) : (
-                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  Contratto caricato — usa il pulsante in fondo per inviarlo al cliente da approvare.
-                </p>
-              )}
-              {erroreApprovazione && (
-                <p className="mt-1.5 flex items-start gap-1.5 text-xs text-critical">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  {erroreApprovazione}
-                </p>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
         </div>
         )}
 
+        {/* ★ NUOVA (2026-08, audit di layout) — separatore sopra "Elimina":
+        prima l'unica azione distruttiva del pannello era incastonata tra le
+        sezioni "normali" senza nessuna distinzione visiva. Un bordo sopra
+        con più spazio segnala "qui inizia una zona diversa", senza
+        spostare né cambiare nient'altro. */}
         {isAdmin && (
+          <div className="mt-1 border-t pt-3">
           <button
             type="button"
             onClick={elimina}
             disabled={inCorsoElimina}
-            className="mt-2 flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
+            className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
           >
             {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
             {inCorsoElimina ? "Eliminazione in corso…" : "Elimina segnalazione"}
           </button>
+          </div>
         )}
       </div>
 

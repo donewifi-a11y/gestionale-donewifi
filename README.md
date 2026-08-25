@@ -1999,3 +1999,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   mattino, tutti i giorni), verso attivazioni@donewifi.it. Verificato: chiamata reale all'endpoint di
   produzione (`ticketFermi: 5, segnalazioniFerme: 1, segnalazioniNonPrese: 0` prima della modifica,
   confermando che il cron funzionava già correttamente); build/lint puliti dopo l'aggiunta.
+✅ Segnalazioni — 3 modifiche mirate da audit di layout (2026-08, proposta con artifact, audit
+  parte per parte): 6 delle 8 parti esaminate confermate a posto, tre aggiustamenti precisi
+  applicati.
+  - Blocco "Dubbioso" spostato **dopo** Tipologia/Telefono/Email/Indirizzo/Note invece che prima —
+    ordine di lettura corretto (prima chi è il cliente, poi lo stato della trattativa), nessun
+    contenuto cambiato.
+  - Sezione Contratto: i 3 paragrafi di testo separati (approvato/in attesa/non ancora inviato,
+    icona e colore scelti uno per uno) uniti in un **badge unico colorato**, stesso linguaggio dei
+    segnali già usati in bacheca — l'azione "invia di nuovo" ora è incorporata nel badge stesso.
+  - Bottone "Elimina segnalazione": aggiunto un separatore (bordo + spazio) sopra, per distinguere
+    visivamente l'unica azione distruttiva del pannello dalle sezioni "normali" che la precedono.
+  Verificato: build/lint puliti.
