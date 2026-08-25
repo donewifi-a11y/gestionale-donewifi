@@ -57,7 +57,7 @@ export async function ricercaGlobale(query: string, ambito: "tutti" | "clienti" 
           .limit(8),
     supabase
       .from("clienti_esterni")
-      .select("id, nome, cognome, ragionesociale, telefono, comune, codice_gestionale")
+      .select("id, nome, cognome, ragionesociale, telefono, comune, codice_gestionale, attivo")
       .eq("attivo", true)
       .or(
         `nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%,codice_fiscale.ilike.%${testoSicuro}%`

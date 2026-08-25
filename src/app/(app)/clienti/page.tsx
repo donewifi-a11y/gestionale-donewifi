@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { ClientiBoard, type DatiAnagrafica } from "@/components/clienti/clienti-board";
 import { getInstallazioni } from "./actions";
-import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerContratto, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import { getRiepilogoInsoluti, getClientiBuyGo } from "@/app/(app)/clienti-esterni/actions";
 import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types";
 
@@ -92,7 +92,7 @@ export default async function ClientiPage() {
 
 async function caricaDatiAnagrafica(supabase: Awaited<ReturnType<typeof createClient>>, isAdmin: boolean): Promise<DatiAnagrafica> {
   const clientiGrezzi = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
-  const clientiNonOrdinati = dedupClientiPerContratto(clientiGrezzi);
+  const clientiNonOrdinati = dedupClientiPerInstallazione(clientiGrezzi);
   const clienti = [...clientiNonOrdinati].sort((a, b) => (a.cognome || "").localeCompare(b.cognome || ""));
 
   const ultimaSincronizzazione = clienti.reduce<string | null>(

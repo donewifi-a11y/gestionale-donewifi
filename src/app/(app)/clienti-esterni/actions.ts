@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
-import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso, ClienteEsterno, FatturaEsterna, RichiestaCliente } from "@/lib/types";
@@ -166,22 +166,50 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
 }
 
 /**
- * ★ NUOVA (2026-08) — controparte di `dedupClientiPerContratto()`: la
- * scheda cliente mostra ora solo l'ultima riga per `codice_gestionale`
+ * ★ NUOVA (2026-08) — controparte di `dedupClientiPerInstallazione()`: la
+ * scheda cliente mostra ora solo la riga "canonica" per contratto/installazione
  * (vedi clienti-esterni/page.tsx e clienti/page.tsx), ma le righe superate
- * dai rinnovi Aruba non vanno perse, solo spostate qui come storico.
+ * (dai rinnovi Aruba, stesso `codice_gestionale`, o da una ricodifica dello
+ * stesso contratto — CF/PIVA e indirizzo identici) non vanno perse, solo
+ * spostate qui come storico. Stessa regola del dedup: due righe entrambe
+ * `contratto_attivo=true` sullo stesso indirizzo sono installazioni distinte
+ * (es. Buy&Go + linea fissa) — quella NON compare come "storico" qui, resta
+ * una scheda a sé.
  */
-export async function getContrattiPrecedenti(codiceGestionale: string | null, idAttuale: number) {
-  if (!codiceGestionale) return [];
+export async function getContrattiPrecedenti(cliente: ClienteEsterno) {
+  const chiaveCf = cliente.codice_fiscale || cliente.partita_iva;
+  if (!cliente.codice_gestionale && !chiaveCf) return [];
   const supabase = await createClient();
+
+  const filtri: string[] = [];
+  if (cliente.codice_gestionale) filtri.push(`codice_gestionale.eq.${cliente.codice_gestionale}`);
+  if (cliente.codice_fiscale) filtri.push(`codice_fiscale.eq.${cliente.codice_fiscale}`);
+  if (cliente.partita_iva) filtri.push(`partita_iva.eq.${cliente.partita_iva}`);
+  if (filtri.length === 0) return [];
+
   const { data, error } = await supabase
     .from("clienti_esterni")
-    .select("id, id_contratto, profilo_internet, contratto_attivo, aggiornato_il")
-    .eq("codice_gestionale", codiceGestionale)
-    .neq("id", idAttuale)
+    .select("id, codice_gestionale, id_contratto, profilo_internet, contratto_attivo, attivo, aggiornato_il, codice_fiscale, partita_iva, indirizzo, numero_civico, comune")
+    .or(filtri.join(","))
+    .neq("id", cliente.id)
     .order("id", { ascending: false });
-  if (error) console.error("getContrattiPrecedenti:", error.message);
-  return data ?? [];
+  if (error) {
+    console.error("getContrattiPrecedenti:", error.message);
+    return [];
+  }
+
+  const normalizza = (v: string | null) => (v || "").trim().toLowerCase();
+  const indirizzoAttuale = `${normalizza(cliente.indirizzo)}|${normalizza(cliente.numero_civico)}|${normalizza(cliente.comune)}`;
+
+  return (data ?? []).filter((r) => {
+    if (cliente.codice_gestionale && r.codice_gestionale === cliente.codice_gestionale) return true;
+    const stessaChiave = chiaveCf && (r.codice_fiscale || r.partita_iva) === chiaveCf;
+    if (!stessaChiave) return false;
+    const indirizzoUguale = indirizzoAttuale !== "||" && `${normalizza(r.indirizzo)}|${normalizza(r.numero_civico)}|${normalizza(r.comune)}` === indirizzoAttuale;
+    if (!indirizzoUguale) return false;
+    const entrambeAttive = cliente.attivo && r.attivo;
+    return !entrambeAttive; // installazioni distinte, non è "storico" di questa scheda
+  });
 }
 
 export async function getStoricoProfiloCliente(clienteEsternoId: number) {
@@ -659,7 +687,7 @@ export interface ClienteBuyGo {
 export async function getClientiBuyGo(): Promise<ClienteBuyGo[]> {
   const supabase = await createClient();
 
-  const tuttiClienti = dedupClientiPerContratto(await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*"));
+  const tuttiClienti = dedupClientiPerInstallazione(await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*"));
   const buygo = tuttiClienti.filter((c) => c.profilo_internet && /buy/i.test(c.profilo_internet));
   if (buygo.length === 0) return [];
 

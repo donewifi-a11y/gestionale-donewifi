@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
 import { getRiepilogoInsoluti, getClientiBuyGo } from "./actions";
-import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import type { ClienteEsterno } from "@/lib/types";
 
 // ★ "Sincronizza fatture" scarica/scrive 59mila righe: più dei 10s di
@@ -14,9 +14,11 @@ export const maxDuration = 60;
 export default async function ClientiEsterniPage() {
   const supabase = await createClient();
   const clientiGrezzi = await fetchTuttiClientiEsterni<ClienteEsterno>(supabase, "*");
-  // ★ dedup per contratto (vedi dedupClientiPerContratto) — un rinnovo Aruba
-  // non deve comparire come un cliente a sé, vedi lib/clienti-esterni.ts.
-  const clientiNonOrdinati = dedupClientiPerContratto(clientiGrezzi);
+  // ★ dedup a due livelli (vedi lib/clienti-esterni.ts): per contratto
+  // (rinnovo Aruba) e per installazione (stesso CF/PIVA+indirizzo ricodificato
+  // nel tempo, con una sola riga viva) — un rinnovo/ricodifica non deve
+  // comparire come un cliente a sé.
+  const clientiNonOrdinati = dedupClientiPerInstallazione(clientiGrezzi);
   const clienti = [...clientiNonOrdinati].sort((a, b) => (a.cognome || "").localeCompare(b.cognome || ""));
 
   const personaCorrente = await getPersonaCorrente(supabase);

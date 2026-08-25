@@ -2057,13 +2057,33 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     "Contratti precedenti su questo codice gestionale" (`getContrattiPrecedenti()`).
   - **Flag "attivo"**: `ricalcola_clienti_attivi()` usava "fatturato negli ultimi 90 giorni" — segnale
     sbagliato per chi fattura trimestralmente/annualmente/a consumo (Buy&Go): 868 clienti con
-    contratto Aruba davvero attivo risultavano "non attivo". Migrazione `0059` (da eseguire
-    manualmente) ridefinisce `attivo = contratto_attivo` (il flag grezzo Aruba, prima tenuto solo
-    come riferimento, ora fonte primaria) — la fatturazione resta visibile in scheda ma non decide
-    più lo stato.
+    contratto Aruba davvero attivo risultavano "non attivo". Migrazione `0059` (eseguita)
+    ridefinisce `attivo = contratto_attivo` (il flag grezzo Aruba, prima tenuto solo come
+    riferimento, ora fonte primaria) — la fatturazione resta visibile in scheda ma non decide più
+    lo stato.
   Verificato contro Supabase reale: dedup passa da 3914 a 3218 righe (-696, tutte rinnovi
-  confermati stesso `codice_gestionale`); build/lint puliti. **Residuo noto, non ancora toccato**:
-  546 CF/PIVA hanno ancora più righe allo stesso indirizzo ma con `codice_gestionale` diverso
-  (verosimilmente un ricodifica Aruba passata, non un secondo punto installato — la riga più
-  vecchia ha quasi sempre `contratto_attivo=false`) — serve una decisione esplicita prima di
-  toccarlo, per non rischiare di fondere due installazioni reali della stessa persona.
+  confermati stesso `codice_gestionale`); dopo la migrazione, 0 righe con `attivo != contratto_attivo`
+  su 3914; build/lint puliti.
+✅ Clienti duplicati — fase 2 e fix di un bug reale trovato in verifica (2026-08-25, "analizza" su
+  richiesta esplicita). Analisi del residuo di 546 CF/PIVA con più righe allo stesso indirizzo ma
+  `codice_gestionale` diverso: 512 avevano UNA sola riga viva (stesso contratto ricodificato più
+  volte da Aruba nel tempo), 9 nessuna (cliente cessato), 25 con **2+ righe attive insieme allo
+  stesso indirizzo** — es. CF `GHNDLM52R18F205X` con una riga "Buy & Go" e una riga linea fissa,
+  **entrambe vive**: installazioni/servizi realmente distinti, da non fondere mai.
+  - Nuova `dedupClientiPerInstallazione()` (`lib/clienti-esterni.ts`) — secondo livello sopra
+    `dedupClientiPerContratto()`: raggruppa per CF/PIVA + indirizzo normalizzato, collassa solo se
+    al massimo una riga è attiva, lascia intatti i gruppi con 2+ righe attive contemporaneamente.
+    Applicato a lista Anagrafica, tab Anagrafica di Clienti, Buy&Go (`ricercaGlobale()` e la lista
+    ridotta di `/clienti` restano al solo livello 1, select più leggere, rischio residuo trascurabile).
+  - **Bug reale trovato in fase di verifica, corretto prima del deploy**: `dedupClientiPerContratto()`
+    sceglieva la riga con `id` più alto assumendo fosse sempre quella viva — falso in 396 gruppi
+    su dati reali (es. `codice_gestionale=901105`: id=50 attivo, id=1114 — importato dopo ma di un
+    contratto già chiuso — non attivo; la vecchia regola avrebbe tenuto quella morta). Corretto:
+    sceglie la riga attiva quando ce n'è esattamente una, tra più attive la più recente, altrimenti
+    la più recente in assoluto — stessa regola ora condivisa da entrambi i livelli.
+  - `getContrattiPrecedenti()` esteso: lo storico in scheda cliente ora include anche le
+    ricodifiche di livello 2, non solo i rinnovi di livello 1.
+  Verificato contro Supabase reale con un invariante esplicito (non solo "conta le righe"): per
+  ogni gruppo con almeno una riga attiva, la riga scelta come canonica è sempre quella attiva — 0
+  violazioni su 2397 gruppi; i 27 gruppi con 2+ righe attive allo stesso indirizzo restano intatti
+  al 100%. Risultato: 3914 righe → 2684 dopo i due livelli di dedup; build/lint puliti.

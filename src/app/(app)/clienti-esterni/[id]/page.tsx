@@ -30,7 +30,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
     getPreventiviCollegati(c.id, c.telefono),
     getInstallazioniCliente(c.telefono),
     getPraticheClienteEsterno(c.id),
-    getContrattiPrecedenti(c.codice_gestionale, c.id),
+    getContrattiPrecedenti(c),
   ]);
 
   const fatturatoTotale = fatture.reduce((s, f) => s + (Number(f.importo) || 0), 0);
@@ -137,7 +137,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
             <>
               <div className="mt-3 flex items-center gap-1.5 border-t pt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 <History className="h-3 w-3" strokeWidth={2.25} />
-                Contratti precedenti su questo codice gestionale
+                Contratti precedenti (rinnovi/ricodifiche di questa installazione)
               </div>
               <div className="mt-1 flex flex-col gap-1 text-xs">
                 {contrattiPrecedenti.map((p) => (
