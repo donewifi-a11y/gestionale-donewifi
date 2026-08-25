@@ -2027,3 +2027,11 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     comunicazione ufficiale, la fa solo comparire in "Gestione Cliente" insieme alle altre pratiche.
   Verificato: giro insert→lettura→pulizia contro un cliente reale (`cliente_esterno_id` collegato
   correttamente); build/lint puliti.
+✅ Ricerca iniziale — ambito "solo clienti" (2026-08, richiesta esplicita): la ricerca globale in
+  sidebar (⌘K) cercava sempre insieme Ticket/Segnalazioni/Clienti. Aggiunte due pillole sotto il
+  campo ("Tutto" / "Solo clienti") — con "Solo clienti" attivo, `ricercaGlobale()` non interroga
+  nemmeno Ticket/Segnalazioni (non solo li nasconde: le query non partono proprio), e il limite
+  risultati sale da 8 a 15 visto che resta l'unico tipo mostrato. Placeholder del campo cambia di
+  conseguenza. Filtro non salvato tra sessioni (deliberato — sorprenderebbe chi riapre la ricerca
+  aspettandosi il comportamento consueto). Verificato: query dell'ambito "clienti" contro Supabase
+  reale (15 risultati); build/lint puliti.

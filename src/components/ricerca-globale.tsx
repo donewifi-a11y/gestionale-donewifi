@@ -11,6 +11,13 @@ export function RicercaGlobale() {
   const [risultati, setRisultati] = useState<RisultatoRicerca[]>([]);
   const [aperta, setAperta] = useState(false);
   const [caricamento, setCaricamento] = useState(false);
+  // ★ NUOVA (2026-08) — richiesta esplicita: poter restringere la ricerca
+  // iniziale a "solo e soltanto le schede clienti", invece del solito
+  // mix Ticket/Segnalazioni/Clienti. Non persistito (localStorage) di
+  // proposito: un filtro contestuale del genere, se restasse attivo da una
+  // sessione all'altra, sorprenderebbe chi lo riapre aspettandosi la
+  // ricerca su tutto come al solito.
+  const [soloClienti, setSoloClienti] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contenitoreRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,9 +49,7 @@ export function RicercaGlobale() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function onChange(valore: string) {
-    setQuery(valore);
-    setAperta(true);
+  function eseguiRicerca(valore: string, ambitoSoloClienti: boolean) {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (valore.trim().length < 2) {
       setRisultati([]);
@@ -52,10 +57,23 @@ export function RicercaGlobale() {
     }
     setCaricamento(true);
     timeoutRef.current = setTimeout(async () => {
-      const r = await ricercaGlobale(valore);
+      const r = await ricercaGlobale(valore, ambitoSoloClienti ? "clienti" : "tutti");
       setRisultati(r);
       setCaricamento(false);
     }, 300);
+  }
+
+  function onChange(valore: string) {
+    setQuery(valore);
+    setAperta(true);
+    eseguiRicerca(valore, soloClienti);
+  }
+
+  // ★ cambiare il filtro mentre c'è già del testo digitato deve rilanciare
+  // subito la ricerca con l'ambito nuovo, non aspettare il prossimo tasto.
+  function cambiaAmbito(nuovo: boolean) {
+    setSoloClienti(nuovo);
+    if (query.trim().length >= 2) eseguiRicerca(query, nuovo);
   }
 
   function vai(r: RisultatoRicerca) {
@@ -76,7 +94,7 @@ export function RicercaGlobale() {
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setAperta(true)}
-          placeholder="Cerca ticket, segnalazione o cliente..."
+          placeholder={soloClienti ? "Cerca una scheda cliente..." : "Cerca ticket, segnalazione o cliente..."}
           className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/40 pl-8 pr-9 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-sidebar-primary"
         />
         {!query && (
@@ -84,6 +102,32 @@ export function RicercaGlobale() {
             ⌘K
           </kbd>
         )}
+      </div>
+
+      {/* ★ NUOVA (2026-08) — richiesta esplicita: restringe la ricerca a
+      "solo e soltanto le schede clienti" invece del mix Ticket/
+      Segnalazioni/Clienti — due pillole invece di una spunta, coerente con
+      lo stesso pattern "vista" già usato altrove nel gestionale
+      (Materiali, Persone/Utenti, Clienti/Installazioni). */}
+      <div className="mt-1.5 flex gap-1">
+        <button
+          type="button"
+          onClick={() => cambiaAmbito(false)}
+          className={`flex-1 rounded-md py-1 text-[10.5px] font-semibold transition ${
+            !soloClienti ? "bg-sidebar-accent text-sidebar-foreground" : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70"
+          }`}
+        >
+          Tutto
+        </button>
+        <button
+          type="button"
+          onClick={() => cambiaAmbito(true)}
+          className={`flex-1 rounded-md py-1 text-[10.5px] font-semibold transition ${
+            soloClienti ? "bg-sidebar-accent text-sidebar-foreground" : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70"
+          }`}
+        >
+          Solo clienti
+        </button>
       </div>
 
       {aperta && query.trim().length >= 2 && (

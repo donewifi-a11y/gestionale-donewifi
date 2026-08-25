@@ -13,7 +13,14 @@ export interface RisultatoRicerca {
 // ★ ex cercaGlobale()/cercaTicketWeb() del vecchio gestionale — un'unica
 // ricerca su Ticket, Segnalazioni e (da qui) Clienti Aruba, invece dei
 // soli filtri per pagina.
-export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]> {
+//
+// ★ NUOVA (2026-08) — richiesta esplicita: "poter ricercare solo e
+// soltanto le schede clienti". `ambito` facoltativo (default "tutti", per
+// non rompere chi già chiama questa action) — con "clienti" le query su
+// Ticket/Segnalazioni non partono nemmeno, invece di partire e poi
+// scartare i risultati: più veloce, e il limite di 15 risultati (contro 8)
+// ha senso mostrarlo tutto sull'unico tipo rimasto.
+export async function ricercaGlobale(query: string, ambito: "tutti" | "clienti" = "tutti"): Promise<RisultatoRicerca[]> {
   const testo = query.trim();
   if (testo.length < 2) return [];
   const supabase = await createClient();
@@ -30,18 +37,23 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
 
   const numero = Number(testoSicuro);
   const filtroNumero = Number.isFinite(numero) ? `,numero.eq.${numero}` : "";
+  const limiteClienti = ambito === "clienti" ? 15 : 8;
 
   const [{ data: tickets }, { data: segnalazioni }, { data: clienti }] = await Promise.all([
-    supabase
-      .from("tickets")
-      .select("id, numero, cliente, categoria, stato")
-      .or(`cliente.ilike.%${testoSicuro}%${filtroNumero}`)
-      .limit(8),
-    supabase
-      .from("segnalazioni")
-      .select("id, numero, nome, comune, stato")
-      .or(`nome.ilike.%${testoSicuro}%${filtroNumero}`)
-      .limit(8),
+    ambito === "clienti"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("tickets")
+          .select("id, numero, cliente, categoria, stato")
+          .or(`cliente.ilike.%${testoSicuro}%${filtroNumero}`)
+          .limit(8),
+    ambito === "clienti"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("segnalazioni")
+          .select("id, numero, nome, comune, stato")
+          .or(`nome.ilike.%${testoSicuro}%${filtroNumero}`)
+          .limit(8),
     supabase
       .from("clienti_esterni")
       .select("id, nome, cognome, ragionesociale, telefono, comune")
@@ -49,7 +61,7 @@ export async function ricercaGlobale(query: string): Promise<RisultatoRicerca[]>
       .or(
         `nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%,codice_fiscale.ilike.%${testoSicuro}%`
       )
-      .limit(8),
+      .limit(limiteClienti),
   ]);
 
   const risultatiTicket: RisultatoRicerca[] = (tickets ?? []).map((t) => ({
