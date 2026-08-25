@@ -8,6 +8,14 @@ import type { RichiestaCliente } from "@/lib/types";
 // Una `.select()` senza `.range()` è limitata a 1000 righe da
 // Supabase/PostgREST — stesso bug già trovato e corretto due volte su
 // questo progetto.
+//
+// ★ FIX (2026-08) — richiesta esplicita: "Gestione Cliente" è per le
+// pratiche di un cliente GIÀ esistente (Trasferimento/Cambio IBAN/Cambio
+// Anagrafica/Subentro/Disdetta) — "Richiesta Dati" è tutt'altra cosa,
+// riguarda un contatto NUOVO ancora nella pipeline "Nuovi Clienti" (vedi
+// segnalazioni-board.tsx, dove resta comunque visibile dentro il dettaglio
+// della Segnalazione d'origine). Escluderla qui, non nasconderla ovunque:
+// `fetchTutteRichieste` di segnalazioni/page.tsx non tocca questo filtro.
 async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createClient>>): Promise<RichiestaCliente[]> {
   const PAGINA = 1000;
   const tutte: RichiestaCliente[] = [];
@@ -15,6 +23,7 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
     const { data } = await supabase
       .from("richieste_clienti")
       .select("*")
+      .neq("tipo_richiesta", "Richiesta Dati")
       .order("data", { ascending: false })
       .range(offset, offset + PAGINA - 1);
     const pagina = (data as RichiestaCliente[] | null) ?? [];
@@ -42,7 +51,7 @@ export default async function RichiesteClientiPage() {
           Solo l'etichetta cambia, l'indirizzo resta /richieste-clienti. */}
           <h1 className="font-heading text-2xl font-bold tracking-tight">Gestione Cliente</h1>
           <p className="text-sm text-muted-foreground">
-            Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro, Disdetta e Richiesta Dati per un cliente già esistente.
+            Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro e Disdetta per un cliente già esistente.
           </p>
         </div>
       </div>

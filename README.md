@@ -2035,3 +2035,12 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   conseguenza. Filtro non salvato tra sessioni (deliberato — sorprenderebbe chi riapre la ricerca
   aspettandosi il comportamento consueto). Verificato: query dell'ambito "clienti" contro Supabase
   reale (15 risultati); build/lint puliti.
+✅ Gestione Cliente — esclusa "Richiesta Dati" (2026-08-25, richiesta esplicita): la pagina
+  mostrava anche le righe `tipo_richiesta = "Richiesta Dati"`, che però riguardano un contatto
+  NUOVO ancora nella pipeline "Nuovi Clienti" (resta comunque visibile nel dettaglio della
+  Segnalazione d'origine) — non una pratica di un cliente già esistente. Aggiunto
+  `.neq("tipo_richiesta", "Richiesta Dati")` alla query di `richieste-clienti/page.tsx` (solo lì,
+  non nella fetch equivalente di `segnalazioni/page.tsx`) e corretto il sottotitolo della pagina
+  (non elenca più "Richiesta Dati" tra le pratiche gestite qui). Verificato contro Supabase reale:
+  una riga "Trasferimento" e una "Richiesta Dati" in tabella, la query filtrata ne restituisce solo
+  1 (la "Trasferimento"); build/lint puliti.
