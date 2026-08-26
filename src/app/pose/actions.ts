@@ -23,17 +23,17 @@ import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizi
 // route pubbliche del gestionale — Portale, Richiesta Dati, ecc.).
 // ============================================================
 
-export async function loginTecnicoEsterno(email: string, password: string): Promise<{ errore: string | null }> {
-  const emailPulita = email.trim();
-  if (!emailPulita || !password) return { errore: "Inserisci email e password." };
+export async function loginTecnicoEsterno(username: string, password: string): Promise<{ errore: string | null }> {
+  const usernamePulito = username.trim();
+  if (!usernamePulito || !password) return { errore: "Inserisci nome utente e password." };
 
   const service = createServiceClient();
   const { data: id, error } = await service.rpc("verifica_login_tecnico_esterno", {
-    p_email: emailPulita,
+    p_username: usernamePulito,
     p_password: password,
   });
   if (error) return { errore: error.message };
-  if (!id) return { errore: "Email o password errati." };
+  if (!id) return { errore: "Nome utente o password errati." };
 
   await impostaCookieTecnicoEsterno(id);
   return { errore: null };

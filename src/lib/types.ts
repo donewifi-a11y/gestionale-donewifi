@@ -239,7 +239,11 @@ export interface TecnicoEsterno {
   nome: string;
   cognome: string | null;
   telefono: string | null;
-  email: string;
+  /** ★ NUOVA (2026-08-26) — identificativo di accesso a pose.donewifi.it,
+   * scelto dall'admin (non più l'email, vedi migrazione 0063). */
+  username: string;
+  /** Solo contatto facoltativo, come `telefono` — non serve più per accedere. */
+  email: string | null;
   attivo: boolean;
   creato_il: string;
 }

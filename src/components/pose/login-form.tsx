@@ -10,7 +10,7 @@ import { loginTecnicoEsterno } from "@/app/pose/actions";
 
 export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: string }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errore, setErrore] = useState<string | null>(erroreIniziale ? "Accedi di nuovo per continuare." : null);
   const [caricamento, setCaricamento] = useState(false);
@@ -20,7 +20,7 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
     setErrore(null);
     setCaricamento(true);
 
-    const risultato = await loginTecnicoEsterno(email, password);
+    const risultato = await loginTecnicoEsterno(username, password);
     setCaricamento(false);
     if (risultato.errore) {
       setErrore(risultato.errore);
@@ -36,16 +36,15 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
     // grandi del default desktop (h-8) usato altrove nel gestionale.
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="username">Nome utente</Label>
         <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
+          id="username"
+          type="text"
+          autoComplete="username"
           required
           autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="h-12 text-base"
         />
       </div>

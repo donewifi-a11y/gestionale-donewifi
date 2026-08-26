@@ -2154,3 +2154,14 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     un dialog rimpicciolito), griglia a 2 colonne da tablet in su per le liste, azione principale del
     Rapportino fissa in basso (stesso principio già nello SchedaWizard, ora anche lì).
   Verificato: build/lint puliti.
+✅ Tecnici esterni — login per username scelto dall'admin (2026-08-26, richiesta esplicita: "per i
+  tecnici userei un nome utente che definiamo noi e la password la segniamo noi"). Prima: login per
+  email + password provvisoria generata a caso (stesso schema di Persone), mostrata una volta sola.
+  Migrazione `0063` (da eseguire manualmente): nuova colonna `username` (identificativo di accesso,
+  scelto dall'admin), `email` torna un contatto facoltativo come `telefono`. Il form Nuovo/Modifica
+  tecnico ha ora un campo Password diretto (minimo 6 caratteri, vuoto in modifica = non cambiarla)
+  invece della password provvisoria generata — l'admin la sceglie e se la segna da sé (resta comunque
+  irreversibile una volta salvata: l'hash non si può "rileggere", stesso principio di ogni altra
+  password del gestionale). Login pose.donewifi.it aggiornato a nome utente + password. Verificato:
+  0 righe esistenti in `tecnici_esterni` prima della migrazione (nessun dato da migrare); build/lint
+  puliti.
