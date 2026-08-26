@@ -13,8 +13,12 @@ alter table tecnici_esterni add constraint tecnici_esterni_username_key unique (
 alter table tecnici_esterni drop constraint if exists tecnici_esterni_email_key;
 alter table tecnici_esterni alter column email drop not null;
 
--- ★ stessa funzione, login per username invece che per email.
-create or replace function verifica_login_tecnico_esterno(p_username text, p_password text)
+-- ★ stessa funzione, login per username invece che per email — Postgres
+-- non permette di rinominare un parametro con CREATE OR REPLACE (errore
+-- 42P13, "cannot change name of input parameter"), va prima eliminata.
+drop function if exists verifica_login_tecnico_esterno(text, text);
+
+create function verifica_login_tecnico_esterno(p_username text, p_password text)
 returns uuid
 language sql
 security definer
@@ -25,3 +29,5 @@ as $$
     and attivo = true
     and password_hash = crypt(p_password, password_hash);
 $$;
+
+revoke all on function verifica_login_tecnico_esterno(text, text) from public;
