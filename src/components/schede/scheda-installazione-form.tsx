@@ -29,7 +29,7 @@ interface BozzaInstallazione {
   download: string;
   upload: string;
   materiali: MaterialeUsato[];
-  metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null;
   note: string;
 }
 
@@ -281,7 +281,7 @@ export function SchedaInstallazioneForm({
           <div>
             <Label>Metodo di pagamento della posa</Label>
             <div className="mt-1.5 flex overflow-hidden rounded-lg border">
-              {(["Contanti", "POS", "Non riscosso"] as const).map((m) => (
+              {(["Contanti", "POS", "In Fattura"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"

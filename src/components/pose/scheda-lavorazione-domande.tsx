@@ -13,7 +13,7 @@ import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaLavorazione {
   interventi: string[]; materiali: MaterialeUsato[]; esito: string;
-  metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null; note: string;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null; note: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaLavorazioneForm
@@ -79,7 +79,7 @@ export function SchedaLavorazioneDomande({
     {
       domanda: "Come ha pagato la posa?",
       contenuto: (
-        <TileScelta opzioni={["Contanti", "POS", "Non riscosso"]} valore={metodoPagamento ?? ""} onChange={(v) => setMetodoPagamento(v as BozzaLavorazione["metodoPagamento"])} />
+        <TileScelta opzioni={["Contanti", "POS", "In Fattura"]} valore={metodoPagamento ?? ""} onChange={(v) => setMetodoPagamento(v as BozzaLavorazione["metodoPagamento"])} />
       ),
     },
     {

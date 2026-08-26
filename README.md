@@ -2193,3 +2193,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     salvata in locale (`lib/bozza-scheda.ts`, invariato) — cambia solo la navigazione, non la
     logica di salvataggio.
   Verificato: build/lint puliti.
+✅ Scheda Installazione — revisione domanda per domanda (2026-08-26, richiesta esplicita: "rivediamo
+  con artifact passo passo... se tenerla, modificarla o altro"). Strumento di revisione pubblicato
+  come artifact (tutte le 22+6 domande, con "Tieni/Modifica/Rimuovi" e copia del riepilogo) —
+  decisioni ricevute per la Scheda Installazione, applicate:
+  - **Rimosse**: VLAN di management, Segnale SNR, Router usato (giudicate superflue sul campo), la
+    firma del tecnico (resta solo quella del cliente via email — l'unica che certifica davvero
+    l'intervento).
+  - **"Che tipo di cavo hai posato?" non è più una domanda a scelta fissa**: il cavo si registra
+    come qualunque altro materiale nella domanda "Hai usato materiali extra?" (il catalogo li
+    include già) — "Quanti metri" resta, come domanda a sé.
+  - **"Non riscosso" → "In Fattura"** (meno ambiguo) — cambiato ovunque nel gestionale, non solo su
+    pose: stessa colonna `metodo_pagamento_posa` sia per Scheda Installazione sia Lavorazione, sia
+    interna sia esterna. Migrazione `0064` (da eseguire manualmente): aggiorna il vincolo e le righe
+    già salvate con "Non riscosso".
+  - **Foto struttura esterna / apparati interni**: ora accettano più di uno scatto (prima una sola),
+    ognuna rimovibile prima di inviare.
+  La Scheda Lavorazione non è stata ancora revisionata (nessuna decisione ricevuta) — resta com'era.
+  Verificato: 2 righe in `schede_lavoro` prima della migrazione (1 con "Non riscosso" da migrare);
+  build/lint puliti.

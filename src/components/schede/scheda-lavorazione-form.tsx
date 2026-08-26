@@ -14,7 +14,7 @@ interface BozzaLavorazione {
   interventi: string[];
   materiali: MaterialeUsato[];
   esito: string;
-  metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null;
   note: string;
 }
 
@@ -128,7 +128,7 @@ export function SchedaLavorazioneForm({
           </div>
           <Label className="mt-3 block">Metodo di pagamento della posa</Label>
           <div className="mt-1.5 flex overflow-hidden rounded-lg border">
-            {(["Contanti", "POS", "Non riscosso"] as const).map((m) => (
+            {(["Contanti", "POS", "In Fattura"] as const).map((m) => (
               <button
                 key={m}
                 type="button"

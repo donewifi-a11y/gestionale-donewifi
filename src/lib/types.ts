@@ -598,7 +598,7 @@ export interface SchedaLavoro {
   importo_fatturato: number | null;
   /** ★ NUOVA — come il cliente ha pagato la posa. NULL sulle schede
    * salvate prima di questo campo. */
-  metodo_pagamento_posa: "Contanti" | "POS" | "Non riscosso" | null;
+  metodo_pagamento_posa: "Contanti" | "POS" | "In Fattura" | null;
   materiali: MaterialeUsato[];
   foto: { nome: string; percorso: string }[];
   /** ★ solo schede storiche (pre-firma via email): disegno del cliente

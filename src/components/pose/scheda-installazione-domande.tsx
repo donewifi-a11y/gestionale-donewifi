@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { MapPin, LocateFixed, Camera } from "lucide-react";
-import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
+import { useEffect, useState } from "react";
+import { MapPin, LocateFixed, Camera, X } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
@@ -14,20 +13,26 @@ import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaInstallazione {
-  supporto: string; posizione: string; tipoCavo: string; metriCavo: string;
-  bts: string; modelloCpe: string; mac: string; vlan: string; rssi: string; snr: string;
-  router: string; ping: string; download: string; upload: string;
-  materiali: MaterialeUsato[]; metodoPagamento: "Contanti" | "POS" | "Non riscosso" | null; note: string;
+  supporto: string; posizione: string; metriCavo: string;
+  bts: string; modelloCpe: string; mac: string; rssi: string;
+  ping: string; download: string; upload: string;
+  materiali: MaterialeUsato[]; metodoPagamento: "Contanti" | "POS" | "In Fattura" | null; note: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaInstallazioneForm
  * (schede/scheda-installazione-form.tsx) per pose.donewifi.it, ma "una
  * domanda alla volta" invece di 5 passi con più campi ciascuno (Opzione A,
- * scelta esplicitamente tra 3 proposte con artifact). Stessi campi, stessa
- * chiamata finale (salvaSchedaLavoroEsterno), stesso principio di bozza
- * salvata in locale — solo la navigazione cambia. Componente a sé invece
- * di generalizzare l'originale: i due layout sono troppo diversi per un
- * parametro, stesso ragionamento già fatto per rapportino-form.tsx. */
+ * scelta esplicitamente tra 3 proposte con artifact). Componente a sé
+ * invece di generalizzare l'originale — vedi rapportino-form.tsx.
+ *
+ * ★ RIVISTA (2026-08-26, revisione domanda-per-domanda via artifact) —
+ * rimosse VLAN/SNR/Router (giudicate superflue sul campo), rimossa la
+ * firma del tecnico (resta solo quella del cliente, l'unica che serve
+ * davvero a certificare l'intervento), il tipo di cavo non è più una
+ * domanda a scelta fissa ma si registra come qualunque altro materiale
+ * nella domanda "Hai usato materiali extra?" (il catalogo li include già),
+ * "Non riscosso" è diventato "In Fattura" (meno ambiguo), e le foto
+ * (struttura esterna / apparati interni) accettano più di uno scatto. */
 export function SchedaInstallazioneDomande({
   appuntamentoId,
   catalogoMateriali,
@@ -51,16 +56,12 @@ export function SchedaInstallazioneDomande({
   const [rilevandoGps, setRilevandoGps] = useState(false);
   const [erroreGps, setErroreGps] = useState("");
 
-  const [tipoCavo, setTipoCavo] = useState(bozza?.tipoCavo ?? "");
   const [metriCavo, setMetriCavo] = useState(bozza?.metriCavo ?? "");
 
   const [bts, setBts] = useState(bozza?.bts ?? "");
   const [modelloCpe, setModelloCpe] = useState(bozza?.modelloCpe ?? "");
   const [mac, setMac] = useState(bozza?.mac ?? "");
-  const [vlan, setVlan] = useState(bozza?.vlan ?? "");
   const [rssi, setRssi] = useState(bozza?.rssi ?? "");
-  const [snr, setSnr] = useState(bozza?.snr ?? "");
-  const [router, setRouter] = useState(bozza?.router ?? "");
   const [ping, setPing] = useState(bozza?.ping ?? "");
   const [download, setDownload] = useState(bozza?.download ?? "");
   const [upload, setUpload] = useState(bozza?.upload ?? "");
@@ -73,17 +74,16 @@ export function SchedaInstallazioneDomande({
     getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(setTipoClienteTicket);
   }, [appuntamentoId]);
 
-  const [fotoEsterna, setFotoEsterna] = useState<File | null>(null);
-  const [fotoInterna, setFotoInterna] = useState<File | null>(null);
+  const [fotoEsterna, setFotoEsterna] = useState<File[]>([]);
+  const [fotoInterna, setFotoInterna] = useState<File[]>([]);
 
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
-  const firmaTecnicoRef = useRef<FirmaPadHandle>(null);
 
   useEffect(() => {
     salvaBozzaScheda<BozzaInstallazione>(chiaveBozza, {
-      supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, metodoPagamento, note,
+      supporto, posizione, metriCavo, bts, modelloCpe, mac, rssi, ping, download, upload, materiali, metodoPagamento, note,
     });
-  }, [chiaveBozza, supporto, posizione, tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router, ping, download, upload, materiali, metodoPagamento, note]);
+  }, [chiaveBozza, supporto, posizione, metriCavo, bts, modelloCpe, mac, rssi, ping, download, upload, materiali, metodoPagamento, note]);
 
   function rilevaGps() {
     if (!navigator.geolocation) {
@@ -107,9 +107,10 @@ export function SchedaInstallazioneDomande({
 
   async function invia() {
     setErroreInvio("");
-    const foto: File[] = [];
-    if (fotoEsterna) foto.push(new File([fotoEsterna], `Struttura-esterna_${fotoEsterna.name}`, { type: fotoEsterna.type }));
-    if (fotoInterna) foto.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
+    const foto: File[] = [
+      ...fotoEsterna.map((f, i) => new File([f], `Struttura-esterna-${i + 1}_${f.name}`, { type: f.type })),
+      ...fotoInterna.map((f, i) => new File([f], `Router-interno-${i + 1}_${f.name}`, { type: f.type })),
+    ];
 
     setInCorso(true);
     const risultato = await salvaSchedaLavoroEsterno(
@@ -121,9 +122,8 @@ export function SchedaInstallazioneDomande({
         metodoPagamentoPosa: metodoPagamento,
         materiali,
         firmaCliente: firmaCliente!,
-        firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
         supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
-        tipoCavo, metriCavo, bts, modelloCpe, mac, vlan, rssi, snr, router,
+        metriCavo, bts, modelloCpe, mac, rssi,
         pingMs: ping, downloadMbps: download, uploadMbps: upload,
       },
       foto
@@ -170,13 +170,8 @@ export function SchedaInstallazioneDomande({
       ),
     },
     {
-      domanda: "Che tipo di cavo hai posato?",
-      valida: () => (tipoCavo.trim() ? null : "Scegli un tipo di cavo prima di continuare."),
-      contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.cavo} valore={tipoCavo} onChange={setTipoCavo} />,
-    },
-    {
-      domanda: "Quanti metri, all'incirca?",
-      aiuto: "Facoltativo.",
+      domanda: "Quanti metri di cavo, all'incirca?",
+      aiuto: "Facoltativo — il tipo di cavo lo registri più avanti, tra i materiali usati.",
       contenuto: <CampoGrande type="number" inputMode="numeric" min="0" placeholder="0" value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} />,
     },
     {
@@ -195,24 +190,9 @@ export function SchedaInstallazioneDomande({
       contenuto: <CampoGrande type="text" placeholder="AA:BB:CC:DD:EE:FF" value={mac} onChange={(e) => setMac(e.target.value)} />,
     },
     {
-      domanda: "VLAN di management?",
-      aiuto: "Facoltativo.",
-      contenuto: <CampoGrande type="text" value={vlan} onChange={(e) => setVlan(e.target.value)} />,
-    },
-    {
       domanda: "Segnale RSSI, in dBm?",
       aiuto: "Facoltativo — dal collaudo.",
       contenuto: <CampoGrande type="number" inputMode="numeric" value={rssi} onChange={(e) => setRssi(e.target.value)} />,
-    },
-    {
-      domanda: "Segnale SNR, in dB?",
-      aiuto: "Facoltativo — dal collaudo.",
-      contenuto: <CampoGrande type="number" inputMode="numeric" value={snr} onChange={(e) => setSnr(e.target.value)} />,
-    },
-    {
-      domanda: "Che router hai usato?",
-      valida: () => (router.trim() ? null : "Scegli un router prima di continuare."),
-      contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.router} valore={router} onChange={setRouter} />,
     },
     {
       domanda: "Ping misurato, in ms?",
@@ -238,7 +218,7 @@ export function SchedaInstallazioneDomande({
       domanda: "Come ha pagato la posa?",
       contenuto: (
         <TileScelta
-          opzioni={["Contanti", "POS", "Non riscosso"]}
+          opzioni={["Contanti", "POS", "In Fattura"]}
           valore={metodoPagamento ?? ""}
           onChange={(v) => setMetodoPagamento(v as BozzaInstallazione["metodoPagamento"])}
         />
@@ -250,25 +230,20 @@ export function SchedaInstallazioneDomande({
       contenuto: <AreaGrande placeholder="Scrivi qui..." value={note} onChange={(e) => setNote(e.target.value)} />,
     },
     {
-      domanda: "Una foto della struttura esterna?",
-      aiuto: "Facoltativa.",
-      contenuto: <FotoInput value={fotoEsterna} onChange={setFotoEsterna} />,
+      domanda: "Foto della struttura esterna?",
+      aiuto: "Facoltative — puoi scattarne o sceglierne più di una.",
+      contenuto: <FotoInputMulti value={fotoEsterna} onChange={setFotoEsterna} etichetta="Scatta o scegli una foto" />,
     },
     {
-      domanda: "Una foto del router e degli apparati interni?",
-      aiuto: "Facoltativa.",
-      contenuto: <FotoInput value={fotoInterna} onChange={setFotoInterna} />,
+      domanda: "Foto del router e degli apparati interni?",
+      aiuto: "Facoltative — puoi scattarne o sceglierne più di una.",
+      contenuto: <FotoInputMulti value={fotoInterna} onChange={setFotoInterna} etichetta="Scatta o scegli una foto" />,
     },
     {
       domanda: "Il cliente conferma l'intervento?",
       aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
       valida: () => (firmaCliente ? null : "Conferma la firma del cliente prima di continuare."),
       contenuto: <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />,
-    },
-    {
-      domanda: "E la tua firma?",
-      aiuto: "Facoltativa — disegna con il dito.",
-      contenuto: <FirmaPad ref={firmaTecnicoRef} />,
     },
   ];
 
@@ -284,12 +259,45 @@ export function SchedaInstallazioneDomande({
   );
 }
 
-function FotoInput({ value, onChange }: { value: File | null; onChange: (f: File | null) => void }) {
+/** ★ NUOVA (2026-08-26, revisione via artifact) — sostituisce il vecchio
+ * FotoInput a scatto singolo: più foto in un colpo solo (dalla fotocamera
+ * o dalla galleria), ognuna rimovibile prima di inviare. */
+function FotoInputMulti({ value, onChange, etichetta }: { value: File[]; onChange: (f: File[]) => void; etichetta: string }) {
   return (
-    <label className="flex h-20 cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-background px-5 text-center text-[15px] font-bold text-muted-foreground">
-      <Camera className="h-5 w-5 shrink-0" strokeWidth={2.25} />
-      <span className="truncate">{value ? value.name : "Scatta o scegli una foto"}</span>
-      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
-    </label>
+    <div className="flex flex-col gap-2.5">
+      <label className="flex h-20 cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-background px-5 text-center text-[15px] font-bold text-muted-foreground">
+        <Camera className="h-5 w-5 shrink-0" strokeWidth={2.25} />
+        <span className="truncate">{value.length > 0 ? `${value.length} foto — aggiungine altre` : etichetta}</span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const nuovi = Array.from(e.target.files ?? []);
+            if (nuovi.length) onChange([...value, ...nuovi]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {value.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {value.map((f, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-sm font-semibold">
+              <span className="truncate">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-critical"
+                aria-label="Rimuovi foto"
+              >
+                <X className="h-4 w-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

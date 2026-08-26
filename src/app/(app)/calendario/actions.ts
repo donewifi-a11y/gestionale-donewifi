@@ -223,7 +223,7 @@ export interface DatiSchedaLavoro {
   /** ★ NUOVA (2026-08) — niente più campo scritto a mano: l'importo si
    * calcola da solo lato server come somma di `materiali` (vedi
    * salvaSchedaLavoro). */
-  metodoPagamentoPosa: "Contanti" | "POS" | "Non riscosso" | null;
+  metodoPagamentoPosa: "Contanti" | "POS" | "In Fattura" | null;
   materiali: MaterialeUsato[];
   firmaCliente: FirmaClienteApprovata;
   firmaTecnicoDataUrl?: string;
