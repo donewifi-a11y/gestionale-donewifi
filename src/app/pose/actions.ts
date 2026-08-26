@@ -342,17 +342,11 @@ export async function salvaSchedaLavoroEsterno(
     fotoSalvate.push({ nome: file.name, percorso });
   }
 
-  async function salvaFirma(dataUrl: string | undefined, suffisso: string): Promise<{ percorso: string | null; errore: string | null }> {
-    if (!dataUrl) return { percorso: null, errore: null };
-    const risposta = await fetch(dataUrl);
-    const blob = await risposta.blob();
-    const percorso = `schede/${appuntamentoId}/${suffisso}-${Date.now()}.png`;
-    const { error } = await service.storage.from("documenti").upload(percorso, blob, { contentType: "image/png" });
-    if (error) return { percorso: null, errore: `Errore salvataggio firma: ${error.message}` };
-    return { percorso, errore: null };
-  }
-  const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
-  if (firmaTecnico.errore) return { errore: firmaTecnico.errore };
+  // ★ FIX (2026-08-26, "controllo d'oro") — la firma del tecnico non viene
+  // più raccolta dal flusso "una domanda alla volta" di pose (rimossa nella
+  // revisione domande): `dati.firmaTecnicoDataUrl` qui è sempre undefined,
+  // quindi il salvataggio era codice morto. Rimosso invece di lasciarlo:
+  // `firma_tecnico_url` resta sempre null per le schede create da pose.
 
   const importo = dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
@@ -372,7 +366,7 @@ export async function salvaSchedaLavoroEsterno(
       firma_cliente_metodo: dati.firmaCliente.metodo,
       firma_cliente_email: dati.firmaCliente.email,
       firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
-      firma_tecnico_url: firmaTecnico.percorso,
+      firma_tecnico_url: null,
       supporto: dati.supporto || null,
       posizione: dati.posizione || null,
       gps_lat: dati.gpsLat ?? null,

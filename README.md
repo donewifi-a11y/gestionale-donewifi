@@ -2250,3 +2250,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato: 4 appuntamenti reali nei prossimi 14 giorni (1 assegnato a staff interno, 2 non
   assegnati, gestiti correttamente); testo generato da schede reali, leggibile e coerente; build/lint
   puliti.
+✅ Controllo d'oro su pose.donewifi.it (2026-08-26, richiesta esplicita: "fai un controllo d'oro
+  e correggi incongruenze e errori. deve essere funzionante al 100%") — seguito da un audit completo
+  a sola lettura della sessione precedente (21 file, 4 migrazioni, dati reali: 0 violazioni di
+  integrità, sicurezza confermata). Corretti i 2 punti trovati:
+  - **Schermata "Scheda salvata"** (`components/pose/scheda-dettaglio.tsx`) usava ancora i token
+    rossi `text-success`/`text-primary` del gestionale interno, incoerenti con l'identità "Segnale"
+    (blu/verde, Sora) adottata dal resto del flusso Scheda. Restyled con lo stesso linguaggio visivo
+    (icona su sfondo sfumato blu→verde, testo verde `#0F7A4D`, link blu `#2D6CFF`). Lasciata
+    volutamente invariata la schermata equivalente del Rapportino (`intervento-dettaglio.tsx`): quel
+    flusso (`rapportino-form.tsx`) non è mai stato reskin-nato, quindi il rosso lì è coerente col resto
+    della sua stessa schermata, non un'incongruenza.
+  - **Codice morto**: `salvaSchedaLavoroEsterno()` (`app/pose/actions.ts`) salvava ancora una firma
+    del tecnico (`dati.firmaTecnicoDataUrl` → upload → `firma_tecnico_url`) che il flusso "una domanda
+    alla volta" di pose non raccoglie più da quando è stata rimossa nella revisione domande — il
+    campo è sempre `undefined` in questo percorso, quindi il salvataggio non scriveva mai nulla.
+    Rimosso, `firma_tecnico_url` ora scritto esplicitamente `null` per le schede create da pose.
+  Verificato sui dati reali: 0 schede create da tecnici esterni con `firma_tecnico_url` valorizzato
+  (nessuna regressione, il campo non veniva comunque mai popolato); RPC `verifica_login_tecnico_esterno`
+  ok; 0 ticket/appuntamenti con doppia assegnazione (interno+esterno); build e lint puliti (solo i
+  warning `<img>` preesistenti, non toccati da questo giro).

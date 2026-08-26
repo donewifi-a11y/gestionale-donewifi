@@ -21,12 +21,30 @@ export function SchedaDettaglioPose({ appuntamento, catalogoMateriali }: { appun
   const router = useRouter();
   const [salvato, setSalvato] = useState(false);
 
+  // ★ FIX (2026-08-26, "controllo d'oro") — prima usava i token rossi
+  // text-success/text-primary del gestionale interno, incoerenti con
+  // l'identità "Segnale" (blu/verde, Sora) del resto di questo flusso.
   if (salvato) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-6 text-center">
-        <Check className="h-8 w-8 text-success" strokeWidth={2.5} />
-        <p className="font-semibold text-success">Scheda salvata, intervento completato.</p>
-        <button type="button" onClick={() => router.push("/pose")} className="text-sm font-semibold text-primary hover:underline">
+      <div
+        className="flex flex-col items-center gap-3 rounded-2xl border-2 p-6 text-center"
+        style={{ borderColor: "#1FC77A", background: "#EAFBF3" }}
+      >
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-full text-white"
+          style={{ background: "linear-gradient(135deg, #1FC77A, #2D6CFF)" }}
+        >
+          <Check className="h-7 w-7" strokeWidth={3} />
+        </div>
+        <p className="text-base font-extrabold [font-family:var(--font-pose-display)]" style={{ color: "#0F7A4D" }}>
+          Scheda salvata, intervento completato.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/pose")}
+          className="text-sm font-bold hover:underline"
+          style={{ color: "#2D6CFF" }}
+        >
           Torna ai tuoi interventi
         </button>
       </div>
