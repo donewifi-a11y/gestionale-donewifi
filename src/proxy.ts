@@ -61,8 +61,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
   if (DOMINI_POSE.includes(host)) {
+    // ★ FIX — bug reale in produzione: le pagine di pose usano redirect("/pose/login")
+    // (il percorso interno vero, dentro src/app/pose/...) per tornare al
+    // login. redirect() non è un rewrite silenzioso come questo: genera una
+    // vera navigazione del browser verso quell'URL letterale, che su
+    // questo host passa DI NUOVO da questa riscrittura — raddoppiando il
+    // prefisso in "/pose/pose/login" (404). Idempotente: se il percorso è
+    // già "/pose" o inizia per "/pose/", non lo tocca.
     const url = request.nextUrl.clone();
-    url.pathname = `/pose${request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname}`;
+    const pathname = request.nextUrl.pathname;
+    url.pathname = pathname === "/pose" || pathname.startsWith("/pose/") ? pathname : `/pose${pathname === "/" ? "" : pathname}`;
     return NextResponse.rewrite(url);
   }
 

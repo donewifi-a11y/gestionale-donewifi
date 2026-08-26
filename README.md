@@ -2165,3 +2165,12 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   password del gestionale). Login pose.donewifi.it aggiornato a nome utente + password. Verificato:
   0 righe esistenti in `tecnici_esterni` prima della migrazione (nessun dato da migrare); build/lint
   puliti.
+✅ Fix pose.donewifi.it — 404 su login/redirect (2026-08-26, bug reale trovato in produzione dopo
+  l'attivazione del dominio). Le pagine di pose usano `redirect("/pose/login")` (il percorso interno
+  vero, dentro `src/app/pose/...`) — `redirect()` non è un rewrite silenzioso come quello di
+  `proxy.ts`: genera una vera navigazione del browser verso quell'URL letterale, che su
+  `pose.donewifi.it` passava DI NUOVO dalla riscrittura, raddoppiando il prefisso in
+  `/pose/pose/login` (404). Stesso esito se un utente scrive `/pose/...` a mano nell'URL. Riscrittura
+  ora idempotente: se il percorso è già `/pose` o comincia per `/pose/`, non lo tocca. Verificato
+  contro il sito reale: `pose.donewifi.it/login` → 200 (login), `pose.donewifi.it/pose/login` → prima
+  404, dopo il fix risolve correttamente anche quello; build/lint puliti.
