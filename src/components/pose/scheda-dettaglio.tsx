@@ -3,15 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
-import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
+import { SchedaInstallazioneDomande } from "@/components/pose/scheda-installazione-domande";
+import { SchedaLavorazioneDomande } from "@/components/pose/scheda-lavorazione-domande";
 import type { Appuntamento, MaterialeMagazzino } from "@/lib/types";
 
 // ★ NUOVA (2026-08-26) — sceglie la Scheda giusta (Installazione o
-// Lavorazione) in base a `tipo_servizio`, stesso identico form usato
-// internamente ma "innestato" con le action di pose.donewifi.it (vedi i
-// prop opzionali aggiunti a SchedaInstallazioneForm/SchedaLavorazioneForm).
+// Lavorazione) in base a `tipo_servizio`.
+//
+// ★ REDESIGN (2026-08-26, richiesta esplicita: "potrebbe essere utilizzato
+// da persone non più giovani") — non più SchedaInstallazioneForm/
+// SchedaLavorazioneForm "innestate" con le action di pose (un passo con
+// più campi ciascuno, come nel gestionale interno): qui SchedaInstallazioneDomande/
+// SchedaLavorazioneDomande, "una domanda alla volta" — Opzione A scelta
+// tra 3 proposte con artifact (le altre due: sezioni grandi raggruppate,
+// modulo su carta a scorrimento unico).
 export function SchedaDettaglioPose({ appuntamento, catalogoMateriali }: { appuntamento: Appuntamento; catalogoMateriali: MaterialeMagazzino[] }) {
   const router = useRouter();
   const [salvato, setSalvato] = useState(false);
@@ -33,9 +38,7 @@ export function SchedaDettaglioPose({ appuntamento, catalogoMateriali }: { appun
     catalogoMateriali,
     onSalvato: () => setSalvato(true),
     onAnnulla: () => router.push("/pose"),
-    salvaSchedaLavoro: salvaSchedaLavoroEsterno,
-    getTipologiaClientePerAppuntamento: getTipologiaClientePerAppuntamentoEsterno,
   };
 
-  return appuntamento.tipo_servizio === "Nuova installazione" ? <SchedaInstallazioneForm {...props} /> : <SchedaLavorazioneForm {...props} />;
+  return appuntamento.tipo_servizio === "Nuova installazione" ? <SchedaInstallazioneDomande {...props} /> : <SchedaLavorazioneDomande {...props} />;
 }

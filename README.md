@@ -2174,3 +2174,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   ora idempotente: se il percorso è già `/pose` o comincia per `/pose/`, non lo tocca. Verificato
   contro il sito reale: `pose.donewifi.it/login` → 200 (login), `pose.donewifi.it/pose/login` → prima
   404, dopo il fix risolve correttamente anche quello; build/lint puliti.
+✅ Schede di Lavoro su pose — "una domanda alla volta" (2026-08-26, richiesta esplicita dopo due
+  round di redesign respinti: "presenta diverse soluzioni che migliori" → Opzione A scelta tra 3
+  proposte con artifact, pensata per chi non ha dimestichezza con gli smartphone).
+  - Le Schede di Installazione/Lavorazione su pose.donewifi.it non usano più
+    SchedaInstallazioneForm/SchedaLavorazioneForm (il wizard interno a passi con più campi
+    ciascuno, restato invariato per il gestionale — le due prop opzionali aggiunte nel giro
+    precedente per "innestarci" le action di pose sono state rimosse, inutilizzate ora) — nuovi
+    componenti dedicati `SchedaInstallazioneDomande`/`SchedaLavorazioneDomande`
+    (`components/pose/`), un campo per schermata invece di un gruppo di campi per passo.
+  - Nuovo motore `DomandaWizard` (`components/pose/domanda-wizard.tsx`): barra di avanzamento
+    invece delle pillole di SchedaWizard (una Scheda Installazione qui ha ~20 domande, troppe per
+    pillole singole), un solo bottone enorme "Avanti" sempre in basso.
+  - Nuovi controlli a piastrella `TileScelta`/`TileMultiScelta` (`components/pose/tile-scelta.tsx`)
+    al posto dei `<select>` nativi — un bottone alto e leggibile per opzione invece di un menu a
+    tendina compresso.
+  - Stessa identica chiamata finale (`salvaSchedaLavoroEsterno`), stesso principio di bozza
+    salvata in locale (`lib/bozza-scheda.ts`, invariato) — cambia solo la navigazione, non la
+    logica di salvataggio.
+  Verificato: build/lint puliti.

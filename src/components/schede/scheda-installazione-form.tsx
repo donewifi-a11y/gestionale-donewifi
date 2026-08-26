@@ -8,11 +8,7 @@ import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad"
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import {
-  salvaSchedaLavoro as salvaSchedaLavoroDefault,
-  getTipologiaClientePerAppuntamento as getTipologiaClientePerAppuntamentoDefault,
-  type FirmaClienteApprovata,
-} from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -54,20 +50,11 @@ export function SchedaInstallazioneForm({
   catalogoMateriali,
   onSalvato,
   onAnnulla,
-  salvaSchedaLavoro = salvaSchedaLavoroDefault,
-  getTipologiaClientePerAppuntamento = getTipologiaClientePerAppuntamentoDefault,
 }: {
   appuntamentoId: string;
   catalogoMateriali: MaterialeMagazzino[];
   onSalvato: () => void;
   onAnnulla: () => void;
-  /** ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: un tecnico esterno
-   * salva con un'action diversa (nessuna sessione Supabase Auth, service
-   * role — vedi salvaSchedaLavoroEsterno() in app/pose/actions.ts). Di
-   * default quella dello staff interno, invariata per gli usi esistenti
-   * (Ticket/Calendario/Vista Tecnico). */
-  salvaSchedaLavoro?: typeof salvaSchedaLavoroDefault;
-  getTipologiaClientePerAppuntamento?: typeof getTipologiaClientePerAppuntamentoDefault;
 }) {
   const chiaveBozza = `installazione:${appuntamentoId}`;
   const bozza = leggiBozzaScheda<BozzaInstallazione>(chiaveBozza);
@@ -103,7 +90,6 @@ export function SchedaInstallazioneForm({
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
     getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getTipologiaClientePerAppuntamento è o l'import stabile del modulo o quello passato da pose (anch'esso un import stabile, mai una funzione ricreata a ogni render): includerlo non cambierebbe mai il comportamento, solo il rumore del lint.
   }, [appuntamentoId]);
   // ★ FIX — file scelti in un passo che poi si nasconde (cambio passo)
   // andrebbero persi se restassero solo nel DOM di un input non

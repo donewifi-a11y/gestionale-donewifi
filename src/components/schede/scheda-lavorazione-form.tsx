@@ -5,11 +5,7 @@ import { Label } from "@/components/ui/label";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
-import {
-  salvaSchedaLavoro as salvaSchedaLavoroDefault,
-  getTipologiaClientePerAppuntamento as getTipologiaClientePerAppuntamentoDefault,
-  type FirmaClienteApprovata,
-} from "@/app/(app)/calendario/actions";
+import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
@@ -38,16 +34,11 @@ export function SchedaLavorazioneForm({
   catalogoMateriali,
   onSalvato,
   onAnnulla,
-  salvaSchedaLavoro = salvaSchedaLavoroDefault,
-  getTipologiaClientePerAppuntamento = getTipologiaClientePerAppuntamentoDefault,
 }: {
   appuntamentoId: string;
   catalogoMateriali: MaterialeMagazzino[];
   onSalvato: () => void;
   onAnnulla: () => void;
-  /** ★ NUOVA (2026-08-26) — vedi lo stesso commento su SchedaInstallazioneForm. */
-  salvaSchedaLavoro?: typeof salvaSchedaLavoroDefault;
-  getTipologiaClientePerAppuntamento?: typeof getTipologiaClientePerAppuntamentoDefault;
 }) {
   const chiaveBozza = `lavorazione:${appuntamentoId}`;
   const bozza = leggiBozzaScheda<BozzaLavorazione>(chiaveBozza);
@@ -65,7 +56,6 @@ export function SchedaLavorazioneForm({
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
     getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- vedi lo stesso commento in scheda-installazione-form.tsx.
   }, [appuntamentoId]);
 
   useEffect(() => {
