@@ -32,14 +32,34 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
   }
 
   return (
+    // ★ pose.donewifi.it è solo smartphone/tablet: campi e bottone più
+    // grandi del default desktop (h-8) usato altrove nel gestionale.
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input
+          id="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          required
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="h-12 text-base"
+        />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="h-12 text-base"
+        />
       </div>
       {errore && (
         <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
@@ -47,7 +67,7 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
           {errore}
         </p>
       )}
-      <Button type="submit" disabled={caricamento} className="mt-2">
+      <Button type="submit" disabled={caricamento} className="mt-2 h-12 text-base">
         {caricamento ? "Accesso in corso…" : "Accedi"}
       </Button>
     </form>

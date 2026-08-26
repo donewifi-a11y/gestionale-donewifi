@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export interface PassoScheda {
   titolo: string;
@@ -86,10 +85,19 @@ export function SchedaWizard({
 
   return (
     <>
-      <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
-        <DialogTitle>{titolo}</DialogTitle>
-        <DialogDescription>{sottotitolo}</DialogDescription>
-      </DialogHeader>
+      {/* ★ FIX (2026-08-26, sistema pose.donewifi.it) — erano DialogHeader/
+      DialogTitle/DialogDescription (primitive Radix, vedi ui/dialog.tsx):
+      Dialog.Title/Description richiedono un Dialog.Root come antenato,
+      quindi SchedaWizard funzionava SOLO dentro un Dialog aperto. Elementi
+      semantici plain (stessa identica resa visiva, stesse classi) invece
+      delle primitive: nessuna differenza dove il wizard viveva già
+      (Ticket/Calendario/Vista Tecnico, tutti dentro un Dialog), ma ora
+      funziona anche a schermo intero su pose.donewifi.it, senza un Dialog
+      attorno. */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex flex-col gap-2 border-b bg-popover px-4 pt-4 pb-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
+        <h2 className="font-heading text-base leading-none font-medium">{titolo}</h2>
+        <p className="text-sm text-muted-foreground">{sottotitolo}</p>
+      </div>
 
       <div className="flex items-center gap-1 py-3">
         {passi.map((p, i) => {

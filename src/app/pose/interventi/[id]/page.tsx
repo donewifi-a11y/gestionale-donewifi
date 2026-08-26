@@ -17,7 +17,7 @@ export default async function InterventoPoseDetailPage({ params }: { params: Pro
   const completato = ticket.stato === "Completato" || ticket.stato === "Annullato";
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-lg flex-col gap-4 px-4 py-6">
+    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 py-6">
       <Link href="/pose" className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.5} />
         I tuoi interventi

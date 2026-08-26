@@ -2131,4 +2131,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - **Amministrazione** (`/tecnici-esterni`, solo admin): crea/modifica/disattiva account,
     reimposta password — stesso pattern "password provvisoria mostrata una volta sola" di Persone.
   Verificato: build/lint puliti. **Da fare per andare in produzione**: eseguire la migrazione
-  `0061`, aggiungere `pose.donewifi.it` come dominio Vercel + DNS, creare il primo account tecnico.
+  `0061`, creare il primo account tecnico. Il dominio `pose.donewifi.it` è già stato aggiunto su
+  Vercel e il record DNS (CNAME su Aruba) è stato creato — in attesa di propagazione.
+✅ Scheda Installazione/Lavorazione su pose.donewifi.it + redesign mobile (2026-08-26, richiesta
+  esplicita: "rivedere completamente il sistema di schede di lavoro... tutto pose sarà usato solo
+  da tablet e smartphone").
+  - **Schede anche per i tecnici esterni**: `SchedaInstallazioneForm`/`SchedaLavorazioneForm`
+    (già un wizard a passi, con stepper e barra azione fissa in basso — redesign di una sessione
+    precedente) accettano ora `salvaSchedaLavoro`/`getTipologiaClientePerAppuntamento` come prop
+    opzionali (default: le action staff, invariate per Ticket/Calendario/Vista Tecnico) — pose passa
+    le sue (`salvaSchedaLavoroEsterno()`, service role, gate su tecnico esterno invece che persona).
+    Stesso principio già usato per il Rapportino. Migrazione `0062` (da eseguire manualmente):
+    `schede_lavoro.creato_da_tecnico_esterno_id`, gemella nullable di `creato_da` (`references
+    persone(id)`, non può ospitare un tecnico esterno). Nuova pagina `/pose/appuntamenti/[id]`.
+  - **Fix strutturale**: `SchedaWizard` usava `DialogTitle`/`DialogDescription` (primitive Radix,
+    richiedono un `Dialog.Root` come antenato) — funzionava solo dentro un Dialog aperto. Sostituite
+    con `<h2>`/`<p>` semantici, stessa resa visiva identica: nessuna differenza dove il wizard viveva
+    già, ma ora funziona anche a schermo intero su pose, senza Dialog attorno.
+  - **Redesign mobile/tablet** delle superfici esclusive di pose (dashboard, login, rapportino):
+    target touch generosi (bottoni/campi h-11/h-12/h-14 invece del default desktop h-8), container
+    allargato a `max-w-2xl` (non più `max-w-lg`, che su un iPad lasciava margini vuoti ai lati come
+    un dialog rimpicciolito), griglia a 2 colonne da tablet in su per le liste, azione principale del
+    Rapportino fissa in basso (stesso principio già nello SchedaWizard, ora anche lì).
+  Verificato: build/lint puliti.

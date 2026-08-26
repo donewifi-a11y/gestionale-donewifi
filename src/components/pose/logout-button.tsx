@@ -14,7 +14,6 @@ export function LogoutTecnicoEsternoButton() {
     <Button
       type="button"
       variant="outline"
-      size="sm"
       disabled={inCorso}
       onClick={() =>
         startTransition(async () => {
@@ -23,8 +22,9 @@ export function LogoutTecnicoEsternoButton() {
           router.refresh();
         })
       }
+      className="h-11 w-11 p-0"
     >
-      <LogOut className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <LogOut className="h-5 w-5" strokeWidth={2.25} />
     </Button>
   );
 }

@@ -630,6 +630,9 @@ export interface SchedaLavoro {
   // solo "Lavorazione tecnica"
   interventi_eseguiti: string[];
   creato_da: string | null;
+  /** ★ NUOVA (2026-08-26, sistema pose.donewifi.it) — mutuamente esclusivo
+   * con `creato_da`, stesso principio di `rapportini_intervento`. */
+  creato_da_tecnico_esterno_id: string | null;
   creato_il: string;
 }
 
