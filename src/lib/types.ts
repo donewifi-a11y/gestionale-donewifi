@@ -93,6 +93,11 @@ export interface Ticket {
   priorita: PrioritaTicket;
   reparto: AreaAccesso;
   tecnico_assegnato: string | null;
+  /** ★ NUOVA (2026-08-26) — gemello di `tecnico_assegnato` ma per un
+   * tecnico ESTERNO (sistema pose.donewifi.it, tabella `tecnici_esterni`):
+   * i due campi sono alternativi, non sostitutivi l'uno dell'altro — un
+   * Ticket ha un tecnico interno O uno esterno, mai entrambi valorizzati. */
+  tecnico_esterno_id: string | null;
   note: string | null;
   contratto_pdf_url: string | null;
   segnalazione_id: string | null;
@@ -189,6 +194,10 @@ export interface Appuntamento {
   data_ora: string;
   durata_minuti: number;
   tecnico_id: string | null;
+  /** ★ NUOVA (2026-08-26) — gemello di `tecnico_id` ma per un tecnico
+   * ESTERNO (sistema pose.donewifi.it) — vedi lo stesso commento su
+   * `Ticket.tecnico_esterno_id`. */
+  tecnico_esterno_id: string | null;
   note: string | null;
   stato: StatoAppuntamento;
   tipo_servizio: TipoServizioAppuntamento;
@@ -219,6 +228,20 @@ export interface Persona {
   reparti: AreaAccesso[];
   richiede_password?: boolean;
   ha_login?: boolean;
+}
+
+/** ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: un installatore esterno,
+ * senza reparti/permessi sul gestionale e senza login condiviso, solo un
+ * account fisso (email+password) proprio. Deliberatamente NON una
+ * `Persona` — vedi lib/tecnico-esterno.ts. */
+export interface TecnicoEsterno {
+  id: string;
+  nome: string;
+  cognome: string | null;
+  telefono: string | null;
+  email: string;
+  attivo: boolean;
+  creato_il: string;
 }
 
 export interface RichiestaCliente {
@@ -444,6 +467,10 @@ export interface RapportinoIntervento {
   firma_verificato_il: string | null;
   foto: { nome: string; percorso: string }[];
   creato_da: string | null;
+  /** ★ NUOVA (2026-08-26, sistema pose.donewifi.it) — mutuamente esclusivo
+   * con `creato_da`: valorizzato solo quando a compilare è stato un
+   * tecnico esterno invece di uno staff interno. */
+  creato_da_tecnico_esterno_id: string | null;
   creato_il: string;
 }
 

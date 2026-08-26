@@ -186,6 +186,10 @@ export function AppSidebar({
           ...(isAdmin
             ? [
                 { href: "/persone", etichetta: "Persone", icona: UserCircle },
+                // ★ NUOVA (2026-08-26) — account pose.donewifi.it (tecnici
+                // esterni, sistema separato dal gestionale): stessa
+                // riservatezza di Persone, nessun altro modo per crearli.
+                { href: "/tecnici-esterni", etichetta: "Tecnici esterni", icona: HardHat },
                 { href: "/sistema", etichetta: "Stato Sistema", icona: ShieldCheck },
               ]
             : []),

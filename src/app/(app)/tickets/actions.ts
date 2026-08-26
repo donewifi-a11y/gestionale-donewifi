@@ -214,10 +214,35 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
 
 export async function assegnaTicket(id: string, personaId: string | null) {
   const supabase = await createClient();
-  const { error } = await supabase.from("tickets").update({ tecnico_assegnato: personaId }).eq("id", id);
+  // ★ `tecnico_assegnato` (interno) e `tecnico_esterno_id` (pose.donewifi.it,
+  // migrazione 0061) sono alternativi: assegnare a uno staff interno azzera
+  // sempre un eventuale tecnico esterno già assegnato, mai entrambi insieme.
+  const { error } = await supabase.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }).eq("id", id);
   if (error) return { errore: error.message };
   revalidatePath("/tickets");
   return { errore: null };
+}
+
+/** ★ NUOVA (2026-08-26) — gemella di assegnaTicket() ma per un tecnico
+ * esterno (sistema pose.donewifi.it) — vedi il commento lì sopra. */
+export async function assegnaTicketTecnicoEsterno(id: string, tecnicoEsternoId: string | null) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("tickets").update({ tecnico_esterno_id: tecnicoEsternoId, tecnico_assegnato: null }).eq("id", id);
+  if (error) return { errore: error.message };
+  revalidatePath("/tickets");
+  return { errore: null };
+}
+
+/** Lista tecnici esterni attivi, per il selettore di assegnazione sul Ticket. */
+export async function listaTecniciEsterniAttivi() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tecnici_esterni")
+    .select("id, nome, cognome")
+    .eq("attivo", true)
+    .order("nome", { ascending: true });
+  if (error) console.error("listaTecniciEsterniAttivi:", error.message);
+  return data ?? [];
 }
 
 // ★ per il campo "Nuovo profilo desiderato" di Upgrade/Downgrade

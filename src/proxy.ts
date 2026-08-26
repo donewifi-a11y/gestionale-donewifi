@@ -31,6 +31,12 @@ const ROTTE_PUBBLICHE = [
   "/api/approva",
   "/privacy",
   "/api/cron",
+  // ★ NUOVA (2026-08-26) — pose.donewifi.it, sistema separato per i
+  // tecnici esterni (richiesta esplicita: "non passare dal gestionale").
+  // Pubblica qui nello stesso senso di /portale: nessuna sessione Supabase
+  // Auth di staff, la propria autenticazione (account fisso email+password,
+  // vedi lib/tecnico-esterno.ts) è gestita dentro le pagine stesse.
+  "/pose",
 ];
 
 // ★ sottodominio pubblico per i clienti (apertura Ticket / verifica stato):
@@ -40,11 +46,23 @@ const ROTTE_PUBBLICHE = [
 // altri host equivalenti (es. un dominio di anteprima) se servono.
 const DOMINI_PORTALE = ["area.donewifi.it"];
 
+// ★ NUOVA (2026-08-26) — dominio dedicato per i tecnici esterni: OGNI
+// percorso (non solo la radice, a differenza di DOMINI_PORTALE sopra) va
+// riscritto con il prefisso /pose, perché su questo host non deve mai
+// comparire "/pose" nell'URL — chi lo usa non sa nemmeno che il sistema
+// vive nello stesso progetto del gestionale interno.
+const DOMINI_POSE = ["pose.donewifi.it"];
+
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0] ?? "";
   if (DOMINI_PORTALE.includes(host) && request.nextUrl.pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/portale";
+    return NextResponse.rewrite(url);
+  }
+  if (DOMINI_POSE.includes(host)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/pose${request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname}`;
     return NextResponse.rewrite(url);
   }
 

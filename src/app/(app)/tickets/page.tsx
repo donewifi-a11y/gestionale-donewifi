@@ -43,6 +43,10 @@ export default async function TicketsPage() {
   // Vista Tecnico, che richiede il catalogo materiali per il selettore.
   const { data: materiali } = await supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true });
   const personaCorrenteId = await getPersonaCorrenteId();
+  // ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: elenco tecnici esterni
+  // attivi, per assegnare un Ticket a uno di loro dal dettaglio (vedi
+  // "Assegnato a" in tickets-board.tsx).
+  const { data: tecniciEsterni } = await supabase.from("tecnici_esterni").select("id, nome, cognome").eq("attivo", true).order("nome", { ascending: true });
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -69,6 +73,7 @@ export default async function TicketsPage() {
         currentPersonaId={personaCorrenteId ?? ""}
         persone={persone ?? []}
         catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
+        tecniciEsterni={tecniciEsterni ?? []}
       />
     </div>
   );

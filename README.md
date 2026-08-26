@@ -2095,8 +2095,40 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   `contratto_attivo` di Aruba non si aggiorna in modo affidabile alla chiusura di un contratto,
   come temuto prima della migrazione `0059`. Né "fatturato negli ultimi 90 giorni" da solo (logica
   originale, troppo severa) né "contratto_attivo" da solo (0059, troppo permissiva) erano
-  sufficienti. Migrazione `0060` (da eseguire manualmente): `attivo = contratto_attivo AND
-  fatturato negli ultimi 12 mesi` — le due condizioni insieme. Simulato sui dati reali fuori dal
-  database (stessa logica della funzione SQL): 1866 installazioni attive con la regola combinata,
-  vicino al numero atteso (~1800) — verifica definitiva contro il flag reale dopo l'esecuzione
-  della migrazione; build/lint puliti.
+  sufficienti. Migrazione `0060` (eseguita e verificata): `attivo = contratto_attivo AND fatturato
+  negli ultimi 12 mesi` — le due condizioni insieme. Verificato contro Supabase reale dopo
+  l'esecuzione: 0 righe discordanti dalla regola attesa; dopo il dedup risultano 1921 installazioni
+  attive / 1881 persone uniche, vicino al numero atteso (~1800); build/lint puliti.
+✅ pose.donewifi.it — sistema separato per i tecnici esterni (2026-08-26, richiesta esplicita:
+  "semplificare la procedura per i tecnici esterni, non passare dal gestionale ma fare un altro
+  sistema"). Stesso progetto Next.js, stesso database, nuovo dominio — non un secondo deploy da
+  mantenere.
+  - **Identità separata da `persone`** (migrazione `0061`, da eseguire manualmente): tabella
+    `tecnici_esterni` con account fisso email+password (hash pgcrypto, stesso schema della password
+    "Tu sei" di `persone` — migrazione 0006), nessun reparto/permesso sul gestionale, non compare
+    nel selettore "Tu sei" né in Persone/Utenti. Sessione con cookie firmato dedicato
+    (`lib/tecnico-esterno.ts`, stesso HMAC di `persona.ts` ma namespace diverso) — niente Supabase
+    Auth: `/pose` è pubblica nel proxy, la sua autenticazione vive dentro le pagine stesse.
+  - **Dominio dedicato**: `proxy.ts` riscrive OGNI percorso di `pose.donewifi.it` con il prefisso
+    `/pose` (a differenza di `area.donewifi.it`, che riscrive solo la radice) — su questo host
+    "/pose" non compare mai nell'URL. Il dominio va aggiunto manualmente su Vercel + DNS (fuori
+    portata di queste Server Action).
+  - **`tecnico_esterno_id`** nullable su `tickets`/`appuntamenti`, accanto a
+    `tecnico_assegnato`/`tecnico_id` (mai valorizzati insieme — `assegnaTicket()`/
+    `assegnaTicketTecnicoEsterno()` azzerano sempre l'altro campo). Assegnazione dal dettaglio
+    Ticket ("Assegnato a"), oltre a "Prendi in carico" ora anche un selettore tecnici esterni.
+  - **Dashboard pose** (`/pose`): interventi/appuntamenti assegnati al tecnico collegato, niente
+    sidebar/mondi del gestionale interno. **Rapportino di chiusura** (`/pose/interventi/[id]`):
+    stessa interazione esito/lavori/materiali/foto/firma cliente del Rapportino interno, ma
+    un'action a sé (`completaTicketConRapportinoEsterno()`, service role, nessuna sessione Supabase
+    Auth) — `rapportini_intervento.creato_da_tecnico_esterno_id` (colonna gemella nullable di
+    `creato_da`, che resta `references persone(id)`).
+  - **Firma cliente condivisa**: le 4 funzioni OTP/link email di calendario/actions.ts (usate anche
+    dallo staff interno per Schede) ora accettano un "operatore" (`lib/operatore.ts`) — persona O
+    tecnico esterno — invece di richiedere sempre una persona; lette con service role invece del
+    client legato ai cookie (un tecnico esterno non ha sessione Supabase Auth, l'RLS le avrebbe
+    sempre restituite vuote).
+  - **Amministrazione** (`/tecnici-esterni`, solo admin): crea/modifica/disattiva account,
+    reimposta password — stesso pattern "password provvisoria mostrata una volta sola" di Persone.
+  Verificato: build/lint puliti. **Da fare per andare in produzione**: eseguire la migrazione
+  `0061`, aggiungere `pose.donewifi.it` come dominio Vercel + DNS, creare il primo account tecnico.

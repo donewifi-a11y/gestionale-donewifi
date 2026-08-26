@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import {
   aggiornaStatoTicket,
   assegnaTicket,
+  assegnaTicketTecnicoEsterno,
   aggiungiNotaTicket,
   getNoteTicket,
   inviaEmailApprovazioneTicket,
@@ -115,11 +116,16 @@ export function TicketsBoard({
   currentPersonaId,
   persone,
   catalogoMateriali,
+  tecniciEsterni,
 }: {
   tickets: Ticket[];
   currentPersonaId: string;
   persone: Persona[];
   catalogoMateriali: MaterialeMagazzino[];
+  /** ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: elenco tecnici
+   * esterni attivi, per assegnare un Ticket a uno di loro invece che a un
+   * tecnico interno (vedi "Assegnato a" in DettaglioTicket sotto). */
+  tecniciEsterni: { id: string; nome: string; cognome: string | null }[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -392,6 +398,7 @@ export function TicketsBoard({
               key={aperto.id}
               ticket={aperto}
               persone={persone}
+              tecniciEsterni={tecniciEsterni}
               currentPersonaId={currentPersonaId}
               onApriScheda={(a) => setSchedaAperta(a)}
               onCambiato={(t) => setAperto(t)}
@@ -469,6 +476,7 @@ function Select({
 function DettaglioTicket({
   ticket,
   persone,
+  tecniciEsterni,
   currentPersonaId,
   onApriScheda,
   onCambiato,
@@ -476,6 +484,7 @@ function DettaglioTicket({
 }: {
   ticket: Ticket;
   persone: Persona[];
+  tecniciEsterni: { id: string; nome: string; cognome: string | null }[];
   currentPersonaId: string;
   onApriScheda: (a: Appuntamento) => void;
   onCambiato: (t: Ticket) => void;
@@ -539,6 +548,11 @@ function DettaglioTicket({
   const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
   const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
+  // ★ NUOVA (2026-08-26) — alternativo ad `assegnatario`: mai valorizzati
+  // insieme (assegnaTicket()/assegnaTicketTecnicoEsterno() azzerano sempre
+  // l'altro campo), vedi commento sulle due action in tickets/actions.ts.
+  const assegnatarioEsterno = ticket.tecnico_esterno_id ? tecniciEsterni.find((t) => t.id === ticket.tecnico_esterno_id) : null;
+  const [inCorsoAssegnaEsterno, startAssegnaEsterno] = useTransition();
 
   useEffect(() => {
     if (ticket.stato === "Completato") {
@@ -824,11 +838,64 @@ function DettaglioTicket({
               </span>
               <span className="font-medium">{assegnatario.nome}</span>
             </div>
+          ) : assegnatarioEsterno ? (
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-servizio-installazione text-[10px] font-bold text-white">
+                  {assegnatarioEsterno.nome.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="font-medium">
+                  {assegnatarioEsterno.nome} {assegnatarioEsterno.cognome}
+                </span>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">esterno</span>
+              </div>
+              <button
+                type="button"
+                disabled={inCorsoAssegnaEsterno}
+                onClick={() =>
+                  startAssegnaEsterno(async () => {
+                    await assegnaTicketTecnicoEsterno(ticket.id, null);
+                    onCambiato({ ...ticket, tecnico_esterno_id: null });
+                  })
+                }
+                className="text-xs text-muted-foreground hover:text-critical disabled:opacity-60"
+              >
+                Rimuovi
+              </button>
+            </div>
           ) : (
-            <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorsoAssegna} className="mt-1.5 min-h-11">
-              {inCorsoAssegna ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />}
-              {inCorsoAssegna ? "Assegnazione…" : "Prendi in carico"}
-            </Button>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorsoAssegna} className="min-h-11 w-fit">
+                {inCorsoAssegna ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                {inCorsoAssegna ? "Assegnazione…" : "Prendi in carico"}
+              </Button>
+              {/* ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: un Ticket può
+              anche andare a un installatore esterno invece che a uno staff
+              interno — stesso principio di "Prendi in carico" ma scelto da
+              un elenco, non auto-assegnato. */}
+              {tecniciEsterni.length > 0 && (
+                <select
+                  defaultValue=""
+                  disabled={inCorsoAssegnaEsterno}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) return;
+                    startAssegnaEsterno(async () => {
+                      await assegnaTicketTecnicoEsterno(ticket.id, id);
+                      onCambiato({ ...ticket, tecnico_esterno_id: id });
+                    });
+                  }}
+                  className="h-8 w-fit rounded-md border bg-background px-2 text-xs disabled:opacity-60"
+                >
+                  <option value="">Oppure assegna a un tecnico esterno...</option>
+                  {tecniciEsterni.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nome} {t.cognome}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           )}
         </div>
 

@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getOperatoreCorrente } from "@/lib/operatore";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
@@ -450,15 +451,21 @@ export type RiferimentoFirmaCliente = { tipo: "appuntamento"; id: string } | { t
  * come prop da più punti d'accesso diversi. */
 export async function getContattoPerFirmaCliente(rif: RiferimentoFirmaCliente) {
   const supabase = await createClient();
-  const persona = await getPersonaCorrente(supabase);
-  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, email: null, nomeCliente: null, ticketNumero: null };
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE, email: null, nomeCliente: null, ticketNumero: null };
+
+  // ★ service role: un tecnico esterno (pose.donewifi.it) non ha una
+  // sessione Supabase Auth, quindi nessuna riga passerebbe l'RLS con il
+  // client legato ai cookie — stesso client già usato più sotto in questa
+  // funzione per otp_firma_cliente/token_approvazione.
+  const service = createServiceClient();
 
   if (rif.tipo === "ticket") {
-    const { data } = await supabase.from("tickets").select("numero, cliente, email").eq("id", rif.id).single();
+    const { data } = await service.from("tickets").select("numero, cliente, email").eq("id", rif.id).single();
     return { errore: null, email: data?.email ?? null, nomeCliente: data?.cliente ?? "", ticketNumero: data?.numero ?? null };
   }
 
-  const { data } = await supabase
+  const { data } = await service
     .from("appuntamenti")
     .select("titolo, tickets(numero, cliente, email)")
     .eq("id", rif.id)
@@ -495,8 +502,8 @@ function colonnaRiferimento(rif: RiferimentoFirmaCliente) {
  * attivo — stesso controllo di sempre. */
 export async function inviaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: string, nomeCliente: string, ticketNumero: number) {
   const supabase = await createClient();
-  const persona = await getPersonaCorrente(supabase);
-  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE };
   if (!email.trim()) return { errore: "Serve un'email per inviare il codice." };
 
   const codice = String(randomInt(0, 1000000)).padStart(6, "0");
@@ -520,8 +527,8 @@ export async function inviaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: 
  * qualunque OTP — non riusa un vecchio codice già consumato o scaduto. */
 export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: string, codice: string) {
   const supabase = await createClient();
-  const persona = await getPersonaCorrente(supabase);
-  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE, verificatoIl: null };
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE, verificatoIl: null };
 
   const service = createServiceClient();
   const colonna = rif.tipo === "appuntamento" ? "appuntamento_id" : "ticket_id";
@@ -561,8 +568,8 @@ export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, emai
  * /api/approva/[token]/route.ts). */
 export async function inviaLinkFirmaCliente(rif: RiferimentoFirmaCliente, origineUrl: string, email: string, nomeCliente: string, ticketNumero: number) {
   const supabase = await createClient();
-  const persona = await getPersonaCorrente(supabase);
-  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE };
   if (!email.trim()) return { errore: "Serve un'email per inviare il link." };
 
   const service = createServiceClient();
