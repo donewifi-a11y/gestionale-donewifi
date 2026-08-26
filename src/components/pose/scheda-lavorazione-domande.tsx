@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Wrench, Package, Euro, ClipboardCheck, NotebookText, FileSignature } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
@@ -69,31 +70,43 @@ export function SchedaLavorazioneDomande({
   const domande: Domanda[] = [
     {
       domanda: "Cosa hai fatto sul posto?",
+      categoria: "radio",
+      icona: <Wrench className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Puoi sceglierne anche più di uno.",
       contenuto: <TileMultiScelta opzioni={INTERVENTI_RAPIDI} valore={interventi} onChange={setInterventi} />,
     },
     {
       domanda: "Hai usato materiali o consumi?",
+      categoria: "materiali",
+      icona: <Package className="h-6 w-6" strokeWidth={2.25} />,
       contenuto: <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />,
     },
     {
       domanda: "Come ha pagato la posa?",
+      categoria: "pagamento",
+      icona: <Euro className="h-6 w-6" strokeWidth={2.25} />,
       contenuto: (
         <TileScelta opzioni={["Contanti", "POS", "In Fattura"]} valore={metodoPagamento ?? ""} onChange={(v) => setMetodoPagamento(v as BozzaLavorazione["metodoPagamento"])} />
       ),
     },
     {
       domanda: "Com'è andato l'intervento?",
+      categoria: "note",
+      icona: <ClipboardCheck className="h-6 w-6" strokeWidth={2.25} />,
       valida: () => (esito ? null : "Scegli un esito prima di continuare."),
       contenuto: <TileScelta opzioni={ESITI_INTERVENTO} valore={esito} onChange={setEsito} />,
     },
     {
       domanda: "Vuoi aggiungere una nota per la sede centrale?",
+      categoria: "note",
+      icona: <NotebookText className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativa — dettagli tecnici, dati segnale, anomalie riscontrate.",
       contenuto: <AreaGrande placeholder="Scrivi qui..." value={note} onChange={(e) => setNote(e.target.value)} />,
     },
     {
       domanda: "Il cliente conferma l'intervento?",
+      categoria: "firma",
+      icona: <FileSignature className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
       valida: () => (firmaCliente ? null : "Conferma la firma del cliente prima di continuare."),
       contenuto: <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />,

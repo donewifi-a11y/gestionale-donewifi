@@ -2211,4 +2211,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     ognuna rimovibile prima di inviare.
   La Scheda Lavorazione non è stata ancora revisionata (nessuna decisione ricevuta) — resta com'era.
   Verificato: 2 righe in `schede_lavoro` prima della migrazione (1 con "Non riscosso" da migrare);
-  build/lint puliti.
+  build/lint puliti. **Migrazione `0064` eseguita e verificata** (fix separato per l'ordine
+  UPDATE/ALTER CONSTRAINT — vedi sotto).
+✅ Nuova identità visiva "Segnale" per le Schede di Lavoro (2026-08-26, richiesta esplicita: "rendi
+  tutto molto più esteticamente bello con colori, icone e grafica catchy" — Opzione "1 · Segnale"
+  scelta tra 3 proposte con artifact, contro "2 · Cantiere" e "3 · Wifi Playful").
+  - **Font propri**: nuovo `src/app/pose/layout.tsx` carica Sora (titoli) e Manrope (corpo) via
+    `next/font/google`, Space Mono per badge/etichette — deliberatamente diversi da Geist
+    (gestionale interno, layout radice), scoperti solo dentro `/pose`.
+  - **Colore per categoria**: nuovo `lib/pose-categorie.ts` — ogni domanda ha una `categoria`
+    (struttura/radio/materiali/pagamento/note/foto/firma/posizione) con un colore fisso, mai
+    ciclato (stesso principio di `COLORE_REPARTO`). `DomandaWizard` mostra un badge colorato
+    ("RADIO · 6/17") e un'icona su sfondo sfumato per ogni domanda, invece del solo rosso di
+    marchio — un tecnico riconosce la sezione a colpo d'occhio, non solo leggendo il testo.
+  - `TileScelta`/`TileMultiScelta`/`CampoGrande`/`AreaGrande` (`components/pose/tile-scelta.tsx`)
+    passano dall'accento rosso del gestionale a un blu dedicato (#2D6CFF) — pose ha ora una sua
+    identità cromatica separata, il gestionale interno resta invariato (nessuno di questi
+    componenti è condiviso con lui).
+  - Un'icona propria per ognuna delle 17+6 domande (Building2/MapPin/Radio/Router/Cpu/Gauge/
+    Package/Euro/NotebookText/FileSignature/Wrench/ClipboardCheck, tutte lucide-react).
+  Verificato: build/lint puliti.

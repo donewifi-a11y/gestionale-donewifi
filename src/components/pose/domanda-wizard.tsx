@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { CATEGORIE_DOMANDA, type CategoriaDomanda } from "@/lib/pose-categorie";
 
 // ★ NUOVA (2026-08-26) — motore "una domanda alla volta" per le Schede di
 // Lavoro su pose.donewifi.it (Opzione A, scelta esplicitamente tra 3
@@ -9,12 +10,20 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Check } from "lucide-react";
 // Diverso da SchedaWizard (schede/scheda-wizard.tsx, usato dal gestionale
 // interno): lì un passo raggruppa più campi, qui un passo È un campo solo
 // — troppi passi per lo stepper a pillole di SchedaWizard (una Scheda
-// Installazione qui ha ~20 domande), serve una barra di avanzamento
+// Installazione qui ha ~17 domande), serve una barra di avanzamento
 // invece che pillole singole.
+//
+// ★ RESTILIZZATA (2026-08-26) — palette "1 · Segnale" scelta tra 3
+// proposte con artifact: badge/icona colorati per categoria della domanda
+// (vedi lib/pose-categorie.ts), font Sora/Manrope/Space Mono (vedi
+// pose/layout.tsx) invece di Geist/rosso di marchio del gestionale interno.
 export interface Domanda {
   /** Testo della domanda, formulato come tale — non un'etichetta di campo. */
   domanda: string;
   aiuto?: string;
+  /** Determina colore del badge/icona in cima — vedi CATEGORIE_DOMANDA. */
+  categoria: CategoriaDomanda;
+  icona: React.ReactNode;
   contenuto: React.ReactNode;
   /** Ritorna un messaggio d'errore se manca qualcosa di obbligatorio, altrimenti null. */
   valida?: () => string | null;
@@ -39,6 +48,7 @@ export function DomandaWizard({
   const [erroreLocale, setErroreLocale] = useState("");
   const ultimo = indice === domande.length - 1;
   const d = domande[indice];
+  const cat = CATEGORIE_DOMANDA[d.categoria];
 
   function avanti() {
     const errore = d.valida?.();
@@ -64,24 +74,37 @@ export function DomandaWizard({
   }
 
   return (
-    <div className="flex flex-col gap-6 rounded-2xl border bg-card p-5 pb-6 shadow-sm">
-      <div className="flex flex-col gap-2.5">
-        <span className="font-mono text-sm font-bold text-muted-foreground">
-          Domanda {indice + 1} di {domande.length}
-        </span>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] transition-all duration-300"
-            style={{ width: `${((indice + 1) / domande.length) * 100}%` }}
-          />
-        </div>
+    <div className="flex flex-col gap-6 rounded-[26px] border bg-card p-5 pb-6 shadow-[0_30px_60px_-24px_rgba(0,0,0,.18)]">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-[#E4ECFF]">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#2D6CFF] to-[#00D68F] transition-all duration-300"
+          style={{ width: `${((indice + 1) / domande.length) * 100}%` }}
+        />
       </div>
 
       <div key={indice} className="flex flex-col gap-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-200">
-        <div>
-          <h2 className="text-2xl leading-tight font-extrabold tracking-tight text-balance">{d.domanda}</h2>
-          {d.aiuto && <p className="mt-1.5 text-[15px] text-muted-foreground">{d.aiuto}</p>}
+        <div className="flex items-center justify-between gap-3">
+          <span
+            style={{ background: cat.sfondo, color: cat.testo }}
+            className="rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide uppercase [font-family:var(--font-pose-mono)]"
+          >
+            {cat.etichetta} · {indice + 1}/{domande.length}
+          </span>
         </div>
+
+        <div className="flex items-start gap-4">
+          <div
+            style={{ background: `linear-gradient(135deg, ${cat.da}, ${cat.a})`, boxShadow: `0 10px 20px -8px ${cat.da}88` }}
+            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl text-white"
+          >
+            {d.icona}
+          </div>
+          <div className="flex-1 pt-1.5">
+            <h2 className="text-xl leading-tight font-extrabold tracking-tight text-balance [font-family:var(--font-pose-display)]">{d.domanda}</h2>
+            {d.aiuto && <p className="mt-1.5 text-[14.5px] text-muted-foreground">{d.aiuto}</p>}
+          </div>
+        </div>
+
         {d.contenuto}
       </div>
 
@@ -111,7 +134,8 @@ export function DomandaWizard({
             type="button"
             onClick={avanti}
             disabled={inCorso}
-            className="flex h-16 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-lg font-bold text-primary-foreground shadow-lg shadow-primary/30 disabled:opacity-60"
+            style={{ background: "linear-gradient(90deg, #2D6CFF, #7C4DFF)", boxShadow: "0 12px 24px -10px #2D6CFF66" }}
+            className="flex h-16 flex-1 items-center justify-center gap-2 rounded-2xl text-lg font-bold text-white [font-family:var(--font-pose-display)] disabled:opacity-60"
           >
             {inCorso ? (
               "Salvataggio..."

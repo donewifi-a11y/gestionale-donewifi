@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, LocateFixed, Camera, X } from "lucide-react";
+import { MapPin, LocateFixed, Camera, X, Building2, Ruler, Radio, Router, Cpu, Gauge, Download, Upload, Package, Euro, NotebookText, FileSignature } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
@@ -137,16 +137,22 @@ export function SchedaInstallazioneDomande({
   const domande: Domanda[] = [
     {
       domanda: "Che tipo di supporto hai usato?",
+      categoria: "struttura",
+      icona: <Building2 className="h-6 w-6" strokeWidth={2.25} />,
       valida: () => (supporto.trim() ? null : "Scegli un supporto prima di continuare."),
       contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.supporto} valore={supporto} onChange={setSupporto} />,
     },
     {
       domanda: "Dove si trova, di preciso?",
+      categoria: "struttura",
+      icona: <MapPin className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — es. balcone, tetto, palo del giardino.",
       contenuto: <CampoGrande type="text" placeholder="Es. Balcone, tetto, palo..." value={posizione} onChange={(e) => setPosizione(e.target.value)} />,
     },
     {
       domanda: "Vuoi salvare la posizione GPS?",
+      categoria: "gps",
+      icona: <LocateFixed className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — un tocco basta, aiuta a ritrovare l'impianto in futuro.",
       contenuto: (
         <div className="flex flex-col gap-3">
@@ -171,51 +177,71 @@ export function SchedaInstallazioneDomande({
     },
     {
       domanda: "Quanti metri di cavo, all'incirca?",
+      categoria: "struttura",
+      icona: <Ruler className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — il tipo di cavo lo registri più avanti, tra i materiali usati.",
       contenuto: <CampoGrande type="number" inputMode="numeric" min="0" placeholder="0" value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} />,
     },
     {
       domanda: "A quale BTS è agganciato?",
+      categoria: "radio",
+      icona: <Radio className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo.",
       contenuto: <CampoGrande type="text" value={bts} onChange={(e) => setBts(e.target.value)} />,
     },
     {
       domanda: "Che modello di CPE hai installato?",
+      categoria: "radio",
+      icona: <Router className="h-6 w-6" strokeWidth={2.25} />,
       valida: () => (modelloCpe.trim() ? null : "Scegli un modello CPE prima di continuare."),
       contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.cpe} valore={modelloCpe} onChange={setModelloCpe} />,
     },
     {
       domanda: "Indirizzo MAC?",
+      categoria: "radio",
+      icona: <Cpu className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — trovi la scritta sull'apparato.",
       contenuto: <CampoGrande type="text" placeholder="AA:BB:CC:DD:EE:FF" value={mac} onChange={(e) => setMac(e.target.value)} />,
     },
     {
       domanda: "Segnale RSSI, in dBm?",
+      categoria: "radio",
+      icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — dal collaudo.",
       contenuto: <CampoGrande type="number" inputMode="numeric" value={rssi} onChange={(e) => setRssi(e.target.value)} />,
     },
     {
       domanda: "Ping misurato, in ms?",
+      categoria: "radio",
+      icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo.",
       contenuto: <CampoGrande type="number" inputMode="numeric" value={ping} onChange={(e) => setPing(e.target.value)} />,
     },
     {
       domanda: "Velocità in download, in Mbps?",
+      categoria: "radio",
+      icona: <Download className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo.",
       contenuto: <CampoGrande type="number" inputMode="numeric" value={download} onChange={(e) => setDownload(e.target.value)} />,
     },
     {
       domanda: "Velocità in upload, in Mbps?",
+      categoria: "radio",
+      icona: <Upload className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo.",
       contenuto: <CampoGrande type="number" inputMode="numeric" value={upload} onChange={(e) => setUpload(e.target.value)} />,
     },
     {
       domanda: "Hai usato materiali extra?",
+      categoria: "materiali",
+      icona: <Package className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Cavi, staffe, connettori — oltre al kit standard.",
       contenuto: <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />,
     },
     {
       domanda: "Come ha pagato la posa?",
+      categoria: "pagamento",
+      icona: <Euro className="h-6 w-6" strokeWidth={2.25} />,
       contenuto: (
         <TileScelta
           opzioni={["Contanti", "POS", "In Fattura"]}
@@ -226,21 +252,29 @@ export function SchedaInstallazioneDomande({
     },
     {
       domanda: "Vuoi aggiungere una nota tecnica?",
+      categoria: "note",
+      icona: <NotebookText className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — solo se c'è qualcosa da segnalare in ufficio.",
       contenuto: <AreaGrande placeholder="Scrivi qui..." value={note} onChange={(e) => setNote(e.target.value)} />,
     },
     {
       domanda: "Foto della struttura esterna?",
+      categoria: "foto",
+      icona: <Camera className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltative — puoi scattarne o sceglierne più di una.",
       contenuto: <FotoInputMulti value={fotoEsterna} onChange={setFotoEsterna} etichetta="Scatta o scegli una foto" />,
     },
     {
       domanda: "Foto del router e degli apparati interni?",
+      categoria: "foto",
+      icona: <Camera className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltative — puoi scattarne o sceglierne più di una.",
       contenuto: <FotoInputMulti value={fotoInterna} onChange={setFotoInterna} etichetta="Scatta o scegli una foto" />,
     },
     {
       domanda: "Il cliente conferma l'intervento?",
+      categoria: "firma",
+      icona: <FileSignature className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
       valida: () => (firmaCliente ? null : "Conferma la firma del cliente prima di continuare."),
       contenuto: <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />,
