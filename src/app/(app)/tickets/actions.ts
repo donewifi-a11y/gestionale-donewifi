@@ -5,6 +5,7 @@ import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE
 import { revalidatePath } from "next/cache";
 import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento, emailPraticaCliente } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
@@ -433,7 +434,11 @@ export async function completaTicketConRapportino(
   });
 
   if (ticketRiga?.email) {
-    const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticketRiga.cliente, ticketRiga.numero);
+    const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(
+      ticketRiga.cliente,
+      ticketRiga.numero,
+      generaTestoRapportino({ esito: dati.esito.trim(), lavori_svolti: dati.lavoriSvolti.trim() || null, materiali: dati.materiali.trim() || null })
+    );
     await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml, corpoTesto, reparto: ticketRiga.reparto });
   }
 

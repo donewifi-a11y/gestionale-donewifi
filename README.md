@@ -2231,3 +2231,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Un'icona propria per ognuna delle 17+6 domande (Building2/MapPin/Radio/Router/Cpu/Gauge/
     Package/Euro/NotebookText/FileSignature/Wrench/ClipboardCheck, tutte lucide-react).
   Verificato: build/lint puliti.
+✅ Calendario squadra su pose + testo generato dai rapporti (2026-08-26, richiesta esplicita:
+  "vorrei poter consultare il calendario generale e che i rapporti generassero un testo completo").
+  - **Calendario squadra** (`/pose/calendario`, sola lettura): tutti gli appuntamenti dei prossimi
+    14 giorni, di TUTTA la squadra (staff interno + tecnici esterni, non solo i propri — scelta
+    esplicita dell'utente dopo aver segnalato il rischio di esporre il carico di lavoro/i clienti
+    degli altri). Raggruppati per giorno, badge colorato per tipo di servizio, "Tu" in evidenza sui
+    propri. `getCalendarioSquadra()` in `app/pose/actions.ts` risolve i nomi (persone/tecnici_esterni)
+    con due query in blocco, non una per riga.
+  - **Testo generato dai rapporti**: nuovo `lib/testo-rapporto.ts` — `generaTestoRapportino()`/
+    `generaTestoScheda()`, funzioni pure che compongono un paragrafo leggibile dai campi già
+    salvati (mai un salvataggio a parte: ricalcolato da chi legge, sempre allineato ai dati veri).
+    Usato in due punti, entrambi confermati dall'utente: **RapportinoVista/SchedaVista** (gestionale
+    interno) mostrano ora un riquadro "Riepilogo" oltre ai campi singoli; **l'email di chiusura al
+    cliente** (`emailChiusuraTicket()`, nuovo parametro `riepilogo` facoltativo) include lo stesso
+    paragrafo invece del solo "è stato completato" — aggiornati tutti e 4 i punti che completano un
+    intervento (Rapportino e Scheda, sia staff interno sia pose).
+  Verificato: 4 appuntamenti reali nei prossimi 14 giorni (1 assegnato a staff interno, 2 non
+  assegnati, gestiti correttamente); testo generato da schede reali, leggibile e coerente; build/lint
+  puliti.

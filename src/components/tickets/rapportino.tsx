@@ -8,6 +8,7 @@ import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { useToast } from "@/components/ui/toast";
+import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
 
 export function RapportinoForm({
@@ -153,6 +154,13 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
         </Button>
       </div>
       <div className="flex flex-col gap-2.5 text-sm">
+        {/* ★ NUOVA (2026-08-26, richiesta esplicita: "i rapporti generassero
+        un testo completo") — riepilogo in prosa, ricalcolato dai campi già
+        sotto (non salvato a parte): stessa fonte di verità, mai disallineato. */}
+        <div className="rounded-lg bg-muted/50 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Riepilogo</div>
+          <p className="mt-1 leading-relaxed">{generaTestoRapportino(rapportino)}</p>
+        </div>
         <Campo etichetta="Esito" valore={rapportino.esito} />
         {rapportino.lavori_svolti && <Campo etichetta="Lavori svolti" valore={rapportino.lavori_svolti} />}
         {rapportino.materiali && <Campo etichetta="Materiali usati" valore={rapportino.materiali} />}

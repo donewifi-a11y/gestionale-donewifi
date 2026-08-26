@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { HardHat, MapPin, Phone, CalendarClock, ChevronRight } from "lucide-react";
+import { HardHat, MapPin, Phone, CalendarClock, ChevronRight, Users } from "lucide-react";
 import Link from "next/link";
 import { getInterventiTecnicoEsterno } from "./actions";
 import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
@@ -33,6 +33,19 @@ export default async function PosePage() {
         </div>
         <LogoutTecnicoEsternoButton />
       </div>
+
+      {/* ★ NUOVA (2026-08-26, richiesta esplicita: "poter consultare il
+      calendario generale") — tutti gli appuntamenti della squadra, non solo
+      i propri (elencati sotto). */}
+      <Link
+        href="/pose/calendario"
+        style={{ background: "linear-gradient(90deg, #2D6CFF, #7C4DFF)" }}
+        className="flex h-16 items-center gap-3 rounded-2xl px-5 text-white shadow-md active:scale-[0.99]"
+      >
+        <Users className="h-6 w-6 shrink-0" strokeWidth={2.25} />
+        <span className="flex-1 text-base font-bold">Calendario squadra</span>
+        <ChevronRight className="h-5 w-5 shrink-0" strokeWidth={2.25} />
+      </Link>
 
       {appuntamenti.length > 0 && (
         <div className="flex flex-col gap-2.5">

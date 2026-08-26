@@ -331,7 +331,12 @@ ${FOOTER_AZIENDA_TESTO}`,
   };
 }
 
-export function emailChiusuraTicket(cliente: string, numero: number) {
+/** ★ NUOVA (2026-08-26) — `riepilogo` facoltativo: il testo generato da
+ * generaTestoRapportino()/generaTestoScheda() (lib/testo-rapporto.ts,
+ * richiesta esplicita), per dare al cliente un resoconto leggibile
+ * dell'intervento invece del solo "è stato completato". Facoltativo per
+ * non rompere i punti che non lo passano ancora. */
+export function emailChiusuraTicket(cliente: string, numero: number, riepilogo?: string) {
   return {
     oggetto: `Done Wifi — Intervento completato (Ticket #${numero})`,
     corpoHtml: involucroEmail({
@@ -340,6 +345,11 @@ export function emailChiusuraTicket(cliente: string, numero: number) {
         <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">Il tuo intervento è concluso</h1>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">ti confermiamo che il tuo intervento (Ticket #${numero}) è stato completato.</p>
+        ${
+          riepilogo
+            ? `<div style="background:#F7F3F1;border-radius:10px;padding:14px 16px;margin:14px 0 0;"><p style="font-size:14px;color:#141414;line-height:1.6;margin:0;">${riepilogo}</p></div>`
+            : ""
+        }
         <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi necessità, rispondi pure a questa email.<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché è stato completato un intervento sul tuo Ticket.",
@@ -347,7 +357,7 @@ export function emailChiusuraTicket(cliente: string, numero: number) {
     corpoTesto: `Gentile ${cliente},
 
 ti confermiamo che il tuo intervento (Ticket #${numero}) è stato completato.
-
+${riepilogo ? `\n${riepilogo}\n` : ""}
 Per qualsiasi necessità, rispondi pure a questa email.
 
 Assistenza Done Wifi

@@ -9,6 +9,7 @@ import {
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { aggiornaEventoCalendario } from "@/lib/google-calendar";
+import { generaTestoRapportino, generaTestoScheda } from "@/lib/testo-rapporto";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import type { DatiSchedaLavoro, FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
@@ -182,7 +183,11 @@ export async function completaTicketConRapportinoEsterno(
   });
 
   if (ticketRiga.email) {
-    const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticketRiga.cliente, ticketRiga.numero);
+    const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(
+      ticketRiga.cliente,
+      ticketRiga.numero,
+      generaTestoRapportino({ esito: dati.esito.trim(), lavori_svolti: dati.lavoriSvolti.trim() || null, materiali: dati.materiali.trim() || null })
+    );
     await inviaEmail({ a: ticketRiga.email, oggetto, corpoHtml, corpoTesto, reparto: ticketRiga.reparto });
   }
 
@@ -212,6 +217,65 @@ export async function getAppuntamentoTecnicoEsterno(appuntamentoId: string): Pro
     .eq("tecnico_esterno_id", tecnico.id)
     .maybeSingle();
   return (data as Appuntamento | null) ?? null;
+}
+
+export interface AppuntamentoSquadra extends Appuntamento {
+  /** Nome di chi è assegnato — staff interno o tecnico esterno, quale dei
+   * due valorizzato dice quale. */
+  assegnatoA: string | null;
+  assegnatoEsterno: boolean;
+  /** true se questo appuntamento è del tecnico collegato (evidenziato in UI). */
+  mio: boolean;
+}
+
+/**
+ * ★ NUOVA (2026-08-26, richiesta esplicita: "poter consultare il
+ * calendario generale") — TUTTI gli appuntamenti della squadra (staff
+ * interno + tecnici esterni), non solo i propri, nei prossimi `giorni`
+ * giorni. Sola lettura: pose non permette di creare/modificare
+ * appuntamenti di altri, solo consultarli — coordinamento, non gestione.
+ * Due letture in più (persone, tecnici_esterni) per risolvere i nomi:
+ * `tecnico_id`/`tecnico_esterno_id` sono id, non nomi già pronti.
+ */
+export async function getCalendarioSquadra(giorni: number = 14): Promise<AppuntamentoSquadra[]> {
+  const tecnico = await getTecnicoEsternoCorrente();
+  if (!tecnico) return [];
+
+  const service = createServiceClient();
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+  const fine = new Date(oggi);
+  fine.setDate(fine.getDate() + giorni);
+
+  const { data: appuntamenti } = await service
+    .from("appuntamenti")
+    .select("*")
+    .eq("stato", "Programmato")
+    .gte("data_ora", oggi.toISOString())
+    .lt("data_ora", fine.toISOString())
+    .order("data_ora", { ascending: true });
+
+  const righe = (appuntamenti as Appuntamento[] | null) ?? [];
+  if (righe.length === 0) return [];
+
+  const idPersone = Array.from(new Set(righe.map((a) => a.tecnico_id).filter((v): v is string => !!v)));
+  const idEsterni = Array.from(new Set(righe.map((a) => a.tecnico_esterno_id).filter((v): v is string => !!v)));
+
+  const [{ data: persone }, { data: esterni }] = await Promise.all([
+    idPersone.length ? service.from("persone").select("id, nome").in("id", idPersone) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    idEsterni.length
+      ? service.from("tecnici_esterni").select("id, nome, cognome").in("id", idEsterni)
+      : Promise.resolve({ data: [] as { id: string; nome: string; cognome: string | null }[] }),
+  ]);
+  const mappaPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]));
+  const mappaEsterni = new Map((esterni ?? []).map((t) => [t.id, [t.nome, t.cognome].filter(Boolean).join(" ")]));
+
+  return righe.map((a) => ({
+    ...a,
+    assegnatoA: a.tecnico_id ? (mappaPersone.get(a.tecnico_id) ?? "Staff interno") : a.tecnico_esterno_id ? (mappaEsterni.get(a.tecnico_esterno_id) ?? "Tecnico esterno") : null,
+    assegnatoEsterno: !!a.tecnico_esterno_id,
+    mio: a.tecnico_esterno_id === tecnico.id,
+  }));
 }
 
 /**
@@ -365,7 +429,32 @@ export async function salvaSchedaLavoroEsterno(
         operatore_id: null,
       });
       if (ticket.email) {
-        const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticket.cliente, ticket.numero);
+        const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(
+          ticket.cliente,
+          ticket.numero,
+          generaTestoScheda({
+            tipo,
+            esito: dati.esito.trim() || null,
+            note: dati.note.trim() || null,
+            supporto: dati.supporto || null,
+            posizione: dati.posizione || null,
+            tipo_cavo: dati.tipoCavo || null,
+            metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
+            bts: dati.bts || null,
+            modello_cpe: dati.modelloCpe || null,
+            mac: dati.mac || null,
+            vlan: dati.vlan || null,
+            rssi: dati.rssi ? Number(dati.rssi) : null,
+            snr: dati.snr ? Number(dati.snr) : null,
+            router: dati.router || null,
+            ping_ms: dati.pingMs ? Number(dati.pingMs) : null,
+            download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
+            upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
+            materiali: dati.materiali,
+            metodo_pagamento_posa: dati.metodoPagamentoPosa,
+            interventi_eseguiti: dati.interventiEseguiti ?? [],
+          })
+        );
         await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
       }
     }

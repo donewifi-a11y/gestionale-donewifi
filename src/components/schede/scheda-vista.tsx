@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Printer, FileText, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlDocumentoScheda } from "@/app/(app)/calendario/actions";
+import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { formattaValuta } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
 import type { SchedaLavoro } from "@/lib/types";
@@ -45,6 +46,13 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
       </div>
 
       <div className="flex flex-col gap-2.5 text-sm">
+        {/* ★ NUOVA (2026-08-26, richiesta esplicita: "i rapporti generassero
+        un testo completo") — riepilogo in prosa, ricalcolato dai campi già
+        sotto (non salvato a parte): stessa fonte di verità, mai disallineato. */}
+        <div className="rounded-lg bg-muted/50 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Riepilogo</div>
+          <p className="mt-1 leading-relaxed">{generaTestoScheda(scheda)}</p>
+        </div>
         {scheda.esito && <Campo etichetta="Esito" valore={scheda.esito} />}
 
         {isInstallazione ? (

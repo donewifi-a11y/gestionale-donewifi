@@ -6,6 +6,7 @@ import { getOperatoreCorrente } from "@/lib/operatore";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import { createHash, randomInt } from "crypto";
@@ -425,7 +426,32 @@ export async function salvaSchedaLavoro(
         operatore_id: persona.id,
       });
       if (ticket.email) {
-        const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(ticket.cliente, ticket.numero);
+        const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(
+          ticket.cliente,
+          ticket.numero,
+          generaTestoScheda({
+            tipo,
+            esito: dati.esito.trim() || null,
+            note: dati.note.trim() || null,
+            supporto: dati.supporto || null,
+            posizione: dati.posizione || null,
+            tipo_cavo: dati.tipoCavo || null,
+            metri_cavo: dati.metriCavo ? Number(dati.metriCavo) : null,
+            bts: dati.bts || null,
+            modello_cpe: dati.modelloCpe || null,
+            mac: dati.mac || null,
+            vlan: dati.vlan || null,
+            rssi: dati.rssi ? Number(dati.rssi) : null,
+            snr: dati.snr ? Number(dati.snr) : null,
+            router: dati.router || null,
+            ping_ms: dati.pingMs ? Number(dati.pingMs) : null,
+            download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
+            upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
+            materiali: dati.materiali,
+            metodo_pagamento_posa: dati.metodoPagamentoPosa,
+            interventi_eseguiti: dati.interventiEseguiti ?? [],
+          })
+        );
         await inviaEmail({ a: ticket.email, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
       }
     }
