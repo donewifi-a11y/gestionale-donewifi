@@ -5,7 +5,7 @@ import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
-const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro"]);
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro", "sito_web"]);
 const CAMPI_FILE: Record<string, string> = {
   fronteDoc: "Fronte documento",
   retroDoc: "Retro documento",
@@ -19,7 +19,21 @@ const CAMPI_FILE: Record<string, string> = {
 // invece di uno per tipo: tutto ciò che non è un campo di controllo o un
 // allegato noto finisce in "dettagli".
 export async function POST(request: NextRequest) {
-  const dati = await request.formData();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — un corpo
+  // non-multipart (bot, richiesta rilanciata con l'header sbagliato)
+  // faceva fallire `.formData()` con un'eccezione non gestita: 500 invece
+  // di un errore pulito. La validazione già sotto ("Tipo di richiesta non
+  // valido") gestisce già il caso di un FormData vuoto.
+  const dati = await request.formData().catch(() => new FormData());
+
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — stesso
+  // honeypot anti-spam già in uso in api/portale/apri-ticket/route.ts e
+  // api/richiesta-dati/route.ts: un campo invisibile che solo un bot
+  // compila. Finto successo, non un errore.
+  if (String(dati.get("sito_web") || "")) {
+    return NextResponse.json({ ok: true });
+  }
+
   const tipo = String(dati.get("tipo") || "");
   if (!TIPI_RICHIESTA_CLIENTE.includes(tipo as TipoRichiestaCliente)) {
     return NextResponse.json({ errore: "Tipo di richiesta non valido." }, { status: 400 });

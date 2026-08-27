@@ -282,6 +282,10 @@ export function RichiestaDatiForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+      {/* ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — honeypot
+      anti-spam, stesso principio già in uso nel Portale pubblico: un campo
+      invisibile che solo un bot compila. */}
+      <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       {giaInviato && (
         <p className="flex items-start gap-2 rounded-lg bg-warning/10 p-2.5 text-xs text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />

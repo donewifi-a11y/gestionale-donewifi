@@ -8,7 +8,10 @@ import { createServiceClient } from "@/lib/supabase/server";
  * browser direttamente allo storage Supabase (vedi richiesta-dati-form.tsx),
  * senza mai transitare per il corpo di una richiesta a questa app. */
 export async function POST(request: NextRequest) {
-  const corpo = await request.json();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
+  // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
+  // api/portale/apri-ticket/route.ts.
+  const corpo = await request.json().catch(() => ({}) as Record<string, unknown>);
   const segnalazioneId = String(corpo.segnalazioneId || "");
   const nomeFile = String(corpo.nomeFile || "");
   if (!segnalazioneId || !nomeFile) {

@@ -119,6 +119,9 @@ function FormCambioIban({ ticketId, clienteEsternoId }: { ticketId: string | nul
   if (inviato) return <Successo />;
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+      {/* ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — honeypot
+      anti-spam, stesso principio già in uso nel Portale pubblico. */}
+      <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome *</Label>
         <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
@@ -166,6 +169,9 @@ function FormCambioAnagrafica({ ticketId, clienteEsternoId }: { ticketId: string
   if (inviato) return <Successo />;
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+      {/* ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — honeypot
+      anti-spam, stesso principio già in uso nel Portale pubblico. */}
+      <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome *</Label>
         <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
@@ -225,6 +231,9 @@ function FormTrasferimento({ ticketId, clienteEsternoId }: { ticketId: string | 
   if (inviato) return <Successo />;
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+      {/* ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — honeypot
+      anti-spam, stesso principio già in uso nel Portale pubblico. */}
+      <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome / Ragione Sociale *</Label>
         <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
@@ -312,6 +321,9 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
   if (inviato) return <Successo />;
   return (
     <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-2xl sm:p-6">
+      {/* ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — honeypot
+      anti-spam, stesso principio già in uso nel Portale pubblico. */}
+      <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label>Tipologia Cliente</Label>
         <div className="mt-1 grid grid-cols-2 gap-2">

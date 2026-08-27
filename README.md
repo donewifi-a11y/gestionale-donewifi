@@ -2431,3 +2431,31 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato sui dati reali: nessun evento vivo abbastanza recente da pulsare in questo momento
   (l'ultimo Ticket, #52, è fuori dalla finestra di 2h di ~50 minuti — conteggio confermato
   manualmente); build/lint puliti.
+✅ Giro di test pre-lancio, come farebbe un tester (2026-08-27, richiesta esplicita: "rifacciamo un
+  controllo come farebbero i tester... trovassi eventuali bug e me li indicassi" → "risolvi tutto") —
+  build/lint, integrità dati reali (12 controlli), RLS testata con la sola chiave anonima su 20
+  tabelle sensibili (0 righe leggibili senza login), smoke test dal vivo sulle pagine/rotte pubbliche.
+  3 bug reali trovati e corretti, più 2 osservazioni minori:
+  - **500 su corpo malformato in 6 rotte pubbliche** (`api/portale/apri-ticket`, `/trova-cliente`,
+    `/verifica-stato`, `api/richiesta-cliente`, `api/richiesta-dati`, `/upload-url`) — nessuna
+    proteggeva `request.json()`/`.formData()` con un `try/catch`: un corpo non valido (bot, richiesta
+    rilanciata con l'header sbagliato) faceva crashare con 500 invece di un errore pulito. Verificato
+    dal vivo prima (500 riproducibile con `curl -d 'not json'`) e dopo (`.catch(() => ({}))`, ricade
+    nella validazione già esistente → 400 pulito).
+  - **Notifiche Telegram che sparivano in silenzio** — nessun punto del codice fa l'escape di
+    `<`/`>`/`&` prima di inserire un nome/comune/problema scritto da un cliente in un messaggio con
+    `parse_mode: "HTML"`: Telegram rifiuta l'INTERO messaggio se contiene HTML non valido (es. un
+    cliente che scrive "Costo & IVA" nel proprio nome) — persa senza che nessuno se ne accorgesse
+    (Chat/Email, senza questo vincolo, arrivavano comunque, mascherando il problema). Fix centralizzato
+    in `lib/telegram.ts` (un solo file, non nei ~15 punti che compongono un messaggio): se Telegram
+    rifiuta per un errore di parsing delle entità, si riprova una volta in testo semplice (niente più
+    grassetto per quel messaggio, ma la notifica arriva) invece di scegliere di far l'escape a mano in
+    ogni punto — troppo facile dimenticarne uno in futuro.
+  - **Cookie di sessione senza `secure`** (`persona.ts`, `tecnico-esterno.ts`) — aggiunto
+    `secure: process.env.NODE_ENV === "production"` (`false` in sviluppo locale, dove servirebbe
+    altrimenti scarterebbe il cookie su http://localhost).
+  - *(minori)* **Honeypot anti-spam incoerente**: solo il Portale pubblico ce l'aveva — stesso campo
+    invisibile (`sito_web`) aggiunto anche a Richiesta Dati e alle 4 varianti del modulo Richiesta
+    Cliente. **56 `codice_gestionale` duplicati in `clienti_esterni`**: NON un bug, comportamento
+    documentato (ogni rinnovo Aruba crea una riga nuova) — verificato a fondo prima di escludere.
+  Verificato: build/lint puliti; live su gestione.donewifi.it dopo il deploy (vedi sotto).

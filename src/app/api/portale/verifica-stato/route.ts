@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
   }
 
-  const dati = await request.json();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
+  // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
+  // apri-ticket/route.ts.
+  const dati = await request.json().catch(() => ({}) as Record<string, unknown>);
   const numero = Number(String(dati.numero || "").trim());
   const telefono = String(dati.telefono || "").replace(/\D/g, "");
 

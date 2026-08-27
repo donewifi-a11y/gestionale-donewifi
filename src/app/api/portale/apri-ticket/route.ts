@@ -13,7 +13,12 @@ const REPARTO_PER_CATEGORIA: Record<string, AreaAccesso> = {
 };
 
 export async function POST(request: NextRequest) {
-  const dati = await request.json();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — un corpo
+  // non-JSON (bot, richiesta rilanciata con l'header sbagliato, scanner
+  // automatico) faceva fallire `.json()` con un'eccezione non gestita:
+  // 500 invece di un errore pulito. Rotta pubblica, va difesa da un corpo
+  // qualunque.
+  const dati = await request.json().catch(() => ({}) as Record<string, unknown>);
 
   // ★ honeypot anti-spam: un campo invisibile che solo un bot compila.
   if (dati.trappola) {

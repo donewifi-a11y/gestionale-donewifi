@@ -18,7 +18,21 @@ const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloI
 // per non superare il limite di corpo delle funzioni Vercel; qui arriva solo
 // il loro percorso già caricato dentro `documenti`.
 export async function POST(request: NextRequest) {
-  const dati = await request.json();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
+  // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
+  // api/portale/apri-ticket/route.ts.
+  const dati = await request.json().catch(() => ({}) as Record<string, unknown>);
+
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — unica
+  // rotta pubblica del gestionale senza l'honeypot anti-spam già in uso
+  // in api/portale/apri-ticket/route.ts: stesso principio, un campo
+  // invisibile che solo un bot compila. Finto successo, non un errore —
+  // un bot che riceve un 400 di solito riprova con varianti, uno che
+  // "riesce" smette.
+  if (dati.sito_web) {
+    return NextResponse.json({ ok: true });
+  }
+
   const segnalazioneId = String(dati.segnalazioneId || "");
   if (!segnalazioneId) {
     return NextResponse.json({ errore: "Segnalazione non specificata." }, { status: 400 });

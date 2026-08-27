@@ -53,6 +53,13 @@ export async function impostaCookiePersona(personaId: string) {
     path: "/",
     sameSite: "lax",
     httpOnly: true,
+    // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — mancava
+    // `secure`: il cookie (un'identità firmata) poteva in teoria transitare
+    // anche su una connessione non cifrata. Vercel forza già HTTPS in
+    // produzione, questo è un secondo livello di difesa. `false` solo in
+    // sviluppo locale (`npm run dev` su http://localhost, dove un cookie
+    // "secure" verrebbe scartato dal browser).
+    secure: process.env.NODE_ENV === "production",
   });
 }
 

@@ -10,7 +10,10 @@ import { createServiceClient } from "@/lib/supabase/server";
 // nessun login: restituisce solo il minimo indispensabile per la conferma
 // "sei tu?" (id + nome), mai l'anagrafica completa.
 export async function POST(request: NextRequest) {
-  const { telefono, codiceFiscale } = await request.json();
+  // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
+  // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
+  // apri-ticket/route.ts.
+  const { telefono, codiceFiscale } = await request.json().catch(() => ({}) as Record<string, unknown>);
   const tel = String(telefono || "").replace(/\D/g, "").slice(-9);
   const cf = String(codiceFiscale || "").trim().toUpperCase();
   if (tel.length < 6 || !cf) {

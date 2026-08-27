@@ -53,6 +53,9 @@ export async function impostaCookieTecnicoEsterno(tecnicoId: string) {
     path: "/",
     sameSite: "lax",
     httpOnly: true,
+    // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — stesso
+    // fix di persona.ts, vedi lì per il commento completo.
+    secure: process.env.NODE_ENV === "production",
   });
 }
 
