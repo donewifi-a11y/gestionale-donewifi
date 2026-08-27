@@ -373,9 +373,8 @@ export async function getSchedeDaTrasferireAntenne(): Promise<SchedaDaTrasferire
   const supabase = await createClient();
   const { data: schede, error } = await supabase
     .from("schede_lavoro")
-    .select("id, ticket_id, tipo, mac, bts, modello_cpe, gps_lat, gps_lng, creato_il")
+    .select("id, ticket_id, appuntamento_id, tipo, mac, bts, modello_cpe, gps_lat, gps_lng, creato_il")
     .is("inserita_gestionale_antenne_il", null)
-    .not("ticket_id", "is", null)
     .order("creato_il", { ascending: true });
   if (error) {
     console.error("getSchedeDaTrasferireAntenne:", error.message);
@@ -385,9 +384,21 @@ export async function getSchedeDaTrasferireAntenne(): Promise<SchedaDaTrasferire
   const rilevanti = (schede ?? []).filter((s) => schedaRiguardaGestionaleAntenne(s.tipo, s.mac));
   if (rilevanti.length === 0) return [];
 
+  // ★ FIX (trovato in verifica) — filtrare via le schede senza ticket_id
+  // (possibile: un appuntamento creato dal Calendario senza passare da un
+  // Ticket) le escludeva del tutto dalla coda, l'esatto opposto dello scopo
+  // di questa vista ("niente si perde"). Per quei pochi casi si usa il
+  // titolo dell'appuntamento al posto del nome cliente del Ticket.
   const idTicket = Array.from(new Set(rilevanti.map((s) => s.ticket_id).filter((v): v is string => !!v)));
-  const { data: tickets } = await supabase.from("tickets").select("id, numero, cliente").in("id", idTicket);
+  const idAppuntamentoSenzaTicket = Array.from(new Set(rilevanti.filter((s) => !s.ticket_id).map((s) => s.appuntamento_id)));
+  const [{ data: tickets }, { data: appuntamenti }] = await Promise.all([
+    idTicket.length ? supabase.from("tickets").select("id, numero, cliente").in("id", idTicket) : Promise.resolve({ data: [] as { id: string; numero: number; cliente: string }[] }),
+    idAppuntamentoSenzaTicket.length
+      ? supabase.from("appuntamenti").select("id, titolo").in("id", idAppuntamentoSenzaTicket)
+      : Promise.resolve({ data: [] as { id: string; titolo: string }[] }),
+  ]);
   const mappaTicket = new Map((tickets ?? []).map((t) => [t.id, t]));
+  const mappaAppuntamento = new Map((appuntamenti ?? []).map((a) => [a.id, a.titolo]));
 
   return rilevanti.map((s) => {
     const ticket = s.ticket_id ? mappaTicket.get(s.ticket_id) : undefined;
@@ -395,7 +406,7 @@ export async function getSchedeDaTrasferireAntenne(): Promise<SchedaDaTrasferire
       schedaId: s.id,
       tipo: s.tipo,
       completataIl: s.creato_il,
-      cliente: ticket?.cliente ?? "—",
+      cliente: ticket?.cliente ?? mappaAppuntamento.get(s.appuntamento_id) ?? "—",
       ticketNumero: ticket?.numero ?? null,
       mac: s.mac,
       bts: s.bts,

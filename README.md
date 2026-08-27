@@ -2311,6 +2311,13 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     (+ `_da`, chi l'ha segnata) — migrazione `0065_gestionale_antenne_esterno.sql`, **da eseguire
     manualmente in Supabase SQL Editor**.
   Verificato: build/lint puliti; gruppo Chat "Analisi Rete" e persona "Sistema" (mittente automatico)
-  già esistenti e funzionanti in produzione — l'avviso arriverà lì. Verifica sui dati reali della
-  coda "Da trasferire" e della segnatura come fatta ancora da eseguire dopo che la migrazione sarà
-  stata lanciata.
+  già esistenti e funzionanti in produzione.
+  ★ FIX (trovato in verifica dopo la migrazione) — `getSchedeDaTrasferireAntenne()` filtrava via le
+  schede senza `ticket_id` (un appuntamento creato dal Calendario senza passare da un Ticket, caso
+  raro ma reale: una delle 2 schede in produzione è proprio così): l'esatto opposto dello scopo della
+  coda ("niente si perde") — restavano rilevanti per l'avviso in Chat ma sparivano dalla coda di
+  riserva. Corretto: per quei casi si usa il titolo dell'appuntamento al posto del nome cliente del
+  Ticket. Verificato sui dati reali: 2/2 schede rilevanti ora presenti in coda con il nome corretto
+  ("Leonardo Pavetto" via Ticket, "Assistenza — Pianificazione installazione · Antonietta Favre" via
+  titolo appuntamento per quella senza Ticket); segna-come-inserita testato e ripristinato su una
+  scheda reale, senza lasciare tracce false; build/lint puliti.
