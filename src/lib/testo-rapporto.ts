@@ -14,11 +14,19 @@ import type { RapportinoIntervento, SchedaLavoro, MaterialeUsato } from "@/lib/t
 // ★ REDESIGN (2026-08-27, richiesta esplicita: "vorrei che il rapporto
 // fosse un testo scritto e non un semplice elenco di dati ma un testo
 // completo") — la prima versione componeva frasi del tipo "Cablaggio: X.
-// Apparati: Y. Collaudo: Z.": un elenco etichettato travestito da prosa,
-// non un vero testo. Qui ogni gruppo di campi diventa una frase con verbo
-// e soggetto ("È stata montata...", "Il collegamento è stato realizzato
-// con...", "In fase di collaudo sono stati rilevati..."), collegate in un
-// paragrafo — le etichette (Cablaggio/Apparati/...) sparissero del tutto.
+// Apparati: Y. Collaudo: Z.": un elenco etichettato travestito da prosa.
+//
+// ★ RIFINITA (2026-08-27, richiesta esplicita: "va bene ma è troppo
+// robotico") — il giro precedente aveva risolto l'elenco etichettato ma
+// aveva introdotto un problema diverso: ogni frase iniziava con lo stesso
+// stampo passivo ("È stata montata...", "Sono stati installati...", "In
+// fase di collaudo sono stati rilevati...", "Sono stati impiegati...") —
+// grammaticalmente prosa, ma nella forma un modulo compilato, non un
+// tecnico che scrive. Qui i gruppi di campi imparentati (struttura +
+// cablaggio, apparati + collaudo, materiali + pagamento) si fondono in
+// un'unica frase con connettivi naturali ("e", "mentre", "; ") invece di
+// restare frasi separate tutte con lo stesso soggetto sottinteso — meno
+// ripetizione di forma, più il ritmo di una nota scritta a mano.
 
 function elencoMateriali(materiali: MaterialeUsato[]): string {
   if (!materiali || materiali.length === 0) return "";
@@ -42,6 +50,13 @@ function frase(testo: string): string {
   return /[.!?]$/.test(conMaiuscola) ? conMaiuscola : `${conMaiuscola}.`;
 }
 
+/** Prima lettera minuscola — per inserire un valore già scritto altrove
+ * (es. un'etichetta di menu come "Riallineamento Antenna") a metà di una
+ * frase, senza una maiuscola fuori posto. */
+function minuscolaIniziale(testo: string): string {
+  return testo.charAt(0).toLowerCase() + testo.slice(1);
+}
+
 function testoMetodoPagamento(metodo: string): string {
   switch (metodo) {
     case "Contanti":
@@ -59,7 +74,7 @@ function testoMetodoPagamento(metodo: string): string {
 export function generaTestoRapportino(r: Pick<RapportinoIntervento, "esito" | "lavori_svolti" | "materiali">): string {
   const frasi: string[] = [frase(r.esito)];
   if (r.lavori_svolti) frasi.push(frase(r.lavori_svolti));
-  if (r.materiali) frasi.push(frase(`Sono stati utilizzati i seguenti materiali: ${r.materiali}`));
+  if (r.materiali) frasi.push(frase(`Materiali utilizzati: ${r.materiali}`));
   return frasi.filter(Boolean).join(" ");
 }
 
@@ -94,52 +109,80 @@ export function generaTestoScheda(
   if (s.tipo === "Nuova installazione") {
     const frasi: string[] = [frase(s.esito || "Installazione completata")];
 
-    if (s.supporto) {
-      const posizione = s.posizione ? `, in posizione ${s.posizione.toLowerCase()}` : "";
-      frasi.push(frase(`È stata montata una ${s.supporto.toLowerCase()}${posizione}`));
-    }
-
+    // Struttura + cablaggio: un'unica frase ("montata su... e cablata
+    // con...") invece di due frasi separate con lo stesso soggetto muto.
     {
-      const cablaggio = s.metri_cavo ? `${s.metri_cavo} metri di cavo${s.tipo_cavo ? ` ${s.tipo_cavo}` : ""}` : "";
-      if (cablaggio && s.bts) {
-        frasi.push(frase(`Il collegamento è stato realizzato con ${cablaggio}, agganciato alla BTS di ${s.bts}`));
-      } else if (cablaggio) {
-        frasi.push(frase(`Il collegamento è stato realizzato con ${cablaggio}`));
-      } else if (s.bts) {
-        frasi.push(frase(`Il collegamento è agganciato alla BTS di ${s.bts}`));
+      const parti: string[] = [];
+      if (s.supporto) {
+        const posizione = s.posizione ? ` (${s.posizione.toLowerCase()})` : "";
+        parti.push(`montata su ${s.supporto.toLowerCase()}${posizione}`);
       }
+      if (s.metri_cavo) {
+        const bts = s.bts ? ` fino alla BTS di ${s.bts}` : "";
+        parti.push(`cablata con ${s.metri_cavo} metri di cavo${s.tipo_cavo ? ` ${s.tipo_cavo}` : ""}${bts}`);
+      } else if (s.bts) {
+        parti.push(`agganciata alla BTS di ${s.bts}`);
+      }
+      if (parti.length) frasi.push(frase(`Antenna ${parti.join(" e ")}`));
     }
 
+    // Apparati + collaudo: stesso principio, uniti con "mentre" quando
+    // sono presenti entrambi, altrimenti quello che c'è resta da solo.
     {
       const apparati: string[] = [];
       if (s.modello_cpe) apparati.push(`un CPE ${s.modello_cpe}${s.mac ? ` (MAC ${s.mac})` : ""}`);
       if (s.router) apparati.push(`un router ${s.router}`);
       if (s.vlan) apparati.push(`la VLAN ${s.vlan}`);
-      if (apparati.length) frasi.push(frase(`Sono stati installati e configurati ${elencoItaliano(apparati)}`));
-    }
 
-    {
       const collaudo: string[] = [];
       if (s.rssi != null) collaudo.push(`un RSSI di ${s.rssi} dBm`);
       if (s.snr != null) collaudo.push(`un rapporto segnale/rumore di ${s.snr} dB`);
       if (s.ping_ms != null) collaudo.push(`un ping di ${s.ping_ms} ms`);
       if (s.download_mbps != null) collaudo.push(`${s.download_mbps} Mbps in download`);
       if (s.upload_mbps != null) collaudo.push(`${s.upload_mbps} Mbps in upload`);
-      if (collaudo.length) frasi.push(frase(`In fase di collaudo sono stati rilevati ${elencoItaliano(collaudo)}`));
+
+      const partiApparati = apparati.length ? `Come apparati sono stati usati ${elencoItaliano(apparati)}` : "";
+      const partiCollaudo = collaudo.length ? `il collaudo ha dato ${elencoItaliano(collaudo)}` : "";
+      if (partiApparati && partiCollaudo) frasi.push(frase(`${partiApparati}, mentre ${partiCollaudo}`));
+      else if (partiApparati) frasi.push(frase(partiApparati));
+      else if (partiCollaudo) frasi.push(frase(`Il collaudo ha dato ${collaudo.join(", ")}`));
     }
 
-    if (materiali) frasi.push(frase(`Sono stati impiegati i seguenti materiali: ${materiali}`));
-    if (s.metodo_pagamento_posa) frasi.push(frase(`Il pagamento della posa è previsto ${testoMetodoPagamento(s.metodo_pagamento_posa)}`));
+    // Materiali + pagamento: uniti con ";" — due fatti diversi ma corti,
+    // non vale la pena due frasi separate per uno ciascuno.
+    {
+      const partiMateriali = materiali ? `Tra i materiali impiegati figurano ${materiali}` : "";
+      const partiPagamento = s.metodo_pagamento_posa ? `la posa verrà pagata ${testoMetodoPagamento(s.metodo_pagamento_posa)}` : "";
+      if (partiMateriali && partiPagamento) frasi.push(frase(`${partiMateriali}; ${partiPagamento}`));
+      else if (partiMateriali) frasi.push(frase(partiMateriali));
+      else if (partiPagamento) frasi.push(frase(`Il pagamento della posa è previsto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`));
+    }
+
     if (s.note) frasi.push(frase(s.note));
 
     return frasi.filter(Boolean).join(" ");
   }
 
   // "Lavorazione tecnica"
-  const frasi: string[] = [frase(`Intervento concluso con esito ${(s.esito ?? "non specificato").toLowerCase()}`)];
-  if (s.interventi_eseguiti?.length) frasi.push(frase(`Sono stati effettuati i seguenti interventi: ${elencoItaliano(s.interventi_eseguiti)}`));
-  if (materiali) frasi.push(frase(`Sono stati utilizzati i seguenti materiali/consumi: ${materiali}`));
-  if (s.metodo_pagamento_posa) frasi.push(frase(`Il pagamento della posa è avvenuto ${testoMetodoPagamento(s.metodo_pagamento_posa)}`));
+  const frasi: string[] = [];
+  {
+    const esito = `esito ${(s.esito ?? "non specificato").toLowerCase()}`;
+    if (s.interventi_eseguiti?.length) {
+      const interventi = elencoItaliano(s.interventi_eseguiti.map(minuscolaIniziale));
+      frasi.push(frase(`Intervento concluso con ${esito}: sul posto sono stati effettuati ${interventi}`));
+    } else {
+      frasi.push(frase(`Intervento concluso con ${esito}`));
+    }
+  }
+
+  {
+    const partiMateriali = materiali ? `Materiali/consumi impiegati: ${materiali}` : "";
+    const partiPagamento = s.metodo_pagamento_posa ? `pagamento della posa ${testoMetodoPagamento(s.metodo_pagamento_posa)}` : "";
+    if (partiMateriali && partiPagamento) frasi.push(frase(`${partiMateriali}; ${partiPagamento}`));
+    else if (partiMateriali) frasi.push(frase(partiMateriali));
+    else if (partiPagamento) frasi.push(frase(`Il pagamento della posa è avvenuto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`));
+  }
+
   if (s.note) frasi.push(frase(s.note));
   return frasi.filter(Boolean).join(" ");
 }

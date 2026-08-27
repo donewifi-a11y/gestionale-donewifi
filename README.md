@@ -2461,3 +2461,21 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato: build/lint puliti; **live su gestione.donewifi.it dopo il deploy** — tutte e 6 le rotte
   ripetute con `curl -d 'not json'`, ora 400 pulito invece di 500 (nessuna crasha più); honeypot
   testato dal vivo su apri-ticket (finto successo 200, nessun Ticket vero creato).
+✅ Testo dei rapporti meno robotico (2026-08-27, richiesta esplicita: "rivediamo il testo delle
+  schede di lavoro. va bene ma è troppo robotico") — il giro precedente aveva tolto l'elenco
+  etichettato ma introdotto un problema diverso: ogni frase iniziava con lo stesso stampo passivo
+  ("È stata montata...", "Sono stati installati...", "In fase di collaudo sono stati rilevati...",
+  "Sono stati impiegati...") — grammaticalmente prosa, ma nella forma un modulo compilato. Ora i
+  gruppi di campi imparentati si fondono in un'unica frase con connettivi naturali invece di restare
+  frasi separate con lo stesso soggetto sottinteso: struttura+cablaggio ("montata su... e cablata
+  con..."), apparati+collaudo ("Come apparati... mentre il collaudo ha dato..."), materiali+pagamento
+  ("Tra i materiali... figurano...; la posa verrà pagata...").
+  Esempio reale (stessa installazione già mostrata prima): *"Installazione certificata con successo.
+  Antenna montata su zanca da camino (camino sud) e cablata con 12 metri di cavo Cat6 FTP Outdoor fino
+  alla BTS di Issogne. Come apparati sono stati usati un CPE Albentia 350-Rs (MAC ...) e un router
+  TP-Link EX230V, mentre il collaudo ha dato un RSSI di -65 dBm, un rapporto segnale/rumore di 24 dB,
+  un ping di 45 ms, 85 Mbps in download e 10 Mbps in upload. Tra i materiali impiegati figurano
+  Privati, Albentia 100Mb, Griglia piccola, Alimentatore, Staffa camino, Tp-link EX520v; la posa verrà
+  pagata in fattura."*
+  Verificato: rigenerato su entrambe le schede di installazione reali in produzione; build/lint
+  puliti.
