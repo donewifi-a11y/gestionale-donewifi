@@ -2458,4 +2458,6 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     invisibile (`sito_web`) aggiunto anche a Richiesta Dati e alle 4 varianti del modulo Richiesta
     Cliente. **56 `codice_gestionale` duplicati in `clienti_esterni`**: NON un bug, comportamento
     documentato (ogni rinnovo Aruba crea una riga nuova) — verificato a fondo prima di escludere.
-  Verificato: build/lint puliti; live su gestione.donewifi.it dopo il deploy (vedi sotto).
+  Verificato: build/lint puliti; **live su gestione.donewifi.it dopo il deploy** — tutte e 6 le rotte
+  ripetute con `curl -d 'not json'`, ora 400 pulito invece di 500 (nessuna crasha più); honeypot
+  testato dal vivo su apri-ticket (finto successo 200, nessun Ticket vero creato).
