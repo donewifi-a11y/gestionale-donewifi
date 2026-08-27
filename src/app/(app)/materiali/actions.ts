@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
-import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { schedaRiguardaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { revalidatePath } from "next/cache";
 import type { MaterialeMagazzino, SchedaLavoro } from "@/lib/types";
@@ -160,10 +160,18 @@ export async function scaricaGiacenzaMateriali(materiali: { materiale_id: string
         sottoSoglia &&
         (!materiale.ultimo_avviso_il || Date.now() - new Date(materiale.ultimo_avviso_il).getTime() > SOGLIA_RIPETI_AVVISO_ORE * 60 * 60 * 1000);
       if (daAvvisare) {
-        await inviaMessaggioChatSistema(
-          "Analisi Rete",
-          `📦 Scorta bassa: "${materiale.nome}" a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia ${materiale.soglia_minima}).`
-        );
+        // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+        // "Estensione Notifiche") — prima solo Chat interna, ora anche
+        // Telegram ed email.
+        await notificaSuTuttiICanali({
+          reparto: "Analisi Rete",
+          telegramHtml: `📦 <b>Scorta bassa</b>\n\n"${materiale.nome}" a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia ${materiale.soglia_minima}).`,
+          chatTesto: `📦 Scorta bassa: "${materiale.nome}" a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia ${materiale.soglia_minima}).`,
+          emailTitolo: `Scorta bassa — ${materiale.nome}`,
+          emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">"<b>${materiale.nome}</b>" è sceso a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia minima: ${materiale.soglia_minima}).</p>`,
+          emailCorpoTesto: `"${materiale.nome}" è sceso a ${nuovaGiacenza} ${nuovaGiacenza === 1 ? "pezzo" : "pezzi"} (soglia minima: ${materiale.soglia_minima}).`,
+          emailLink: "https://gestione.donewifi.it/materiali",
+        });
         await service.from("materiali_magazzino").update({ ultimo_avviso_il: new Date().toISOString() }).eq("id", materiale.id);
       }
     }
@@ -329,10 +337,18 @@ export async function riconciliaAntennaInstallata(mac: string, ticketId: string 
     if (!antenna || antenna.stato === "Installata") return;
 
     if (antenna.stato === "Prenotata" && antenna.ticket_id && antenna.ticket_id !== ticketId) {
-      await inviaMessaggioChatSistema(
-        "Analisi Rete",
-        `⚠️ Antenna ${mac} era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.`
-      );
+      // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+      // "Estensione Notifiche") — prima solo Chat interna, ora anche
+      // Telegram ed email.
+      await notificaSuTuttiICanali({
+        reparto: "Analisi Rete",
+        telegramHtml: `⚠️ <b>Antenna prenotata installata altrove</b>\n\nAntenna ${mac} era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.`,
+        chatTesto: `⚠️ Antenna ${mac} era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.`,
+        emailTitolo: `Antenna prenotata installata altrove — ${mac}`,
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">L'antenna <b>${mac}</b> era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.</p>`,
+        emailCorpoTesto: `L'antenna ${mac} era prenotata per un altro Ticket ma è stata installata altrove — controllare la prenotazione.`,
+        emailLink: "https://gestione.donewifi.it/materiali",
+      });
     }
 
     await service

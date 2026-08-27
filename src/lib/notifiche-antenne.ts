@@ -1,4 +1,4 @@
-import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import type { TipoServizioAppuntamento } from "@/lib/types";
 
 // ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve
@@ -33,19 +33,31 @@ export interface DatiNotificaAntenna {
   gpsLng: number | null;
 }
 
-/** Avviso in Chat interna (reparto Analisi Rete, già il gruppo che gestisce
- * l'inventario Antenne) con tutti i dati pronti per la trascrizione — niente
- * da riscrivere a mano dal resto della scheda, solo copiare da qui. */
+/** Avviso su tutti e 3 i canali (reparto Analisi Rete, già il gruppo che
+ * gestisce l'inventario Antenne) con tutti i dati pronti per la
+ * trascrizione — niente da riscrivere a mano dal resto della scheda, solo
+ * copiare da qui.
+ *
+ * ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact "Estensione
+ * Notifiche") — prima solo Chat interna, ora anche Telegram ed email
+ * verso attivazioni@donewifi.it, stesso trattamento di ogni altro evento. */
 export async function notificaGestionaleAntenne(dati: DatiNotificaAntenna): Promise<void> {
-  const righe: string[] = [
-    `📡 Dati per il gestionale antenne — ${dati.tipo === "Nuova installazione" ? "nuova installazione" : "sostituzione in una Lavorazione"} completata.`,
-  ];
+  const titolo = `Dati per il gestionale antenne — ${dati.tipo === "Nuova installazione" ? "nuova installazione" : "sostituzione in una Lavorazione"} completata`;
+  const righe: string[] = [];
   if (dati.cliente) righe.push(`Cliente: ${dati.cliente}${dati.ticketNumero ? ` (Ticket #${dati.ticketNumero})` : ""}`);
   if (dati.mac) righe.push(`MAC: ${dati.mac}`);
   if (dati.modelloCpe) righe.push(`Apparato: ${dati.modelloCpe}`);
   if (dati.bts) righe.push(`BTS: ${dati.bts}`);
   if (dati.gpsLat != null && dati.gpsLng != null) righe.push(`GPS: ${dati.gpsLat}, ${dati.gpsLng}`);
-  righe.push(`Trovi la scheda anche nella coda "Da trasferire" in Materiali → Antenne se serve rivederla dopo.`);
+  const nota = `Trovi la scheda anche nella coda "Da trasferire" in Materiali → Antenne se serve rivederla dopo.`;
 
-  await inviaMessaggioChatSistema("Analisi Rete", righe.join("\n"));
+  await notificaSuTuttiICanali({
+    reparto: "Analisi Rete",
+    telegramHtml: `📡 <b>${titolo}</b>\n\n${righe.join("\n")}\n\n${nota}`,
+    chatTesto: `📡 ${titolo}.\n${righe.join("\n")}\n${nota}`,
+    emailTitolo: titolo,
+    emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">${righe.join("<br>")}</p>`,
+    emailCorpoTesto: righe.join("\n"),
+    emailLink: "https://gestione.donewifi.it/materiali",
+  });
 }

@@ -2385,3 +2385,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato sui dati reali: 2 richieste con documenti reali (foto fronte/retro documento e tessera
   sanitaria, .jpg), signed URL generata e scaricata con successo (200, `image/jpeg`, contenuto reale
   non vuoto) — la stessa strada che percorrerà il pulsante in browser; build/lint puliti.
+✅ Notifiche su 3 canali ovunque (2026-08-27, "fai la a" — Proposta A dell'artifact "Estensione
+  Notifiche": tutti e 12 gli eventi già notificanti ricevono Telegram + Chat interna + Email verso
+  attivazioni@donewifi.it, senza eccezioni) — nuovo `lib/notifiche-interne.ts` (`notificaSuTuttiICanali()`),
+  un'unica funzione condivisa al posto delle 3 chiamate scritte a mano ogni volta. I 2 punti già "gold
+  standard" (Richiesta Dati, Richiesta Cliente) restano invariati — già corretti.
+  - **6 "buchi" trovati nell'audit, dove agisce il cliente da solo** — 3 con ZERO avviso finora, solo
+    una riga di Storico: Preventivo approvato/rifiutato (`/api/approva/[token]`), Scheda/Rapportino
+    confermati dal cliente (idem, 2 rami), Subentro — vecchio cliente conferma/rifiuta (idem),
+    Intervento risolto da remoto confermato (idem); più 2 con copertura parziale: Ticket aperto dal
+    Portale (era solo Telegram) e Contratto approvato → Ticket creato in automatico
+    (`segnalazioni/actions.ts`, era solo Chat).
+  - **3 eventi generati da un operatore**, copertura estesa da 1 a 3 canali: Nuova Segnalazione
+    creata, Contratto inviato per approvazione, Preventivo inviato al cliente.
+  - **3 eventi operativi interni**, stessa estensione: Scorta magazzino sotto soglia, Conflitto
+    prenotazione antenna, Dati pronti per il gestionale esterno antenne (`lib/notifiche-antenne.ts`,
+    appena introdotto).
+  Verificato sui dati reali: le query aggiunte per comporre i messaggi (preventivi.numero/cliente_nome/
+  totale, schede_lavoro→tickets.reparto, richieste_clienti.cliente, tickets.reparto) restituiscono
+  dati coerenti; build/lint puliti. Non testato l'invio reale sui 3 canali per non generare avvisi
+  falsi verso i gruppi Telegram/Chat/email reali dello staff — il codice ricalca esattamente l'idiom
+  già in produzione di Richiesta Dati/Richiesta Cliente.

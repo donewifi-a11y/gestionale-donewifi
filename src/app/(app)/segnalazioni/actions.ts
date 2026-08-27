@@ -3,9 +3,9 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
-import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto, emailAvvisoInterno } from "@/lib/email";
+import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto } from "@/lib/email";
 import { urlFirmataDocumento } from "@/lib/documenti";
-import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
 
 async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
@@ -253,10 +253,19 @@ export async function inviaEmailApprovazioneContratto(segnalazioneId: string, or
   // solo quando arriva "Trasmetti" — così può iniziare a organizzarsi in
   // parallelo all'attesa della conferma del cliente, invece di scoprire la
   // pratica solo a cose fatte.
-  await inviaMessaggioChatSistema(
-    "Analisi Rete",
-    `📄 Contratto inviato per approvazione a ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Puoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.`
-  );
+  // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+  // "Estensione Notifiche") — prima solo Chat interna, ora anche
+  // Telegram ed email verso attivazioni@donewifi.it.
+  const linkSegnalazione = `${origine}/segnalazioni?aperto=${segnalazioneId}`;
+  await notificaSuTuttiICanali({
+    reparto: "Analisi Rete",
+    telegramHtml: `📄 <b>Contratto inviato per approvazione</b>\n\n${segnalazione.nome} (Segnalazione #${segnalazione.numero})\n\nPuoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.`,
+    chatTesto: `📄 Contratto inviato per approvazione a ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Puoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.`,
+    emailTitolo: `Contratto inviato per approvazione — Segnalazione #${segnalazione.numero}`,
+    emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${segnalazione.nome}</b><br>Puoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.</p>`,
+    emailCorpoTesto: `Cliente: ${segnalazione.nome}\nPuoi iniziare a organizzare l'installazione — sarà trasmesso ufficialmente appena il cliente approva.`,
+    emailLink: linkSegnalazione,
+  });
 
   revalidatePath("/segnalazioni");
   return { errore: null };
@@ -349,13 +358,18 @@ export async function creaSegnalazione(dati: {
   // attivazioni@donewifi.it ad ogni nuova Segnalazione — non blocca la
   // creazione se l'invio fallisce (stesso principio delle notifiche
   // Telegram/Chat già in uso altrove).
-  const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
-    `Nuova segnalazione #${data.numero}`,
-    `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${dati.nome}</b><br>Comune: ${dati.comune}<br>Telefono: ${dati.telefono}${dati.email ? `<br>Email: ${dati.email}` : ""}${dati.tipologiaCliente ? `<br>Tipologia: ${dati.tipologiaCliente}` : ""}</p>`,
-    `Cliente: ${dati.nome}\nComune: ${dati.comune}\nTelefono: ${dati.telefono}${dati.email ? `\nEmail: ${dati.email}` : ""}${dati.tipologiaCliente ? `\nTipologia: ${dati.tipologiaCliente}` : ""}`,
-    "https://gestione.donewifi.it/segnalazioni"
-  );
-  await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
+  // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+  // "Estensione Notifiche") — prima solo Email, ora anche Telegram e
+  // Chat interna, stesso trattamento di ogni altro evento.
+  await notificaSuTuttiICanali({
+    reparto: "Commerciale",
+    telegramHtml: `📞 <b>Nuova segnalazione #${data.numero}</b>\n\nCliente: ${dati.nome}\nComune: ${dati.comune}\nTelefono: ${dati.telefono}`,
+    chatTesto: `📞 Nuova segnalazione #${data.numero} — ${dati.nome} (${dati.comune}).`,
+    emailTitolo: `Nuova segnalazione #${data.numero}`,
+    emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${dati.nome}</b><br>Comune: ${dati.comune}<br>Telefono: ${dati.telefono}${dati.email ? `<br>Email: ${dati.email}` : ""}${dati.tipologiaCliente ? `<br>Tipologia: ${dati.tipologiaCliente}` : ""}</p>`,
+    emailCorpoTesto: `Cliente: ${dati.nome}\nComune: ${dati.comune}\nTelefono: ${dati.telefono}${dati.email ? `\nEmail: ${dati.email}` : ""}${dati.tipologiaCliente ? `\nTipologia: ${dati.tipologiaCliente}` : ""}`,
+    emailLink: "https://gestione.donewifi.it/segnalazioni",
+  });
 
   revalidatePath("/segnalazioni");
   return { errore: null, id: data.id, numero: data.numero };
@@ -614,7 +628,21 @@ async function eseguiTrasmissione(
   ]);
 
   if (!personaId) {
-    await inviaMessaggioChatSistema(reparto, `📄 Ticket #${ticket.numero} creato automaticamente — contratto approvato dal cliente (Segnalazione #${segnalazione.numero}).`);
+    // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima solo Chat interna, ora anche
+    // Telegram ed email: è il cliente ad approvare da solo, senza che
+    // nessun operatore sia coinvolto — lo stesso motivo per cui è uno dei
+    // "buchi" trovati nell'audit, va notificato con la stessa forza di
+    // "documentazione ricevuta".
+    await notificaSuTuttiICanali({
+      reparto,
+      telegramHtml: `📄 <b>Ticket #${ticket.numero} creato automaticamente</b>\n\nContratto approvato dal cliente (Segnalazione #${segnalazione.numero}: ${segnalazione.nome}).`,
+      chatTesto: `📄 Ticket #${ticket.numero} creato automaticamente — contratto approvato dal cliente (Segnalazione #${segnalazione.numero}).`,
+      emailTitolo: `Contratto approvato — Ticket #${ticket.numero} creato`,
+      emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente <b>${segnalazione.nome}</b> ha approvato il contratto (Segnalazione #${segnalazione.numero}): il Ticket #${ticket.numero} è stato creato in automatico, pronto per essere pianificato.</p>`,
+      emailCorpoTesto: `Il cliente ${segnalazione.nome} ha approvato il contratto (Segnalazione #${segnalazione.numero}): il Ticket #${ticket.numero} è stato creato in automatico, pronto per essere pianificato.`,
+      emailLink: `https://gestione.donewifi.it/tickets?aperto=${ticket.id}`,
+    });
   }
 
   revalidatePath("/segnalazioni");

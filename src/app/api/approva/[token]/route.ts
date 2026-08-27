@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { trasmettiPerInstallazioneAutomatico } from "@/app/(app)/segnalazioni/actions";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
+import { REPARTO_PER_TIPO_RICHIESTA } from "@/lib/types";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -36,10 +38,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (riga.origine === "preventivo" && riga.preventivo_id) {
     const adesso = new Date().toISOString();
     const nuovoStato = azione === "rifiuta" ? "Rifiutato" : "Approvato";
-    const { error } = await supabase
+    const { data: preventivo, error } = await supabase
       .from("preventivi")
       .update({ stato: nuovoStato, risposto_il: adesso, aggiornato_il: adesso })
-      .eq("id", riga.preventivo_id);
+      .eq("id", riga.preventivo_id)
+      .select("numero, cliente_nome, totale")
+      .single();
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
 
     await supabase.from("storico").insert({
@@ -48,6 +52,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       operazione: nuovoStato === "Approvato" ? "Preventivo approvato dal cliente" : "Preventivo rifiutato dal cliente",
       valore_dopo: `${nuovoStato} via link email il ${adesso}`,
     });
+
+    // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima NESSUN avviso qui, solo la riga di
+    // Storico sopra (che nessuno guarda attivamente): uno dei "buchi"
+    // trovati nell'audit, il cliente decide da solo e lo staff non lo
+    // scopriva finché non riapriva per caso il Preventivo.
+    if (preventivo) {
+      const esito = nuovoStato === "Approvato" ? "approvato" : "rifiutato";
+      await notificaSuTuttiICanali({
+        reparto: "Commerciale",
+        telegramHtml: `${nuovoStato === "Approvato" ? "✅" : "❌"} <b>Preventivo ${esito} dal cliente</b>\n\n#${preventivo.numero} — ${preventivo.cliente_nome}`,
+        chatTesto: `${nuovoStato === "Approvato" ? "✅" : "❌"} Preventivo #${preventivo.numero} ${esito} da ${preventivo.cliente_nome}.`,
+        emailTitolo: `Preventivo #${preventivo.numero} ${esito} dal cliente`,
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente <b>${preventivo.cliente_nome}</b> ha ${esito} il Preventivo #${preventivo.numero}.</p>`,
+        emailCorpoTesto: `Il cliente ${preventivo.cliente_nome} ha ${esito} il Preventivo #${preventivo.numero}.`,
+        emailLink: "https://gestione.donewifi.it/preventivi",
+      });
+    }
   } else if (riga.origine === "contratto" && riga.segnalazione_id) {
     const adesso = new Date().toISOString();
     const { error } = await supabase
@@ -82,7 +104,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // quell'appuntamento, se nel frattempo il tecnico l'ha completata.
     const { data: scheda } = await supabase
       .from("schede_lavoro")
-      .select("id")
+      .select("id, ticket_id, tipo")
       .eq("appuntamento_id", riga.appuntamento_id)
       .order("creato_il", { ascending: false })
       .limit(1)
@@ -98,6 +120,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .update({ firma_cliente_verificato_il: new Date().toISOString() })
       .eq("id", scheda.id);
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+
+    // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima NESSUN avviso qui: la conferma del
+    // cliente restava visibile solo aprendo la scheda a mano (vedi
+    // SchedaVista, "Conferma cliente").
+    if (scheda.ticket_id) {
+      const { data: ticket } = await supabase.from("tickets").select("cliente, numero, reparto").eq("id", scheda.ticket_id).maybeSingle();
+      if (ticket) {
+        await notificaSuTuttiICanali({
+          reparto: ticket.reparto,
+          telegramHtml: `✅ <b>Scheda confermata dal cliente</b>\n\nTicket #${ticket.numero} — ${ticket.cliente} (${scheda.tipo}).`,
+          chatTesto: `✅ Scheda confermata dal cliente — Ticket #${ticket.numero} (${ticket.cliente}).`,
+          emailTitolo: `Scheda confermata dal cliente — Ticket #${ticket.numero}`,
+          emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente <b>${ticket.cliente}</b> ha confermato la scheda del Ticket #${ticket.numero}.</p>`,
+          emailCorpoTesto: `Il cliente ${ticket.cliente} ha confermato la scheda del Ticket #${ticket.numero}.`,
+          emailLink: `https://gestione.donewifi.it/tickets?aperto=${scheda.ticket_id}`,
+        });
+      }
+    }
   } else if (riga.origine === "firma_rapportino" && riga.ticket_id) {
     // ★ NUOVA — fallback della firma cliente sul Rapportino di chiusura
     // Ticket (vedi migrazione 0051): a differenza di "firma_scheda" qui il
@@ -121,6 +162,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .update({ firma_verificato_il: new Date().toISOString() })
       .eq("id", rapportino.id);
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+
+    // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima NESSUN avviso qui, stesso buco del
+    // ramo "firma_scheda" sopra.
+    {
+      const { data: ticket } = await supabase.from("tickets").select("cliente, numero, reparto").eq("id", riga.ticket_id).maybeSingle();
+      if (ticket) {
+        await notificaSuTuttiICanali({
+          reparto: ticket.reparto,
+          telegramHtml: `✅ <b>Rapportino confermato dal cliente</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}.`,
+          chatTesto: `✅ Rapportino confermato dal cliente — Ticket #${ticket.numero} (${ticket.cliente}).`,
+          emailTitolo: `Rapportino confermato dal cliente — Ticket #${ticket.numero}`,
+          emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente <b>${ticket.cliente}</b> ha confermato il rapportino del Ticket #${ticket.numero}.</p>`,
+          emailCorpoTesto: `Il cliente ${ticket.cliente} ha confermato il rapportino del Ticket #${ticket.numero}.`,
+          emailLink: `https://gestione.donewifi.it/tickets?aperto=${riga.ticket_id}`,
+        });
+      }
+    }
   } else if (riga.origine === "subentro_vecchio_cliente" && riga.richiesta_cliente_id) {
     // ★ NUOVA (2026-08) — Sistema Subentro, traccia del vecchio cliente
     // (Opzione B, doppio consenso in parallelo): a differenza di
@@ -130,7 +189,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // quello che sta facendo (o ha già fatto) il nuovo cliente.
     const adesso = new Date().toISOString();
     const campo = azione === "rifiuta" ? "vecchio_cliente_rifiutato_il" : "vecchio_cliente_confermato_il";
-    const { error } = await supabase.from("richieste_clienti").update({ [campo]: adesso }).eq("id", riga.richiesta_cliente_id);
+    const { data: richiesta, error } = await supabase
+      .from("richieste_clienti")
+      .update({ [campo]: adesso })
+      .eq("id", riga.richiesta_cliente_id)
+      .select("cliente")
+      .single();
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
 
     await supabase.from("storico").insert({
@@ -139,12 +203,46 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       operazione: azione === "rifiuta" ? "Subentro — cessione NON confermata dal vecchio cliente" : "Subentro — cessione confermata dal vecchio cliente",
       valore_dopo: `${azione === "rifiuta" ? "Rifiutata" : "Confermata"} via link email il ${adesso}`,
     });
+
+    // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima NESSUN avviso qui, solo Storico.
+    if (richiesta) {
+      const esito = azione === "rifiuta" ? "NON confermata" : "confermata";
+      const reparto = REPARTO_PER_TIPO_RICHIESTA.Subentro;
+      await notificaSuTuttiICanali({
+        reparto,
+        telegramHtml: `${azione === "rifiuta" ? "❌" : "✅"} <b>Subentro — cessione ${esito}</b>\n\nIl vecchio cliente${richiesta.cliente ? ` (${richiesta.cliente})` : ""} ha risposto.`,
+        chatTesto: `${azione === "rifiuta" ? "❌" : "✅"} Subentro — cessione ${esito} dal vecchio cliente${richiesta.cliente ? ` (${richiesta.cliente})` : ""}.`,
+        emailTitolo: `Subentro — cessione ${esito}`,
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il vecchio cliente${richiesta.cliente ? ` <b>${richiesta.cliente}</b>` : ""} ha ${esito === "confermata" ? "confermato" : "rifiutato"} la cessione (Subentro).</p>`,
+        emailCorpoTesto: `Il vecchio cliente${richiesta.cliente ? ` ${richiesta.cliente}` : ""} ha ${esito === "confermata" ? "confermato" : "rifiutato"} la cessione (Subentro).`,
+        emailLink: "https://gestione.donewifi.it/richieste-clienti",
+      });
+    }
   } else if (riga.ticket_id) {
-    const { error } = await supabase
+    const { data: ticket, error } = await supabase
       .from("tickets")
       .update({ confermato_cliente_il: new Date().toISOString() })
-      .eq("id", riga.ticket_id);
+      .eq("id", riga.ticket_id)
+      .select("cliente, numero, reparto")
+      .single();
     if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+
+    // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
+    // "Estensione Notifiche") — prima NESSUN avviso qui: la conferma di
+    // un intervento risolto da remoto restava visibile solo aprendo il
+    // Ticket a mano.
+    if (ticket) {
+      await notificaSuTuttiICanali({
+        reparto: ticket.reparto,
+        telegramHtml: `✅ <b>Intervento confermato dal cliente</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}.`,
+        chatTesto: `✅ Intervento confermato dal cliente — Ticket #${ticket.numero} (${ticket.cliente}).`,
+        emailTitolo: `Intervento confermato dal cliente — Ticket #${ticket.numero}`,
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente <b>${ticket.cliente}</b> ha confermato che l'intervento risolto da remoto (Ticket #${ticket.numero}) funziona correttamente.</p>`,
+        emailCorpoTesto: `Il cliente ${ticket.cliente} ha confermato che l'intervento risolto da remoto (Ticket #${ticket.numero}) funziona correttamente.`,
+        emailLink: `https://gestione.donewifi.it/tickets?aperto=${riga.ticket_id}`,
+      });
+    }
   } else {
     return NextResponse.json({ errore: "Link non valido." }, { status: 404 });
   }

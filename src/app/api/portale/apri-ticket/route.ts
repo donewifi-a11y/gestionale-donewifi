@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { inviaNotificaTelegram } from "@/lib/telegram";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import type { AreaAccesso } from "@/lib/types";
 
 // ★ ex "Apri un Ticket" del Portale pubblico (Portale.html) — un cliente
@@ -50,10 +50,21 @@ export async function POST(request: NextRequest) {
     .single();
   if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
 
-  await inviaNotificaTelegram(
-    REPARTO_PER_CATEGORIA[categoria],
-    `🆕 <b>Ticket aperto dal Portale clienti</b>\n\nCliente: ${nome}\nTicket #${data.numero} · ${categoria}\n\nApri il gestionale per i dettagli.`
-  );
+  // ★ ESTESA (2026-08-27, richiesta esplicita: "inserisci lo stesso
+  // sistema di notifica adoperato per documentazione ricevuta... in tutte
+  // le zone") — prima solo Telegram, ora anche Chat interna ed email
+  // verso attivazioni@donewifi.it, stesso trattamento di Richiesta Dati.
+  const reparto = REPARTO_PER_CATEGORIA[categoria];
+  const link = `${request.nextUrl.origin}/tickets?aperto=${data.id}`;
+  await notificaSuTuttiICanali({
+    reparto,
+    telegramHtml: `🆕 <b>Ticket aperto dal Portale clienti</b>\n\nCliente: ${nome}\nTicket #${data.numero} · ${categoria}\n\nApri il gestionale per i dettagli.`,
+    chatTesto: `🆕 Ticket aperto dal Portale clienti — ${nome}, Ticket #${data.numero} (${categoria}). ${link}`,
+    emailTitolo: `Ticket aperto dal Portale — #${data.numero}`,
+    emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${nome}</b><br>Categoria: ${categoria}${problema ? `<br>Problema: ${problema}` : ""}</p>`,
+    emailCorpoTesto: `Cliente: ${nome}\nCategoria: ${categoria}${problema ? `\nProblema: ${problema}` : ""}`,
+    emailLink: link,
+  });
 
   return NextResponse.json({ ok: true, numero: data.numero });
 }

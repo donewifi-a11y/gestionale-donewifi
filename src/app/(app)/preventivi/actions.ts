@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { inviaEmail, emailPreventivo } from "@/lib/email";
-import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { formattaValuta } from "@/lib/types";
 import type { RigaPreventivo } from "@/lib/types";
 
@@ -163,10 +163,18 @@ export async function inviaPreventivoApprovazione(id: string, origine: string) {
     operatore_id: personaId,
   });
 
-  await inviaMessaggioChatSistema(
-    "Commerciale",
-    `📄 Preventivo #${preventivo.numero} inviato a ${preventivo.cliente_nome} (${formattaValuta(preventivo.totale)}).`
-  );
+  // ★ ESTESA (2026-08-27, "fai la A" — Proposta A dell'artifact
+  // "Estensione Notifiche") — prima solo Chat interna, ora anche
+  // Telegram ed email verso attivazioni@donewifi.it.
+  await notificaSuTuttiICanali({
+    reparto: "Commerciale",
+    telegramHtml: `📄 <b>Preventivo inviato</b>\n\n#${preventivo.numero} — ${preventivo.cliente_nome} (${formattaValuta(preventivo.totale)}).`,
+    chatTesto: `📄 Preventivo #${preventivo.numero} inviato a ${preventivo.cliente_nome} (${formattaValuta(preventivo.totale)}).`,
+    emailTitolo: `Preventivo #${preventivo.numero} inviato`,
+    emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Cliente: <b>${preventivo.cliente_nome}</b><br>Importo: ${formattaValuta(preventivo.totale)}</p>`,
+    emailCorpoTesto: `Cliente: ${preventivo.cliente_nome}\nImporto: ${formattaValuta(preventivo.totale)}`,
+    emailLink: "https://gestione.donewifi.it/preventivi",
+  });
 
   revalidatePath("/preventivi");
   return { errore: null };
