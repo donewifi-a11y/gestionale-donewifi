@@ -28,9 +28,21 @@ import type { RapportinoIntervento, SchedaLavoro, MaterialeUsato } from "@/lib/t
 // restare frasi separate tutte con lo stesso soggetto sottinteso — meno
 // ripetizione di forma, più il ritmo di una nota scritta a mano.
 
+/** ★ FIX (2026-08-27, richiesta esplicita: "tra i materiali da riportare
+ * non mettere le attivazioni ma solo gli apparati venduti e in comodato
+ * d'uso gratuito") — il canone di attivazione (es. "Privati"/"Business",
+ * aggiunto in automatico alla scelta del piano, `tipo_riga: "Servizio"`)
+ * non è un apparato installato: elencarlo insieme a router/staffe/cavi
+ * confondeva "cosa è rimasto materialmente al cliente" con "cosa gli è
+ * stato addebitato". Le schede salvate prima di `tipo_riga` non hanno il
+ * campo — stessa deduzione già in uso in SchedaVista (comodato_uso=true →
+ * Comodato, altrimenti Prodotto): su quelle vecchie un'attivazione non
+ * più distinguibile da un apparato vero resta inclusa, limite già
+ * accettato altrove per lo stesso motivo, non introdotto qui. */
 function elencoMateriali(materiali: MaterialeUsato[]): string {
   if (!materiali || materiali.length === 0) return "";
-  return materiali.map((m) => `${m.nome}${m.quantita > 1 ? ` (×${m.quantita})` : ""}`).join(", ");
+  const apparati = materiali.filter((m) => (m.tipo_riga ?? (m.comodato_uso ? "Comodato" : "Prodotto")) !== "Servizio");
+  return apparati.map((m) => `${m.nome}${m.quantita > 1 ? ` (×${m.quantita})` : ""}`).join(", ");
 }
 
 /** "a, b e c" — elenco all'italiana, mai con la virgola prima dell'ultimo. */

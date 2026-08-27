@@ -2479,3 +2479,13 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   pagata in fattura."*
   Verificato: rigenerato su entrambe le schede di installazione reali in produzione; build/lint
   puliti.
+✅ Materiali del testo generato: escluse le attivazioni (2026-08-27, richiesta esplicita: "tra i
+  materiali da riportare non mettere le attivazioni ma solo gli apparati venduti e in comodato d'uso
+  gratuito") — `elencoMateriali()` in `lib/testo-rapporto.ts` ora esclude le righe `tipo_riga:
+  "Servizio"` (es. "Privati"/"Business", il canone di attivazione aggiunto in automatico alla scelta
+  del piano): non è un apparato rimasto al cliente, elencarlo insieme a router/staffe/cavi confondeva
+  "cosa è installato" con "cosa è stato addebitato". Restano Prodotto e Comodato — stessa deduzione
+  già in uso in SchedaVista per le schede salvate prima del campo `tipo_riga` (limite noto: su quelle
+  vecchie un'attivazione non più distinguibile da un apparato vero resta inclusa).
+  Verificato sui dati reali: scheda con `tipo_riga` — "Privati" (Servizio) sparisce dall'elenco,
+  restano i 5 apparati veri; build/lint puliti.
