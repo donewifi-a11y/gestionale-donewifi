@@ -3,8 +3,9 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
+import { schedaRiguardaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { revalidatePath } from "next/cache";
-import type { MaterialeMagazzino } from "@/lib/types";
+import type { MaterialeMagazzino, SchedaLavoro } from "@/lib/types";
 
 // ★ NUOVA (2026-08) — `comodato_uso` non è più un campo scritto a mano:
 // l'amministratore sceglie solo `tipo_riga` (Comodato/Prodotto/Servizio),
@@ -341,4 +342,86 @@ export async function riconciliaAntennaInstallata(mac: string, ticketId: string 
   } catch (errore) {
     console.error("riconciliaAntennaInstallata:", errore);
   }
+}
+
+/** ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve
+ * andare sul gestionale principale... in modo che poi venga inserito
+ * dall'operatore nel gestionale esterno delle antenne") — riga pronta per
+ * la coda "Da trasferire": solo i campi che servono a trascrivere,
+ * cliente/numero risolti dal Ticket collegato (stesso pattern di
+ * getInstallazioniCliente() in clienti-esterni/actions.ts). */
+export interface SchedaDaTrasferireAntenne {
+  schedaId: string;
+  tipo: SchedaLavoro["tipo"];
+  completataIl: string;
+  cliente: string;
+  ticketNumero: number | null;
+  mac: string | null;
+  bts: string | null;
+  modelloCpe: string | null;
+  gpsLat: number | null;
+  gpsLng: number | null;
+}
+
+/** Coda di riserva: tutte le schede che riguardano il gestionale esterno
+ * delle antenne (vedi schedaRiguardaGestionaleAntenne) e non risultano
+ * ancora segnate come trascritte. L'avviso automatico in Chat (vedi
+ * notificaGestionaleAntenne) resta il modo principale per accorgersene —
+ * questa vista serve a chi se lo è perso, o per un controllo periodico
+ * "è rimasto indietro qualcosa?". */
+export async function getSchedeDaTrasferireAntenne(): Promise<SchedaDaTrasferireAntenne[]> {
+  const supabase = await createClient();
+  const { data: schede, error } = await supabase
+    .from("schede_lavoro")
+    .select("id, ticket_id, tipo, mac, bts, modello_cpe, gps_lat, gps_lng, creato_il")
+    .is("inserita_gestionale_antenne_il", null)
+    .not("ticket_id", "is", null)
+    .order("creato_il", { ascending: true });
+  if (error) {
+    console.error("getSchedeDaTrasferireAntenne:", error.message);
+    return [];
+  }
+
+  const rilevanti = (schede ?? []).filter((s) => schedaRiguardaGestionaleAntenne(s.tipo, s.mac));
+  if (rilevanti.length === 0) return [];
+
+  const idTicket = Array.from(new Set(rilevanti.map((s) => s.ticket_id).filter((v): v is string => !!v)));
+  const { data: tickets } = await supabase.from("tickets").select("id, numero, cliente").in("id", idTicket);
+  const mappaTicket = new Map((tickets ?? []).map((t) => [t.id, t]));
+
+  return rilevanti.map((s) => {
+    const ticket = s.ticket_id ? mappaTicket.get(s.ticket_id) : undefined;
+    return {
+      schedaId: s.id,
+      tipo: s.tipo,
+      completataIl: s.creato_il,
+      cliente: ticket?.cliente ?? "—",
+      ticketNumero: ticket?.numero ?? null,
+      mac: s.mac,
+      bts: s.bts,
+      modelloCpe: s.modello_cpe,
+      gpsLat: s.gps_lat,
+      gpsLng: s.gps_lng,
+    };
+  });
+}
+
+/** Segna una scheda come già trascritta nel gestionale esterno delle
+ * antenne — sparisce dalla coda di riserva. Chiunque veda la pagina
+ * Materiali può farlo (stesso accesso già richiesto per aprirla), non
+ * serve restringerlo ad Analisi Rete: è una semplice spunta di "fatto",
+ * non una modifica ai dati dell'antenna. */
+export async function segnaSchedaInseritaAntenne(schedaId: string): Promise<{ errore: string | null }> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const { error } = await supabase
+    .from("schede_lavoro")
+    .update({ inserita_gestionale_antenne_il: new Date().toISOString(), inserita_gestionale_antenne_da: persona.id })
+    .eq("id", schedaId);
+  if (error) return { errore: error.message };
+
+  revalidatePath("/materiali");
+  return { errore: null };
 }

@@ -2290,3 +2290,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   fattura."*
   Verificato: rigenerato il testo per le 2 schede reali in produzione e per un rapportino/lavorazione
   sintetici (nessuno ancora chiuso con questo sistema) — build/lint puliti.
+🔜 Ponte verso il gestionale esterno delle antenne (2026-08-27, richiesta esplicita: "il rapporto di
+  lavoro deve andare, una volta completato, sul gestionale principale nella scheda del cliente in
+  modo che poi venga inserito dall'operatore nel gestionale esterno delle antenne") — quel sistema è
+  separato e non integrato: qui si automatizza tutto ciò che si può automatizzare intorno alla
+  trascrizione manuale, scelto tra 3 proposte presentate all'utente (coda dedicata / solo scheda
+  cliente / avviso automatico + coda di riserva — scelta quest'ultima).
+  - **Avviso automatico**: alla chiusura di una Scheda che riguarda un'antenna — sempre per una
+    Nuova installazione, solo se il MAC è compilato per una Lavorazione tecnica (scelta esplicita,
+    per non generare avvisi inutili sui semplici riavvii/configurazioni) — parte un messaggio nella
+    Chat interna del reparto Analisi Rete con tutti i dati già pronti da copiare (cliente, Ticket,
+    MAC, BTS, apparato, coordinate GPS). `schedaRiguardaGestionaleAntenne()`/`notificaGestionaleAntenne()`
+    in nuovo `lib/notifiche-antenne.ts`, richiamate sia dal flusso interno (`calendario/actions.ts`)
+    sia da pose (`app/pose/actions.ts`) — stessa logica, mai uno dei due percorsi scoperto.
+  - **Coda di riserva** ("Da trasferire", nuovo tab in Materiali, badge col conteggio): elenca tutte
+    le schede rilevanti non ancora segnate come trascritte, con un pulsante "Copia dati" (stesso
+    testo dell'avviso in Chat, pronto per il modulo dell'altro sistema) e "Segna come inserita" —
+    una volta spuntata sparisce dalla coda, niente rischio di trascriverla due volte o di perderla se
+    l'avviso in Chat viene ignorato. Nuova colonna `schede_lavoro.inserita_gestionale_antenne_il`
+    (+ `_da`, chi l'ha segnata) — migrazione `0065_gestionale_antenne_esterno.sql`, **da eseguire
+    manualmente in Supabase SQL Editor**.
+  Verificato: build/lint puliti; gruppo Chat "Analisi Rete" e persona "Sistema" (mittente automatico)
+  già esistenti e funzionanti in produzione — l'avviso arriverà lì. Verifica sui dati reali della
+  coda "Da trasferire" e della segnatura come fatta ancora da eseguire dopo che la migrazione sarà
+  stata lanciata.

@@ -10,6 +10,7 @@ import { urlFirmataDocumento } from "@/lib/documenti";
 import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { generaTestoRapportino, generaTestoScheda } from "@/lib/testo-rapporto";
+import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import type { DatiSchedaLavoro, FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
@@ -394,6 +395,33 @@ export async function salvaSchedaLavoroEsterno(
   await scaricaGiacenzaMateriali(dati.materiali.map((m) => ({ materiale_id: m.materiale_id, quantita: m.quantita })));
   if (dati.mac?.trim()) {
     await riconciliaAntennaInstallata(dati.mac.trim().toUpperCase(), appuntamento.ticket_id, schedaCreata?.id ?? null);
+  }
+
+  // ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve
+  // andare sul gestionale principale... in modo che poi venga inserito
+  // dall'operatore nel gestionale esterno delle antenne") — stessa logica
+  // della versione staff interno in calendario/actions.ts, vedi lì per il
+  // commento completo.
+  if (schedaRiguardaGestionaleAntenne(tipo, dati.mac)) {
+    let clienteAntenna = appuntamento.titolo;
+    let numeroAntenna: number | null = null;
+    if (appuntamento.ticket_id) {
+      const { data: ticketAntenna } = await service.from("tickets").select("cliente, numero").eq("id", appuntamento.ticket_id).maybeSingle();
+      if (ticketAntenna) {
+        clienteAntenna = ticketAntenna.cliente;
+        numeroAntenna = ticketAntenna.numero;
+      }
+    }
+    await notificaGestionaleAntenne({
+      cliente: clienteAntenna,
+      ticketNumero: numeroAntenna,
+      tipo,
+      mac: dati.mac || null,
+      bts: dati.bts || null,
+      modelloCpe: dati.modelloCpe || null,
+      gpsLat: dati.gpsLat ?? null,
+      gpsLng: dati.gpsLng ?? null,
+    });
   }
 
   const { error: erroreApp } = await service.from("appuntamenti").update({ stato: "Completato" }).eq("id", appuntamentoId);

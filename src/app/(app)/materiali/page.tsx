@@ -2,14 +2,16 @@ import { Boxes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { MaterialiBoard } from "@/components/materiali/materiali-board";
+import { getSchedeDaTrasferireAntenne } from "./actions";
 import type { AntennaInventario, MaterialeMagazzino } from "@/lib/types";
 
 export default async function MaterialiPage() {
   const supabase = await createClient();
-  const [{ data: materiali }, { data: antenne }, persona] = await Promise.all([
+  const [{ data: materiali }, { data: antenne }, persona, daTrasferire] = await Promise.all([
     supabase.from("materiali_magazzino").select("*").order("ordine", { ascending: true }),
     supabase.from("antenne_inventario").select("*").order("tipologia", { ascending: true }).order("creato_il", { ascending: true }),
     getPersonaCorrente(supabase),
+    getSchedeDaTrasferireAntenne(),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function MaterialiPage() {
       <MaterialiBoard
         materiali={(materiali as MaterialeMagazzino[]) ?? []}
         antenne={(antenne as AntennaInventario[]) ?? []}
+        daTrasferire={daTrasferire}
         isAdmin={personaHaAccessoAdmin(persona)}
         puoPrenotare={personaVedeReparto(persona, "Analisi Rete")}
       />

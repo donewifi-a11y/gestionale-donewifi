@@ -12,19 +12,23 @@ import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
 import { MagazzinoVista } from "@/components/materiali/magazzino-vista";
 import { AntenneVista } from "@/components/materiali/antenne-vista";
+import { AntenneEsterneVista } from "@/components/materiali/antenne-esterne-vista";
 import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
 import type { AntennaInventario, MaterialeMagazzino } from "@/lib/types";
+import type { SchedaDaTrasferireAntenne } from "@/app/(app)/materiali/actions";
 
 const CATEGORIA_SENZA = "Senza categoria";
 
 export function MaterialiBoard({
   materiali,
   antenne,
+  daTrasferire,
   isAdmin,
   puoPrenotare,
 }: {
   materiali: MaterialeMagazzino[];
   antenne: AntennaInventario[];
+  daTrasferire: SchedaDaTrasferireAntenne[];
   isAdmin: boolean;
   puoPrenotare: boolean;
 }) {
@@ -32,8 +36,9 @@ export function MaterialiBoard({
   const [modifica, setModifica] = useState<MaterialeMagazzino | null>(null);
   // ★ NUOVA — richiesta esplicita: "quali materiali mostrare in Scheda di
   // lavoro" come schermata dedicata (tab a sé), poi estesa con Magazzino
-  // (giacenza + avviso mancanza) e Antenne (inventario per MAC).
-  const [vista, setVista] = useState<"catalogo" | "magazzino" | "antenne" | "schede">("catalogo");
+  // (giacenza + avviso mancanza), Antenne (inventario per MAC) e "Da
+  // trasferire" (coda di riserva verso il gestionale esterno antenne).
+  const [vista, setVista] = useState<"catalogo" | "magazzino" | "antenne" | "trasferire" | "schede">("catalogo");
 
   const categorieEsistenti = useMemo(
     () => Array.from(new Set(materiali.map((m) => m.categoria).filter((c): c is string => !!c))).sort(),
@@ -73,6 +78,19 @@ export function MaterialiBoard({
             Antenne
           </button>
           <button
+            onClick={() => setVista("trasferire")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition ${vista === "trasferire" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Da trasferire
+            {daTrasferire.length > 0 && (
+              <span
+                className={`rounded-full px-1.5 text-[10px] font-bold ${vista === "trasferire" ? "bg-primary-foreground/20" : "bg-warning/15 text-warning"}`}
+              >
+                {daTrasferire.length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setVista("schede")}
             className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "schede" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
           >
@@ -93,6 +111,8 @@ export function MaterialiBoard({
         <MagazzinoVista materiali={materiali} isAdmin={isAdmin} />
       ) : vista === "antenne" ? (
         <AntenneVista antenne={antenne} isAdmin={isAdmin} puoPrenotare={puoPrenotare} />
+      ) : vista === "trasferire" ? (
+        <AntenneEsterneVista schede={daTrasferire} />
       ) : (
         <>
           {materiali.length === 0 && (

@@ -638,6 +638,12 @@ export interface SchedaLavoro {
    * con `creato_da`, stesso principio di `rapportini_intervento`. */
   creato_da_tecnico_esterno_id: string | null;
   creato_il: string;
+  /** ★ NUOVA (2026-08-27) — quando un operatore ha trascritto questa
+   * scheda nel gestionale esterno delle antenne (sistema separato, senza
+   * integrazione). Null finché non ancora fatto — vedi
+   * lib/notifiche-antenne.ts e la coda "Da trasferire" in Materiali. */
+  inserita_gestionale_antenne_il: string | null;
+  inserita_gestionale_antenne_da: string | null;
 }
 
 /** Opzioni delle select della Scheda Installazione — ex foglio
