@@ -2347,3 +2347,19 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     direttamente il thread. Verificato sui dati reali: query e risoluzione titolo/mittente corrette
     su 14 messaggi reali trovati per "lavorazione".
   Verificato: build/lint puliti.
+✅ Comunicazioni — layout "B" (rail fissa) al posto del riquadro in home (2026-08-27, "fammi degli
+  artifact di diverse layout per proporre le soluzioni" → artifact "Layout Comunicazioni" con 3
+  opzioni (A pieno in cima / B barra+rail fissa / C pagina dedicata) → "facciamo la b") — sostituisce
+  il riquadro Chat intero in cima alla home (appena introdotto) con:
+  - **Rail fissa** (`app-shell.tsx`, nuovo `<aside>` a destra, solo da `xl:` in su — ~1280px):
+    la Chat (ricerca, distinzione messaggi automatici, tutto già implementato) resta sempre in vista
+    su OGNI pagina del gestionale, non solo in home — nuova `ChatPanel` `variant="rail"` (alta quanto
+    il genitore invece di un'altezza fissa in pixel). Contenuto principale spostato con `xl:mr-[300px]`.
+  - **Striscia "Comunicazioni" in home** (nuovo `components/chat/comunicazioni-ticker.tsx`, `xl:hidden`
+    — ridondante dove la rail è già in vista): le ultime 6 anteprime (gruppi+persone) in una riga
+    scorrevole, un tocco apre lo stesso pop-up di sempre. Il pulsante "Chat" in sidebar è a sua volta
+    nascosto da `xl:` in su (stesso motivo, due modi di aprire la stessa chat sarebbero confusi).
+  - Nuovo `components/chat/chat-ui-context.tsx` (`ChatUiProvider`/`useChatUi`) — espone
+    `apriPopup()` a chiunque nell'albero (prima solo la sidebar poteva aprire il pop-up), usato dalla
+    striscia in home.
+  Verificato: build/lint puliti.

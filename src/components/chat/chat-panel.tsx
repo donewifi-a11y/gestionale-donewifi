@@ -77,7 +77,12 @@ function oraBreve(iso: string): string {
  * (prima solo un pulsante flottante sempre in vista, "troppi pulsanti in
  * giro" secondo l'utente). Lo stesso contenuto ora serve sia il pop-up
  * richiamabile dalla sidebar (`ChatPopup`) sia il riquadro fisso nella
- * home (`variant="riquadro"`, dimensioni piene invece che a finestra). */
+ * home (`variant="riquadro"`, dimensioni piene invece che a finestra).
+ *
+ * ★ NUOVA (2026-08-27, "facciamo la B" — Opzione B dell'artifact "Layout
+ * Comunicazioni") — `variant="rail"`: stesso contenuto, ma alto quanto il
+ * genitore invece di un'altezza fissa in pixel, per la colonna fissa a
+ * destra sempre in vista (vedi app-shell.tsx) su schermi ≥ xl. */
 export function ChatPanel({
   personaCorrenteId,
   onChiudi,
@@ -85,7 +90,7 @@ export function ChatPanel({
 }: {
   personaCorrenteId: string | null;
   onChiudi?: () => void;
-  variant?: "popup" | "riquadro";
+  variant?: "popup" | "riquadro" | "rail";
 }) {
   const { persone, gruppi, pronto, ricarica, sistemaId } = useChatData();
   const toast = useToast();
@@ -285,7 +290,7 @@ export function ChatPanel({
   // ★ "riquadro" alzato a 460px (2026-08-27, spostata in cima alla home,
   // a tutta larghezza) — la casella di ricerca aggiunta sopra l'elenco
   // altrimenti avrebbe rosicchiato spazio ai messaggi visibili.
-  const dimensioni = variant === "popup" ? "h-[min(480px,85vh)] w-80" : "h-[min(460px,70vh)] w-full";
+  const dimensioni = variant === "popup" ? "h-[min(480px,85vh)] w-80" : variant === "rail" ? "h-full w-full" : "h-[min(460px,70vh)] w-full";
 
   // ★ FIX — prima l'elenco era sempre "a chi scrivo" in ordine alfabetico,
   // senza distinguere conversazioni in corso da contatti mai sentiti.
@@ -313,7 +318,8 @@ export function ChatPanel({
   const personeFiltrate = filtro ? personeOrdinate.filter((p) => p.nome.toLowerCase().includes(filtro)) : personeOrdinate;
 
   return (
-    <div className={`flex ${dimensioni} flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl`}>
+    <div className={`flex ${dimensioni} flex-col overflow-hidden bg-card ${variant === "rail" ? "" : "rounded-2xl border shadow-2xl"}`}>
+
       <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2.5">
         {thread && (
           <button onClick={() => setThread(null)} className="rounded-md p-1 hover:bg-muted" aria-label="Indietro">

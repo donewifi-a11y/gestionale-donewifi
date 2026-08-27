@@ -3,7 +3,7 @@ import { Ticket, PhoneCall, CalendarDays, HardHat, Plus, ArrowRight, TriangleAle
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { REPARTI_ELENCO } from "@/lib/analytics";
-import { ChatPanel } from "@/components/chat/chat-panel";
+import { ComunicazioniTicker } from "@/components/chat/comunicazioni-ticker";
 import { TodoPanel } from "@/components/todo/todo-panel";
 import type { AreaAccesso } from "@/lib/types";
 
@@ -237,15 +237,16 @@ export default async function MondoTicketPage() {
         {filtratoPerReparto ? `Il colpo d'occhio sul settore ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda, settore per settore."}
       </p>
 
-      {/* ★ SPOSTATA in cima (2026-08-27, richiesta esplicita: "le
-      comunicazioni interne devono essere più visibili in homepage") —
-      prima era sotto Novità clienti/KPI reparto/promemoria, affiancata al
-      To-Do: bisognava scorrere per accorgersene. Ora è la prima cosa che
-      si vede aprendo il gestionale, a tutta larghezza — il To-Do resta
-      dov'era, sotto i promemoria, ma da solo invece che in coppia. */}
+      {/* ★ SOSTITUITA (2026-08-27, "facciamo la B" — Opzione B
+      dell'artifact "Layout Comunicazioni") — non più il riquadro Chat
+      intero qui: su schermi ≥ xl è già sempre in vista la rail fissa a
+      destra (vedi app-shell.tsx), ripeterla anche qui sarebbe ridondante.
+      Questa striscia compatta (nascosta a sua volta sopra xl, vedi
+      componente) resta solo per chi non ha la rail — tablet/laptop
+      piccoli — un tocco apre lo stesso pop-up di sempre. */}
       {personaCorrenteId && (
         <div className="mb-8">
-          <ChatPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
+          <ComunicazioniTicker />
         </div>
       )}
 

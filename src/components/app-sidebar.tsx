@@ -310,10 +310,14 @@ export function AppSidebar({
         <div className="border-t border-sidebar-border px-2.5 pb-1 pt-3">
           <div className="mb-1.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">Strumenti</div>
           <div className="flex gap-2">
+            {/* ★ FIX (2026-08-27, "facciamo la B") — nascosto da xl in su:
+            la rail Comunicazioni fissa (app-shell.tsx) copre già lo stesso
+            bisogno lì, un secondo modo di aprire la stessa chat sarebbe
+            ridondante e confusionario (due chat visibili insieme). */}
             {onApriChat && (
               <button
                 onClick={onApriChat}
-                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sidebar-accent/60 py-2.5 text-xs font-bold text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sidebar-accent/60 py-2.5 text-xs font-bold text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground xl:hidden"
               >
                 <MessageCircle className="h-4 w-4" strokeWidth={2.25} />
                 Chat
