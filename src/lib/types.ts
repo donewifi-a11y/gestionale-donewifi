@@ -102,6 +102,12 @@ export interface Ticket {
   contratto_pdf_url: string | null;
   segnalazione_id: string | null;
   importo_fatturato: number | null;
+  /** ★ NUOVA — quando il cliente ha confermato che un intervento risolto
+   * da remoto funziona correttamente (link email, vedi
+   * emailApprovazioneIntervento()/api/approva/[token]/route.ts). Scritto
+   * da tempo ma non ancora letto da nessuna parte dell'interfaccia —
+   * vedi il segnale "pulsante" in tickets-board.tsx. */
+  confermato_cliente_il: string | null;
 }
 
 export interface Segnalazione {

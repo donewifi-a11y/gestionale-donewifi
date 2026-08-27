@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2 } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
+import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -126,6 +127,23 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
                         <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(r)!.nuovo} />
                       </div>
                     )}
+                    {/* ★ NUOVA (2026-08-27, richiesta esplicita: "rivedere il
+                    sistema di notificazione come pulsa la notifica di
+                    documenti ricevuti" → "estenderlo agli altri 6 eventi-
+                    cliente") — il vecchio cliente ha appena risposto
+                    (Subentro, entro 48h): il pallino statico sopra dice
+                    "ok"/"no", questo in più pulsa finché è fresco — stesso
+                    trattamento già in uso in Segnalazioni. */}
+                    {r.tipo_richiesta === "Subentro" &&
+                      (entroOreDa(r.vecchio_cliente_confermato_il, 48) || entroOreDa(r.vecchio_cliente_rifiutato_il, 48)) && (
+                        <div className="mt-1.5">
+                          <SegnalePulsante
+                            testo={r.vecchio_cliente_confermato_il ? "✓ Vecchio cliente ha confermato" : "✗ Vecchio cliente ha rifiutato"}
+                            tono={r.vecchio_cliente_confermato_il ? "successo" : "critico"}
+                            pulsante
+                          />
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>

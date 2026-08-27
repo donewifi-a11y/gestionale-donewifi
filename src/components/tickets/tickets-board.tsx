@@ -35,6 +35,7 @@ import { RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
+import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo } from "@/lib/types";
@@ -309,9 +310,25 @@ export function TicketsBoard({
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
                         const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
                         const giorni = giorniAperta(t.data_creazione);
-                        let segnale: { testo: string; critico: boolean } | null = null;
+                        // ★ NUOVA (2026-08-27, richiesta esplicita: "rivedere il
+                        // sistema di notificazione come pulsa la notifica di
+                        // documenti ricevuti" → "estenderlo agli altri 6 eventi-
+                        // cliente") — stesso trattamento già in uso in
+                        // Segnalazioni per "Dati ricevuti": un badge che pulsa
+                        // finché l'evento è fresco, poi si ferma da solo (vedi
+                        // entroOreDa() — nessun campo "visto" da spuntare a
+                        // mano). Due casi coperti qui: un Ticket appena
+                        // arrivato (dal Portale, o creato in automatico
+                        // all'approvazione di un contratto) ancora da
+                        // assegnare, e la conferma del cliente che un
+                        // intervento risolto da remoto funziona davvero.
+                        let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
                         if (t.priorita === "Urgente") {
                           segnale = { testo: "🔴 Urgente", critico: true };
+                        } else if (t.confermato_cliente_il && entroOreDa(t.confermato_cliente_il, 48)) {
+                          segnale = { testo: "✓ Cliente ha confermato l'intervento", critico: false, pulsante: true };
+                        } else if (!t.tecnico_assegnato && !t.tecnico_esterno_id && entroOreDa(t.data_creazione, 2)) {
+                          segnale = { testo: "🆕 Nuovo — non ancora preso in carico", critico: false, pulsante: true };
                         } else if (t.stato === "Da gestire" && giorni >= 5) {
                           segnale = { testo: `⏳ Ferma da ${giorni}g`, critico: giorni >= 10 };
                         }
@@ -330,8 +347,14 @@ export function TicketsBoard({
                               <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
                               <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                             </div>
-                            {segnale && (
-                              <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
+                            {segnale && segnale.pulsante ? (
+                              <div className="mt-1">
+                                <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                              </div>
+                            ) : (
+                              segnale && (
+                                <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
+                              )
                             )}
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,

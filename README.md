@@ -2406,3 +2406,28 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   dati coerenti; build/lint puliti. Non testato l'invio reale sui 3 canali per non generare avvisi
   falsi verso i gruppi Telegram/Chat/email reali dello staff — il codice ricalca esattamente l'idiom
   già in produzione di Richiesta Dati/Richiesta Cliente.
+✅ Badge "che pulsa" esteso ad altri 4 eventi-cliente (2026-08-27, richiesta esplicita: "vorrei
+  rivedere il sistema di notificazione come pulsa la notifica di documenti ricevuti" →
+  "estenderlo agli altri 6 eventi-cliente") — prima il badge blu che pulsa (Tailwind `animate-pulse`
+  + puntino "ping" stile WhatsApp/iOS) esisteva solo per "Dati ricevuti" in Segnalazioni, scritto a
+  mano lì. Estratto in `components/condivisi/segnale-pulsante.tsx` (`SegnalePulsante`, `entroOreDa`)
+  e riapplicato identico dove il dato è già disponibile senza nuove query:
+  - **Ticket board**: "🆕 Nuovo — non ancora preso in carico" (Ticket dal Portale o creato in
+    automatico dall'approvazione di un contratto, senza tecnico assegnato, entro 2h dalla creazione)
+    e "✓ Cliente ha confermato l'intervento" (`tickets.confermato_cliente_il`, entro 48h — **scritto
+    da tempo ma non ancora letto da nessuna parte dell'interfaccia finché non aggiunto qui**, né
+    presente nel tipo `Ticket` — aggiunto).
+  - **Preventivi**: badge che pulsa al posto del solito badge di stato quando Approvato/Rifiutato è
+    fresco (entro 48h).
+  - **Richieste Clienti**: badge che pulsa per il Subentro quando il vecchio cliente ha appena
+    confermato/rifiutato la cessione (entro 48h).
+  Il "si ferma da solo" di Dati ricevuti (agganciato a un avanzamento di stato) qui non si applica
+  sempre (Approvato/Rifiutato non ha un passaggio successivo): usata una finestra di tempo (48h) al
+  suo posto — l'informazione non sparisce, smette solo di pulsare.
+  **Non esteso agli altri 2 eventi-cliente** (Scheda/Rapportino confermati dal cliente): richiedono
+  un join che le liste Ticket non fanno oggi (`schede_lavoro`/`rapportini_intervento` per ticket) —
+  rimandato a un giro dedicato per non allargare la query di tutta la bacheca Ticket senza che
+  l'utente lo abbia chiesto esplicitamente.
+  Verificato sui dati reali: nessun evento vivo abbastanza recente da pulsare in questo momento
+  (l'ultimo Ticket, #52, è fuori dalla finestra di 2h di ~50 minuti — conteggio confermato
+  manualmente); build/lint puliti.

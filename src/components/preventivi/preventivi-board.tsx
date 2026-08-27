@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formattaValuta } from "@/lib/types";
 import type { Preventivo, StatoPreventivo } from "@/lib/types";
 import { inviaPreventivoApprovazione, eliminaPreventivo } from "@/app/(app)/preventivi/actions";
+import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 
 const COLORE_STATO: Record<StatoPreventivo, string> = {
   Bozza: "bg-muted text-muted-foreground border-transparent",
@@ -125,9 +126,23 @@ export function PreventiviBoard({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="font-mono text-sm font-bold tabular-nums">{formattaValuta(p.totale)}</span>
-                <Badge variant="outline" className={COLORE_STATO[p.stato]}>
-                  {p.stato}
-                </Badge>
+                {/* ★ NUOVA (2026-08-27, richiesta esplicita: "rivedere il
+                sistema di notificazione come pulsa la notifica di documenti
+                ricevuti" → "estenderlo agli altri 6 eventi-cliente") —
+                risposta fresca del cliente (Approvato/Rifiutato, entro 48h):
+                stesso badge che pulsa già in uso in Segnalazioni per "Dati
+                ricevuti", al posto del solito badge statico di stato. */}
+                {(p.stato === "Approvato" || p.stato === "Rifiutato") && entroOreDa(p.risposto_il, 48) ? (
+                  <SegnalePulsante
+                    testo={p.stato === "Approvato" ? "✓ Approvato dal cliente" : "✗ Rifiutato dal cliente"}
+                    tono={p.stato === "Approvato" ? "successo" : "critico"}
+                    pulsante
+                  />
+                ) : (
+                  <Badge variant="outline" className={COLORE_STATO[p.stato]}>
+                    {p.stato}
+                  </Badge>
+                )}
               </div>
             </button>
           ))}
