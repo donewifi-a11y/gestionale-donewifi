@@ -13,7 +13,7 @@ import { generaTestoRapportino, generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
-import type { DatiSchedaLavoro, FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
+import type { DatiSchedaLavoro } from "@/app/(app)/calendario/actions";
 import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizioAppuntamento } from "@/lib/types";
 
 // ============================================================
@@ -113,18 +113,17 @@ export async function urlDocumentoRapportinoEsterno(percorso: string): Promise<{
 export async function completaTicketConRapportinoEsterno(
   ticketId: string,
   statoVecchio: StatoTicket,
-  dati: { esito: string; lavoriSvolti: string; materiali: string; firmaCliente: FirmaClienteApprovata; importoFatturato: string },
+  dati: { esito: string; lavoriSvolti: string; materiali: string; importoFatturato: string },
   foto: File[]
 ): Promise<{ errore: string | null }> {
   const tecnico = await getTecnicoEsternoCorrente();
   if (!tecnico) return { errore: "Sessione scaduta — accedi di nuovo." };
   if (!dati.esito.trim()) return { errore: "L'esito dell'intervento è obbligatorio." };
-  if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
-    return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
-  }
-  if (dati.firmaCliente.metodo === "otp_email" && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice inviato al cliente non risulta verificato." };
-  }
+  // ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket via
+  // artifact: "deve solo inviare il rapportino al cliente") — stessa
+  // semplificazione della versione staff interno (tickets/actions.ts),
+  // vedi lì per il commento completo. Il riepilogo arriva comunque via
+  // email più sotto, solo non più come requisito per chiudere.
 
   const service = createServiceClient();
 
@@ -154,9 +153,9 @@ export async function completaTicketConRapportinoEsterno(
     lavori_svolti: dati.lavoriSvolti.trim() || null,
     materiali: dati.materiali.trim() || null,
     firma_url: null,
-    firma_metodo: dati.firmaCliente.metodo,
-    firma_email: dati.firmaCliente.email,
-    firma_verificato_il: dati.firmaCliente.verificatoIl,
+    firma_metodo: null,
+    firma_email: null,
+    firma_verificato_il: null,
     foto: fotoSalvate,
     creato_da: null,
     creato_da_tecnico_esterno_id: tecnico.id,

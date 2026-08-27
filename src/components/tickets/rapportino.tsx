@@ -4,9 +4,7 @@ import { useRef, useState } from "react";
 import { Printer, FileText, AlertTriangle, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
-import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { useToast } from "@/components/ui/toast";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
@@ -24,7 +22,6 @@ export function RapportinoForm({
   onSalvato: () => void;
   onAnnulla: () => void;
 }) {
-  const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [nomiFoto, setNomiFoto] = useState("");
@@ -36,7 +33,6 @@ export function RapportinoForm({
     const dati = new FormData(e.currentTarget);
     const esito = String(dati.get("esito") || "").trim();
     if (!esito) return setErrore("L'esito dell'intervento è obbligatorio.");
-    if (!firmaCliente) return setErrore("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
 
     const foto = Array.from(fileInputRef.current?.files ?? []);
     setInCorso(true);
@@ -47,7 +43,6 @@ export function RapportinoForm({
         esito,
         lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
         materiali: String(dati.get("materiali") || ""),
-        firmaCliente,
         importoFatturato: String(dati.get("importoFatturato") || ""),
       },
       foto
@@ -99,13 +94,18 @@ export function RapportinoForm({
         />
         {nomiFoto && <p className="mt-1 text-xs text-muted-foreground">{nomiFoto}</p>}
       </div>
-      <div>
-        <Label>Firma cliente</Label>
-        <div className="mt-1">
-          <FirmaClienteScheda riferimento={{ tipo: "ticket", id: ticketId }} value={firmaCliente} onChange={setFirmaCliente} />
-        </div>
-      </div>
-
+      {/* ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket
+      via artifact: "deve solo inviare il rapportino al cliente") — prima,
+      per chiudere il Ticket, era obbligatorio far confermare il cliente
+      (codice OTP letto al telefono o link email, poi verificato). Ora si
+      chiude subito: il cliente riceve comunque il riepilogo via email
+      (emailChiusuraTicket, invariata), solo senza dover confermare nulla.
+      Stessa richiesta di conferma resta invece sulla Scheda di
+      Installazione/Lavorazione, non toccata qui. */}
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+        Il cliente riceverà via email il riepilogo dell&apos;intervento — non serve una sua conferma per chiudere.
+      </p>
       {errore && (
         <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />

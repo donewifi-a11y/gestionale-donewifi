@@ -2504,6 +2504,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     prima non esisteva alcun modo di assegnare un Ticket a un collega, solo a se stessi o a un
     esterno (`assegnaTicket()` già lo permetteva lato server, mai esposto lato interfaccia). Un solo
     "Rimuovi" per entrambi i tipi invece di due bottoni duplicati.
-  Verificato: build/lint puliti. Le altre voci della checklist (assegnazione via OTP nella chiusura
-  Ticket) richiedono un chiarimento con l'utente prima di toccare un requisito di consenso cliente —
-  in sospeso.
+  Verificato: build/lint puliti.
+✅ Rapportino Ticket — chiusura senza conferma obbligatoria del cliente (2026-08-27, richiesta
+  esplicita chiarita via domanda mirata: "deve solo inviare il rapportino al cliente" — solo il
+  Rapportino generico, non la Scheda di Installazione/Lavorazione) — prima, per chiudere un Ticket
+  col Rapportino, era obbligatorio far confermare il cliente (codice OTP letto al telefono, o link
+  email poi verificato): senza quella, il tecnico non poteva salvare. Tolto il requisito in
+  `completaTicketConRapportino()` (staff interno) e `completaTicketConRapportinoEsterno()` (pose,
+  tecnici esterni) — rimossa anche la sezione "Firma cliente" (`FirmaClienteScheda`) dai due form
+  (`rapportino.tsx`, `pose/rapportino-form.tsx`), sostituita da una riga informativa ("Il cliente
+  riceverà via email il riepilogo — non serve una sua conferma"). L'email di chiusura
+  (`emailChiusuraTicket`, invariata) parte comunque, automatica: il cliente è comunque informato,
+  solo non più bloccante. La Scheda di Installazione/Lavorazione (pose e interna) mantiene la
+  richiesta di conferma cliente come prima — non toccata, per scelta esplicita dell'utente.
+  Verificato: build/lint puliti (rimossi anche gli import/tipi `FirmaClienteApprovata` diventati
+  inutilizzati nei 2 file di action).

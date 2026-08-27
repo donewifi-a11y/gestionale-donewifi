@@ -8,7 +8,6 @@ import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
-import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -365,7 +364,7 @@ export async function getRapportinoTicket(ticketId: string): Promise<RapportinoI
 export async function completaTicketConRapportino(
   ticketId: string,
   statoVecchio: StatoTicket,
-  dati: { esito: string; lavoriSvolti: string; materiali: string; firmaCliente: FirmaClienteApprovata; importoFatturato: string },
+  dati: { esito: string; lavoriSvolti: string; materiali: string; importoFatturato: string },
   foto: File[]
 ) {
   const supabase = await createClient();
@@ -378,15 +377,12 @@ export async function completaTicketConRapportino(
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   const personaId = persona.id;
   if (!dati.esito.trim()) return { errore: "L'esito dell'intervento è obbligatorio." };
-  // ★ FIX — la conferma del cliente (OTP verificato, o link autorizzato dal
-  // tecnico) era controllata solo lato client: ripetuto qui, unica fonte
-  // di verità, stesso principio già applicato a salvaSchedaLavoro().
-  if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
-    return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
-  }
-  if (dati.firmaCliente.metodo === "otp_email" && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice inviato al cliente non risulta verificato." };
-  }
+  // ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket via
+  // artifact: "deve solo inviare il rapportino al cliente") — prima qui si
+  // bloccava la chiusura senza una conferma del cliente (OTP verificato, o
+  // link inviato) — vedi il commento nel form (rapportino.tsx). Il
+  // riepilogo continua ad arrivare via email più sotto, solo non più come
+  // requisito per chiudere.
 
   const service = createServiceClient();
 
@@ -409,9 +405,9 @@ export async function completaTicketConRapportino(
     lavori_svolti: dati.lavoriSvolti.trim() || null,
     materiali: dati.materiali.trim() || null,
     firma_url: null,
-    firma_metodo: dati.firmaCliente.metodo,
-    firma_email: dati.firmaCliente.email,
-    firma_verificato_il: dati.firmaCliente.verificatoIl,
+    firma_metodo: null,
+    firma_email: null,
+    firma_verificato_il: null,
     foto: fotoSalvate,
     creato_da: personaId,
   });

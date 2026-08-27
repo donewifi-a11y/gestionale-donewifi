@@ -1,11 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Mail } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { completaTicketConRapportinoEsterno } from "@/app/pose/actions";
-import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import type { StatoTicket } from "@/lib/types";
 
 // ★ pose.donewifi.it è pensato SOLO per smartphone/tablet (richiesta
@@ -33,7 +31,6 @@ export function RapportinoFormEsterno({
   statoVecchio: StatoTicket;
   onSalvato: () => void;
 }) {
-  const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [nomiFoto, setNomiFoto] = useState("");
@@ -45,7 +42,6 @@ export function RapportinoFormEsterno({
     const dati = new FormData(e.currentTarget);
     const esito = String(dati.get("esito") || "").trim();
     if (!esito) return setErrore("L'esito dell'intervento è obbligatorio.");
-    if (!firmaCliente) return setErrore("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
 
     const foto = Array.from(fileInputRef.current?.files ?? []);
     setInCorso(true);
@@ -56,7 +52,6 @@ export function RapportinoFormEsterno({
         esito,
         lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
         materiali: String(dati.get("materiali") || ""),
-        firmaCliente,
         importoFatturato: String(dati.get("importoFatturato") || ""),
       },
       foto
@@ -106,12 +101,13 @@ export function RapportinoFormEsterno({
           />
         </label>
       </div>
-      <div>
-        <Label>Firma cliente</Label>
-        <div className="mt-1.5">
-          <FirmaClienteScheda riferimento={{ tipo: "ticket", id: ticketId }} value={firmaCliente} onChange={setFirmaCliente} />
-        </div>
-      </div>
+      {/* ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket
+      via artifact: "deve solo inviare il rapportino al cliente") — stessa
+      semplificazione della versione staff interno, vedi rapportino.tsx. */}
+      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Mail className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+        Il cliente riceverà via email il riepilogo — non serve una sua conferma per chiudere.
+      </p>
 
       {errore && (
         <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
