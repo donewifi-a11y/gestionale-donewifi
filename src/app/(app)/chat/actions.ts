@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
+import { NOME_PERSONA_SISTEMA } from "@/lib/chat";
 import type { MessaggioChat } from "@/lib/types";
 
 export interface ContattoChat {
@@ -12,6 +13,8 @@ export interface ContattoChat {
   ultimoTesto: string | null;
   ultimoAllegatoNome: string | null;
   ultimoCreatoIl: string | null;
+  /** ★ NUOVA — l'ultimo messaggio è un avviso automatico (mittente "Sistema")? Serve all'anteprima nell'elenco, prima di aprire il thread. */
+  ultimoDaSistema: boolean;
   nonLetti: number;
 }
 
@@ -21,6 +24,7 @@ export interface GruppoChat {
   ultimoTesto: string | null;
   ultimoAllegatoNome: string | null;
   ultimoCreatoIl: string | null;
+  ultimoDaSistema: boolean;
   nonLetti: number;
 }
 
@@ -28,6 +32,7 @@ interface AnteprimaConversazione {
   ultimoTesto: string | null;
   ultimoAllegatoNome: string | null;
   ultimoCreatoIl: string | null;
+  ultimoDaSistema: boolean;
   nonLetti: number;
 }
 
@@ -40,10 +45,10 @@ interface AnteprimaConversazione {
  * qui in JS — volume tipico (poche decine di conversazioni per un team di
  * questa dimensione) troppo piccolo per giustificare una funzione SQL
  * dedicata. */
-export async function getContattiChat(): Promise<{ persone: ContattoChat[]; gruppi: GruppoChat[]; nonLettiTotali: number }> {
+export async function getContattiChat(): Promise<{ persone: ContattoChat[]; gruppi: GruppoChat[]; nonLettiTotali: number; sistemaId: string | null }> {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { persone: [], gruppi: [], nonLettiTotali: 0 };
+  if (!personaId) return { persone: [], gruppi: [], nonLettiTotali: 0, sistemaId: null };
 
   // ★ FIX — filtrava a `attivo = true`: la persona "Sistema" (mittente dei
   // promemoria automatici, es. Lavorazioni Interne assegnate — vedi
@@ -61,6 +66,8 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
     supabase.from("conversazioni_letture").select("conversazione_id, ultimo_letto_il").eq("persona_id", personaId),
   ]);
 
+  const sistemaId = (persone ?? []).find((p) => p.nome === NOME_PERSONA_SISTEMA)?.id ?? null;
+
   const conversazioniList = conversazioni ?? [];
   const idConversazioni = conversazioniList.map((c) => c.id);
   const { data: messaggi } =
@@ -73,13 +80,13 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
       : { data: [] as { conversazione_id: string; mittente_id: string; testo: string | null; allegato_nome: string | null; creato_il: string }[] };
 
   const letturaPerConv = new Map((letture ?? []).map((l) => [l.conversazione_id, l.ultimo_letto_il]));
-  const ultimoPerConv = new Map<string, { testo: string | null; allegato_nome: string | null; creato_il: string }>();
+  const ultimoPerConv = new Map<string, { testo: string | null; allegato_nome: string | null; creato_il: string; mittente_id: string }>();
   const nonLettiPerConv = new Map<string, number>();
   for (const m of messaggi ?? []) {
     // ★ i messaggi arrivano ordinati per data crescente: l'ultimo che
     // sovrascrive la mappa, per ciascuna conversazione, è sempre il più
     // recente — non serve un ordinamento separato "prendi solo l'ultimo".
-    ultimoPerConv.set(m.conversazione_id, { testo: m.testo, allegato_nome: m.allegato_nome, creato_il: m.creato_il });
+    ultimoPerConv.set(m.conversazione_id, { testo: m.testo, allegato_nome: m.allegato_nome, creato_il: m.creato_il, mittente_id: m.mittente_id });
     if (m.mittente_id !== personaId) {
       const mieaLettura = letturaPerConv.get(m.conversazione_id);
       if (!mieaLettura || new Date(m.creato_il) > new Date(mieaLettura)) {
@@ -97,12 +104,13 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
   }
 
   function anteprima(conversazioneId: string | undefined): AnteprimaConversazione {
-    if (!conversazioneId) return { ultimoTesto: null, ultimoAllegatoNome: null, ultimoCreatoIl: null, nonLetti: 0 };
+    if (!conversazioneId) return { ultimoTesto: null, ultimoAllegatoNome: null, ultimoCreatoIl: null, ultimoDaSistema: false, nonLetti: 0 };
     const ultimo = ultimoPerConv.get(conversazioneId);
     return {
       ultimoTesto: ultimo?.testo ?? null,
       ultimoAllegatoNome: ultimo?.allegato_nome ?? null,
       ultimoCreatoIl: ultimo?.creato_il ?? null,
+      ultimoDaSistema: !!ultimo && !!sistemaId && ultimo.mittente_id === sistemaId,
       nonLetti: nonLettiPerConv.get(conversazioneId) ?? 0,
     };
   }
@@ -123,7 +131,7 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
 
   const nonLettiTotali = [...nonLettiPerConv.values()].reduce((s, n) => s + n, 0);
 
-  return { persone: persone2, gruppi: gruppi2, nonLettiTotali };
+  return { persone: persone2, gruppi: gruppi2, nonLettiTotali, sistemaId };
 }
 
 /** Trova (o crea al primo utilizzo) la conversazione diretta con un'altra persona. */
@@ -249,4 +257,81 @@ export async function getUltimaLetturaAltro(conversazioneId: string, altraPerson
     .maybeSingle();
   if (error) console.error("getUltimaLetturaAltro:", error.message);
   return data?.ultimo_letto_il ?? null;
+}
+
+export interface RisultatoRicercaChat {
+  messaggioId: string;
+  conversazioneId: string;
+  isGruppo: boolean;
+  titolo: string;
+  altraPersonaId: string | null;
+  testo: string;
+  creatoIl: string;
+  mittenteNome: string;
+}
+
+/** ★ NUOVA (2026-08-27, richiesta esplicita: "ricerca nei messaggi") —
+ * prima non esisteva alcun modo di ritrovare un messaggio passato se non
+ * scorrendo a memoria. Cerca solo nel testo (non negli allegati, che non
+ * hanno un contenuto testuale da confrontare), solo tra le conversazioni
+ * già visibili via RLS (nessun client con service role qui: la sicurezza
+ * la fa comunque la RLS, come in getMessaggi()). Limitata alle 30 righe
+ * più recenti — abbastanza per un team di questa dimensione, evita di
+ * dover paginare una vera ricerca full-text. */
+export async function cercaMessaggiChat(query: string): Promise<RisultatoRicercaChat[]> {
+  const supabase = await createClient();
+  const personaId = await getPersonaCorrenteId();
+  const pulita = query.trim();
+  if (!personaId || pulita.length < 2) return [];
+
+  const { data: messaggi, error } = await supabase
+    .from("messaggi_chat")
+    .select("id, conversazione_id, mittente_id, testo, creato_il")
+    .not("testo", "is", null)
+    .ilike("testo", `%${pulita}%`)
+    .order("creato_il", { ascending: false })
+    .limit(30);
+  if (error) {
+    console.error("cercaMessaggiChat:", error.message);
+    return [];
+  }
+  if (!messaggi || messaggi.length === 0) return [];
+
+  const idConversazioni = Array.from(new Set(messaggi.map((m) => m.conversazione_id)));
+  const { data: conversazioni } = await supabase
+    .from("conversazioni")
+    .select("id, tipo, reparto, persona_a_id, persona_b_id")
+    .in("id", idConversazioni);
+  const mappaConv = new Map((conversazioni ?? []).map((c) => [c.id, c]));
+
+  const idPersoneServono = new Set<string>();
+  for (const m of messaggi) idPersoneServono.add(m.mittente_id);
+  for (const c of conversazioni ?? []) {
+    if (c.tipo === "diretta") {
+      if (c.persona_a_id) idPersoneServono.add(c.persona_a_id);
+      if (c.persona_b_id) idPersoneServono.add(c.persona_b_id);
+    }
+  }
+  const { data: persone } = await supabase.from("persone").select("id, nome").in("id", Array.from(idPersoneServono));
+  const mappaPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]));
+
+  return messaggi
+    .map((m): RisultatoRicercaChat | null => {
+      const conv = mappaConv.get(m.conversazione_id);
+      if (!conv) return null;
+      const isGruppo = conv.tipo === "gruppo";
+      const altraPersonaId = isGruppo ? null : conv.persona_a_id === personaId ? conv.persona_b_id : conv.persona_a_id;
+      const titolo = isGruppo ? (conv.reparto ?? "Gruppo") : (altraPersonaId && mappaPersone.get(altraPersonaId)) || "—";
+      return {
+        messaggioId: m.id,
+        conversazioneId: m.conversazione_id,
+        isGruppo,
+        titolo,
+        altraPersonaId,
+        testo: m.testo ?? "",
+        creatoIl: m.creato_il,
+        mittenteNome: m.mittente_id === personaId ? "Tu" : (mappaPersone.get(m.mittente_id) ?? "—"),
+      };
+    })
+    .filter((r): r is RisultatoRicercaChat => !!r);
 }

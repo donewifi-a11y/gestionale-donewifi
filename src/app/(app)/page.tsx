@@ -237,6 +237,18 @@ export default async function MondoTicketPage() {
         {filtratoPerReparto ? `Il colpo d'occhio sul settore ${etichettaReparti(repartiUtente)}.` : "Il colpo d'occhio sull'intera azienda, settore per settore."}
       </p>
 
+      {/* ★ SPOSTATA in cima (2026-08-27, richiesta esplicita: "le
+      comunicazioni interne devono essere più visibili in homepage") —
+      prima era sotto Novità clienti/KPI reparto/promemoria, affiancata al
+      To-Do: bisognava scorrere per accorgersene. Ora è la prima cosa che
+      si vede aprendo il gestionale, a tutta larghezza — il To-Do resta
+      dov'era, sotto i promemoria, ma da solo invece che in coppia. */}
+      {personaCorrenteId && (
+        <div className="mb-8">
+          <ChatPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
+        </div>
+      )}
+
       {vedeNovitaClienti && novitaClienti.length > 0 && (
         <div className="mb-8 rounded-2xl border border-primary/30 bg-primary/5 p-5 shadow-md">
           <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
@@ -294,14 +306,14 @@ export default async function MondoTicketPage() {
         </div>
       )}
 
-      {/* ★ NUOVA — chat e to-do personali come riquadri fissi qui invece di
-      pulsanti flottanti sempre in vista su ogni pagina ("troppi pulsanti
-      in giro", segnalato esplicitamente) — restano comunque richiamabili
-      come pop-up da qualunque sezione tramite i due pulsanti in fondo
-      alla sidebar. Stesso componente, due contesti diversi. */}
+      {/* ★ NUOVA — to-do personale come riquadro fisso qui invece di un
+      pulsante flottante sempre in vista su ogni pagina ("troppi pulsanti
+      in giro", segnalato esplicitamente) — resta comunque richiamabile
+      come pop-up da qualunque sezione tramite il pulsante in fondo alla
+      sidebar (la Chat, stesso principio, è ora in cima alla pagina — vedi
+      sopra). */}
       {personaCorrenteId && (
-        <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ChatPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
+        <div className="mb-8">
           <TodoPanel personaCorrenteId={personaCorrenteId} variant="riquadro" />
         </div>
       )}

@@ -2321,3 +2321,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   ("Leonardo Pavetto" via Ticket, "Assistenza — Pianificazione installazione · Antonietta Favre" via
   titolo appuntamento per quella senza Ticket); segna-come-inserita testato e ripristinato su una
   scheda reale, senza lasciare tracce false; build/lint puliti.
+✅ Comunicazioni interne più visibili e dirette (2026-08-27, richiesta esplicita: "rivediamo il
+  mondo delle comunicazioni interne tra reparti e utenti. deve essere più diretto e facile da
+  consultare. inoltre deve essere più visibile in homepage") — 2 domande poste all'utente
+  (posizione in home + cosa serve per "più diretto"), scelto: in cima sopra tutto, distinguere i
+  messaggi automatici, aggiungere la ricerca.
+  - **In cima alla home**: il riquadro Chat (`(app)/page.tsx`) è ora la prima cosa sotto il titolo
+    "Mondo Ticket", a tutta larghezza — prima era sotto Novità clienti/KPI reparto/promemoria,
+    affiancato al To-Do (bisognava scorrere per accorgersene). Il To-Do resta dov'era, ora da solo.
+  - **Messaggi automatici distinti**: i messaggi da "Sistema" (contratti inviati, dati cliente
+    ricevuti, l'avviso antenne appena aggiunto, ecc.) ora appaiono come un cartellino centrato con
+    un'icona campanella invece di una bolla di conversazione a sinistra/destra — si riconoscono a
+    colpo d'occhio come "fatto avvenuto" invece di "qualcuno aspetta una risposta". **Bug reale
+    trovato in verifica**: prima "Sistema" compariva come mittente di un messaggio di gruppo solo se
+    aveva ANCHE una conversazione diretta con chi guardava (per via del filtro `attivo` in
+    `getContattiChat()`) — altrimenti `nomeMittente()` non lo trovava e mostrava "—". Verificato sui
+    dati reali: 10 messaggi di Sistema già in produzione (contratti, dati ricevuti, lavorazioni
+    assegnate) che oggi mostravano "—" come mittente in almeno alcuni gruppi, ora sempre riconosciuti
+    correttamente tramite il nuovo `sistemaId` (risolto una volta sola in `getContattiChat()`,
+    indipendentemente da eventuali conversazioni dirette).
+  - **Ricerca messaggi**: nuova casella sopra l'elenco conversazioni (prima non esisteva alcun modo
+    di ritrovare un vecchio messaggio) — filtra subito per nome persona/reparto (locale, istantaneo)
+    e, da 2 caratteri, cerca anche nel testo dei messaggi passati (`cercaMessaggiChat()`, nuovo
+    in `chat/actions.ts`, RLS-bound come `getMessaggi()`, non service role). Ogni risultato apre
+    direttamente il thread. Verificato sui dati reali: query e risoluzione titolo/mittente corrette
+    su 14 messaggi reali trovati per "lavorazione".
+  Verificato: build/lint puliti.

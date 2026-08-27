@@ -8,6 +8,10 @@ interface ChatData {
   persone: ContattoChat[];
   gruppi: GruppoChat[];
   nonLettiTotali: number;
+  /** ★ NUOVA — id della persona "Sistema" (mittente degli avvisi
+   * automatici), per distinguerli in ChatPanel dai messaggi scritti a
+   * mano. Null finché non ancora caricato, o se non esiste. */
+  sistemaId: string | null;
   pronto: boolean;
   ricarica: () => void;
 }
@@ -16,6 +20,7 @@ const ChatDataContext = createContext<ChatData>({
   persone: [],
   gruppi: [],
   nonLettiTotali: 0,
+  sistemaId: null,
   pronto: false,
   ricarica: () => {},
 });
@@ -30,7 +35,7 @@ const ChatDataContext = createContext<ChatData>({
  * alla sidebar di mostrare il badge dei non letti senza montare una
  * ChatPanel apposta. */
 export function ChatDataProvider({ personaCorrenteId, children }: { personaCorrenteId: string | null; children: React.ReactNode }) {
-  const [dati, setDati] = useState<Omit<ChatData, "pronto" | "ricarica">>({ persone: [], gruppi: [], nonLettiTotali: 0 });
+  const [dati, setDati] = useState<Omit<ChatData, "pronto" | "ricarica">>({ persone: [], gruppi: [], nonLettiTotali: 0, sistemaId: null });
   const [pronto, setPronto] = useState(false);
 
   const ricarica = useCallback(() => {

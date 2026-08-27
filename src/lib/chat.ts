@@ -1,7 +1,12 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import type { AreaAccesso } from "@/lib/types";
 
-const NOME_PERSONA_SISTEMA = "Sistema";
+// ★ esportata (2026-08-27, richiesta esplicita: "distinguere i messaggi
+// automatici dai messaggi delle persone") — prima era solo locale a
+// questo file, serve anche a chat/actions.ts per riconoscere gli avvisi
+// di sistema (Sistema come mittente_id) e mostrarli diversamente in
+// ChatPanel invece di confonderli con un messaggio scritto a mano.
+export const NOME_PERSONA_SISTEMA = "Sistema";
 
 /**
  * Invia un messaggio automatico nella Chat interna del reparto indicato —

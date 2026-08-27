@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText } from "lucide-react";
+import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText, Bell, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/components/chat/online-context";
 import { useChatData } from "@/components/chat/chat-data-context";
@@ -14,8 +14,10 @@ import {
   urlAllegatoChat,
   segnaConversazioneLetta,
   getUltimaLetturaAltro,
+  cercaMessaggiChat,
   type ContattoChat,
   type GruppoChat,
+  type RisultatoRicercaChat,
 } from "@/app/(app)/chat/actions";
 import type { MessaggioChat } from "@/lib/types";
 
@@ -85,7 +87,7 @@ export function ChatPanel({
   onChiudi?: () => void;
   variant?: "popup" | "riquadro";
 }) {
-  const { persone, gruppi, pronto, ricarica } = useChatData();
+  const { persone, gruppi, pronto, ricarica, sistemaId } = useChatData();
   const toast = useToast();
   const [thread, setThread] = useState<Thread | null>(null);
   const [messaggi, setMessaggi] = useState<MessaggioChat[]>([]);
@@ -94,6 +96,14 @@ export function ChatPanel({
   const [inCorso, setInCorso] = useState(false);
   const fineListaRef = useRef<HTMLDivElement>(null);
   const online = useOnline();
+  // ★ NUOVA (2026-08-27, richiesta esplicita: "ricerca nei messaggi") —
+  // un'unica casella filtra sia l'elenco locale (nome persona/reparto,
+  // istantaneo) sia, da 2 caratteri in su, cerca nel testo dei messaggi
+  // passati (server, con un piccolo debounce per non interrogare ad ogni
+  // tasto premuto).
+  const [ricerca, setRicerca] = useState("");
+  const [risultatiRicerca, setRisultatiRicerca] = useState<RisultatoRicercaChat[]>([]);
+  const [cercando, setCercando] = useState(false);
   // ★ FIX — ChatPanel può essere montata due volte insieme (riquadro fisso
   // in home + pop-up dalla sidebar): se l'utente apre la STESSA
   // conversazione in entrambe, due `.channel()` con lo stesso nome
@@ -136,6 +146,24 @@ export function ChatPanel({
     } catch {}
   }, [testo, thread]);
 
+  useEffect(() => {
+    const query = ricerca.trim();
+    if (query.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con `ricerca` (cambia dall'esterno, l'utente scrive/cancella), non derivabile durante il render.
+      setRisultatiRicerca([]);
+      setCercando(false);
+      return;
+    }
+    setCercando(true);
+    const timer = setTimeout(() => {
+      cercaMessaggiChat(query).then((righe) => {
+        setRisultatiRicerca(righe);
+        setCercando(false);
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ricerca]);
+
   // ★ un messaggio nuovo arriva qui via Realtime — sia per chi lo manda
   // che per chi lo riceve, invece di gestire due percorsi diversi. Se il
   // thread resta aperto, il nuovo messaggio si segna subito come letto.
@@ -170,6 +198,7 @@ export function ChatPanel({
     setLetturaAltro(null);
     setMessaggi(await getMessaggi(t.conversazioneId));
     setThread(t);
+    setRicerca("");
     await segnaConversazioneLetta(t.conversazioneId);
     // ★ FIX — senza questa chiamata esplicita, il badge "non letti"
     // sull'altra istanza (o sul pulsante in sidebar) restava indietro
@@ -177,6 +206,18 @@ export function ChatPanel({
     // ritardo evitabile, visto che qui sappiamo già che è cambiato.
     ricarica();
     if (t.altraPersonaId) setLetturaAltro(await getUltimaLetturaAltro(t.conversazioneId, t.altraPersonaId));
+  }
+
+  /** Apre il thread di un risultato di ricerca — stessa `apriThread()` di
+   * gruppi/dirette, non serve saltare al messaggio esatto: trovarlo dentro
+   * un thread di poche decine di messaggi è comunque immediato. */
+  function apriDaRicerca(risultato: RisultatoRicercaChat) {
+    apriThread({
+      conversazioneId: risultato.conversazioneId,
+      titolo: risultato.titolo,
+      isGruppo: risultato.isGruppo,
+      altraPersonaId: risultato.altraPersonaId,
+    });
   }
 
   async function apriDiretta(persona: ContattoChat) {
@@ -236,12 +277,15 @@ export function ChatPanel({
 
   if (!personaCorrenteId) return null;
 
-  // ★ FIX — altezza fissa in pixel (480px/420px): su un telefono con
+  // ★ FIX — altezza fissa in pixel (480px/460px): su un telefono con
   // schermo basso o in orizzontale poteva tagliare la lista messaggi o
   // spingere il campo di scrittura fuori dallo schermo. `min(…, Nvh)`
   // resta all'altezza piena su schermi normali ma si adatta a quelli
   // bassi invece di sforare.
-  const dimensioni = variant === "popup" ? "h-[min(480px,85vh)] w-80" : "h-[min(420px,70vh)] w-full";
+  // ★ "riquadro" alzato a 460px (2026-08-27, spostata in cima alla home,
+  // a tutta larghezza) — la casella di ricerca aggiunta sopra l'elenco
+  // altrimenti avrebbe rosicchiato spazio ai messaggi visibili.
+  const dimensioni = variant === "popup" ? "h-[min(480px,85vh)] w-80" : "h-[min(460px,70vh)] w-full";
 
   // ★ FIX — prima l'elenco era sempre "a chi scrivo" in ordine alfabetico,
   // senza distinguere conversazioni in corso da contatti mai sentiti.
@@ -260,6 +304,13 @@ export function ChatPanel({
   }
   const gruppiOrdinati = ordina(gruppi);
   const personeOrdinate = ordina(persone);
+
+  // ★ NUOVA — filtro locale immediato per nome/reparto (nessuna chiamata
+  // server, agisce sull'elenco già in memoria) — la ricerca nel testo dei
+  // messaggi passati (server, con debounce) è un elenco separato sotto.
+  const filtro = ricerca.trim().toLowerCase();
+  const gruppiFiltrati = filtro ? gruppiOrdinati.filter((g) => g.reparto.toLowerCase().includes(filtro)) : gruppiOrdinati;
+  const personeFiltrate = filtro ? personeOrdinate.filter((p) => p.nome.toLowerCase().includes(filtro)) : personeOrdinate;
 
   return (
     <div className={`flex ${dimensioni} flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl`}>
@@ -292,61 +343,114 @@ export function ChatPanel({
       </div>
 
       {!thread && (
-        <div className="flex-1 overflow-y-auto p-2">
-          {gruppiOrdinati.length > 0 && (
-            <>
-              <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Gruppi reparto</p>
-              {gruppiOrdinati.map((g) => (
-                <button key={g.id} onClick={() => apriGruppo(g)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                    <Users className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate ${g.nonLetti > 0 ? "font-bold" : ""}`}>{g.reparto}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{anteprimaTesto(g.ultimoTesto, g.ultimoAllegatoNome)}</span>
-                  </span>
-                  <span className="flex shrink-0 flex-col items-end gap-1">
-                    {g.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(g.ultimoCreatoIl)}</span>}
-                    {g.nonLetti > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                        {g.nonLetti}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex items-center gap-1.5 border-b px-2.5 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+            <input
+              value={ricerca}
+              onChange={(e) => setRicerca(e.target.value)}
+              placeholder="Cerca persona, reparto o un vecchio messaggio..."
+              className="h-6 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            {ricerca && (
+              <button onClick={() => setRicerca("")} className="rounded-md p-0.5 text-muted-foreground hover:bg-muted" aria-label="Cancella ricerca">
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {gruppiFiltrati.length > 0 && (
+              <>
+                <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Gruppi reparto</p>
+                {gruppiFiltrati.map((g) => (
+                  <button key={g.id} onClick={() => apriGruppo(g)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                      <Users className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate ${g.nonLetti > 0 ? "font-bold" : ""}`}>{g.reparto}</span>
+                      <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        {g.ultimoDaSistema && <Bell className="h-3 w-3 shrink-0 text-primary/70" strokeWidth={2.25} />}
+                        <span className="truncate">{anteprimaTesto(g.ultimoTesto, g.ultimoAllegatoNome)}</span>
                       </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-          {personeOrdinate.length > 0 && (
-            <>
-              <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Persone</p>
-              {personeOrdinate.map((p) => (
-                <button key={p.id} onClick={() => apriDiretta(p)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
-                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
-                    {p.nome.slice(0, 2).toUpperCase()}
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${online.has(p.id) ? "bg-success" : "bg-muted-foreground/40"}`}
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate ${p.nonLetti > 0 ? "font-bold" : ""}`}>{p.nome}</span>
-                    {p.conversazioneId && (
-                      <span className="block truncate text-xs text-muted-foreground">{anteprimaTesto(p.ultimoTesto, p.ultimoAllegatoNome)}</span>
-                    )}
-                  </span>
-                  <span className="flex shrink-0 flex-col items-end gap-1">
-                    {p.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(p.ultimoCreatoIl)}</span>}
-                    {p.nonLetti > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                        {p.nonLetti}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-          {!pronto && <p className="p-3 text-center text-xs text-muted-foreground">Caricamento...</p>}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {g.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(g.ultimoCreatoIl)}</span>}
+                      {g.nonLetti > 0 && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {g.nonLetti}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
+            {personeFiltrate.length > 0 && (
+              <>
+                <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Persone</p>
+                {personeFiltrate.map((p) => (
+                  <button key={p.id} onClick={() => apriDiretta(p)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60">
+                    <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
+                      {p.nome.slice(0, 2).toUpperCase()}
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${online.has(p.id) ? "bg-success" : "bg-muted-foreground/40"}`}
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate ${p.nonLetti > 0 ? "font-bold" : ""}`}>{p.nome}</span>
+                      {p.conversazioneId && (
+                        <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                          {p.ultimoDaSistema && <Bell className="h-3 w-3 shrink-0 text-primary/70" strokeWidth={2.25} />}
+                          <span className="truncate">{anteprimaTesto(p.ultimoTesto, p.ultimoAllegatoNome)}</span>
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {p.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(p.ultimoCreatoIl)}</span>}
+                      {p.nonLetti > 0 && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {p.nonLetti}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            {filtro.length >= 2 && (
+              <>
+                <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Messaggi {cercando && "· cercando..."}
+                </p>
+                {risultatiRicerca.length === 0 && !cercando && (
+                  <p className="px-2.5 pb-2 text-xs text-muted-foreground">Nessun messaggio trovato.</p>
+                )}
+                {risultatiRicerca.map((r) => (
+                  <button
+                    key={r.messaggioId}
+                    onClick={() => apriDaRicerca(r)}
+                    className="flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60"
+                  >
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      {r.isGruppo ? <Users className="h-3 w-3 shrink-0" strokeWidth={2.25} /> : null}
+                      {r.titolo}
+                      <span className="font-normal">· {r.mittenteNome}</span>
+                      <span className="ml-auto shrink-0 font-normal">{oraBreve(r.creatoIl)}</span>
+                    </span>
+                    <span className="truncate">{r.testo}</span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            {gruppiFiltrati.length === 0 && personeFiltrate.length === 0 && filtro.length > 0 && filtro.length < 2 && (
+              <p className="p-3 text-center text-xs text-muted-foreground">Nessuna corrispondenza.</p>
+            )}
+            {!pronto && <p className="p-3 text-center text-xs text-muted-foreground">Caricamento...</p>}
+          </div>
         </div>
       )}
 
@@ -356,6 +460,25 @@ export function ChatPanel({
             {messaggi.length === 0 && <p className="text-center text-xs text-muted-foreground">Nessun messaggio ancora.</p>}
             <div className="flex flex-col gap-2">
               {messaggi.map((m, i) => {
+                const daSistema = !!sistemaId && m.mittente_id === sistemaId;
+                // ★ NUOVA (2026-08-27, richiesta esplicita: "distinguere i
+                // messaggi automatici dai messaggi delle persone") — un
+                // avviso di sistema (es. quello delle antenne, vedi
+                // lib/notifiche-antenne.ts) non è una risposta di nessuno:
+                // niente bolla a sinistra/destra come in una conversazione,
+                // un cartellino centrato con un'icona campanella, subito
+                // riconoscibile come "fatto avvenuto" invece che "qualcuno
+                // ti ha scritto e aspetta una risposta".
+                if (daSistema) {
+                  return (
+                    <div key={m.id} className="mx-auto flex max-w-[92%] items-start gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground/80">
+                      <Bell className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.25} />
+                      <span className="min-w-0 flex-1 whitespace-pre-wrap">{m.testo && <TestoMessaggio testo={m.testo} />}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">{oraBreve(m.creato_il)}</span>
+                    </div>
+                  );
+                }
+
                 const mio = m.mittente_id === personaCorrenteId;
                 const ultimoMio = mio && !messaggi.slice(i + 1).some((x) => x.mittente_id === personaCorrenteId);
                 const letto = ultimoMio && !thread.isGruppo && !!letturaAltro && new Date(letturaAltro) >= new Date(m.creato_il);
