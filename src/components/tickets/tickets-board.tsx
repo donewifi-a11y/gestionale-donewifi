@@ -34,6 +34,7 @@ import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
 import { RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
+import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo } from "@/lib/types";
@@ -572,15 +573,6 @@ function DettaglioTicket({
     getRichiesteClientiPerTicket(ticket.id).then(setRichieste);
   }, [ticket.id, ticket.stato]);
 
-  async function apriDocumentoRichiesta(percorso: string) {
-    const risultato = await urlDocumentoRichiesta(percorso);
-    if (risultato.errore || !risultato.url) {
-      toast(risultato.errore || "Errore imprevisto.");
-      return;
-    }
-    window.open(risultato.url, "_blank", "noopener,noreferrer");
-  }
-
   const numeroDocumenti = (ticket.contratto_pdf_url ? 1 : 0) + richieste.length + (ticket.stato === "Completato" && (scheda || rapportino) ? 1 : 0);
 
   const linkPratica = useMemo(() => {
@@ -997,16 +989,13 @@ function DettaglioTicket({
                   {r.documenti?.length > 0 && (
                     <div className="mt-2 flex flex-col gap-1.5">
                       {r.documenti.map((doc, i) => (
-                        <Button
+                        <PulsanteDocumento
                           key={i}
-                          size="sm"
-                          variant="outline"
-                          className="h-auto w-full justify-start py-1.5 whitespace-normal"
-                          onClick={() => apriDocumentoRichiesta(doc.percorso)}
-                        >
-                          <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                          <span className="text-left break-all">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
-                        </Button>
+                          percorso={doc.percorso}
+                          nome={doc.nome}
+                          etichetta={doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}
+                          onOttieniUrl={urlDocumentoRichiesta}
+                        />
                       ))}
                     </div>
                   )}

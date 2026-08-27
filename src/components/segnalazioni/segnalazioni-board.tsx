@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
+import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -761,15 +762,6 @@ function DettaglioSegnalazione({
   // Clienti per vederli davvero. `urlContratto()` è generica (genera solo
   // una signed URL sul bucket "documenti", non specifica del contratto),
   // quindi si riusa qui invece di duplicarla.
-  async function apriDocumento(percorso: string) {
-    const risultato = await urlContratto(percorso);
-    if (risultato.errore || !risultato.url) {
-      toast(risultato.errore || "Errore imprevisto.");
-      return;
-    }
-    window.open(risultato.url, "_blank", "noopener,noreferrer");
-  }
-
   async function vediContratto() {
     if (!contrattoUrl) return;
     const risultato = await urlContratto(contrattoUrl);
@@ -884,16 +876,35 @@ function DettaglioSegnalazione({
           </>
         )}
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(`${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} ${segnalazione.cap}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-0.5 flex items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
+            {/* ★ FIX (2026-08-27, richiesta esplicita: "indirizzo non è
+            copiabile ma solo cliccabile") — prima l'unica azione possibile
+            era aprire Google Maps; niente modo di copiare il testo per
+            incollarlo altrove (es. nel gestionale contratti esterno).
+            "Apri in mappa" resta disponibile a parte. */}
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(`${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} ${segnalazione.cap}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+            >
+              <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              Apri in mappa
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const testo = `${segnalazione.via} ${segnalazione.civico}, ${segnalazione.comune} (${segnalazione.cap})`;
+              navigator.clipboard.writeText(testo);
+              toast("Indirizzo copiato.", "successo");
+            }}
+            className="group mt-0.5 flex w-full items-center gap-1.5 rounded-md py-0.5 text-left font-medium transition hover:bg-muted/50"
           >
-            <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
             {segnalazione.via} {segnalazione.civico}, {segnalazione.comune} ({segnalazione.cap})
-          </a>
+            <Copy className="h-3 w-3 shrink-0 text-muted-foreground opacity-50 transition group-hover:opacity-100" strokeWidth={2.25} />
+          </button>
         </div>
         <Campo etichetta="Note" valore={segnalazione.note || "—"} />
 
@@ -1120,16 +1131,36 @@ function DettaglioSegnalazione({
                   <div key="indirizzo" className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
                     {indirizzoInstallazione && (
                       <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
-                        <a
-                          href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-start gap-1.5 text-xs font-semibold break-words text-primary underline-offset-2 hover:underline"
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Indirizzo di installazione</p>
+                          {/* ★ FIX (2026-08-27, richiesta esplicita: "indirizzo non
+                          è copiabile ma solo cliccabile") — prima l'intero
+                          indirizzo era solo un link a Google Maps: toccarlo apriva
+                          la mappa invece di poterlo copiare, a differenza di ogni
+                          altro campo di questo pannello (tutti copiabili con
+                          RigaDatoCliente sotto). "Apri in mappa" resta disponibile
+                          separatamente, non più come unica azione possibile. */}
+                          <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(indirizzoInstallazione)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+                          >
+                            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                            Apri in mappa
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copiaCampo("__indirizzo", "Indirizzo di installazione", indirizzoInstallazione)}
+                          className={`group flex w-full items-start gap-1.5 rounded-md py-1 text-left text-xs font-semibold break-words transition hover:bg-background ${
+                            campiCopiati.has("__indirizzo") ? "text-success" : "text-primary"
+                          }`}
                         >
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                          {campiCopiati.has("__indirizzo") && <Check className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2.5} />}
                           {indirizzoInstallazione}
-                        </a>
+                          <Copy className="mt-0.5 h-3 w-3 shrink-0 opacity-50 transition group-hover:opacity-100" strokeWidth={2.25} />
+                        </button>
                       </div>
                     )}
 
@@ -1169,15 +1200,13 @@ function DettaglioSegnalazione({
                     {richiesta.documenti.length > 0 ? (
                       <div className="flex flex-col gap-1.5">
                         {richiesta.documenti.map((d, i) => (
-                          <Button
+                          <PulsanteDocumento
                             key={i}
-                            variant="outline"
-                            className="h-auto min-h-11 w-full justify-start py-3 whitespace-normal"
-                            onClick={() => apriDocumento(d.percorso)}
-                          >
-                            <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                            <span className="text-left break-all">{d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}</span>
-                          </Button>
+                            percorso={d.percorso}
+                            nome={d.nome}
+                            etichetta={d.tipo ? `${d.tipo} — ${d.nome}` : d.nome}
+                            onOttieniUrl={urlContratto}
+                          />
                         ))}
                       </div>
                     ) : (

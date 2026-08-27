@@ -3,10 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, Ticket as TicketIcon, Trash2, Loader2, Users2 } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2 } from "lucide-react";
+import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -202,15 +202,6 @@ function DettaglioRichiesta({
     });
   }
 
-  async function apriDocumento(percorso: string) {
-    const risultato = await urlDocumentoRichiesta(percorso);
-    if (risultato.errore || !risultato.url) {
-      toast(risultato.errore || "Errore imprevisto.");
-      return;
-    }
-    window.open(risultato.url, "_blank", "noopener,noreferrer");
-  }
-
   return (
     <>
       <DialogHeader>
@@ -279,16 +270,13 @@ function DettaglioRichiesta({
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Documenti</div>
             <div className="flex flex-col gap-1.5">
               {richiesta.documenti.map((doc, i) => (
-                <Button
+                <PulsanteDocumento
                   key={i}
-                  size="sm"
-                  variant="outline"
-                  className="h-auto w-full justify-start py-1.5 whitespace-normal"
-                  onClick={() => apriDocumento(doc.percorso)}
-                >
-                  <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  <span className="text-left break-all">{doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}</span>
-                </Button>
+                  percorso={doc.percorso}
+                  nome={doc.nome}
+                  etichetta={doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}
+                  onOttieniUrl={urlDocumentoRichiesta}
+                />
               ))}
             </div>
           </div>

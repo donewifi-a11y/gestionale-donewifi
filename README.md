@@ -2363,3 +2363,25 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     `apriPopup()` a chiunque nell'albero (prima solo la sidebar poteva aprire il pop-up), usato dalla
     striscia in home.
   Verificato: build/lint puliti.
+✅ Documenti clienti scaricabili con un pulsante + indirizzo copiabile (2026-08-27, richiesta esplicita:
+  "quando i clienti mi mandano la documentazione dovrei avere la possibilità di scaricare le foto e
+  non doverle aprire sul browser e fare salva immagine, ma avere il pulsante per scaricare. inoltre
+  indirizzo non è copiabile ma solo cliccabile").
+  - **Pulsante Scarica**: nuovo `components/condivisi/pulsante-documento.tsx` — accanto al pulsante
+    "Apri" di sempre (apre in una scheda, per dare un'occhiata), un pulsante dedicato scarica il file
+    subito (fetch del link firmato → blob → `<a download>` sintetico) invece di lasciare che
+    l'operatore apra la foto e faccia "salva immagine con nome" a mano. Un `<a download>` puntato
+    direttamente all'URL firmato non avrebbe funzionato (cross-origin, il browser lo ignora e apre e
+    basta) — da qui il passaggio dal blob. Sostituiti i 3 punti quasi identici che aprivano solo in
+    una scheda: `richieste-clienti-board.tsx`, `segnalazioni-board.tsx` (tab Documenti), `tickets-board.tsx`
+    ("Moduli ricevuti dal cliente") — stesso componente condiviso, ognuno con la propria funzione
+    server già in uso per l'URL firmato (`urlDocumentoRichiesta`/`urlContratto`, nessuna nuova action).
+  - **Indirizzo copiabile**: in `segnalazioni-board.tsx`, sia il campo "Indirizzo" della Segnalazione
+    sia "Indirizzo di installazione" nella revisione Richiesta Dati erano SOLO un link a Google Maps —
+    a differenza di ogni altro campo di quello stesso pannello (tutti copiabili con un click, vedi
+    `RigaDatoCliente`). "Apri in mappa" resta disponibile come link a parte, il testo dell'indirizzo è
+    ora anche un pulsante di copia (stesso trattamento visivo verde-quando-copiato degli altri campi
+    per quello nella revisione Richiesta Dati).
+  Verificato sui dati reali: 2 richieste con documenti reali (foto fronte/retro documento e tessera
+  sanitaria, .jpg), signed URL generata e scaricata con successo (200, `image/jpeg`, contenuto reale
+  non vuoto) — la stessa strada che percorrerà il pulsante in browser; build/lint puliti.
