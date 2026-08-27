@@ -2270,3 +2270,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   (nessuna regressione, il campo non veniva comunque mai popolato); RPC `verifica_login_tecnico_esterno`
   ok; 0 ticket/appuntamenti con doppia assegnazione (interno+esterno); build e lint puliti (solo i
   warning `<img>` preesistenti, non toccati da questo giro).
+✅ Testo dei rapporti riscritto come prosa vera, non più elenco etichettato (2026-08-27, richiesta
+  esplicita: "vorrei che il rapporto fosse un testo scritto e non un semplice elenco di dati ma un
+  testo completo") — `lib/testo-rapporto.ts` componeva frasi come "Cablaggio: X. Apparati: Y.
+  Collaudo: Z.": un elenco di campi etichettati travestito da paragrafo, non prosa vera. Riscritto
+  ogni gruppo di campi come una frase con soggetto e verbo ("È stata montata...", "Il collegamento è
+  stato realizzato con...", "In fase di collaudo sono stati rilevati...", "Sono stati installati e
+  configurati..."), concatenate senza etichette. Aggiunto un piccolo formattatore di elenchi
+  all'italiana ("a, b e c", mai virgola prima dell'ultimo) e una mappatura dei metodi di pagamento
+  ("In Fattura" → "in fattura", ecc.) invece del valore grezzo del database. Stessa firma delle
+  funzioni (`generaTestoRapportino`/`generaTestoScheda`), nessun punto di chiamata toccato.
+  Esempio reale (installazione del 26/08/2026): *"Installazione certificata con successo. È stata
+  montata una zanca da camino, in posizione camino sud. Il collegamento è stato realizzato con 12
+  metri di cavo Cat6 FTP Outdoor, agganciato alla BTS di Issogne. Sono stati installati e configurati
+  un CPE Albentia 350-Rs (MAC 00:1f:4a:01:11:22) e un router TP-Link EX230V. In fase di collaudo sono
+  stati rilevati un RSSI di -65 dBm, un rapporto segnale/rumore di 24 dB, un ping di 45 ms, 85 Mbps in
+  download e 10 Mbps in upload. Sono stati impiegati i seguenti materiali: Privati, Albentia 100Mb,
+  Griglia piccola, Alimentatore, Staffa camino, Tp-link EX520v. Il pagamento della posa è previsto in
+  fattura."*
+  Verificato: rigenerato il testo per le 2 schede reali in produzione e per un rapportino/lavorazione
+  sintetici (nessuno ancora chiuso con questo sistema) — build/lint puliti.

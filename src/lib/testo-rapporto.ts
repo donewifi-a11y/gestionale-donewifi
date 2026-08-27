@@ -10,21 +10,57 @@ import type { RapportinoIntervento, SchedaLavoro, MaterialeUsato } from "@/lib/t
 // volo da chi legge, non salvato una volta sola: se un giorno si volesse
 // affinare la formulazione, cambia per tutte le schede già scritte, non
 // solo per quelle future.
+//
+// ★ REDESIGN (2026-08-27, richiesta esplicita: "vorrei che il rapporto
+// fosse un testo scritto e non un semplice elenco di dati ma un testo
+// completo") — la prima versione componeva frasi del tipo "Cablaggio: X.
+// Apparati: Y. Collaudo: Z.": un elenco etichettato travestito da prosa,
+// non un vero testo. Qui ogni gruppo di campi diventa una frase con verbo
+// e soggetto ("È stata montata...", "Il collegamento è stato realizzato
+// con...", "In fase di collaudo sono stati rilevati..."), collegate in un
+// paragrafo — le etichette (Cablaggio/Apparati/...) sparissero del tutto.
+
 function elencoMateriali(materiali: MaterialeUsato[]): string {
   if (!materiali || materiali.length === 0) return "";
   return materiali.map((m) => `${m.nome}${m.quantita > 1 ? ` (×${m.quantita})` : ""}`).join(", ");
 }
 
-function frase(condizione: unknown, testo: string): string {
-  return condizione ? `${testo} ` : "";
+/** "a, b e c" — elenco all'italiana, mai con la virgola prima dell'ultimo. */
+function elencoItaliano(elementi: string[]): string {
+  const validi = elementi.filter(Boolean);
+  if (validi.length === 0) return "";
+  if (validi.length === 1) return validi[0];
+  return `${validi.slice(0, -1).join(", ")} e ${validi[validi.length - 1]}`;
+}
+
+/** Chiude una frase con la maiuscola iniziale e un punto finale, senza
+ * raddoppiarlo se il testo (es. un campo libero scritto dal tecnico) lo ha già. */
+function frase(testo: string): string {
+  const pulito = testo.trim();
+  if (!pulito) return "";
+  const conMaiuscola = pulito.charAt(0).toUpperCase() + pulito.slice(1);
+  return /[.!?]$/.test(conMaiuscola) ? conMaiuscola : `${conMaiuscola}.`;
+}
+
+function testoMetodoPagamento(metodo: string): string {
+  switch (metodo) {
+    case "Contanti":
+      return "in contanti";
+    case "POS":
+      return "tramite POS";
+    case "In Fattura":
+      return "in fattura";
+    default:
+      return metodo.toLowerCase();
+  }
 }
 
 /** Rapportino di chiusura Ticket (assistenza generica, non legato a un appuntamento). */
 export function generaTestoRapportino(r: Pick<RapportinoIntervento, "esito" | "lavori_svolti" | "materiali">): string {
-  let testo = `Esito dell'intervento: ${r.esito}. `;
-  testo += frase(r.lavori_svolti, `Lavori svolti: ${r.lavori_svolti}.`);
-  testo += frase(r.materiali, `Materiali utilizzati: ${r.materiali}.`);
-  return testo.trim();
+  const frasi: string[] = [frase(r.esito)];
+  if (r.lavori_svolti) frasi.push(frase(r.lavori_svolti));
+  if (r.materiali) frasi.push(frase(`Sono stati utilizzati i seguenti materiali: ${r.materiali}`));
+  return frasi.filter(Boolean).join(" ");
 }
 
 /** Scheda di Installazione o Lavorazione tecnica (legata a un appuntamento). */
@@ -56,42 +92,54 @@ export function generaTestoScheda(
   const materiali = elencoMateriali(s.materiali);
 
   if (s.tipo === "Nuova installazione") {
-    let testo = "Installazione certificata";
-    testo += s.supporto ? ` su ${s.supporto.toLowerCase()}` : "";
-    testo += s.posizione ? ` (${s.posizione})` : "";
-    testo += ". ";
+    const frasi: string[] = [frase(s.esito || "Installazione completata")];
 
-    const cablaggio: string[] = [];
-    if (s.metri_cavo) cablaggio.push(`${s.metri_cavo} metri di cavo${s.tipo_cavo ? ` ${s.tipo_cavo}` : ""}`);
-    if (s.bts) cablaggio.push(`agganciato alla BTS ${s.bts}`);
-    if (cablaggio.length) testo += `Cablaggio: ${cablaggio.join(", ")}. `;
+    if (s.supporto) {
+      const posizione = s.posizione ? `, in posizione ${s.posizione.toLowerCase()}` : "";
+      frasi.push(frase(`È stata montata una ${s.supporto.toLowerCase()}${posizione}`));
+    }
 
-    const radio: string[] = [];
-    if (s.modello_cpe) radio.push(`CPE ${s.modello_cpe}${s.mac ? ` (MAC ${s.mac})` : ""}`);
-    if (s.router) radio.push(`router ${s.router}`);
-    if (s.vlan) radio.push(`VLAN ${s.vlan}`);
-    if (radio.length) testo += `Apparati: ${radio.join(", ")}. `;
+    {
+      const cablaggio = s.metri_cavo ? `${s.metri_cavo} metri di cavo${s.tipo_cavo ? ` ${s.tipo_cavo}` : ""}` : "";
+      if (cablaggio && s.bts) {
+        frasi.push(frase(`Il collegamento è stato realizzato con ${cablaggio}, agganciato alla BTS di ${s.bts}`));
+      } else if (cablaggio) {
+        frasi.push(frase(`Il collegamento è stato realizzato con ${cablaggio}`));
+      } else if (s.bts) {
+        frasi.push(frase(`Il collegamento è agganciato alla BTS di ${s.bts}`));
+      }
+    }
 
-    const collaudo: string[] = [];
-    if (s.rssi != null) collaudo.push(`RSSI ${s.rssi} dBm`);
-    if (s.snr != null) collaudo.push(`SNR ${s.snr} dB`);
-    if (s.ping_ms != null) collaudo.push(`ping ${s.ping_ms} ms`);
-    if (s.download_mbps != null) collaudo.push(`download ${s.download_mbps} Mbps`);
-    if (s.upload_mbps != null) collaudo.push(`upload ${s.upload_mbps} Mbps`);
-    if (collaudo.length) testo += `Collaudo: ${collaudo.join(", ")}. `;
+    {
+      const apparati: string[] = [];
+      if (s.modello_cpe) apparati.push(`un CPE ${s.modello_cpe}${s.mac ? ` (MAC ${s.mac})` : ""}`);
+      if (s.router) apparati.push(`un router ${s.router}`);
+      if (s.vlan) apparati.push(`la VLAN ${s.vlan}`);
+      if (apparati.length) frasi.push(frase(`Sono stati installati e configurati ${elencoItaliano(apparati)}`));
+    }
 
-    testo += frase(materiali, `Materiali utilizzati: ${materiali}.`);
-    testo += frase(s.metodo_pagamento_posa, `Pagamento della posa: ${s.metodo_pagamento_posa}.`);
-    testo += frase(s.note, `Note: ${s.note}.`);
-    return testo.trim();
+    {
+      const collaudo: string[] = [];
+      if (s.rssi != null) collaudo.push(`un RSSI di ${s.rssi} dBm`);
+      if (s.snr != null) collaudo.push(`un rapporto segnale/rumore di ${s.snr} dB`);
+      if (s.ping_ms != null) collaudo.push(`un ping di ${s.ping_ms} ms`);
+      if (s.download_mbps != null) collaudo.push(`${s.download_mbps} Mbps in download`);
+      if (s.upload_mbps != null) collaudo.push(`${s.upload_mbps} Mbps in upload`);
+      if (collaudo.length) frasi.push(frase(`In fase di collaudo sono stati rilevati ${elencoItaliano(collaudo)}`));
+    }
+
+    if (materiali) frasi.push(frase(`Sono stati impiegati i seguenti materiali: ${materiali}`));
+    if (s.metodo_pagamento_posa) frasi.push(frase(`Il pagamento della posa è previsto ${testoMetodoPagamento(s.metodo_pagamento_posa)}`));
+    if (s.note) frasi.push(frase(s.note));
+
+    return frasi.filter(Boolean).join(" ");
   }
 
   // "Lavorazione tecnica"
-  let testo = "";
-  testo += frase(s.interventi_eseguiti?.length, `Interventi eseguiti: ${(s.interventi_eseguiti ?? []).join(", ")}.`);
-  testo += `Esito: ${s.esito ?? "—"}. `;
-  testo += frase(materiali, `Materiali/consumi utilizzati: ${materiali}.`);
-  testo += frase(s.metodo_pagamento_posa, `Pagamento della posa: ${s.metodo_pagamento_posa}.`);
-  testo += frase(s.note, `Note per la sede centrale: ${s.note}.`);
-  return testo.trim();
+  const frasi: string[] = [frase(`Intervento concluso con esito ${(s.esito ?? "non specificato").toLowerCase()}`)];
+  if (s.interventi_eseguiti?.length) frasi.push(frase(`Sono stati effettuati i seguenti interventi: ${elencoItaliano(s.interventi_eseguiti)}`));
+  if (materiali) frasi.push(frase(`Sono stati utilizzati i seguenti materiali/consumi: ${materiali}`));
+  if (s.metodo_pagamento_posa) frasi.push(frase(`Il pagamento della posa è avvenuto ${testoMetodoPagamento(s.metodo_pagamento_posa)}`));
+  if (s.note) frasi.push(frase(s.note));
+  return frasi.filter(Boolean).join(" ");
 }
