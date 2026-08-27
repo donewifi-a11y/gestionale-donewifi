@@ -10,9 +10,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaTicket, cercaClientiEsistenti, listaNomiTariffeAttive, type ClienteEsistente } from "../actions";
-import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET } from "@/lib/types";
+import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET, REPARTO_PER_CATEGORIA_TICKET } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
+
+// ★ NUOVA (2026-08-27, richiesta esplicita — revisione Ticket via artifact:
+// "vorrei direttamente che si potesse selezionare l'operazione da fare,
+// senza perdermi in categorie") — prima si sceglieva prima la Categoria
+// (3 valori astratti: Assistenza/Commerciale/Amministrativa) e SOLO dopo,
+// in un campo separato più in basso, il "Dettaglio" vero (le 14
+// sottocategorie reali, quelle che dicono davvero cosa fare). Un unico
+// elenco appiattito qui — un "Altro" generico per categoria copre il
+// vecchio caso "nessun dettaglio specifico" — categoria e reparto
+// proposto si derivano da un'unica scelta invece di due passaggi.
+interface Operazione {
+  valore: string;
+  etichetta: string;
+  categoria: (typeof CATEGORIE_TICKET)[number];
+  sottocategoria: string;
+}
+const OPERAZIONI: Operazione[] = CATEGORIE_TICKET.flatMap((cat) => [
+  { valore: `${cat}::`, etichetta: `Altro (${cat})`, categoria: cat, sottocategoria: "" },
+  ...SOTTOCATEGORIE_TICKET[cat].map((s) => ({ valore: `${cat}::${s}`, etichetta: s, categoria: cat, sottocategoria: s })),
+]);
 
 export default function NuovoTicketPage() {
   const router = useRouter();
@@ -28,8 +48,10 @@ export default function NuovoTicketPage() {
   const [telefono, setTelefono] = useState(() => searchParams.get("telefono") ?? "");
   const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
   const [indirizzo, setIndirizzo] = useState(() => searchParams.get("indirizzo") ?? "");
-  const [categoria, setCategoria] = useState<(typeof CATEGORIE_TICKET)[number]>(CATEGORIE_TICKET[0]);
-  const [sottocategoria, setSottocategoria] = useState("");
+  const [operazione, setOperazione] = useState<Operazione>(OPERAZIONI[0]);
+  const [reparto, setReparto] = useState<AreaAccesso>(REPARTO_PER_CATEGORIA_TICKET[OPERAZIONI[0].categoria]);
+  const categoria = operazione.categoria;
+  const sottocategoria = operazione.sottocategoria;
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
   const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ★ opzioni reali del catalogo Tariffe per "Nuovo profilo desiderato"
@@ -102,11 +124,11 @@ export default function NuovoTicketPage() {
         telefono,
         email,
         indirizzo,
-        categoria: String(dati.get("categoria") || CATEGORIE_TICKET[0]),
+        categoria,
         sottocategoria,
         problema: String(dati.get("problema") || ""),
         priorita: String(dati.get("priorita") || "Normale") as PrioritaTicket,
-        reparto: String(dati.get("reparto") || REPARTI[0]) as AreaAccesso,
+        reparto,
         dettagliExtra,
       },
       fileExtra
@@ -179,27 +201,42 @@ export default function NuovoTicketPage() {
           <IndirizzoAutocomplete id="indirizzo" name="indirizzo" value={indirizzo} onChange={setIndirizzo} className="mt-1" />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <Label htmlFor="categoria">Categoria</Label>
-            <select
-              id="categoria"
-              name="categoria"
-              value={categoria}
-              onChange={(e) => {
-                setCategoria(e.target.value as (typeof CATEGORIE_TICKET)[number]);
-                setSottocategoria("");
-              }}
-              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
-            >
-              {CATEGORIE_TICKET.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <Label htmlFor="operazione">Operazione</Label>
+          <select
+            id="operazione"
+            value={operazione.valore}
+            onChange={(e) => {
+              const scelta = OPERAZIONI.find((o) => o.valore === e.target.value);
+              if (!scelta) return;
+              setOperazione(scelta);
+              setReparto(REPARTO_PER_CATEGORIA_TICKET[scelta.categoria]);
+            }}
+            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            {CATEGORIE_TICKET.map((cat) => (
+              <optgroup key={cat} label={cat}>
+                {OPERAZIONI.filter((o) => o.categoria === cat).map((o) => (
+                  <option key={o.valore} value={o.valore}>{o.etichetta}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Reparto e categoria si propongono da soli in base all&apos;operazione — cambiali sotto se serve.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="reparto">Reparto</Label>
-            <select id="reparto" name="reparto" defaultValue={REPARTI[0]} className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <select
+              id="reparto"
+              name="reparto"
+              value={reparto}
+              onChange={(e) => setReparto(e.target.value as AreaAccesso)}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+            >
               {REPARTI.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -213,23 +250,6 @@ export default function NuovoTicketPage() {
               <option value="Bassa">Bassa</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <Label htmlFor="sottocategoria">Dettaglio (facoltativo)</Label>
-          <select
-            id="sottocategoria"
-            name="sottocategoria"
-            key={categoria}
-            value={sottocategoria}
-            onChange={(e) => setSottocategoria(e.target.value)}
-            className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
-          >
-            <option value="">Nessun dettaglio specifico</option>
-            {SOTTOCATEGORIE_TICKET[categoria].map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
         </div>
 
         {configExtra && (

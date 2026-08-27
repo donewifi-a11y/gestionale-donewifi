@@ -2489,3 +2489,21 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   vecchie un'attivazione non più distinguibile da un apparato vero resta inclusa).
   Verificato sui dati reali: scheda con `tipo_riga` — "Privati" (Servizio) sparisce dall'elenco,
   restano i 5 apparati veri; build/lint puliti.
+✅ Sistema Ticket, prime 2 semplificazioni (2026-08-27, richiesta esplicita: "rivediamo il sistema dei
+  ticket... semplificarlo" → artifact "Revisione Sistema Ticket", checklist a 7 sezioni compilata
+  dall'utente) — 2 delle scelte "Semplifica" implementate, le altre lette e tenute com'erano.
+  - **Creazione Ticket — un'unica scelta "Operazione"** invece di Categoria (3 valori astratti) e
+    "Dettaglio" (le 14 sottocategorie vere) come due passaggi separati: ora un solo menu, raggruppato
+    per categoria, con le 14 operazioni reali più un "Altro (categoria)" per il caso senza dettaglio
+    specifico. Categoria e Reparto si propongono da soli in base alla scelta (nuova
+    `REPARTO_PER_CATEGORIA_TICKET` in `lib/types.ts` — la stessa mappa già in uso nel Portale
+    pubblico, unificata in un solo posto invece di due copie), restano comunque modificabili sotto.
+  - **Assegnazione Ticket — un unico selettore** invece di "Prendi in carico" (solo te stesso) +
+    un menu separato solo per tecnici esterni: ora un solo menu "Assegna a..." con te stesso in
+    cima, poi lo staff, poi i tecnici esterni — **capacità nuova nata dalla stessa semplificazione**:
+    prima non esisteva alcun modo di assegnare un Ticket a un collega, solo a se stessi o a un
+    esterno (`assegnaTicket()` già lo permetteva lato server, mai esposto lato interfaccia). Un solo
+    "Rimuovi" per entrambi i tipi invece di due bottoni duplicati.
+  Verificato: build/lint puliti. Le altre voci della checklist (assegnazione via OTP nella chiusura
+  Ticket) richiedono un chiarimento con l'utente prima di toccare un requisito di consenso cliente —
+  in sospeso.

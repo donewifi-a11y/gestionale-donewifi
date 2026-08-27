@@ -77,6 +77,19 @@ export const SOTTOCATEGORIE_TICKET: Record<(typeof CATEGORIE_TICKET)[number], st
   Amministrativa: ["Cambio Anagrafica", "Disdetta", "Cambio IBAN", "Fatture non saldate"],
 };
 
+/** ★ NUOVA (2026-08-27, richiesta esplicita — revisione Ticket via artifact:
+ * "vorrei direttamente che si potesse selezionare l'operazione da fare,
+ * senza perdermi in categorie") — reparto proposto per ciascuna categoria,
+ * così la creazione Ticket può partire da un'unica scelta ("l'operazione")
+ * invece di categoria e reparto come due passaggi separati. Stessa mappa
+ * già in uso in api/portale/apri-ticket/route.ts (portale pubblico): unica
+ * fonte invece di due copie che potrebbero disallinearsi. */
+export const REPARTO_PER_CATEGORIA_TICKET: Record<(typeof CATEGORIE_TICKET)[number], AreaAccesso> = {
+  Assistenza: "Analisi Rete",
+  Commerciale: "Commerciale",
+  Amministrativa: "Fatturazione",
+};
+
 export interface Ticket {
   id: string;
   numero: number;

@@ -723,15 +723,6 @@ function DettaglioTicket({
     });
   }
 
-  function prendiInCarico() {
-    startAssegna(async () => {
-      await assegnaTicket(ticket.id, currentPersonaId);
-      onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId });
-      toast("Ticket preso in carico.", "successo");
-      router.refresh();
-    });
-  }
-
   const idx = SEQUENZA_STATO.indexOf(ticket.stato);
 
   return (
@@ -846,31 +837,39 @@ function DettaglioTicket({
 
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>
-          {assegnatario ? (
-            <div className="mt-1 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {iniziali(assegnatario)}
-              </span>
-              <span className="font-medium">{assegnatario.nome}</span>
-            </div>
-          ) : assegnatarioEsterno ? (
+          {/* ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione
+          Ticket via artifact: "due meccanismi separati" → "semplifica") —
+          prima "Prendi in carico" (solo se stesso) e l'assegnazione a un
+          tecnico esterno erano due controlli diversi, e non esisteva alcun
+          modo di assegnare a UN COLLEGA (solo a sé stessi o a un esterno).
+          Un solo select copre tutti i casi: te stesso (scorciatoia in
+          cima), un collega, o un tecnico esterno — stessa logica di
+          "assegnato/rimuovi" per entrambi i tipi invece di due rami
+          diversi con lo stesso bottone "Rimuovi" duplicato due volte. */}
+          {assegnatario || assegnatarioEsterno ? (
             <div className="mt-1 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-servizio-installazione text-[10px] font-bold text-white">
-                  {assegnatarioEsterno.nome.slice(0, 2).toUpperCase()}
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                    assegnatarioEsterno ? "bg-servizio-installazione text-white" : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {assegnatarioEsterno ? assegnatarioEsterno.nome.slice(0, 2).toUpperCase() : iniziali(assegnatario!)}
                 </span>
                 <span className="font-medium">
-                  {assegnatarioEsterno.nome} {assegnatarioEsterno.cognome}
+                  {assegnatarioEsterno ? `${assegnatarioEsterno.nome} ${assegnatarioEsterno.cognome ?? ""}`.trim() : assegnatario!.nome}
                 </span>
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">esterno</span>
+                {assegnatarioEsterno && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">esterno</span>
+                )}
               </div>
               <button
                 type="button"
-                disabled={inCorsoAssegnaEsterno}
+                disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
                 onClick={() =>
-                  startAssegnaEsterno(async () => {
-                    await assegnaTicketTecnicoEsterno(ticket.id, null);
-                    onCambiato({ ...ticket, tecnico_esterno_id: null });
+                  startAssegna(async () => {
+                    await assegnaTicket(ticket.id, null);
+                    onCambiato({ ...ticket, tecnico_assegnato: null, tecnico_esterno_id: null });
                   })
                 }
                 className="text-xs text-muted-foreground hover:text-critical disabled:opacity-60"
@@ -879,38 +878,54 @@ function DettaglioTicket({
               </button>
             </div>
           ) : (
-            <div className="mt-1.5 flex flex-col gap-1.5">
-              <Button size="sm" variant="outline" onClick={prendiInCarico} disabled={inCorsoAssegna} className="min-h-11 w-fit">
-                {inCorsoAssegna ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />}
-                {inCorsoAssegna ? "Assegnazione…" : "Prendi in carico"}
-              </Button>
-              {/* ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: un Ticket può
-              anche andare a un installatore esterno invece che a uno staff
-              interno — stesso principio di "Prendi in carico" ma scelto da
-              un elenco, non auto-assegnato. */}
+            <select
+              defaultValue=""
+              disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) return;
+                if (v === "io") {
+                  startAssegna(async () => {
+                    await assegnaTicket(ticket.id, currentPersonaId);
+                    onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
+                  });
+                } else if (v.startsWith("p:")) {
+                  const id = v.slice(2);
+                  startAssegna(async () => {
+                    await assegnaTicket(ticket.id, id);
+                    onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
+                  });
+                } else {
+                  const id = v.slice(2);
+                  startAssegnaEsterno(async () => {
+                    await assegnaTicketTecnicoEsterno(ticket.id, id);
+                    onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
+                  });
+                }
+              }}
+              className="mt-1.5 h-9 w-full rounded-md border bg-background px-2 text-xs disabled:opacity-60"
+            >
+              <option value="">Assegna a...</option>
+              <option value="io">Io{persone.find((p) => p.id === currentPersonaId) ? ` (${persone.find((p) => p.id === currentPersonaId)!.nome})` : ""}</option>
+              {persone.filter((p) => p.attivo && p.id !== currentPersonaId).length > 0 && (
+                <optgroup label="Staff">
+                  {persone
+                    .filter((p) => p.attivo && p.id !== currentPersonaId)
+                    .map((p) => (
+                      <option key={p.id} value={`p:${p.id}`}>{p.nome}</option>
+                    ))}
+                </optgroup>
+              )}
               {tecniciEsterni.length > 0 && (
-                <select
-                  defaultValue=""
-                  disabled={inCorsoAssegnaEsterno}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (!id) return;
-                    startAssegnaEsterno(async () => {
-                      await assegnaTicketTecnicoEsterno(ticket.id, id);
-                      onCambiato({ ...ticket, tecnico_esterno_id: id });
-                    });
-                  }}
-                  className="h-8 w-fit rounded-md border bg-background px-2 text-xs disabled:opacity-60"
-                >
-                  <option value="">Oppure assegna a un tecnico esterno...</option>
+                <optgroup label="Tecnici esterni">
                   {tecniciEsterni.map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={`e:${t.id}`}>
                       {t.nome} {t.cognome}
                     </option>
                   ))}
-                </select>
+                </optgroup>
               )}
-            </div>
+            </select>
           )}
         </div>
 

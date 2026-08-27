@@ -1,16 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
-import type { AreaAccesso } from "@/lib/types";
+import { REPARTO_PER_CATEGORIA_TICKET, type AreaAccesso } from "@/lib/types";
 
 // ★ ex "Apri un Ticket" del Portale pubblico (Portale.html) — un cliente
 // apre direttamente un Ticket senza chiamare, senza login. Il reparto si
 // deduce dalla categoria scelta, così il cliente non deve saperlo.
-const REPARTO_PER_CATEGORIA: Record<string, AreaAccesso> = {
-  Assistenza: "Analisi Rete",
-  Commerciale: "Commerciale",
-  Amministrativa: "Fatturazione",
-};
+// ★ FIX (2026-08-27) — era una copia locale della stessa mappa ora anche
+// in lib/types.ts (REPARTO_PER_CATEGORIA_TICKET, riusata dalla creazione
+// Ticket interna): un solo posto invece di due che potevano disallinearsi.
+const REPARTO_PER_CATEGORIA: Record<string, AreaAccesso> = REPARTO_PER_CATEGORIA_TICKET;
 
 export async function POST(request: NextRequest) {
   // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — un corpo
