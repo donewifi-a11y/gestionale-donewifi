@@ -32,9 +32,20 @@ async function verificaAdmin(): Promise<string | null> {
   return null;
 }
 
+// ★ FIX SICUREZZA (2026-08-27, trovato in un audit) — `select("*")`
+// includeva `password_hash` (bcrypt): anche se questa pagina è già
+// riservata all'amministratore lato server, il valore attraversava
+// comunque il confine Server→Client e finiva nel browser (leggibile da
+// DevTools/Network), mai mostrato ma comunque presente — un'esposizione
+// superflua di un hash a un client, evitabile con un elenco esplicito di
+// colonne. Stesso principio già applicato a `persone` (mai un `select("*")`
+// verso il client su una tabella con una colonna password).
 export async function getTecniciEsterni(): Promise<TecnicoEsterno[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("tecnici_esterni").select("*").order("nome", { ascending: true });
+  const { data, error } = await supabase
+    .from("tecnici_esterni")
+    .select("id, nome, cognome, telefono, username, email, attivo, creato_il")
+    .order("nome", { ascending: true });
   if (error) console.error("getTecniciEsterni:", error.message);
   return (data as TecnicoEsterno[]) ?? [];
 }

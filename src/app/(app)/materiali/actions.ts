@@ -86,12 +86,18 @@ export async function impostaVisibilitaSchedaMateriale(id: string, visibile: boo
   return { errore: null };
 }
 
+// ★ FIX (2026-08-27, trovato in un audit) — prima bastava essere staff
+// attivo (come creaMateriale/aggiornaMateriale, che restano volutamente
+// aperte a chiunque: modificare un prezzo è correggibile, cancellare un
+// materiale dal catalogo condiviso no). Ogni altra funzione "elimina" del
+// gestionale (Segnalazione, Ticket, Preventivo, Tariffa, Lavorazione,
+// Richiesta Cliente, Antenna — quest'ultima nello stesso file) richiede
+// un amministratore: qui era l'unica eccezione, una svista più che una
+// scelta voluta.
 export async function eliminaMateriale(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const erroreAccesso = await verificaAdminMateriali(supabase, "Solo un amministratore può eliminare un materiale dal catalogo.");
+  if (erroreAccesso) return { errore: erroreAccesso };
 
   const { error } = await supabase.from("materiali_magazzino").delete().eq("id", id);
   if (error) return { errore: error.message };
@@ -104,10 +110,16 @@ export async function eliminaMateriale(id: string) {
 // ★ NUOVA — richiesta esplicita: giacenza reale + avviso di mancanza,
 // proposta approvata via artifact (tutte le opzioni consigliate: solo
 // amministratore corregge a mano giacenza/soglia).
-async function verificaAdminMateriali(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+// ★ ESTESA (2026-08-27) — messaggio ora parametrico: riusata anche da
+// eliminaMateriale() sopra, dove "correggere la giacenza" sarebbe stato
+// un messaggio d'errore fuorviante.
+async function verificaAdminMateriali(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  messaggio = "Solo un amministratore può correggere la giacenza a magazzino."
+): Promise<string | null> {
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return ERRORE_PERSONA_MANCANTE;
-  if (!personaHaAccessoAdmin(persona)) return "Solo un amministratore può correggere la giacenza a magazzino.";
+  if (!personaHaAccessoAdmin(persona)) return messaggio;
   return null;
 }
 

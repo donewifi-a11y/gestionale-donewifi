@@ -177,13 +177,13 @@ export function MaterialiBoard({
       uniformato al popup centrale (Dialog). */}
       <Dialog open={nuovo} onOpenChange={setNuovo}>
         <DialogContent>
-          <FormMateriale categorieEsistenti={categorieEsistenti} onFatto={() => setNuovo(false)} />
+          <FormMateriale categorieEsistenti={categorieEsistenti} onFatto={() => setNuovo(false)} isAdmin={isAdmin} />
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <DialogContent>
-          {modifica && <FormMateriale materiale={modifica} categorieEsistenti={categorieEsistenti} onFatto={() => setModifica(null)} />}
+          {modifica && <FormMateriale materiale={modifica} categorieEsistenti={categorieEsistenti} onFatto={() => setModifica(null)} isAdmin={isAdmin} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -194,10 +194,12 @@ function FormMateriale({
   materiale,
   categorieEsistenti,
   onFatto,
+  isAdmin,
 }: {
   materiale?: MaterialeMagazzino;
   categorieEsistenti: string[];
   onFatto: () => void;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
@@ -353,8 +355,13 @@ function FormMateriale({
           <Button type="submit" disabled={inCorso} className="flex-1">
             {inCorso ? "Salvataggio..." : materiale ? "Salva modifiche" : "Aggiungi"}
           </Button>
-          {materiale && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina}>
+          {/* ★ FIX (2026-08-27, trovato in un audit) — eliminaMateriale() ora
+          richiede un amministratore lato server (prima bastava essere
+          staff attivo, l'unica eccezione a "elimina = admin" in tutto il
+          gestionale): il pulsante segue la stessa regola invece di restare
+          visibile a chi poi riceverebbe solo un errore al click. */}
+          {materiale && isAdmin && (
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina materiale" aria-label="Elimina materiale">
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           )}

@@ -2519,3 +2519,25 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   richiesta di conferma cliente come prima — non toccata, per scelta esplicita dell'utente.
   Verificato: build/lint puliti (rimossi anche gli import/tipi `FirmaClienteApprovata` diventati
   inutilizzati nei 2 file di action).
+✅ Audit completo + 2 correzioni (2026-08-27, richiesta esplicita: "fai un audit completo come
+  farebbero dei betatester... il software deve essere perfetto" → "fai tutto quello che puoi" →
+  "devi fare le correzioni") — audit su permessi (ogni funzione "elimina"/"crea" sensibile), RLS
+  (query dirette con la sola chiave anonima su 20 tabelle), robustezza corpo malformato, escaping
+  Telegram, responsive/mobile via codice. Trovati e corretti 2 problemi reali:
+  - **`getTecniciEsterni()` esponeva l'hash bcrypt della password** di ogni tecnico esterno al
+    browser dell'amministratore — `select("*")` includeva `password_hash`, mai mostrato
+    nell'interfaccia ma comunque presente nel payload React Server→Client (leggibile da
+    DevTools/Network). La pagina è già riservata all'admin lato server, quindi il rischio pratico era
+    limitato, ma l'esposizione era superflua e contro il principio già in uso per `persone` (mai un
+    `select("*")` con colonne password verso il client). Ora seleziona solo le 8 colonne sicure.
+  - **`eliminaMateriale()` era l'unica funzione "elimina" di tutto il gestionale aperta a qualunque
+    staff attivo**, non solo agli amministratori (Segnalazione/Ticket/Preventivo/Tariffa/Lavorazione/
+    Richiesta Cliente/Antenna richiedono tutte un admin) — confermato non intenzionale controllando
+    anche la policy RLS. Ora richiede un amministratore, riusando lo stesso helper già usato per
+    `eliminaAntennaInventario()` nello stesso file (con un messaggio d'errore proprio, non più quello
+    di "correggere la giacenza"). Il pulsante "Elimina" nel form Materiali ora compare solo per un
+    amministratore, invece di restare visibile a chi riceverebbe solo un errore al click — aggiunto
+    anche un `title`/`aria-label` che mancava.
+  Verificato sui dati reali: la nuova query di `getTecniciEsterni()` non restituisce più
+  `password_hash`; 2 persone attive non amministratrici in produzione confermate ora bloccate
+  dall'eliminare un materiale; build/lint puliti.
