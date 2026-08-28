@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { HardHat, MapPin, Phone, CalendarClock, ChevronRight, Users } from "lucide-react";
+import { HardHat, MapPin, Phone, CalendarClock, ChevronRight, Users, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { getInterventiTecnicoEsterno } from "./actions";
 import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
@@ -18,6 +18,18 @@ export default async function PosePage() {
   if (!dati) redirect("/pose/login");
 
   const { tecnico, tickets, appuntamenti } = dati;
+
+  // ★ NUOVA (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
+  // le installazioni da fare rapporto di lavoro quando non completate") —
+  // getInterventiTecnicoEsterno() ora porta anche gli appuntamenti con una
+  // data ormai passata (prima sparivano del tutto, vedi il commento lì).
+  // Qui si dividono in due sezioni invece di lasciarli mescolati per data:
+  // "In ritardo" salta all'occhio per primo, con un trattamento diverso
+  // (rosso, sopra tutto) da "In programma" (i normali appuntamenti futuri).
+  const oggiInizio = new Date();
+  oggiInizio.setHours(0, 0, 0, 0);
+  const appuntamentiInRitardo = appuntamenti.filter((a) => new Date(a.data_ora) < oggiInizio);
+  const appuntamentiInProgramma = appuntamenti.filter((a) => new Date(a.data_ora) >= oggiInizio);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-6">
@@ -47,11 +59,44 @@ export default async function PosePage() {
         <ChevronRight className="h-5 w-5 shrink-0" strokeWidth={2.25} />
       </Link>
 
-      {appuntamenti.length > 0 && (
+      {appuntamentiInRitardo.length > 0 && (
+        <div className="flex flex-col gap-2.5 rounded-2xl border-2 border-critical/30 bg-critical/5 p-3.5">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-critical">
+            <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+            In ritardo — rapporto non ancora fatto
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {appuntamentiInRitardo.map((a) => (
+              <Link
+                key={a.id}
+                href={`/pose/appuntamenti/${a.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-critical/20 bg-card p-4 shadow-sm transition active:scale-[0.99] active:bg-muted/40"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-critical">
+                    <CalendarClock className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+                    {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <p className="mt-1.5 truncate text-base font-medium">{a.titolo}</p>
+                  {a.indirizzo && (
+                    <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                      <span className="truncate">{a.indirizzo}</span>
+                    </p>
+                  )}
+                </div>
+                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {appuntamentiInProgramma.length > 0 && (
         <div className="flex flex-col gap-2.5">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Appuntamenti in programma</p>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            {appuntamenti.map((a) => (
+            {appuntamentiInProgramma.map((a) => (
               <Link
                 key={a.id}
                 href={`/pose/appuntamenti/${a.id}`}

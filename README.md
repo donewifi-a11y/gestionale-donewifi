@@ -2562,3 +2562,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   correttamente 🟠 "Contratto inviato — in attesa da 1g".
   Verificato sui dati reali: tutte e 3 le pratiche in "Gestione Cliente" ricontrollate una per una;
   build/lint puliti.
+✅ Appuntamenti scaduti che sparivano del tutto (2026-08-28, richiesta esplicita: "in pose.donewifi.it
+  bisogna avere anche una sezione in cui ci sono le installazioni da fare rapporto di lavoro quando
+  non completate") — `getInterventiTecnicoEsterno()` filtrava gli appuntamenti con
+  `.gte("data_ora", oggi)`, pensato per "l'agenda di oggi in poi": un appuntamento "Programmato" con
+  data ormai passata (intervento saltato, rimandato, o solo non chiuso quel giorno) spariva del tutto
+  dall'app, senza alcun ticket collegato su cui il tecnico potesse appoggiarsi per accorgersene.
+  Tolto il limite inferiore in `app/pose/actions.ts`: ora arrivano tutti gli appuntamenti
+  "Programmato", passati e futuri; `app/pose/page.tsx` li divide in due sezioni — "In ritardo"
+  (rosso, in cima) e "In programma" (invariato).
+  **Bug gemello trovato ed esteso anche lato interno**: lo stesso filtro `.gte(oggi)` era presente
+  identico in `app/(app)/vista-tecnico/page.tsx`. Verificato sui dati reali: 10 appuntamenti
+  "Programmato" con data già passata in produzione (dal 5 al 26 agosto), 9 dei quali senza
+  `tecnico_id` assegnato — quindi comunque invisibili a chiunque finché non assegnati, ma non più
+  a rischio di sparire silenziosamente una volta assegnati. Sistemato con un limite superiore fisso
+  a fine giornata odierna (`.lte("data_ora", fineOggi)`, niente limite inferiore) — a differenza di
+  pose, Vista Tecnico resta deliberatamente un'agenda "solo oggi + arretrati", non un calendario
+  futuro. `VistaTecnicoBoard` divide allo stesso modo in "In ritardo" (rosso, in cima) e
+  "Appuntamenti di oggi".
+  Osservazione a margine (non corretta, solo segnalata): tra i 10 risultati compare due volte lo
+  stesso appuntamento ("Assistenza — Internet assente · Lorenzo Moja", 10/08) — verificato che sono
+  due righe distinte a tutti gli effetti (id, google_event_id diversi, creato_il a 2 minuti di
+  distanza): una probabile doppia registrazione dello stesso appuntamento, non un artefatto della
+  query. Non corretta, solo segnalata: non richiesta esplicitamente.
+  Build/lint puliti; verificato sui dati reali con uno script diretto su Supabase.

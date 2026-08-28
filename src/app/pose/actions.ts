@@ -51,15 +51,28 @@ export interface InterventiTecnicoEsterno {
   appuntamenti: Appuntamento[];
 }
 
-/** Tutto ciò che è assegnato al tecnico esterno collegato — o `null` se
- * nessuna sessione valida (la pagina reindirizza al login in quel caso). */
+/**
+ * Tutto ciò che è assegnato al tecnico esterno collegato — o `null` se
+ * nessuna sessione valida (la pagina reindirizza al login in quel caso).
+ *
+ * ★ FIX (2026-08-28, richiesta esplicita: "bisogna avere anche una
+ * sezione in cui ci sono le installazioni da fare rapporto di lavoro
+ * quando non completate") — prima gli appuntamenti si filtravano con
+ * `.gte("data_ora", oggi)`: un appuntamento "Programmato" con una data
+ * ormai passata (intervento saltato, rimandato, o semplicemente mai
+ * chiuso perché quel giorno non si è riusciti a compilare la Scheda)
+ * SPARIVA del tutto dalla dashboard del tecnico esterno, senza che lui
+ * (né nessun altro, guardando solo pose) se ne accorgesse più — l'unico
+ * modo per notarlo era controllare dal gestionale interno. Ora si
+ * prendono TUTTI gli appuntamenti "Programmato" del tecnico, passati e
+ * futuri: la pagina (vedi pose/page.tsx) li divide in "In ritardo" e
+ * "In programma" invece di lasciarli mescolati per data.
+ */
 export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEsterno | null> {
   const tecnico = await getTecnicoEsternoCorrente();
   if (!tecnico) return null;
 
   const service = createServiceClient();
-  const oraInizio = new Date();
-  oraInizio.setHours(0, 0, 0, 0);
 
   const [{ data: tickets }, { data: appuntamenti }] = await Promise.all([
     service
@@ -73,7 +86,6 @@ export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEs
       .select("*")
       .eq("tecnico_esterno_id", tecnico.id)
       .eq("stato", "Programmato")
-      .gte("data_ora", oraInizio.toISOString())
       .order("data_ora", { ascending: true }),
   ]);
 

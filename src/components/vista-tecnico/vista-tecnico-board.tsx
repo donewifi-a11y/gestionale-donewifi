@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2 } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -363,6 +363,19 @@ export function VistaTecnicoBoard({
     });
   }
 
+  // ★ NUOVA (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
+  // le installazioni da fare rapporto di lavoro quando non completate",
+  // estesa qui dopo aver trovato lo stesso problema lato interno — vedi il
+  // commento gemello in app/(app)/vista-tecnico/page.tsx e app/pose/page.tsx)
+  // — `appuntamenti` ora può contenere anche date già passate (prima il
+  // filtro `.gte(oggi)` le faceva sparire del tutto). Le si separa qui in
+  // "In ritardo" (data prima di oggi) da "Di oggi" invece di lasciarle
+  // mescolate per non confondere un appuntamento saltato con uno regolare.
+  const oggiInizio = new Date();
+  oggiInizio.setHours(0, 0, 0, 0);
+  const appuntamentiInRitardo = appuntamenti.filter((a) => new Date(a.data_ora) < oggiInizio);
+  const appuntamentiDiOggi = appuntamenti.filter((a) => new Date(a.data_ora) >= oggiInizio);
+
   function avanzaTicket(t: Ticket) {
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
@@ -389,13 +402,55 @@ export function VistaTecnicoBoard({
         </section>
       )}
 
+      {appuntamentiInRitardo.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-critical">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+            In ritardo — rapporto non ancora fatto ({appuntamentiInRitardo.length})
+          </h2>
+          <div className="flex flex-col gap-3">
+            {appuntamentiInRitardo.map((a) => (
+              <div key={a.id} className="rounded-2xl border-2 border-critical/30 bg-critical/5 p-4 shadow-md">
+                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-critical">
+                  <Clock className="h-4 w-4" strokeWidth={2.5} />
+                  {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </div>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-lg font-semibold">{a.titolo}</span>
+                  <StatusBadge status={a.tipo_servizio} />
+                </div>
+                {a.indirizzo && (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    {a.indirizzo}
+                  </a>
+                )}
+                {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
+                <button
+                  onClick={() => setAppuntamentoScheda(a)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-bold text-success"
+                >
+                  <Check className="h-4 w-4" strokeWidth={2.5} />
+                  Segna completato
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          Appuntamenti di oggi ({appuntamenti.length})
+          Appuntamenti di oggi ({appuntamentiDiOggi.length})
         </h2>
-        {appuntamenti.length === 0 && <StatoVuoto icona={CheckCircle2} titolo="Nessun appuntamento in programma." compatto />}
+        {appuntamentiDiOggi.length === 0 && <StatoVuoto icona={CheckCircle2} titolo="Nessun appuntamento in programma." compatto />}
         <div className="flex flex-col gap-3">
-          {appuntamenti.map((a) => (
+          {appuntamentiDiOggi.map((a) => (
             <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-md">
               <div className="mb-2 flex items-center gap-2 text-sm font-bold text-primary">
                 <Clock className="h-4 w-4" strokeWidth={2.5} />

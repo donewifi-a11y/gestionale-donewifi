@@ -14,12 +14,23 @@ export default async function VistaTecnicoPage() {
   oraFine.setHours(23, 59, 59, 999);
 
   const [{ data: appuntamenti }, { data: tickets }, { data: completatiOggi }, { data: materiali }, { data: persone }] = await Promise.all([
+    // ★ FIX (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
+    // le installazioni da fare rapporto di lavoro quando non completate",
+    // estesa qui dopo aver trovato lo stesso problema anche lato interno —
+    // vedi il commento gemello in app/pose/actions.ts) — prima il filtro
+    // `.gte(oggi)` faceva sparire dal tutto un appuntamento "Programmato"
+    // con una data ormai passata (mai completato: intervento saltato,
+    // rimandato, o semplicemente non chiuso quel giorno). Trovati 5
+    // appuntamenti reali già in questa condizione, invisibili ovunque
+    // (nessun Ticket collegato a cui appoggiarsi). Tolto il limite
+    // inferiore: VistaTecnicoBoard divide "In ritardo" da "Di oggi" invece
+    // di lasciarli mescolati — vedi lì.
     supabase
       .from("appuntamenti")
       .select("*")
       .eq("tecnico_id", personaId ?? "")
       .eq("stato", "Programmato")
-      .gte("data_ora", oraInizio.toISOString())
+      .lte("data_ora", oraFine.toISOString())
       .order("data_ora", { ascending: true }),
     supabase
       .from("tickets")
