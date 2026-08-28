@@ -75,10 +75,10 @@ export default async function CalendarioPage({
     supabase
       .from("tickets")
       // ★ NUOVA (2026-08-28, bug reale: "stai trattando le nuove
-      // installazioni come interventi in loco") — categoria serve a
-      // FormNuovoAppuntamento per proporre il "Tipo di servizio" giusto in
-      // base al Ticket collegato, vedi il commento su TicketMinimo.
-      .select("id, numero, cliente, indirizzo, telefono, categoria")
+      // installazioni come interventi in loco") — categoria/sottocategoria
+      // servono a FormNuovoAppuntamento per proporre il "Tipo di servizio"
+      // giusto in base al Ticket collegato, vedi tipoServizioDaTicket().
+      .select("id, numero, cliente, indirizzo, telefono, categoria, sottocategoria")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
     // ★ NUOVA — serve al pannello "Apri scheda di lavoro" nel dettaglio

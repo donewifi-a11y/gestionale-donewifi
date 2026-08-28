@@ -194,6 +194,22 @@ export type StatoAppuntamento = "Programmato" | "Completato" | "Annullato";
 export type TipoServizioAppuntamento = "Nuova installazione" | "Lavorazione tecnica";
 export const TIPI_SERVIZIO_APPUNTAMENTO: TipoServizioAppuntamento[] = ["Nuova installazione", "Lavorazione tecnica"];
 
+/**
+ * ★ NUOVA (2026-08-28, bug reale segnalato due volte: "stai trattando le
+ * nuove installazioni come interventi in loco") — unica fonte per capire,
+ * da categoria/sottocategoria di un Ticket, se l'appuntamento da
+ * pianificare è una "Nuova installazione". Prima questa regola era
+ * duplicata (e disallineata) in due punti: Calendario → FormNuovoAppuntamento
+ * guardava solo `categoria === "Commerciale"`, Dettaglio Ticket →
+ * "Pianifica appuntamento" guardava `segnalazione_id` — nessuno dei due
+ * copriva un Ticket categoria "Assistenza" con sottocategoria
+ * "Pianificazione installazione" (SOTTOCATEGORIE_TICKET.Assistenza),
+ * trovato reale in produzione. Ora un'unica funzione, usata ovunque.
+ */
+export function tipoServizioDaTicket(categoria: string, sottocategoria: string | null): TipoServizioAppuntamento {
+  return categoria === "Commerciale" || sottocategoria === "Pianificazione installazione" ? "Nuova installazione" : "Lavorazione tecnica";
+}
+
 /** ★ NUOVA (2026-08) — richiesta esplicita: pannello Appuntamento "a prova
  * di scemo" — un colore fisso per tipo di servizio, così la scelta più
  * importante del form (decide quale Scheda si apre dopo) ha un peso

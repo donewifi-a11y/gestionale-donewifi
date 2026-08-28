@@ -22,7 +22,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket } from "@/lib/types";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
@@ -36,10 +36,14 @@ interface TicketMinimo {
   // ★ NUOVA (2026-08-28, bug reale segnalato: "stai trattando le nuove
   // installazioni come interventi in loco") — serve a FormNuovoAppuntamento
   // per capire, dal Ticket collegato, se l'appuntamento da pianificare è
-  // una "Nuova installazione" (categoria "Commerciale", stesso segnale già
-  // usato in Vista Tecnico → NuovoTicketTecnico) invece di lasciare sempre
-  // "Lavorazione tecnica" come default indipendentemente dal ticket scelto.
+  // una "Nuova installazione" invece di lasciare sempre "Lavorazione
+  // tecnica" come default indipendentemente dal ticket scelto.
   categoria: string;
+  // ★ ESTESA (2026-08-28, stesso bug — trovato un secondo caso reale:
+  // Ticket categoria "Assistenza" con sottocategoria "Pianificazione
+  // installazione", che NON passa da `categoria === "Commerciale"` ma è
+  // comunque una nuova installazione, non un intervento in loco).
+  sottocategoria: string | null;
 }
 
 // ── date, sempre in orario locale (mai toISOString su una data — sposta
@@ -819,7 +823,8 @@ function FormNuovoAppuntamento({
   // tipo sbagliato, e più avanti si aprisse la Scheda sbagliata (Lavorazione
   // invece di Installazione) al momento di completarlo.
   function tipoServizioPerTicket(id: string): TipoServizioAppuntamento {
-    return ticket.find((t) => t.id === id)?.categoria === "Commerciale" ? "Nuova installazione" : "Lavorazione tecnica";
+    const t = ticket.find((t) => t.id === id);
+    return t ? tipoServizioDaTicket(t.categoria, t.sottocategoria) : "Lavorazione tecnica";
   }
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(() => tipoServizioPerTicket(ticketIniziale || ""));
   const [tecnicoId, setTecnicoId] = useState("");

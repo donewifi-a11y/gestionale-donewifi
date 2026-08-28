@@ -2785,3 +2785,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   proposto come "Lavorazione tecnica" per errore al momento di pianificarlo; nessun appuntamento già
   creato in produzione risulta con il tipo sbagliato (bug intercettato prima del danno, nessun dato
   da correggere). Build/lint puliti.
+✅ Fix parte 2: trovato un secondo caso reale dello stesso bug (2026-08-28, segnalato con uno
+  screenshot di pose.donewifi.it — l'appuntamento "Ignazio Pavetto" apriva ancora la Scheda di
+  Lavorazione dopo il fix precedente) — la correzione di prima copriva solo `categoria ===
+  "Commerciale"`; un Ticket categoria **"Assistenza"** con sottocategoria **"Pianificazione
+  installazione"** (uno dei valori validi in `SOTTOCATEGORIE_TICKET.Assistenza`, sibling di
+  "Intervento in loco") non passava da nessuno dei due segnali usati finora — restava comunque
+  "Lavorazione tecnica".
+  - Nuova `tipoServizioDaTicket(categoria, sottocategoria)` in `lib/types.ts`: unica fonte condivisa
+    (prima la regola era duplicata — e disallineata — tra Calendario e Dettaglio Ticket) —
+    `categoria === "Commerciale" || sottocategoria === "Pianificazione installazione"` → "Nuova
+    installazione".
+  - Aggiornati entrambi i punti (Calendario → `FormNuovoAppuntamento`, Dettaglio Ticket →
+    "Pianifica appuntamento") per usarla, con `sottocategoria` aggiunta a `TicketMinimo` e alla
+    query di `/calendario`.
+  **Corretti anche i dati già sbagliati in produzione**: 5 appuntamenti "Programmato" (nessuno
+  ancora completato, nessuna Scheda già inviata — nessun rischio di sovrascrivere un lavoro reale
+  già fatto) con tipo_servizio "Lavorazione tecnica" ma Ticket collegato "Pianificazione
+  installazione" — tra questi proprio "Ignazio Pavetto", quello nello screenshot — riportati a
+  "Nuova installazione" e verificati uno per uno dopo la correzione.
+  Build/lint puliti.

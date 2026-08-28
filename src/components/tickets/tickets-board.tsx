@@ -38,7 +38,7 @@ import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo, tipoServizioDaTicket } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -960,19 +960,24 @@ function DettaglioTicket({
         deduceva mai da solo: il menu partiva sempre su "Lavorazione
         tecnica" come per qualunque altro Ticket, rischiando la Scheda
         sbagliata sul campo se chi pianifica non se ne accorgeva.
-        ★ FIX (2026-08-28, bug reale segnalato: "stai trattando le nuove
-        installazioni come interventi in loco") — `segnalazione_id` da solo
-        non bastava: un Ticket "Commerciale" (nuovo contratto/installazione)
-        creato direttamente dal form completo o da Vista Tecnico, SENZA
-        passare da una Segnalazione, non ha mai `segnalazione_id` valorizzato
-        — restava comunque "Lavorazione tecnica" di default. `categoria`
-        è il segnale giusto e generale (stesso già usato in Vista Tecnico
-        → NuovoTicketTecnico e in Calendario → FormNuovoAppuntamento),
-        `segnalazione_id` resta come controllo aggiuntivo di sicurezza. */}
+        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
+        nuove installazioni come interventi in loco") — prima guardava solo
+        `categoria === "Commerciale" || segnalazione_id`: un Ticket
+        categoria "Assistenza" con sottocategoria "Pianificazione
+        installazione" (trovato reale in produzione, appuntamenti già con
+        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
+        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
+        condivisa anche con Calendario → FormNuovoAppuntamento invece di
+        due condizioni copiate e disallineate; `segnalazione_id` resta
+        come controllo aggiuntivo di sicurezza. */}
         <PianificaAppuntamento
           ticket={ticket}
           persone={persone}
-          tipoServizioIniziale={ticket.categoria === "Commerciale" || ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
+          tipoServizioIniziale={
+            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
+              ? "Nuova installazione"
+              : "Lavorazione tecnica"
+          }
         />
         </div>
         )}
