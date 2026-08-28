@@ -2725,3 +2725,11 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Preferenza "Griglia"/"Agenda" tenuta solo lato client (non nell'URL): è una scelta del momento
     su come guardare la settimana, non uno stato della pagina da condividere via link.
   Build/lint puliti.
+✅ Tolta la modalità Griglia dalla Settimana (2026-08-28, richiesta esplicita: "togli modalità
+  griglia") — dopo aver provato l'Agenda, l'interruttore "Griglia"/"Agenda" appena aggiunto non
+  serviva più: la vecchia griglia a 7 colonne (già corretta due volte senza risolvere davvero il
+  problema — prima `truncate`, poi `line-clamp-2` + tooltip) è stata tolta invece di lasciarla come
+  opzione mai usata. Vista Settimana ora è sempre l'Agenda, senza interruttore. `VistaSettimanaAgenda`
+  rinominata in `VistaSettimana` (è di nuovo l'unica), `GIORNI_SETTIMANA` spostata più in alto perché
+  ancora usata da Vista Mese. Build/lint puliti (nessun import rimasto inutilizzato dopo la
+  rimozione).

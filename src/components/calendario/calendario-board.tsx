@@ -95,6 +95,8 @@ function etichettaPeriodo(dataRiferimento: Date, vista: VistaCalendario): string
   return `${lunedi.toLocaleDateString("it-IT", opzInizio)} – ${domenica.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
+const GIORNI_SETTIMANA = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
 const VISTE: { chiave: VistaCalendario; etichetta: string }[] = [
   { chiave: "giorno", etichetta: "Giorno" },
   { chiave: "settimana", etichetta: "Settimana" },
@@ -135,14 +137,6 @@ export function CalendarioBoard({
   // esplicitamente, coerente con lo stesso trattamento in Vista Tecnico.
   const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
   const [ticketPreselezionato, setTicketPreselezionato] = useState("");
-  // ★ NUOVA (2026-08-28, artifact "Calendario Leggibile" — 3 proposte,
-  // scelta "C — Vista Agenda") — in Vista Settimana la griglia a 7 colonne
-  // resta il default, ma un interruttore la sostituisce con un elenco
-  // verticale (stesse card leggibili di Vista Giorno, RigaAppuntamento):
-  // niente più titoli tagliati, al prezzo di perdere il colpo d'occhio sui
-  // 7 giorni insieme. Solo di sessione (non nell'URL): è una preferenza di
-  // visualizzazione del momento, non uno stato della pagina da condividere.
-  const [agendaSettimana, setAgendaSettimana] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -209,32 +203,6 @@ export function CalendarioBoard({
           ))}
         </div>
 
-        {/* ★ NUOVA (2026-08-28, "facciamo vista c" — artifact "Calendario
-        Leggibile") — solo in Settimana: Griglia (default, 7 colonne) o
-        Agenda (elenco verticale, sempre leggibile per intero). */}
-        {vista === "settimana" && (
-          <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setAgendaSettimana(false)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                !agendaSettimana ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              Griglia
-            </button>
-            <button
-              type="button"
-              onClick={() => setAgendaSettimana(true)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                agendaSettimana ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              Agenda
-            </button>
-          </div>
-        )}
-
         <div className="flex items-center gap-2">
           <Link href={`/calendario?vista=${vista}&data=${dataPrec}`} className="flex h-8 w-8 items-center justify-center rounded-full border bg-card shadow-sm transition hover:bg-muted">
             <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
@@ -274,17 +242,8 @@ export function CalendarioBoard({
           onEliminaNota={eliminaNota}
         />
       )}
-      {vista === "settimana" && !agendaSettimana && (
+      {vista === "settimana" && (
         <VistaSettimana
-          dataRiferimento={dataRif}
-          appuntamenti={appuntamenti}
-          note={note}
-          eventiGoogle={eventiGoogle}
-          onApri={setModifica}
-        />
-      )}
-      {vista === "settimana" && agendaSettimana && (
-        <VistaSettimanaAgenda
           dataRiferimento={dataRif}
           appuntamenti={appuntamenti}
           note={note}
@@ -575,105 +534,22 @@ function VistaGiorno({
 
 // ═══════════════════════════ VISTA SETTIMANA ═══════════════════════════
 
-const GIORNI_SETTIMANA = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
-
-function VistaSettimana({
-  dataRiferimento,
-  appuntamenti,
-  note,
-  eventiGoogle,
-  onApri,
-}: {
-  dataRiferimento: Date;
-  appuntamenti: Appuntamento[];
-  note: NotaCalendario[];
-  eventiGoogle: EventoGoogleCalendario[];
-  onApri: (a: Appuntamento) => void;
-}) {
-  const lunedi = lunediSettimana(dataRiferimento);
-  const giorni = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(lunedi);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-  const oggiChiave = new Date().toDateString();
-  const appuntamentiPerGiorno = useMemo(() => raggruppaPerGiorno(appuntamenti, (a) => chiaveGiorno(a.data_ora)), [appuntamenti]);
-  const notePerGiorno = useMemo(() => raggruppaPerGiorno(note, (n) => chiaveGiornoData(n.data_promemoria)), [note]);
-  const eventiPerGiorno = useMemo(() => raggruppaPerGiorno(eventiGoogle, chiaveGiornoEvento), [eventiGoogle]);
-
-  return (
-    <div className="grid grid-cols-7 gap-2 overflow-x-auto">
-      {giorni.map((d, i) => {
-        const chiave = d.toDateString();
-        const isOggi = chiave === oggiChiave;
-        const appts = appuntamentiPerGiorno.get(chiave) ?? [];
-        const noteGiorno = notePerGiorno.get(chiave) ?? [];
-        const eventiGiorno = eventiPerGiorno.get(chiave) ?? [];
-        return (
-          <div key={i} className={`min-w-0 rounded-2xl border p-2 ${isOggi ? "border-primary/40 bg-primary/5" : "bg-card"}`}>
-            <div className={`mb-2 text-center text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
-              {GIORNI_SETTIMANA[i]} <span className="tabular-nums">{d.getDate()}</span>
-            </div>
-            {/* ★ FIX (2026-08-28, segnalato con uno screenshot di questa
-            vista: "dai titoli non si capisce, trova una soluzione
-            migliore") — `truncate` tagliava il titolo a metà parola su una
-            riga sola ("Assistenza — Pianifi…"), spesso proprio la parte che
-            distingue un appuntamento dall'altro. Ogni giorno ha già spazio
-            verticale (max-h-80, scorrevole): due righe con `line-clamp-2`
-            al posto di una mostrano quasi sempre il titolo per intero, e
-            un `title` nativo copre col tooltip al passaggio del mouse i
-            pochi casi ancora più lunghi. */}
-            <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-              {noteGiorno.map((n) => (
-                <div
-                  key={n.id}
-                  title={n.testo}
-                  className={`rounded-md border px-1.5 py-1 text-[11px] ${n.completata ? "opacity-50 line-through" : "border-warning/30 bg-warning/10"}`}
-                >
-                  <StickyNote className="mr-1 inline h-2.5 w-2.5" strokeWidth={2.5} />
-                  <span className="line-clamp-2 align-top">{n.testo}</span>
-                </div>
-              ))}
-              {appts.map((a) => (
-                <button
-                  key={a.id}
-                  title={a.titolo}
-                  onClick={() => a.stato === "Programmato" && onApri(a)}
-                  className={`rounded-md border-l-2 bg-muted/50 px-1.5 py-1 text-left text-[11px] transition hover:bg-muted ${
-                    a.stato === "Annullato" ? "border-l-muted-foreground opacity-50" : a.stato === "Completato" ? "border-l-success" : "border-l-primary"
-                  }`}
-                >
-                  <div className="font-bold tabular-nums">{new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
-                  <div className="line-clamp-2">{a.titolo}</div>
-                </button>
-              ))}
-              {eventiGiorno.map((e) => (
-                <div key={e.id} title={e.titolo} className="rounded-md border border-dashed bg-muted/40 px-1.5 py-1 text-[11px] text-muted-foreground">
-                  <div className="font-bold tabular-nums">{e.tuttoIlGiorno ? "Tutto il giorno" : new Date(e.inizio).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
-                  <div className="line-clamp-2">{e.titolo}</div>
-                </div>
-              ))}
-              {appts.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /**
- * ★ NUOVA (2026-08-28, "facciamo vista c" — artifact "Calendario
- * Leggibile", 3 proposte confrontate, scelta "C — Vista Agenda") —
- * alternativa alla griglia a 7 colonne di VistaSettimana: stesso elenco di
- * appuntamenti/note/eventi della settimana, ma un giorno sotto l'altro,
- * con le stesse identiche card leggibili già usate in VistaGiorno
- * (RigaAppuntamento/RigaNota/RigaEventoGoogle) invece dei chip compressi a
- * 11px. Risolve la leggibilità ("dai titoli non si capisce") al prezzo di
- * perdere il colpo d'occhio sui 7 giorni insieme — compromesso scelto
- * esplicitamente dall'utente tra le 3 proposte.
+ * ★ RIFATTA (2026-08-28) — prima era una griglia a 7 colonne con chip
+ * compressi a 11px: dopo due tentativi di rendere leggibili i titoli lì
+ * dentro (`truncate`, poi `line-clamp-2` + tooltip) restava comunque
+ * illeggibile nei giorni pieni ("dai titoli non si capisce, trova diverse
+ * soluzioni"). Sostituita — non affiancata da un interruttore — con la
+ * proposta scelta tra 3 alternative (artifact "Calendario Leggibile",
+ * "facciamo vista c"): un elenco verticale, un giorno sotto l'altro, con
+ * le stesse identiche card leggibili già usate in VistaGiorno
+ * (RigaAppuntamento/RigaNota/RigaEventoGoogle, riusate non ricreate).
+ * Si perde il colpo d'occhio sui 7 giorni fianco a fianco, guadagnato un
+ * titolo sempre leggibile per intero — compromesso esplicitamente
+ * accettato dall'utente, poi confermato togliendo anche la possibilità di
+ * tornare alla griglia.
  */
-function VistaSettimanaAgenda({
+function VistaSettimana({
   dataRiferimento,
   appuntamenti,
   note,
