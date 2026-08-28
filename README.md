@@ -2676,3 +2676,11 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato sui dati reali (sola lettura): il doppione "Lorenzo Moja" non ha nessuna Scheda di
   Lavoro collegata (eliminabile), un appuntamento Completato di controllo idem — nessuna riga vera
   toccata durante la verifica. Build/lint puliti.
+✅ Eliminazione appuntamenti anche da Vista Tecnico (2026-08-28, segnalato con uno screenshot di
+  questa pagina: "devi mettere la possibilità di eliminare") — l'eliminazione appena aggiunta era
+  raggiungibile solo dal popup "Modifica Appuntamento" del Calendario; un amministratore che
+  controlla Vista Tecnico (come nello screenshot, sezione "In ritardo") doveva comunque passare da
+  lì. Stessa identica azione (`eliminaAppuntamento`, stesso gate solo-admin lato server, stesso
+  blocco se esiste già una Scheda di Lavoro collegata) ora raggiungibile anche qui: un'iconcina
+  cestino (solo per admin) sull'intestazione di ogni card, sia in "In ritardo" che in "Appuntamenti
+  di oggi", con la stessa conferma esplicita del Calendario. Build/lint puliti.

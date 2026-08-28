@@ -1,12 +1,14 @@
 import { HardHat, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrenteId } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { VistaTecnicoBoard } from "@/components/vista-tecnico/vista-tecnico-board";
 import type { Appuntamento, MaterialeMagazzino, Persona, Ticket } from "@/lib/types";
 
 export default async function VistaTecnicoPage() {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
+  const persona = await getPersonaCorrente(supabase);
+  const isAdmin = personaHaAccessoAdmin(persona);
 
   const oraInizio = new Date();
   oraInizio.setHours(0, 0, 0, 0);
@@ -75,6 +77,7 @@ export default async function VistaTecnicoPage() {
           catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
           personaId={personaId}
           persone={(persone as Persona[]) ?? []}
+          isAdmin={isAdmin}
         />
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2, AlertTriangle } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
+import { eliminaAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
 import { PianificaAppuntamento } from "@/components/tickets/tickets-board";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
@@ -322,6 +323,7 @@ export function VistaTecnicoBoard({
   catalogoMateriali,
   personaId,
   persone,
+  isAdmin,
 }: {
   appuntamenti: Appuntamento[];
   tickets: Ticket[];
@@ -329,6 +331,11 @@ export function VistaTecnicoBoard({
   catalogoMateriali: MaterialeMagazzino[];
   personaId: string | null;
   persone: Persona[];
+  /** ★ NUOVA (2026-08-28, "devi mettere la possibilità di eliminare" —
+   * segnalato con uno screenshot di questa stessa pagina) — solo un
+   * amministratore vede "Elimina" sulle card degli appuntamenti, stesso
+   * gate/stessa azione già usati nel Calendario (eliminaAppuntamento). */
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   // ★ NUOVA — stesso standard già applicato a Segnalazioni/Ticket/
@@ -376,6 +383,29 @@ export function VistaTecnicoBoard({
   const appuntamentiInRitardo = appuntamenti.filter((a) => new Date(a.data_ora) < oggiInizio);
   const appuntamentiDiOggi = appuntamenti.filter((a) => new Date(a.data_ora) >= oggiInizio);
 
+  // ★ NUOVA (2026-08-28, richiesta esplicita: "devi mettere la possibilità
+  // di eliminare" — segnalato con uno screenshot di questa stessa pagina,
+  // dopo aver aggiunto "Elimina" solo nel Calendario) — stessa azione
+  // (eliminaAppuntamento), stesso gate lato server (solo admin, bloccata
+  // se esiste già una Scheda di Lavoro collegata), raggiungibile anche da
+  // qui invece di dover per forza passare dal Calendario.
+  const [appuntamentoInEliminazione, setAppuntamentoInEliminazione] = useState<string | null>(null);
+
+  function eliminaQuestoAppuntamento(a: Appuntamento) {
+    if (!confirm(`Eliminare definitivamente l'appuntamento "${a.titolo}"? L'operazione non si può annullare.`)) return;
+    setAppuntamentoInEliminazione(a.id);
+    startAvanza(async () => {
+      const risultato = await eliminaAppuntamento(a.id);
+      setAppuntamentoInEliminazione(null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      toast("Appuntamento eliminato.", "successo");
+      router.refresh();
+    });
+  }
+
   function avanzaTicket(t: Ticket) {
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
@@ -411,9 +441,27 @@ export function VistaTecnicoBoard({
           <div className="flex flex-col gap-3">
             {appuntamentiInRitardo.map((a) => (
               <div key={a.id} className="rounded-2xl border-2 border-critical/30 bg-critical/5 p-4 shadow-md">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-critical">
-                  <Clock className="h-4 w-4" strokeWidth={2.5} />
-                  {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-critical">
+                    <Clock className="h-4 w-4" strokeWidth={2.5} />
+                    {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      title="Elimina appuntamento"
+                      aria-label="Elimina appuntamento"
+                      disabled={appuntamentoInEliminazione === a.id}
+                      onClick={() => eliminaQuestoAppuntamento(a)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-critical/70 transition hover:bg-critical/10 disabled:opacity-50"
+                    >
+                      {appuntamentoInEliminazione === a.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                      )}
+                    </button>
+                  )}
                 </div>
                 <div className="mb-1.5 flex items-center gap-2">
                   <span className="text-lg font-semibold">{a.titolo}</span>
@@ -452,9 +500,27 @@ export function VistaTecnicoBoard({
         <div className="flex flex-col gap-3">
           {appuntamentiDiOggi.map((a) => (
             <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-md">
-              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-primary">
-                <Clock className="h-4 w-4" strokeWidth={2.5} />
-                {new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                  <Clock className="h-4 w-4" strokeWidth={2.5} />
+                  {new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    title="Elimina appuntamento"
+                    aria-label="Elimina appuntamento"
+                    disabled={appuntamentoInEliminazione === a.id}
+                    onClick={() => eliminaQuestoAppuntamento(a)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-critical/10 hover:text-critical disabled:opacity-50"
+                  >
+                    {appuntamentoInEliminazione === a.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    )}
+                  </button>
+                )}
               </div>
               <div className="mb-1.5 flex items-center gap-2">
                 <span className="text-lg font-semibold">{a.titolo}</span>
