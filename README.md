@@ -2819,4 +2819,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     che l'etichetta del campo prometteva già ("Scatta o scegli una foto"). Tolto in tutti e tre:
     `accept="image/*"` da solo basta a far comparire entrambe le opzioni. Il Rapportino Ticket
     interno (staff, non pose) non aveva questo problema — l'attributo era presente solo in quei tre.
+✅ Fix: costo del Trasferimento (2026-08-28, richiesta esplicita: "una volta che riceviamo la
+  documentazione il trasferimento si procede come nuova installazione, però il costo è di 60€ e non
+  il costo di privato o business — come risolviamo") — un Ticket "Trasferimento" (categoria
+  Commerciale) apre la Scheda di Installazione come un nuovo contratto, e la Scheda aggiunge da sola
+  la riga Privato/Business (30€/50€) — sbagliata per un trasferimento, che ha una tariffa fissa a
+  parte. La riga giusta esisteva già nel catalogo (categoria TRASFERIMENTI, "Stesso comune utente
+  privato", 60€, verificato sui dati reali) ma andava aggiunta a mano: nessuno lo faceva
+  sistematicamente, il costo sbagliato restava quello Privato/Business.
+  - Migrazione 0067 (**da applicare manualmente in Supabase SQL Editor**, contiene sia la modifica
+    di schema che il collegamento alla riga reale — indispensabile perché il fix funzioni): estende
+    `attivazione_predefinita` con un terzo valore "Trasferimento" (prima solo "Privato"/"Business",
+    migrazione 0055) e lo assegna alla riga "Stesso comune utente privato" già in catalogo.
+  - `getTipologiaClientePerAppuntamento()`/`...Esterno()` ora portano anche `sottocategoria` del
+    Ticket, non solo il tipo cliente — un solo giro invece di un secondo fetch dedicato.
+  - `SelettoreMateriali`: nuovo prop facoltativo `sottocategoriaIniziale` — se il Ticket è
+    "Trasferimento" e la riga da 60€ esiste in catalogo, si aggiunge quella al posto della riga
+    Privato/Business (mai insieme, il cliente vedrebbe due costi di attivazione).
+  - Aggiunta "Trasferimento" anche al menu "Attivazione predefinita" nel form Materiali, per gestire
+    in futuro casi simili dalla UI invece che da migrazione.
+  Build/lint puliti.
   Build/lint puliti.

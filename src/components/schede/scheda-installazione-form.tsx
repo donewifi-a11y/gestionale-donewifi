@@ -87,9 +87,15 @@ export function SchedaInstallazioneForm({
   const [note, setNote] = useState(bozza?.note ?? "");
   // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
+  // ★ ESTESA (2026-08-28, "il trasferimento... il costo è di 60€") — porta
+  // anche la sottocategoria, per riconoscere un Trasferimento.
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
+  const [sottocategoriaTicket, setSottocategoriaTicket] = useState<string | null>(null);
   useEffect(() => {
-    getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
+    getTipologiaClientePerAppuntamento(appuntamentoId).then(({ tipoCliente, sottocategoria }) => {
+      setTipoClienteTicket(tipoCliente);
+      setSottocategoriaTicket(sottocategoria);
+    });
   }, [appuntamentoId]);
   // ★ FIX — file scelti in un passo che poi si nasconde (cambio passo)
   // andrebbero persi se restassero solo nel DOM di un input non
@@ -282,7 +288,13 @@ export function SchedaInstallazioneForm({
           <div>
             <Label>Materiali extra utilizzati</Label>
             <div className="mt-1.5">
-              <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />
+              <SelettoreMateriali
+                catalogo={catalogoMateriali}
+                valore={materiali}
+                onChange={setMateriali}
+                tipoClienteIniziale={tipoClienteTicket}
+                sottocategoriaIniziale={sottocategoriaTicket}
+              />
             </div>
           </div>
           <div>

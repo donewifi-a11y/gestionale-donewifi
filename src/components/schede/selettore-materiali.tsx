@@ -40,17 +40,31 @@ const GRUPPI: { chiave: TipoRiga; titolo: string; sottotitolo: string; classeHea
  * tipo cliente si aggiunge da sola una volta sola, con il prezzo preso
  * così com'è (mai passato per prezzoPerTipoCliente() — altrimenti l'IVA
  * rischierebbe di essere applicata due volte su un prezzo già finale,
- * bug reale trovato nell'analisi che ha preceduto questa riscrittura). */
+ * bug reale trovato nell'analisi che ha preceduto questa riscrittura).
+ *
+ * ★ ESTESA (2026-08-28, richiesta esplicita: "il trasferimento si procede
+ * come nuova installazione, però il costo è di 60€ e non il costo di
+ * privato o business") — un Ticket sottocategoria "Trasferimento" ha una
+ * tariffa fissa a parte (60€, catalogo/migrazione 0067), indipendente dal
+ * tipo cliente: se `sottocategoriaIniziale` è "Trasferimento" e in
+ * catalogo esiste quella riga, si aggiunge quella al posto della riga
+ * Privato/Business — mai insieme, altrimenti il cliente vedrebbe due
+ * costi di attivazione sulla stessa Scheda. */
 export function SelettoreMateriali({
   catalogo,
   valore,
   onChange,
   tipoClienteIniziale,
+  sottocategoriaIniziale,
 }: {
   catalogo: MaterialeMagazzino[];
   valore: MaterialeUsato[];
   onChange: (v: MaterialeUsato[]) => void;
   tipoClienteIniziale: TipoCliente | null;
+  /** ★ NUOVA — sottocategoria del Ticket collegato (es. "Trasferimento");
+   * facoltativa perché non tutti i chiamanti (es. Scheda di Lavorazione)
+   * hanno bisogno di questa distinzione. */
+  sottocategoriaIniziale?: string | null;
 }) {
   const [tipoCliente, setTipoCliente] = useState<TipoCliente>(tipoClienteIniziale ?? "Privato");
   const sincronizzato = useRef(false);
@@ -64,7 +78,8 @@ export function SelettoreMateriali({
     sincronizzato.current = true;
     setTipoCliente(tipoClienteIniziale);
 
-    const rigaAttivazione = catalogo.find((m) => m.attivazione_predefinita === tipoClienteIniziale);
+    const rigaTrasferimento = sottocategoriaIniziale === "Trasferimento" ? catalogo.find((m) => m.attivazione_predefinita === "Trasferimento") : undefined;
+    const rigaAttivazione = rigaTrasferimento ?? catalogo.find((m) => m.attivazione_predefinita === tipoClienteIniziale);
     if (rigaAttivazione && !valore.some((v) => v.materiale_id === rigaAttivazione.id)) {
       onChange([
         ...valore,

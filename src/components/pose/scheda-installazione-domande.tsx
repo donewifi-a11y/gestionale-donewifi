@@ -69,9 +69,15 @@ export function SchedaInstallazioneDomande({
   const [materiali, setMateriali] = useState<MaterialeUsato[]>(bozza?.materiali ?? []);
   const [metodoPagamento, setMetodoPagamento] = useState<BozzaInstallazione["metodoPagamento"]>(bozza?.metodoPagamento ?? "Contanti");
   const [note, setNote] = useState(bozza?.note ?? "");
+  // ★ ESTESA (2026-08-28, "il trasferimento... il costo è di 60€") — porta
+  // anche la sottocategoria, per riconoscere un Trasferimento.
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
+  const [sottocategoriaTicket, setSottocategoriaTicket] = useState<string | null>(null);
   useEffect(() => {
-    getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(setTipoClienteTicket);
+    getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(({ tipoCliente, sottocategoria }) => {
+      setTipoClienteTicket(tipoCliente);
+      setSottocategoriaTicket(sottocategoria);
+    });
   }, [appuntamentoId]);
 
   const [fotoEsterna, setFotoEsterna] = useState<File[]>([]);
@@ -245,7 +251,15 @@ export function SchedaInstallazioneDomande({
       categoria: "materiali",
       icona: <Package className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Cavi, staffe, connettori — oltre al kit standard.",
-      contenuto: <SelettoreMateriali catalogo={catalogoMateriali} valore={materiali} onChange={setMateriali} tipoClienteIniziale={tipoClienteTicket} />,
+      contenuto: (
+        <SelettoreMateriali
+          catalogo={catalogoMateriali}
+          valore={materiali}
+          onChange={setMateriali}
+          tipoClienteIniziale={tipoClienteTicket}
+          sottocategoriaIniziale={sottocategoriaTicket}
+        />
+      ),
     },
     {
       domanda: "Come ha pagato la posa?",

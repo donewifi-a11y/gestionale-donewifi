@@ -55,7 +55,10 @@ export function SchedaLavorazioneForm({
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
-    getTipologiaClientePerAppuntamento(appuntamentoId).then(setTipoClienteTicket);
+    // ★ getTipologiaClientePerAppuntamento() ora porta anche `sottocategoria`
+    // (serve solo a Scheda di Installazione, per il Trasferimento — vedi
+    // il commento lì) — qui basta ancora `tipoCliente`.
+    getTipologiaClientePerAppuntamento(appuntamentoId).then(({ tipoCliente }) => setTipoClienteTicket(tipoCliente));
   }, [appuntamentoId]);
 
   useEffect(() => {

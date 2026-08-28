@@ -45,7 +45,10 @@ export function SchedaLavorazioneDomande({
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
-    getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(setTipoClienteTicket);
+    // ★ getTipologiaClientePerAppuntamentoEsterno() ora porta anche
+    // `sottocategoria` (serve solo a Scheda di Installazione, per il
+    // Trasferimento) — qui basta ancora `tipoCliente`.
+    getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(({ tipoCliente }) => setTipoClienteTicket(tipoCliente));
   }, [appuntamentoId]);
 
   useEffect(() => {

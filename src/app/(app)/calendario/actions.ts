@@ -329,19 +329,34 @@ export interface DatiSchedaLavoro {
  * i 3 punti da cui la Scheda si apre (Calendario/Vista Tecnico/Ticket).
  * "Azienda"/"Business" (il Ticket usa entrambe le parole a seconda di
  * come è nato) contano come Business, tutto il resto (incluso null) come
- * Privato — di sicuro modificabile a mano dal tecnico se sbagliato. */
-export async function getTipologiaClientePerAppuntamento(appuntamentoId: string): Promise<"Privato" | "Business"> {
+ * Privato — di sicuro modificabile a mano dal tecnico se sbagliato.
+ *
+ * ★ ESTESA (2026-08-28, richiesta esplicita: "il trasferimento si procede
+ * come nuova installazione, però il costo è di 60€ e non il costo di
+ * privato o business") — porta anche `sottocategoria`: SelettoreMateriali
+ * ne ha bisogno per riconoscere un Ticket "Trasferimento" e aggiungere da
+ * sola la riga di catalogo giusta (60€ fisso) al posto di Privato/Business.
+ * Un solo giro invece di un secondo fetch dedicato. */
+export interface ContestoClienteTicket {
+  tipoCliente: "Privato" | "Business";
+  sottocategoria: string | null;
+}
+
+export async function getTipologiaClientePerAppuntamento(appuntamentoId: string): Promise<ContestoClienteTicket> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("appuntamenti")
-    .select("tickets(tipologia_cliente)")
+    .select("tickets(tipologia_cliente, sottocategoria)")
     .eq("id", appuntamentoId)
     .maybeSingle();
   // ★ PostgREST tipizza l'embed come array anche per una relazione
   // many-to-one nota (FK singola) — a runtime è sempre 0 o 1 elemento.
-  const righe = (data?.tickets ?? []) as unknown as { tipologia_cliente: string | null }[];
+  const righe = (data?.tickets ?? []) as unknown as { tipologia_cliente: string | null; sottocategoria: string | null }[];
   const tipologia = righe[0]?.tipologia_cliente;
-  return tipologia === "Azienda" || tipologia === "Business" ? "Business" : "Privato";
+  return {
+    tipoCliente: tipologia === "Azienda" || tipologia === "Business" ? "Business" : "Privato",
+    sottocategoria: righe[0]?.sottocategoria ?? null,
+  };
 }
 
 // ★ ex riceviCertificatoInstallazione()/riceviRapportoIntervento() del

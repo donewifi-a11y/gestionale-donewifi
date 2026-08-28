@@ -11,7 +11,7 @@ import { generaTestoRapportino, generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
-import type { DatiSchedaLavoro } from "@/app/(app)/calendario/actions";
+import type { DatiSchedaLavoro, ContestoClienteTicket } from "@/app/(app)/calendario/actions";
 import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizioAppuntamento } from "@/lib/types";
 
 // ============================================================
@@ -468,23 +468,28 @@ export async function getCalendarioSquadra(giorni: number = 14): Promise<Appunta
 
 /**
  * ★ Equivalente di getTipologiaClientePerAppuntamento() (calendario/actions.ts)
- * — stessa firma, per essere intercambiabile come prop di
- * SchedaInstallazioneForm/SchedaLavorazioneForm (vedi commento lì). Service
- * role invece del client legato ai cookie: nessuna sessione Supabase Auth.
+ * — stessa firma (porta anche `sottocategoria`, vedi il commento lì per il
+ * perché — richiesta esplicita: "il trasferimento... il costo è di 60€ e
+ * non il costo di privato o business"), per essere intercambiabile come
+ * prop di SchedaInstallazioneForm/SchedaLavorazioneForm. Service role
+ * invece del client legato ai cookie: nessuna sessione Supabase Auth.
  */
-export async function getTipologiaClientePerAppuntamentoEsterno(appuntamentoId: string): Promise<"Privato" | "Business"> {
+export async function getTipologiaClientePerAppuntamentoEsterno(appuntamentoId: string): Promise<ContestoClienteTicket> {
   const supabase = await createClient();
   const operatore = await getOperatorePose(supabase);
-  if (!operatore) return "Privato";
+  if (!operatore) return { tipoCliente: "Privato", sottocategoria: null };
   const service = createServiceClient();
   const { data } = await service
     .from("appuntamenti")
-    .select("tickets(tipologia_cliente)")
+    .select("tickets(tipologia_cliente, sottocategoria)")
     .eq("id", appuntamentoId)
     .maybeSingle();
-  const righe = (data?.tickets ?? []) as unknown as { tipologia_cliente: string | null }[];
+  const righe = (data?.tickets ?? []) as unknown as { tipologia_cliente: string | null; sottocategoria: string | null }[];
   const tipologia = righe[0]?.tipologia_cliente;
-  return tipologia === "Azienda" || tipologia === "Business" ? "Business" : "Privato";
+  return {
+    tipoCliente: tipologia === "Azienda" || tipologia === "Business" ? "Business" : "Privato",
+    sottocategoria: righe[0]?.sottocategoria ?? null,
+  };
 }
 
 /**

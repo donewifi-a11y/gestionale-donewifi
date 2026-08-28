@@ -302,7 +302,8 @@ function FormMateriale({
         {!comodato && (
           <div>
             <Label htmlFor="attivazione_predefinita">
-              Attivazione predefinita <SuggerimentoCampo testo="Se scelto, questa voce si aggiunge da sola nella Scheda per il tipo cliente indicato — il prezzo qui sotto viene usato così com'è, senza applicare la formula IVA Privato/Business." />
+              Attivazione predefinita{" "}
+              <SuggerimentoCampo testo="Se scelto, questa voce si aggiunge da sola nella Scheda — per il tipo cliente indicato, oppure per un Ticket con quella sottocategoria (es. Trasferimento), indipendentemente dal tipo cliente. Il prezzo qui sotto viene usato così com'è, senza applicare la formula IVA Privato/Business." />
             </Label>
             <select
               id="attivazione_predefinita"
@@ -313,6 +314,11 @@ function FormMateriale({
               <option value="">Nessuna — voce scelta manualmente</option>
               <option value="Privato">Aggiungi da sola per clienti Privato</option>
               <option value="Business">Aggiungi da sola per clienti Business</option>
+              {/* ★ NUOVA (2026-08-28, richiesta esplicita: "il costo è di 60€
+              e non il costo di privato o business") — al posto della riga
+              Privato/Business, non insieme, per un Ticket sottocategoria
+              Trasferimento. Vedi migrazione 0067 e selettore-materiali.tsx. */}
+              <option value="Trasferimento">Aggiungi da sola per un Trasferimento</option>
             </select>
           </div>
         )}

@@ -558,8 +558,14 @@ export interface MaterialeMagazzino {
    * attivazione), con `prezzo_unitario` preso così com'è — mai passato
    * per prezzoPerTipoCliente(). Al più una riga per valore, ma non è
    * imposto a livello di database: un doppione va solo evitato in
-   * Materiali. */
-  attivazione_predefinita: "Privato" | "Business" | null;
+   * Materiali.
+   * ★ ESTESA (2026-08-28, richiesta esplicita: "il trasferimento si
+   * procede come nuova installazione, però il costo è di 60€ e non il
+   * costo di privato o business") — "Trasferimento" si aggiunge da solo
+   * quando il Ticket ha quella sottocategoria (Commerciale →
+   * Trasferimento), indipendentemente dal tipo cliente — al posto della
+   * riga Privato/Business, non insieme. Vedi selettore-materiali.tsx. */
+  attivazione_predefinita: "Privato" | "Business" | "Trasferimento" | null;
   /** ★ NUOVA — quantità a magazzino. NULL = materiale non tracciato (resta
    * solo voce di listino, come prima di questa funzione). Si scarica da
    * solo quando il materiale è usato in una Scheda di Installazione/
