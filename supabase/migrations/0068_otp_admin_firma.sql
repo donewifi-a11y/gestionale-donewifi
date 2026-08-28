@@ -25,6 +25,7 @@ create table if not exists otp_admin_firma (
   admin_id uuid references persone(id)
 );
 
+alter table otp_admin_firma drop constraint if exists otp_admin_firma_un_riferimento;
 alter table otp_admin_firma add constraint otp_admin_firma_un_riferimento check (
   (appuntamento_id is not null)::int + (ticket_id is not null)::int = 1
 );
