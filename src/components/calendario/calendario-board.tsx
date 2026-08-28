@@ -365,7 +365,7 @@ function RigaAppuntamento({
       </div>
       <button onClick={() => a.stato === "Programmato" && onApri(a)} className="min-w-0 flex-1 text-left" disabled={a.stato !== "Programmato"}>
         <div className="mb-0.5 flex items-center gap-1.5">
-          <span className="truncate font-semibold">{a.titolo}</span>
+          <span title={a.titolo} className="truncate font-semibold">{a.titolo}</span>
           <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -566,29 +566,43 @@ function VistaSettimana({
             <div className={`mb-2 text-center text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
               {GIORNI_SETTIMANA[i]} <span className="tabular-nums">{d.getDate()}</span>
             </div>
+            {/* ★ FIX (2026-08-28, segnalato con uno screenshot di questa
+            vista: "dai titoli non si capisce, trova una soluzione
+            migliore") — `truncate` tagliava il titolo a metà parola su una
+            riga sola ("Assistenza — Pianifi…"), spesso proprio la parte che
+            distingue un appuntamento dall'altro. Ogni giorno ha già spazio
+            verticale (max-h-80, scorrevole): due righe con `line-clamp-2`
+            al posto di una mostrano quasi sempre il titolo per intero, e
+            un `title` nativo copre col tooltip al passaggio del mouse i
+            pochi casi ancora più lunghi. */}
             <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
               {noteGiorno.map((n) => (
-                <div key={n.id} className={`rounded-md border px-1.5 py-1 text-[11px] ${n.completata ? "opacity-50 line-through" : "border-warning/30 bg-warning/10"}`}>
+                <div
+                  key={n.id}
+                  title={n.testo}
+                  className={`rounded-md border px-1.5 py-1 text-[11px] ${n.completata ? "opacity-50 line-through" : "border-warning/30 bg-warning/10"}`}
+                >
                   <StickyNote className="mr-1 inline h-2.5 w-2.5" strokeWidth={2.5} />
-                  {n.testo}
+                  <span className="line-clamp-2 align-top">{n.testo}</span>
                 </div>
               ))}
               {appts.map((a) => (
                 <button
                   key={a.id}
+                  title={a.titolo}
                   onClick={() => a.stato === "Programmato" && onApri(a)}
                   className={`rounded-md border-l-2 bg-muted/50 px-1.5 py-1 text-left text-[11px] transition hover:bg-muted ${
                     a.stato === "Annullato" ? "border-l-muted-foreground opacity-50" : a.stato === "Completato" ? "border-l-success" : "border-l-primary"
                   }`}
                 >
                   <div className="font-bold tabular-nums">{new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
-                  <div className="truncate">{a.titolo}</div>
+                  <div className="line-clamp-2">{a.titolo}</div>
                 </button>
               ))}
               {eventiGiorno.map((e) => (
-                <div key={e.id} className="rounded-md border border-dashed bg-muted/40 px-1.5 py-1 text-[11px] text-muted-foreground">
+                <div key={e.id} title={e.titolo} className="rounded-md border border-dashed bg-muted/40 px-1.5 py-1 text-[11px] text-muted-foreground">
                   <div className="font-bold tabular-nums">{e.tuttoIlGiorno ? "Tutto il giorno" : new Date(e.inizio).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
-                  <div className="truncate">{e.titolo}</div>
+                  <div className="line-clamp-2">{e.titolo}</div>
                 </div>
               ))}
               {appts.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
@@ -684,7 +698,7 @@ function VistaMese({
               </span>
               <div className="flex flex-col gap-0.5">
                 {righe.map((r) => (
-                  <span key={r.key} className={`truncate rounded border-l-2 px-1 py-0.5 text-[9.5px] leading-tight font-semibold ${r.classe}`}>
+                  <span key={r.key} title={r.testo} className={`truncate rounded border-l-2 px-1 py-0.5 text-[9.5px] leading-tight font-semibold ${r.classe}`}>
                     {r.testo}
                   </span>
                 ))}

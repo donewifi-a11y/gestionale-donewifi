@@ -2699,3 +2699,14 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   subito dopo, nessuna riga vera toccata): il delete con l'anon key cancella davvero 0 righe senza
   errore (bug riprodotto), il delete con service role cancella la riga per davvero (fix confermato).
   Build/lint puliti.
+✅ Titoli leggibili in Vista Settimana/Mese del Calendario (2026-08-28, segnalato con uno screenshot
+  della vista Settimana: "dai titoli non si capisce, trova una soluzione migliore") — `truncate`
+  tagliava il titolo a una riga sola, spesso a metà parola proprio nella parte che distingue un
+  appuntamento dall'altro (es. "Assistenza — Pianifi…").
+  - Vista Settimana: ogni giorno ha già spazio verticale scorrevole — titolo di appuntamenti, note e
+    eventi Google ora su due righe (`line-clamp-2`) invece di una, mostra quasi sempre il testo per
+    intero.
+  - Vista Mese (celle molto più piccole, dove due righe non ci stanno) e Vista Giorno: aggiunto un
+    tooltip nativo (`title`) che mostra il testo completo al passaggio del mouse, per i casi ancora
+    troncati.
+  Build/lint puliti.
