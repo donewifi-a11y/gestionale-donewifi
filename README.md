@@ -2541,3 +2541,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Verificato sui dati reali: la nuova query di `getTecniciEsterni()` non restituisce più
   `password_hash`; 2 persone attive non amministratrici in produzione confermate ora bloccate
   dall'eliminare un materiale; build/lint puliti.
+✅ Badge a 3 colori per lo stato del contratto (2026-08-28, richiesta esplicita — artifact "Stato
+  Contratto Cliente" con 3 proposte → "farei la c con tre colori diversi: blu quando documenti
+  arrivati, arancione quando in attesa di approvazione dal cliente, verde quando approvato") —
+  "Contratto inviato per approvazione" e "Contratto approvato dal cliente" erano già tracciati nei
+  dati ma invisibili sulla card: ora un badge sempre presente, senza aggiungere colonne né una
+  migrazione (Opzione C, la più leggera delle 3 proposte).
+  - 🔵 **Blu** (`tono="info"`, pulsante) — dati ricevuti, pronta per il contratto (badge già esistente,
+    solo ricolorato/riorganizzato in questa priorità).
+  - 🟠 **Arancione** (`tono="avviso"`) — nuovo: contratto inviato, in attesa di approvazione dal
+    cliente, con i giorni di attesa.
+  - 🟢 **Verde** (`tono="successo"`) — nuovo: contratto approvato dal cliente, pronta per Trasmetti.
+  Il tipo del segnale (`segnalazioni-board.tsx`) ora porta un `tono` esplicito invece di dedurre il
+  colore dal prefisso del testo (`testo.startsWith("✓")`) — più robusto, meno fragile ad aggiungere
+  nuovi segnali in futuro.
+  **Bug reale trovato e risolto in verifica**: la Segnalazione #24 (Paolo Ghirotti) ha sia
+  `dati_ricevuti_at` (24/08) sia `contratto_inviato_approvazione_il` (27/08, più recente) — prima
+  del fix mostrava ancora il vecchio badge blu "pronta per il contratto" nonostante il contratto
+  fosse già stato inviato il giorno prima: un'informazione superata mostrata come attuale. Ora mostra
+  correttamente 🟠 "Contratto inviato — in attesa da 1g".
+  Verificato sui dati reali: tutte e 3 le pratiche in "Gestione Cliente" ricontrollate una per una;
+  build/lint puliti.

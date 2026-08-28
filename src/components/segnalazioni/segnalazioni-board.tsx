@@ -45,7 +45,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
-import { SegnalePulsante } from "@/components/condivisi/segnale-pulsante";
+import { SegnalePulsante, type TonoSegnale } from "@/components/condivisi/segnale-pulsante";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -272,7 +272,7 @@ export function SegnalazioniBoard({
             // il problema. Nessun problema in corso → card pulita,
             // senza badge (il "tutto normale" non ha bisogno di un
             // colore acceso addosso).
-            let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
+            let segnale: { testo: string; tono: TonoSegnale; pulsante?: boolean } | null = null;
             if (s.dubbioso_dal) {
               const oggiOSuperato = s.richiamare_il ? s.richiamare_il <= new Date().toISOString().slice(0, 10) : false;
               segnale = s.richiamare_il
@@ -280,13 +280,31 @@ export function SegnalazioniBoard({
                     testo: oggiOSuperato
                       ? `🤔 Richiamalo oggi${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`
                       : `🤔 Richiama il ${new Date(s.richiamare_il).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`,
-                    critico: oggiOSuperato,
+                    tono: oggiOSuperato ? "critico" : "avviso",
                   }
-                : { testo: `🤔 Dubbioso${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`, critico: false };
+                : { testo: `🤔 Dubbioso${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`, tono: "avviso" };
             } else if (inAttesaDati && giorniAttesa >= 3) {
-              segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, critico: giorniAttesa >= 7 };
+              segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, tono: giorniAttesa >= 7 ? "critico" : "avviso" };
             } else if (mostraGiorni && giorni >= 2) {
-              segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, critico: giorni >= 5 };
+              segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, tono: giorni >= 5 ? "critico" : "avviso" };
+            } else if (col.stato === "Gestione Cliente" && s.contratto_approvato_cliente_il) {
+              // ★ NUOVA (2026-08-28, richiesta esplicita: "la c con tre colori
+              // diversi — blu quando documenti arrivati, arancione quando in
+              // attesa di approvazione, verde quando approvato") — stesso
+              // meccanismo di "Dati ricevuti" sotto, un gradino più avanti:
+              // il verde vince su tutto il resto perché è lo stato più
+              // avanzato possibile dentro "Gestione Cliente" (il prossimo
+              // passo è Trasmetti, non più aspettare nessuno).
+              segnale = { testo: "✓ Contratto approvato — pronta da trasmettere", tono: "successo" };
+            } else if (col.stato === "Gestione Cliente" && s.contratto_inviato_approvazione_il) {
+              const giorniAttesaContratto = giorniAperta(s.contratto_inviato_approvazione_il);
+              segnale = {
+                testo:
+                  giorniAttesaContratto > 0
+                    ? `📄 Contratto inviato — in attesa da ${giorniAttesaContratto}g`
+                    : "📄 Contratto inviato — in attesa di approvazione",
+                tono: "avviso",
+              };
             } else if (col.stato === "Gestione Cliente" && s.dati_ricevuti_at) {
               // ★ NUOVA (2026-08) — richiesta esplicita: "un segnale che
               // lampeggia o pulsa sulla carta del cliente quando invia la
@@ -296,7 +314,7 @@ export function SegnalazioniBoard({
               // `animate-pulse`) solo qui — si ferma da sola quando la
               // pratica avanza oltre "Gestione Cliente" (il segnale sparisce
               // insieme allo stato che lo genera, niente da "spuntare" a mano).
-              segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", critico: false, pulsante: true };
+              segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", tono: "info", pulsante: true };
             }
             return (
               <div
@@ -316,11 +334,7 @@ export function SegnalazioniBoard({
                   {s.tipologia_cliente ? ` · ${s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}` : ` · ${s.telefono}`}
                 </div>
                 {segnale ? (
-                  <SegnalePulsante
-                    testo={segnale.testo}
-                    tono={segnale.critico ? "critico" : segnale.testo.startsWith("✓") ? "successo" : "avviso"}
-                    pulsante={segnale.pulsante}
-                  />
+                  <SegnalePulsante testo={segnale.testo} tono={segnale.tono} pulsante={segnale.pulsante} />
                 ) : (
                   s.copertura !== "si" && (
                     <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
