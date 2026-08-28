@@ -5,6 +5,7 @@ import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE
 import { getOperatoreCorrente } from "@/lib/operatore";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
+import { inviaMessaggioChatSistemaDiretto } from "@/lib/chat";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
@@ -280,14 +281,25 @@ export async function eliminaNotaCalendario(id: string) {
  * cliente approva via OTP email o, solo se autorizzato dal tecnico, via
  * link email — mai più un'immagine caricata. Vedi migrazione
  * 0050_firma_cliente_scheda.sql e inviaOtpFirmaCliente()/
- * inviaLinkFirmaCliente()/verificaOtpFirmaCliente() più sotto. */
+ * inviaLinkFirmaCliente()/verificaOtpFirmaCliente() più sotto.
+ *
+ * ★ ESTESA (2026-08-28, richiesta esplicita: "bypassare nel rapporto di
+ * lavoro otp del cliente facendo richiedere con otp agli amministratori")
+ * — terzo metodo "otp_admin": quando il cliente non può confermare di
+ * persona, un amministratore autorizza al suo posto. `email` resta vuota
+ * per questo metodo (non è il cliente); `adminId`/`adminNome` indicano chi
+ * ha autorizzato — vedi migrazione 0068_otp_admin_firma.sql. */
 export interface FirmaClienteApprovata {
-  metodo: "otp_email" | "link_email";
+  metodo: "otp_email" | "link_email" | "otp_admin";
   email: string;
   /** null per "link_email" finché il cliente non ha ancora cliccato —
    * la scheda si salva comunque, il campo si valorizza dopo (vedi
    * /api/approva/[token]). */
   verificatoIl: string | null;
+  /** Solo per metodo "otp_admin" — l'amministratore che ha fornito il
+   * codice al tecnico. */
+  adminId?: string;
+  adminNome?: string;
 }
 
 export interface DatiSchedaLavoro {
@@ -412,11 +424,22 @@ export async function salvaSchedaLavoro(
   // tecnico) era controllata solo lato client (bottone "Salva" disabilitato
   // finché mancante): ripetuto qui, unica fonte di verità, come già per
   // trasmettiPerInstallazione()/i controlli mancanti-per-Trasmetti.
-  if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
+  // ★ ESTESO (2026-08-28, "bypassare... con otp agli amministratori") —
+  // per "otp_admin" non c'è un'email del cliente da controllare (`email`
+  // resta sempre vuota per questo metodo, vedi FirmaClienteApprovata):
+  // serve invece `adminId` valorizzato, e la verifica vale anche qui, non
+  // solo per "otp_email".
+  if (!dati.firmaCliente?.metodo) {
+    return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
+  }
+  if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
     return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
   }
-  if (dati.firmaCliente.metodo === "otp_email" && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice inviato al cliente non risulta verificato." };
+  if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
+    return { errore: "Manca l'amministratore che ha autorizzato." };
+  }
+  if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
+    return { errore: "Il codice non risulta verificato." };
   }
 
   const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
@@ -445,8 +468,9 @@ export async function salvaSchedaLavoro(
       foto: fotoSalvate,
       firma_cliente_url: null,
       firma_cliente_metodo: dati.firmaCliente.metodo,
-      firma_cliente_email: dati.firmaCliente.email,
+      firma_cliente_email: dati.firmaCliente.email || null,
       firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
+      firma_cliente_admin_id: dati.firmaCliente.adminId ?? null,
       firma_tecnico_url: firmaTecnico.percorso,
       supporto: dati.supporto || null,
       posizione: dati.posizione || null,
@@ -693,6 +717,96 @@ export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, emai
 
   const adesso = new Date().toISOString();
   const { error } = await service.from("otp_firma_cliente").update({ verificato_il: adesso }).eq("id", riga.id);
+  if (error) return { errore: error.message, verificatoIl: null };
+  return { errore: null, verificatoIl: adesso };
+}
+
+/**
+ * ★ NUOVA (2026-08-28, richiesta esplicita: "bypassare nel rapporto di
+ * lavoro otp del cliente facendo richiedere con otp agli amministratori")
+ * — gli amministratori attivi da mostrare nel selettore "chi ti ha dato il
+ * codice" di FirmaClienteScheda, popolato al volo invece che passato come
+ * prop da ogni chiamante (stesso principio di getContattoPerFirmaCliente).
+ */
+export async function getAmministratoriAttiviPerFirma(): Promise<{ id: string; nome: string }[]> {
+  const service = createServiceClient();
+  const { data } = await service.from("persone").select("id, nome").eq("attivo", true).eq("amministratore", true).order("nome", { ascending: true });
+  return data ?? [];
+}
+
+/**
+ * ★ NUOVA — quando il cliente non può confermare di persona
+ * (irraggiungibile, assente...), un amministratore autorizza al suo
+ * posto: stesso principio dell'OTP cliente, ma il codice arriva in Chat
+ * interna a TUTTI gli amministratori attivi insieme (richiesta esplicita:
+ * "arriva su chat... all'amministratore") — chiunque di loro lo veda per
+ * primo può darlo al tecnico, non serve sceglierne uno in anticipo.
+ */
+export async function richiediOtpAmministratore(rif: RiferimentoFirmaCliente, nomeCliente: string, ticketNumero: number) {
+  const supabase = await createClient();
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const service = createServiceClient();
+  const { data: admin } = await service.from("persone").select("id").eq("attivo", true).eq("amministratore", true);
+  if (!admin || admin.length === 0) return { errore: "Nessun amministratore attivo a cui chiedere il codice." };
+
+  const codice = String(randomInt(0, 1000000)).padStart(6, "0");
+  const { error } = await service.from("otp_admin_firma").insert({
+    ...colonnaRiferimentoAdmin(rif),
+    codice_hash: hashCodiceOtp(codice),
+    scaduto_il: new Date(Date.now() + SCADENZA_OTP_MINUTI * 60 * 1000).toISOString(),
+  });
+  if (error) return { errore: error.message };
+
+  const riferimentoTesto = ticketNumero > 0 ? `Ticket #${ticketNumero} ${nomeCliente}` : nomeCliente;
+  const testo = `🔐 Codice ${codice} per confermare senza il cliente presente — ${riferimentoTesto} (valido ${SCADENZA_OTP_MINUTI} minuti). Dallo al tecnico solo se sei sicuro che serva davvero.`;
+  await Promise.all(admin.map((a) => inviaMessaggioChatSistemaDiretto(a.id, testo)));
+
+  return { errore: null };
+}
+
+/** una sola colonna valorizzata alla volta — stesso principio di
+ * colonnaRiferimento(), tabella diversa (otp_admin_firma). */
+function colonnaRiferimentoAdmin(rif: RiferimentoFirmaCliente) {
+  return rif.tipo === "appuntamento" ? { appuntamento_id: rif.id, ticket_id: null } : { appuntamento_id: null, ticket_id: rif.id };
+}
+
+/**
+ * ★ NUOVA — verifica il codice ricevuto dall'amministratore e registra,
+ * nella stessa scrittura, quale amministratore lo ha dato al tecnico
+ * (`adminId`, raccolto lato client con un selettore prima di verificare —
+ * il codice arriva a tutti insieme, non c'è modo di dedurlo dal codice
+ * stesso). Stessi limiti dell'OTP cliente: tentativi limitati, scadenza
+ * breve, codice monouso.
+ */
+export async function verificaOtpAmministratore(rif: RiferimentoFirmaCliente, codice: string, adminId: string) {
+  const supabase = await createClient();
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE, verificatoIl: null };
+  if (!adminId) return { errore: "Indica quale amministratore ti ha dato il codice.", verificatoIl: null };
+
+  const service = createServiceClient();
+  const colonna = rif.tipo === "appuntamento" ? "appuntamento_id" : "ticket_id";
+  const { data: riga } = await service
+    .from("otp_admin_firma")
+    .select("id, codice_hash, tentativi, scaduto_il, verificato_il")
+    .eq(colonna, rif.id)
+    .is("verificato_il", null)
+    .order("creato_il", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!riga) return { errore: "Nessun codice in attesa — richiedilo di nuovo.", verificatoIl: null };
+  if (new Date(riga.scaduto_il).getTime() < Date.now()) return { errore: "Il codice è scaduto — richiedilo di nuovo.", verificatoIl: null };
+  if (riga.tentativi >= TENTATIVI_MASSIMI_OTP) return { errore: "Troppi tentativi sbagliati — richiedi un nuovo codice.", verificatoIl: null };
+
+  if (hashCodiceOtp(codice.trim()) !== riga.codice_hash) {
+    await service.from("otp_admin_firma").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
+    return { errore: "Codice errato.", verificatoIl: null };
+  }
+
+  const adesso = new Date().toISOString();
+  const { error } = await service.from("otp_admin_firma").update({ verificato_il: adesso, admin_id: adminId }).eq("id", riga.id);
   if (error) return { errore: error.message, verificatoIl: null };
   return { errore: null, verificatoIl: adesso };
 }

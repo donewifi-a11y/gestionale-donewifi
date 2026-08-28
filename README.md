@@ -2839,4 +2839,31 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Aggiunta "Trasferimento" anche al menu "Attivazione predefinita" nel form Materiali, per gestire
     in futuro casi simili dalla UI invece che da migrazione.
   Build/lint puliti.
+✅ Bypass amministratore per l'OTP del cliente (2026-08-28, richiesta esplicita: "dobbiamo fare il
+  modo di bypassare nel rapporto di lavoro otp del cliente facendo richiedere con otp agli
+  amministratori" → chiarito con l'utente: il codice arriva in Chat interna a tutti gli
+  amministratori insieme, nessun motivo scritto a mano da registrare, disponibile ovunque si chiede
+  la firma cliente) — quando il cliente non può confermare in nessun modo (irraggiungibile,
+  assente...), un amministratore autorizza al suo posto: stesso principio dell'OTP cliente esistente
+  (codice a 6 cifre, tentativi limitati, scadenza 10 minuti), ma il codice va in Chat interna invece
+  che via email — chiunque degli amministratori attivi lo veda per primo può darlo al tecnico.
+  - Nuova tabella `otp_admin_firma` (migrazione 0068, **da applicare manualmente in Supabase SQL
+    Editor** — senza, il bypass restituisce un errore invece di funzionare) — stesso schema di
+    `otp_firma_cliente` (0050/0051), con in più `admin_id`: quale amministratore ha davvero dato il
+    codice al tecnico, raccolto con un selettore subito dopo la verifica (il codice arriva a tutti
+    insieme, non è deducibile da solo).
+  - `FirmaClienteApprovata.metodo` ha un terzo valore "otp_admin" — `email` resta sempre vuota per
+    questo metodo (non è mai il cliente), `adminId`/`adminNome` portano chi ha autorizzato.
+  - `FirmaClienteScheda`: nuova schermata dedicata (non un ramo in mezzo al flusso email/OTP
+    cliente) — un link volutamente più defilato e in rosso rispetto al link di approvazione
+    esistente ("il cliente conferma più tardi" è un gradino sotto "il cliente non conferma proprio"),
+    con una conferma esplicita più pesante prima di procedere. La card di stato finale segnala
+    chiaramente "non è una conferma del cliente".
+  - `salvaSchedaLavoro()`/`...Esterno()` (Scheda Installazione/Lavorazione, desktop e pose):
+    controllo server esteso allo stesso modo del client — solo `schede_lavoro`, non
+    `rapportini_intervento` (il Rapportino di chiusura Ticket non chiede più conferma cliente da
+    tempo, giro "chiusura senza conferma obbligatoria", 2026-08-27 — estendere anche lì sarebbe
+    schema inutilizzato).
+  Verificato sui dati reali: 2 amministratori attivi in produzione (destinatari del codice), persona
+  "Sistema" per l'invio in chat presente e funzionante. Build/lint puliti.
   Build/lint puliti.

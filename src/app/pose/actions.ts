@@ -527,11 +527,21 @@ export async function salvaSchedaLavoroEsterno(
     return { errore: "Questo appuntamento non risulta assegnato a te." };
   }
 
-  if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
+  // ★ ESTESO (2026-08-28, "bypassare... con otp agli amministratori") —
+  // stessa estensione di salvaSchedaLavoro() (calendario/actions.ts), vedi
+  // lì per il commento completo: "otp_admin" non ha un'email cliente da
+  // controllare, serve invece adminId.
+  if (!dati.firmaCliente?.metodo) {
+    return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
+  }
+  if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
     return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
   }
-  if (dati.firmaCliente.metodo === "otp_email" && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice inviato al cliente non risulta verificato." };
+  if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
+    return { errore: "Manca l'amministratore che ha autorizzato." };
+  }
+  if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
+    return { errore: "Il codice non risulta verificato." };
   }
 
   const fotoSalvate: { nome: string; percorso: string }[] = [];
@@ -565,8 +575,9 @@ export async function salvaSchedaLavoroEsterno(
       foto: fotoSalvate,
       firma_cliente_url: null,
       firma_cliente_metodo: dati.firmaCliente.metodo,
-      firma_cliente_email: dati.firmaCliente.email,
+      firma_cliente_email: dati.firmaCliente.email || null,
       firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
+      firma_cliente_admin_id: dati.firmaCliente.adminId ?? null,
       firma_tecnico_url: null,
       supporto: dati.supporto || null,
       posizione: dati.posizione || null,
