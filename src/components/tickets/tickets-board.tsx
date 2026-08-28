@@ -959,11 +959,20 @@ function DettaglioTicket({
         sempre una prima installazione, ma il tipo di servizio non lo
         deduceva mai da solo: il menu partiva sempre su "Lavorazione
         tecnica" come per qualunque altro Ticket, rischiando la Scheda
-        sbagliata sul campo se chi pianifica non se ne accorgeva. */}
+        sbagliata sul campo se chi pianifica non se ne accorgeva.
+        ★ FIX (2026-08-28, bug reale segnalato: "stai trattando le nuove
+        installazioni come interventi in loco") — `segnalazione_id` da solo
+        non bastava: un Ticket "Commerciale" (nuovo contratto/installazione)
+        creato direttamente dal form completo o da Vista Tecnico, SENZA
+        passare da una Segnalazione, non ha mai `segnalazione_id` valorizzato
+        — restava comunque "Lavorazione tecnica" di default. `categoria`
+        è il segnale giusto e generale (stesso già usato in Vista Tecnico
+        → NuovoTicketTecnico e in Calendario → FormNuovoAppuntamento),
+        `segnalazione_id` resta come controllo aggiuntivo di sicurezza. */}
         <PianificaAppuntamento
           ticket={ticket}
           persone={persone}
-          tipoServizioIniziale={ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
+          tipoServizioIniziale={ticket.categoria === "Commerciale" || ticket.segnalazione_id ? "Nuova installazione" : "Lavorazione tecnica"}
         />
         </div>
         )}

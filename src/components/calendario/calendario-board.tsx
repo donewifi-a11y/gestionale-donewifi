@@ -33,6 +33,13 @@ interface TicketMinimo {
   cliente: string;
   indirizzo: string | null;
   telefono: string | null;
+  // ★ NUOVA (2026-08-28, bug reale segnalato: "stai trattando le nuove
+  // installazioni come interventi in loco") — serve a FormNuovoAppuntamento
+  // per capire, dal Ticket collegato, se l'appuntamento da pianificare è
+  // una "Nuova installazione" (categoria "Commerciale", stesso segnale già
+  // usato in Vista Tecnico → NuovoTicketTecnico) invece di lasciare sempre
+  // "Lavorazione tecnica" come default indipendentemente dal ticket scelto.
+  categoria: string;
 }
 
 // ── date, sempre in orario locale (mai toISOString su una data — sposta
@@ -803,13 +810,36 @@ function FormNuovoAppuntamento({
   const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [ticketId, setTicketId] = useState(ticketIniziale || "");
-  const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>("Lavorazione tecnica");
+  // ★ FIX (2026-08-28, bug reale segnalato: "stai trattando le nuove
+  // installazioni come interventi in loco") — "Tipo di servizio" restava
+  // sempre fisso su "Lavorazione tecnica", anche scegliendo un Ticket di
+  // categoria "Commerciale" (un nuovo contratto/installazione — stesso
+  // segnale già usato in Vista Tecnico → NuovoTicketTecnico): bastava
+  // dimenticarsi di cambiarlo a mano perché l'appuntamento finisse con il
+  // tipo sbagliato, e più avanti si aprisse la Scheda sbagliata (Lavorazione
+  // invece di Installazione) al momento di completarlo.
+  function tipoServizioPerTicket(id: string): TipoServizioAppuntamento {
+    return ticket.find((t) => t.id === id)?.categoria === "Commerciale" ? "Nuova installazione" : "Lavorazione tecnica";
+  }
+  const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(() => tipoServizioPerTicket(ticketIniziale || ""));
   const [tecnicoId, setTecnicoId] = useState("");
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la prop ticketIniziale quando cambia dopo il mount (es. riapertura del form con un altro ticket preselezionato), non è derivabile durante il render.
-    if (ticketIniziale) setTicketId(ticketIniziale);
+    // sincronizza con la prop ticketIniziale quando cambia dopo il mount
+    // (es. riapertura del form con un altro ticket preselezionato), non è
+    // derivabile durante il render.
+    if (ticketIniziale) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTicketId(ticketIniziale);
+      setTipoServizio(tipoServizioPerTicket(ticketIniziale));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tipoServizioPerTicket legge `ticket`, stabile per la durata del Dialog: non serve nelle dipendenze.
   }, [ticketIniziale]);
+
+  function sceglieTicket(id: string) {
+    setTicketId(id);
+    setTipoServizio(tipoServizioPerTicket(id));
+  }
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
 
@@ -857,7 +887,7 @@ function FormNuovoAppuntamento({
           <select
             id="ticket"
             value={ticketId}
-            onChange={(e) => setTicketId(e.target.value)}
+            onChange={(e) => sceglieTicket(e.target.value)}
             className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
           >
             <option value="">Nessuno</option>

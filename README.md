@@ -2764,3 +2764,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   pose.donewifi.it resta con la sua identità visiva "Segnale" (font/colori/sfondo scuro) — chiarito
   con l'utente: "uniforma tutto" riguarda solo il gestionale principale, pose è deliberatamente
   un'app a parte per l'uso da smartphone sul campo. Build/lint puliti.
+✅ Fix: nuove installazioni pianificate come interventi in loco (2026-08-28, bug reale segnalato
+  dall'utente: "stai trattando le nuove installazioni come interventi in loco") — trovati DUE punti
+  dove "Tipo di servizio" per un nuovo appuntamento non veniva dedotto correttamente dal Ticket
+  collegato, con il rischio concreto che più avanti si aprisse la Scheda sbagliata (Lavorazione
+  invece di Installazione) al momento di completarlo:
+  - Calendario → "+ Appuntamento" (`FormNuovoAppuntamento`): "Tipo di servizio" restava sempre fisso
+    su "Lavorazione tecnica" per default, **indipendentemente** dal Ticket scelto nel menu a tendina
+    sopra — bastava dimenticarsi di cambiarlo a mano. Ora, scegliendo un Ticket di categoria
+    "Commerciale" (nuovo contratto/installazione — stesso segnale già usato in Vista Tecnico →
+    NuovoTicketTecnico), il tipo si imposta da solo su "Nuova installazione" (resta comunque
+    modificabile a mano).
+  - Dettaglio Ticket → "Pianifica appuntamento": già aveva un tentativo di dedurlo, ma usava
+    `segnalazione_id` come unico segnale — un Ticket "Commerciale" creato direttamente dal form
+    completo o da Vista Tecnico, SENZA passare da una Segnalazione, non ha mai `segnalazione_id`
+    valorizzato e restava comunque su "Lavorazione tecnica". Ora usa `categoria === "Commerciale"`
+    (il segnale giusto e generale), con `segnalazione_id` come controllo aggiuntivo.
+  Verificato sui dati reali: il Ticket #43 (Loris Peano) — categoria Commerciale, nessuna
+  Segnalazione d'origine, ancora "Da gestire" — è esattamente il caso che prima sarebbe stato
+  proposto come "Lavorazione tecnica" per errore al momento di pianificarlo; nessun appuntamento già
+  creato in produzione risulta con il tipo sbagliato (bug intercettato prima del danno, nessun dato
+  da correggere). Build/lint puliti.

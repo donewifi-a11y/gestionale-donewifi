@@ -74,7 +74,11 @@ export default async function CalendarioPage({
     supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
     supabase
       .from("tickets")
-      .select("id, numero, cliente, indirizzo, telefono")
+      // ★ NUOVA (2026-08-28, bug reale: "stai trattando le nuove
+      // installazioni come interventi in loco") — categoria serve a
+      // FormNuovoAppuntamento per proporre il "Tipo di servizio" giusto in
+      // base al Ticket collegato, vedi il commento su TicketMinimo.
+      .select("id, numero, cliente, indirizzo, telefono, categoria")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
     // ★ NUOVA — serve al pannello "Apri scheda di lavoro" nel dettaglio
