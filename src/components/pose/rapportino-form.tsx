@@ -88,6 +88,12 @@ export function RapportinoFormEsterno({
         <Label htmlFor="foto">Foto (facoltative)</Label>
         <label className="mt-1.5 flex h-14 cursor-pointer items-center rounded-lg border border-dashed bg-background px-3.5 text-sm text-muted-foreground">
           <span className="truncate">{nomiFoto || "Scatta o scegli una o più foto"}</span>
+          {/* ★ FIX (2026-08-28, richiesta esplicita: "o le scatto sul
+          momento o le pesco dalla galleria") — `capture="environment"`
+          apriva direttamente la fotocamera su gran parte dei browser
+          mobile, saltando la scelta nativa "Fotocamera / Libreria foto".
+          Tolto: `accept="image/*"` da solo basta a far comparire entrambe
+          le opzioni. */}
           <input
             ref={fileInputRef}
             id="foto"
@@ -95,7 +101,6 @@ export function RapportinoFormEsterno({
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             className="hidden"
             onChange={(e) => setNomiFoto(Array.from(e.target.files ?? []).map((f) => f.name).join(", "))}
           />

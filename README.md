@@ -2805,3 +2805,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   installazione" — tra questi proprio "Ignazio Pavetto", quello nello screenshot — riportati a
   "Nuova installazione" e verificati uno per uno dopo la correzione.
   Build/lint puliti.
+✅ MAC formattato mentre si digita + foto: scelta vera tra fotocamera e galleria (2026-08-28,
+  richiesta esplicita: "nel inserimento mac devi far mettere i : ogni due caratteri e trasformare in
+  stampatello le lettere. Inoltre nelle foto da inserire avrei bisogno che o le scatto sul momento o
+  le pesco dalla galleria") — due correzioni distinte:
+  - Nuova `formattaMac()` in `lib/types.ts` (unica fonte, usata sia nella Scheda di Installazione
+    desktop che nella versione pose "una domanda alla volta"): tiene solo caratteri esadecimali,
+    tutto maiuscolo, un `:` ogni due caratteri mentre si digita, capato a 6 byte — sostituisce il
+    campo di testo libero da formattare a mano.
+  - **Foto**: 3 punti (Scheda Installazione desktop, Scheda Installazione pose, Rapportino pose)
+    avevano `capture="environment"` sull'input file — un attributo che su gran parte dei browser
+    mobile apre DIRETTAMENTE la fotocamera, saltando la scelta nativa "Fotocamera / Libreria foto"
+    che l'etichetta del campo prometteva già ("Scatta o scegli una foto"). Tolto in tutti e tre:
+    `accept="image/*"` da solo basta a far comparire entrambe le opzioni. Il Rapportino Ticket
+    interno (staff, non pose) non aveva questo problema — l'attributo era presente solo in quei tre.
+  Build/lint puliti.

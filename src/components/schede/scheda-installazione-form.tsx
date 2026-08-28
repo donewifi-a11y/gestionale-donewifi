@@ -10,7 +10,7 @@ import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
 import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
-import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
+import { OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaInstallazione {
@@ -242,7 +242,14 @@ export function SchedaInstallazioneForm({
             <Select value={modelloCpe} onChange={setModelloCpe} opzioni={OPZIONI_INSTALLAZIONE.cpe} />
           </Campo>
           <Campo label="MAC Address">
-            <input value={mac} onChange={(e) => setMac(e.target.value)} placeholder="AA:BB:CC:DD:EE:FF" className={campoClass} />
+            <input
+              value={mac}
+              onChange={(e) => setMac(formattaMac(e.target.value))}
+              placeholder="AA:BB:CC:DD:EE:FF"
+              inputMode="text"
+              autoCapitalize="characters"
+              className={campoClass}
+            />
           </Campo>
           <Campo label="VLAN Management">
             <input value={vlan} onChange={(e) => setVlan(e.target.value)} className={campoClass} />
@@ -377,10 +384,15 @@ function FileInput({ value, onChange }: { value: File | null; onChange: (f: File
   return (
     <label className="mt-1 flex h-11 cursor-pointer items-center rounded-md border border-dashed bg-background px-3 text-xs text-muted-foreground">
       <span className="truncate">{value ? value.name : "Scatta o scegli una foto"}</span>
+      {/* ★ FIX (2026-08-28, richiesta esplicita: "o le scatto sul momento
+      o le pesco dalla galleria") — `capture="environment"` apriva
+      direttamente la fotocamera su gran parte dei browser mobile,
+      saltando la scelta nativa "Fotocamera / Libreria foto" che
+      l'etichetta sopra prometteva. Tolto: `accept="image/*"` da solo
+      basta a far comparire entrambe le opzioni. */}
       <input
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />

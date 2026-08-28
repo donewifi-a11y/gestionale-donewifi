@@ -9,7 +9,7 @@ import { TileScelta, CampoGrande, AreaGrande } from "@/components/pose/tile-scel
 import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
-import { OPZIONI_INSTALLAZIONE } from "@/lib/types";
+import { OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaInstallazione {
@@ -201,7 +201,16 @@ export function SchedaInstallazioneDomande({
       categoria: "radio",
       icona: <Cpu className="h-6 w-6" strokeWidth={2.25} />,
       aiuto: "Facoltativo — trovi la scritta sull'apparato.",
-      contenuto: <CampoGrande type="text" placeholder="AA:BB:CC:DD:EE:FF" value={mac} onChange={(e) => setMac(e.target.value)} />,
+      contenuto: (
+        <CampoGrande
+          type="text"
+          placeholder="AA:BB:CC:DD:EE:FF"
+          value={mac}
+          onChange={(e) => setMac(formattaMac(e.target.value))}
+          inputMode="text"
+          autoCapitalize="characters"
+        />
+      ),
     },
     {
       domanda: "Segnale RSSI, in dBm?",
@@ -302,10 +311,16 @@ function FotoInputMulti({ value, onChange, etichetta }: { value: File[]; onChang
       <label className="flex h-20 cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-background px-5 text-center text-[15px] font-bold text-muted-foreground">
         <Camera className="h-5 w-5 shrink-0" strokeWidth={2.25} />
         <span className="truncate">{value.length > 0 ? `${value.length} foto — aggiungine altre` : etichetta}</span>
+        {/* ★ FIX (2026-08-28, richiesta esplicita: "o le scatto sul
+        momento o le pesco dalla galleria") — `capture="environment"` apre
+        la fotocamera direttamente su gran parte dei browser mobile,
+        saltando la scelta nativa "Fotocamera / Libreria foto" che il
+        commento sopra descriveva ma che questo attributo impediva di
+        vedere. Tolto: `accept="image/*"` da solo basta a far comparire
+        entrambe le opzioni. */}
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           multiple
           className="hidden"
           onChange={(e) => {

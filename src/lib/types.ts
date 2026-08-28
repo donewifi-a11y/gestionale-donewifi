@@ -210,6 +210,21 @@ export function tipoServizioDaTicket(categoria: string, sottocategoria: string |
   return categoria === "Commerciale" || sottocategoria === "Pianificazione installazione" ? "Nuova installazione" : "Lavorazione tecnica";
 }
 
+/**
+ * ★ NUOVA (2026-08-28, richiesta esplicita: "nel inserimento mac devi far
+ * mettere i : ogni due caratteri e trasformare in stampatello le lettere")
+ * — da usare come `onChange` sul campo MAC Address della Scheda di
+ * Installazione (desktop e pose): tiene solo cifre esadecimali, tutto
+ * maiuscolo, un ":" ogni due caratteri mentre si digita — invece di
+ * lasciare un campo di testo libero da formattare a mano (spesso
+ * dimenticato, con MAC salvati in formati diversi da un intervento
+ * all'altro).
+ */
+export function formattaMac(valore: string): string {
+  const pulito = valore.toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 12);
+  return pulito.match(/.{1,2}/g)?.join(":") ?? pulito;
+}
+
 /** ★ NUOVA (2026-08) — richiesta esplicita: pannello Appuntamento "a prova
  * di scemo" — un colore fisso per tipo di servizio, così la scelta più
  * importante del form (decide quale Scheda si apre dopo) ha un peso
