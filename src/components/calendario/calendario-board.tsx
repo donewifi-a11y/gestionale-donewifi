@@ -135,6 +135,14 @@ export function CalendarioBoard({
   // esplicitamente, coerente con lo stesso trattamento in Vista Tecnico.
   const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
   const [ticketPreselezionato, setTicketPreselezionato] = useState("");
+  // ★ NUOVA (2026-08-28, artifact "Calendario Leggibile" — 3 proposte,
+  // scelta "C — Vista Agenda") — in Vista Settimana la griglia a 7 colonne
+  // resta il default, ma un interruttore la sostituisce con un elenco
+  // verticale (stesse card leggibili di Vista Giorno, RigaAppuntamento):
+  // niente più titoli tagliati, al prezzo di perdere il colpo d'occhio sui
+  // 7 giorni insieme. Solo di sessione (non nell'URL): è una preferenza di
+  // visualizzazione del momento, non uno stato della pagina da condividere.
+  const [agendaSettimana, setAgendaSettimana] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -201,6 +209,32 @@ export function CalendarioBoard({
           ))}
         </div>
 
+        {/* ★ NUOVA (2026-08-28, "facciamo vista c" — artifact "Calendario
+        Leggibile") — solo in Settimana: Griglia (default, 7 colonne) o
+        Agenda (elenco verticale, sempre leggibile per intero). */}
+        {vista === "settimana" && (
+          <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setAgendaSettimana(false)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                !agendaSettimana ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Griglia
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgendaSettimana(true)}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                agendaSettimana ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Agenda
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <Link href={`/calendario?vista=${vista}&data=${dataPrec}`} className="flex h-8 w-8 items-center justify-center rounded-full border bg-card shadow-sm transition hover:bg-muted">
             <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
@@ -240,13 +274,27 @@ export function CalendarioBoard({
           onEliminaNota={eliminaNota}
         />
       )}
-      {vista === "settimana" && (
+      {vista === "settimana" && !agendaSettimana && (
         <VistaSettimana
           dataRiferimento={dataRif}
           appuntamenti={appuntamenti}
           note={note}
           eventiGoogle={eventiGoogle}
           onApri={setModifica}
+        />
+      )}
+      {vista === "settimana" && agendaSettimana && (
+        <VistaSettimanaAgenda
+          dataRiferimento={dataRif}
+          appuntamenti={appuntamenti}
+          note={note}
+          eventiGoogle={eventiGoogle}
+          ticket={ticket}
+          trovaPersona={trovaPersona}
+          onApri={setModifica}
+          onCambiaStato={cambiaStato}
+          onAlternaNota={alternaNota}
+          onEliminaNota={eliminaNota}
         />
       )}
       {vista === "mese" && (
@@ -606,6 +654,99 @@ function VistaSettimana({
                 </div>
               ))}
               {appts.length === 0 && noteGiorno.length === 0 && eventiGiorno.length === 0 && <div className="py-2 text-center text-[10px] text-muted-foreground/60">—</div>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * ★ NUOVA (2026-08-28, "facciamo vista c" — artifact "Calendario
+ * Leggibile", 3 proposte confrontate, scelta "C — Vista Agenda") —
+ * alternativa alla griglia a 7 colonne di VistaSettimana: stesso elenco di
+ * appuntamenti/note/eventi della settimana, ma un giorno sotto l'altro,
+ * con le stesse identiche card leggibili già usate in VistaGiorno
+ * (RigaAppuntamento/RigaNota/RigaEventoGoogle) invece dei chip compressi a
+ * 11px. Risolve la leggibilità ("dai titoli non si capisce") al prezzo di
+ * perdere il colpo d'occhio sui 7 giorni insieme — compromesso scelto
+ * esplicitamente dall'utente tra le 3 proposte.
+ */
+function VistaSettimanaAgenda({
+  dataRiferimento,
+  appuntamenti,
+  note,
+  eventiGoogle,
+  ticket,
+  trovaPersona,
+  onApri,
+  onCambiaStato,
+  onAlternaNota,
+  onEliminaNota,
+}: {
+  dataRiferimento: Date;
+  appuntamenti: Appuntamento[];
+  note: NotaCalendario[];
+  eventiGoogle: EventoGoogleCalendario[];
+  ticket: TicketMinimo[];
+  trovaPersona: (id: string | null) => Persona | null;
+  onApri: (a: Appuntamento) => void;
+  onCambiaStato: (id: string, stato: Appuntamento["stato"]) => void;
+  onAlternaNota: (n: NotaCalendario) => void;
+  onEliminaNota: (id: string) => void;
+}) {
+  const lunedi = lunediSettimana(dataRiferimento);
+  const giorni = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(lunedi);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const oggiChiave = new Date().toDateString();
+  const appuntamentiPerGiorno = useMemo(() => raggruppaPerGiorno(appuntamenti, (a) => chiaveGiorno(a.data_ora)), [appuntamenti]);
+  const notePerGiorno = useMemo(() => raggruppaPerGiorno(note, (n) => chiaveGiornoData(n.data_promemoria)), [note]);
+  const eventiPerGiorno = useMemo(() => raggruppaPerGiorno(eventiGoogle, chiaveGiornoEvento), [eventiGoogle]);
+
+  const giorniConContenuto = giorni.filter((d) => {
+    const chiave = d.toDateString();
+    return (appuntamentiPerGiorno.get(chiave)?.length ?? 0) > 0 || (notePerGiorno.get(chiave)?.length ?? 0) > 0 || (eventiPerGiorno.get(chiave)?.length ?? 0) > 0;
+  });
+
+  if (giorniConContenuto.length === 0) {
+    return <StatoVuoto icona={CalendarClock} titolo="Nessun appuntamento o promemoria in questa settimana." />;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {giorniConContenuto.map((d, i) => {
+        const chiave = d.toDateString();
+        const isOggi = chiave === oggiChiave;
+        const noteGiorno = notePerGiorno.get(chiave) ?? [];
+        const appts = appuntamentiPerGiorno.get(chiave) ?? [];
+        const eventiGiorno = eventiPerGiorno.get(chiave) ?? [];
+        return (
+          <div key={i}>
+            <h3 className={`mb-2 text-xs font-bold uppercase tracking-wide ${isOggi ? "text-primary" : "text-muted-foreground"}`}>
+              {d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
+              {isOggi && " · oggi"}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {noteGiorno.map((n) => (
+                <RigaNota key={n.id} n={n} onAlterna={onAlternaNota} onElimina={onEliminaNota} />
+              ))}
+              {appts.map((a) => (
+                <RigaAppuntamento
+                  key={a.id}
+                  a={a}
+                  tecnico={trovaPersona(a.tecnico_id)}
+                  telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? null}
+                  onApri={onApri}
+                  onCambiaStato={onCambiaStato}
+                />
+              ))}
+              {eventiGiorno.map((e) => (
+                <RigaEventoGoogle key={e.id} e={e} />
+              ))}
             </div>
           </div>
         );

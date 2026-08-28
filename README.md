@@ -2710,3 +2710,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     tooltip nativo (`title`) che mostra il testo completo al passaggio del mouse, per i casi ancora
     troncati.
   Build/lint puliti.
+✅ Vista Agenda per la Settimana (2026-08-28, "dai titoli non si legge ancora, trova diverse
+  soluzioni e proponimele" → artifact "Calendario Leggibile" con 3 proposte a confronto (A colonne
+  larghe, B scheda al passaggio del mouse, C vista agenda) → "facciamo vista c") — la Vista Settimana
+  a griglia (7 colonne) resta il default; un nuovo interruttore "Griglia"/"Agenda" accanto al
+  selettore Giorno/Settimana/Mese la sostituisce, quando serve, con un elenco verticale un giorno
+  sotto l'altro.
+  - Nuovo `VistaSettimanaAgenda`: stesse identiche card di Vista Giorno (`RigaAppuntamento`,
+    `RigaNota`, `RigaEventoGoogle` — riusate, non ricreate) invece dei chip compressi a 11px della
+    griglia — titolo, indirizzo, telefono, tecnico sempre leggibili per intero, mai troncati.
+    Nessuna azione persa: aprire/completare/annullare un appuntamento, spuntare/eliminare un
+    promemoria funzionano identici a Vista Giorno.
+    Solo i giorni con almeno un appuntamento/nota/evento compaiono nell'elenco.
+  - Preferenza "Griglia"/"Agenda" tenuta solo lato client (non nell'URL): è una scelta del momento
+    su come guardare la settimana, non uno stato della pagina da condividere via link.
+  Build/lint puliti.
