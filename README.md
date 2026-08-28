@@ -2866,4 +2866,19 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     schema inutilizzato).
   Verificato sui dati reali: 2 amministratori attivi in produzione (destinatari del codice), persona
   "Sistema" per l'invio in chat presente e funzionante. Build/lint puliti.
+✅ Bypass ufficio: da link defilato a scheda vera (2026-08-28, richiesta esplicita: "rivedi il
+  metodo deve uscire un secondo tab con possibilità di ricevere otp da amministratore. non mettere
+  dicitura amministratore ma metti ufficio") — il giro precedente lo aveva fatto come un link in
+  fondo alla pagina, in rosso, dietro un `confirm()` pesante: qui l'utente ha chiesto esplicitamente
+  di promuoverlo a una vera seconda scheda, alla pari della conferma cliente.
+  - `FirmaClienteScheda`: due schede in cima ("Cliente"/"Ufficio", stessa pillola arrotondata già
+    uniformata ovunque nel gestionale) invece del link nascosto — nessun popup di conferma: scegliere
+    la scheda e toccare "Richiedi codice all'ufficio" è già il gesto deliberato.
+  - Ogni occorrenza di "amministratore"/"amministratori" nel testo mostrato al tecnico è diventata
+    "ufficio" — "Chi in ufficio ti ha dato il codice?", "Codice inviato in ufficio", "Autorizzato
+    dall'ufficio (NOME) il...". I nomi interni (variabili, azioni server: `richiediOtpAmministratore`,
+    `getAmministratoriAttiviPerFirma`...) restano invariati — è solo il testo rivolto a chi usa la
+    Scheda a cambiare, non chi riceve davvero il codice (resta lo stesso elenco di amministratori
+    attivi).
+  Build/lint puliti.
   Build/lint puliti.

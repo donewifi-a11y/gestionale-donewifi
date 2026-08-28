@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Mail, Send, Check, Loader2, AlertTriangle, RotateCcw, ShieldAlert } from "lucide-react";
+import { Mail, Send, Check, Loader2, AlertTriangle, RotateCcw, ShieldAlert, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,7 +30,19 @@ import {
  * SchedaLavorazioneForm (via appuntamento) e RapportinoForm (via ticket —
  * il Rapportino di chiusura Ticket non ha un appuntamento collegato,
  * migrazione 0051_firma_cliente_rapportino.sql). Stessa interazione
- * ovunque, un solo posto da mantenere. */
+ * ovunque, un solo posto da mantenere.
+ *
+ * ★ RIVISTA (2026-08-28, richiesta esplicita: "deve uscire un secondo tab
+ * con possibilità di ricevere otp da amministratore. non mettere dicitura
+ * amministratore ma metti ufficio") — il bypass (2026-08-28, giro
+ * precedente) era un link defilato in fondo, con un confirm() pesante
+ * prima di procedere: promosso a una vera seconda scheda, alla pari della
+ * conferma cliente — nessun popup di conferma, la scelta della scheda e
+ * poi il tocco su "Richiedi codice" bastano come gesto deliberato. Il
+ * concetto resta lo stesso (un amministratore autorizza), ma nel testo
+ * rivolto a chi usa la Scheda si chiama sempre "ufficio" — i nomi
+ * interni (variabili, azioni server) restano "admin" perché è quello
+ * davvero: solo cosa legge il tecnico cambia. */
 export function FirmaClienteScheda({
   riferimento,
   value,
@@ -50,14 +62,8 @@ export function FirmaClienteScheda({
   const [inCorsoVerifica, startVerifica] = useTransition();
   const [inCorsoLink, startLink] = useTransition();
 
-  // ★ NUOVA (2026-08-28, richiesta esplicita: "bypassare nel rapporto di
-  // lavoro otp del cliente facendo richiedere con otp agli amministratori")
-  // — quando il cliente non può confermare in nessun modo (non solo "non
-  // riceve l'email", ma proprio irraggiungibile/assente): un amministratore
-  // autorizza al suo posto, stesso codice a 6 cifre ma consegnato in Chat
-  // interna a tutti gli amministratori invece che via email al cliente.
+  const [tab, setTab] = useState<"cliente" | "ufficio">("cliente");
   const [amministratori, setAmministratori] = useState<{ id: string; nome: string }[]>([]);
-  const [modalitaAdmin, setModalitaAdmin] = useState(false);
   const [adminSelezionato, setAdminSelezionato] = useState("");
   const [otpAdminInviato, setOtpAdminInviato] = useState(false);
   const [codiceAdmin, setCodiceAdmin] = useState("");
@@ -125,21 +131,6 @@ export function FirmaClienteScheda({
     });
   }
 
-  // ★ NUOVA (2026-08-28, "bypassare... con otp agli amministratori") —
-  // conferma volutamente più pesante di autorizzaLinkFallback(): qui si
-  // salta del tutto la conferma del cliente, non solo la si rimanda.
-  function richiediBypassAdmin() {
-    if (
-      !confirm(
-        "Confermi che il cliente non può confermare in nessun modo (non raggiungibile, assente...)? Un amministratore riceverà un codice in Chat interna e te lo darà lui — questa Scheda risulterà autorizzata da un amministratore, non dal cliente."
-      )
-    )
-      return;
-    setModalitaAdmin(true);
-    setErrore("");
-    inviaCodiceAdmin();
-  }
-
   function inviaCodiceAdmin() {
     setErrore("");
     startRichiestaAdmin(async () => {
@@ -156,7 +147,7 @@ export function FirmaClienteScheda({
   function verificaAdmin() {
     setErrore("");
     if (!adminSelezionato) {
-      setErrore("Indica quale amministratore ti ha dato il codice.");
+      setErrore("Indica chi in ufficio ti ha dato il codice.");
       return;
     }
     if (codiceAdmin.trim().length !== 6) {
@@ -178,7 +169,7 @@ export function FirmaClienteScheda({
     onChange(null);
     setOtpInviato(false);
     setCodice("");
-    setModalitaAdmin(false);
+    setTab("cliente");
     setOtpAdminInviato(false);
     setCodiceAdmin("");
     setAdminSelezionato("");
@@ -197,7 +188,7 @@ export function FirmaClienteScheda({
         ) : value.metodo === "otp_admin" ? (
           <p className="flex items-start gap-1.5 text-sm font-semibold text-critical">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
-            Autorizzato dall&apos;amministratore {value.adminNome} il{" "}
+            Autorizzato dall&apos;ufficio ({value.adminNome}) il{" "}
             {new Date(value.verificatoIl as string).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} —
             non è una conferma del cliente.
           </p>
@@ -215,161 +206,150 @@ export function FirmaClienteScheda({
     );
   }
 
-  // ★ NUOVA (2026-08-28, "bypassare... con otp agli amministratori") —
-  // schermata a sé, non un ramo in mezzo al flusso email/OTP cliente:
-  // qui si sta esplicitamente rinunciando alla conferma del cliente.
-  if (modalitaAdmin) {
-    return (
-      <div className="flex flex-col gap-3 rounded-xl border border-critical/20 bg-critical/5 p-3">
-        <p className="flex items-start gap-1.5 text-xs font-semibold text-critical">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-          Bypass amministratore — il cliente non conferma, un amministratore autorizza al suo posto.
-        </p>
-
-        {otpAdminInviato && (
-          <p className="text-xs text-muted-foreground">
-            Codice inviato in Chat interna a tutti gli amministratori attivi. Chiamane uno e chiedigli il codice.
-          </p>
-        )}
-
-        <div>
-          <Label htmlFor="adminFirmaCliente">Quale amministratore ti ha dato il codice?</Label>
-          <select
-            id="adminFirmaCliente"
-            value={adminSelezionato}
-            onChange={(e) => setAdminSelezionato(e.target.value)}
-            className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm"
-          >
-            <option value="">Scegli...</option>
-            {amministratori.map((a) => (
-              <option key={a.id} value={a.id}>{a.nome}</option>
-            ))}
-          </select>
-        </div>
-
-        {otpAdminInviato && (
-          <div className="flex gap-2">
-            <input
-              value={codiceAdmin}
-              onChange={(e) => setCodiceAdmin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              inputMode="numeric"
-              placeholder="123456"
-              className="h-11 flex-1 rounded-md border bg-background px-3 text-center text-lg font-bold tracking-widest sm:h-9 sm:text-base"
-            />
-            <Button type="button" onClick={verificaAdmin} disabled={inCorsoVerificaAdmin || codiceAdmin.length !== 6} className="min-h-11">
-              {inCorsoVerificaAdmin ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
-              {inCorsoVerificaAdmin ? "Verifica…" : "Verifica"}
-            </Button>
-          </div>
-        )}
-
-        {errore && (
-          <p className="flex items-start gap-1.5 text-xs text-critical">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-            {errore}
-          </p>
-        )}
-
-        <div className="flex items-center gap-3">
-          {otpAdminInviato && (
-            <button type="button" onClick={inviaCodiceAdmin} disabled={inCorsoRichiestaAdmin} className="text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50">
-              Invia di nuovo il codice
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setModalitaAdmin(false);
-              setOtpAdminInviato(false);
-              setCodiceAdmin("");
-              setAdminSelezionato("");
-              setErrore("");
-            }}
-            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-          >
-            Torna alla conferma del cliente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <Label htmlFor="emailFirmaCliente">Email del cliente</Label>
-        <div className="mt-1 flex gap-2">
-          <input
-            id="emailFirmaCliente"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={otpInviato}
-            placeholder="cliente@esempio.it"
-            className="h-11 flex-1 rounded-md border bg-background px-3 text-base disabled:opacity-60 sm:h-9 sm:text-sm"
-          />
-        </div>
+      {/* ★ NUOVA (2026-08-28, "deve uscire un secondo tab") — stesso guscio
+      "pillola" già uniformato ovunque nel gestionale (Calendario/Materiali/
+      Persone/Clienti), non un link defilato: le due strade sono alla pari,
+      non una nascosta in fondo all'altra. */}
+      <div className="flex items-center gap-1 self-start rounded-full border bg-card p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setTab("cliente")}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${tab === "cliente" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Cliente
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("ufficio")}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${tab === "ufficio" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Ufficio
+        </button>
       </div>
 
-      {!otpInviato ? (
-        <Button type="button" onClick={inviaCodice} disabled={inCorsoInvio} className="min-h-11">
-          {inCorsoInvio ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
-          {inCorsoInvio ? "Invio in corso…" : "Invia codice al cliente"}
-        </Button>
-      ) : (
+      {tab === "cliente" ? (
         <>
-          <p className="text-xs text-muted-foreground">
-            Codice inviato a {email}. Chiedi al cliente di leggertelo dalla sua email e digitalo qui sotto.
-          </p>
-          <div className="flex gap-2">
-            <input
-              value={codice}
-              onChange={(e) => setCodice(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              inputMode="numeric"
-              placeholder="123456"
-              className="h-11 flex-1 rounded-md border bg-background px-3 text-center text-lg font-bold tracking-widest sm:h-9 sm:text-base"
-            />
-            <Button type="button" onClick={verifica} disabled={inCorsoVerifica || codice.length !== 6} className="min-h-11">
-              {inCorsoVerifica ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
-              {inCorsoVerifica ? "Verifica…" : "Verifica"}
-            </Button>
+          <div>
+            <Label htmlFor="emailFirmaCliente">Email del cliente</Label>
+            <div className="mt-1 flex gap-2">
+              <input
+                id="emailFirmaCliente"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={otpInviato}
+                placeholder="cliente@esempio.it"
+                className="h-11 flex-1 rounded-md border bg-background px-3 text-base disabled:opacity-60 sm:h-9 sm:text-sm"
+              />
+            </div>
           </div>
-          <button type="button" onClick={inviaCodice} disabled={inCorsoInvio} className="w-fit text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50">
-            Invia di nuovo il codice
+
+          {!otpInviato ? (
+            <Button type="button" onClick={inviaCodice} disabled={inCorsoInvio} className="min-h-11">
+              {inCorsoInvio ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
+              {inCorsoInvio ? "Invio in corso…" : "Invia codice al cliente"}
+            </Button>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Codice inviato a {email}. Chiedi al cliente di leggertelo dalla sua email e digitalo qui sotto.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={codice}
+                  onChange={(e) => setCodice(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  placeholder="123456"
+                  className="h-11 flex-1 rounded-md border bg-background px-3 text-center text-lg font-bold tracking-widest sm:h-9 sm:text-base"
+                />
+                <Button type="button" onClick={verifica} disabled={inCorsoVerifica || codice.length !== 6} className="min-h-11">
+                  {inCorsoVerifica ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
+                  {inCorsoVerifica ? "Verifica…" : "Verifica"}
+                </Button>
+              </div>
+              <button type="button" onClick={inviaCodice} disabled={inCorsoInvio} className="w-fit text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50">
+                Invia di nuovo il codice
+              </button>
+            </>
+          )}
+
+          {errore && (
+            <p className="flex items-start gap-1.5 text-xs text-critical">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              {errore}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={autorizzaLinkFallback}
+            disabled={inCorsoLink || !email.trim()}
+            className="mt-1 flex w-fit items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {inCorsoLink && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />}
+            Il cliente non riceve il codice? Passa al link di approvazione (richiede conferma)
           </button>
         </>
+      ) : (
+        <>
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+            Il cliente non può confermare? Un codice arriva in ufficio — chi lo riceve te lo dà a voce.
+          </p>
+
+          {!otpAdminInviato ? (
+            <Button type="button" onClick={inviaCodiceAdmin} disabled={inCorsoRichiestaAdmin} className="min-h-11">
+              {inCorsoRichiestaAdmin ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
+              {inCorsoRichiestaAdmin ? "Invio in corso…" : "Richiedi codice all'ufficio"}
+            </Button>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Codice inviato in ufficio. Chiama e chiedi il codice a chi risponde.</p>
+
+              <div>
+                <Label htmlFor="adminFirmaCliente">Chi in ufficio ti ha dato il codice?</Label>
+                <select
+                  id="adminFirmaCliente"
+                  value={adminSelezionato}
+                  onChange={(e) => setAdminSelezionato(e.target.value)}
+                  className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm"
+                >
+                  <option value="">Scegli...</option>
+                  {amministratori.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  value={codiceAdmin}
+                  onChange={(e) => setCodiceAdmin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  placeholder="123456"
+                  className="h-11 flex-1 rounded-md border bg-background px-3 text-center text-lg font-bold tracking-widest sm:h-9 sm:text-base"
+                />
+                <Button type="button" onClick={verificaAdmin} disabled={inCorsoVerificaAdmin || codiceAdmin.length !== 6} className="min-h-11">
+                  {inCorsoVerificaAdmin ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Check className="h-4 w-4" strokeWidth={2.5} />}
+                  {inCorsoVerificaAdmin ? "Verifica…" : "Verifica"}
+                </Button>
+              </div>
+              <button type="button" onClick={inviaCodiceAdmin} disabled={inCorsoRichiestaAdmin} className="w-fit text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50">
+                Invia di nuovo il codice
+              </button>
+            </>
+          )}
+
+          {errore && (
+            <p className="flex items-start gap-1.5 text-xs text-critical">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              {errore}
+            </p>
+          )}
+        </>
       )}
-
-      {errore && (
-        <p className="flex items-start gap-1.5 text-xs text-critical">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-          {errore}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={autorizzaLinkFallback}
-        disabled={inCorsoLink || !email.trim()}
-        className="mt-1 flex w-fit items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
-      >
-        {inCorsoLink && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />}
-        Il cliente non riceve il codice? Passa al link di approvazione (richiede conferma)
-      </button>
-
-      {/* ★ NUOVA (2026-08-28, "bypassare... con otp agli amministratori")
-      — un gradino più in basso del link fallback: quello è per "il
-      cliente riceve la conferma più tardi", questo è per "il cliente non
-      conferma proprio", volutamente separato e meno in vista. */}
-      <button
-        type="button"
-        onClick={richiediBypassAdmin}
-        disabled={inCorsoRichiestaAdmin}
-        className="flex w-fit items-center gap-1.5 text-xs text-critical/80 underline-offset-2 hover:underline disabled:opacity-50"
-      >
-        {inCorsoRichiestaAdmin && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />}
-        Il cliente non può confermare in nessun modo? Chiedi l&apos;autorizzazione di un amministratore
-      </button>
     </div>
   );
 }
