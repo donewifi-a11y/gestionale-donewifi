@@ -2881,4 +2881,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Scheda a cambiare, non chi riceve davvero il codice (resta lo stesso elenco di amministratori
     attivi).
   Build/lint puliti.
+✅ Fix: "fermo su salvataggio" nella Scheda di Installazione/Lavorazione (2026-08-28, bug reale
+  segnalato dall'utente su pose.donewifi.it) — le 4 funzioni `invia()` che salvano la Scheda
+  (pose × Installazione/Lavorazione via `DomandaWizard`, desktop × Installazione/Lavorazione via
+  `SchedaWizard`) non avevano un `try/catch` attorno all'`await` del salvataggio: un errore
+  imprevisto (es. la pagina rimasta aperta da prima di un aggiornamento del gestionale, con
+  l'azione server non più valida — il sospetto più probabile in questo caso, dato il tempismo)
+  lasciava `setInCorso(false)` senza essere mai raggiunto, il pulsante bloccato su "Salvataggio…"
+  per sempre invece di mostrare un errore. Aggiunto un `try/catch/finally` a tutte e 4: un errore
+  imprevisto ora mostra "Errore imprevisto durante il salvataggio — ricarica la pagina e riprova."
+  invece di restare bloccato in silenzio, e `finally` garantisce che il pulsante torni sempre
+  cliccabile. Build/lint puliti.
   Build/lint puliti.

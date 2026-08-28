@@ -119,25 +119,37 @@ export function SchedaInstallazioneDomande({
     ];
 
     setInCorso(true);
-    const risultato = await salvaSchedaLavoroEsterno(
-      appuntamentoId,
-      "Nuova installazione",
-      {
-        esito: "Installazione certificata con successo",
-        note,
-        metodoPagamentoPosa: metodoPagamento,
-        materiali,
-        firmaCliente: firmaCliente!,
-        supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
-        metriCavo, bts, modelloCpe, mac, rssi,
-        pingMs: ping, downloadMbps: download, uploadMbps: upload,
-      },
-      foto
-    );
-    setInCorso(false);
-    if (risultato.errore) { setErroreInvio(risultato.errore); return; }
-    cancellaBozzaScheda(chiaveBozza);
-    onSalvato();
+    // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
+    // senza un try/catch, un errore imprevisto (es. la pagina rimasta
+    // aperta da prima di un aggiornamento del gestionale, con l'azione
+    // server non più valida) faceva restare il pulsante bloccato su
+    // "Salvataggio…" per sempre: `setInCorso(false)` non veniva mai
+    // raggiunto. Ora un errore imprevisto mostra un messaggio invece di
+    // restare bloccato in silenzio.
+    try {
+      const risultato = await salvaSchedaLavoroEsterno(
+        appuntamentoId,
+        "Nuova installazione",
+        {
+          esito: "Installazione certificata con successo",
+          note,
+          metodoPagamentoPosa: metodoPagamento,
+          materiali,
+          firmaCliente: firmaCliente!,
+          supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
+          metriCavo, bts, modelloCpe, mac, rssi,
+          pingMs: ping, downloadMbps: download, uploadMbps: upload,
+        },
+        foto
+      );
+      if (risultato.errore) { setErroreInvio(risultato.errore); return; }
+      cancellaBozzaScheda(chiaveBozza);
+      onSalvato();
+    } catch {
+      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
+    }
   }
 
   const domande: Domanda[] = [

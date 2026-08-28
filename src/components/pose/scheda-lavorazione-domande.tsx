@@ -58,16 +58,25 @@ export function SchedaLavorazioneDomande({
   async function invia() {
     setErroreInvio("");
     setInCorso(true);
-    const risultato = await salvaSchedaLavoroEsterno(
-      appuntamentoId,
-      "Lavorazione tecnica",
-      { esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi },
-      []
-    );
-    setInCorso(false);
-    if (risultato.errore) { setErroreInvio(risultato.errore); return; }
-    cancellaBozzaScheda(chiaveBozza);
-    onSalvato();
+    // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
+    // stesso fix gemello di scheda-installazione-domande.tsx, vedi lì per
+    // il commento completo: senza try/catch un errore imprevisto lasciava
+    // il pulsante bloccato per sempre su "Salvataggio…".
+    try {
+      const risultato = await salvaSchedaLavoroEsterno(
+        appuntamentoId,
+        "Lavorazione tecnica",
+        { esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi },
+        []
+      );
+      if (risultato.errore) { setErroreInvio(risultato.errore); return; }
+      cancellaBozzaScheda(chiaveBozza);
+      onSalvato();
+    } catch {
+      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
+    }
   }
 
   const domande: Domanda[] = [

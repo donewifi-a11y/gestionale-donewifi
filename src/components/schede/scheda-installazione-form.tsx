@@ -144,42 +144,51 @@ export function SchedaInstallazioneForm({
     if (fotoInterna) foto.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
 
     setInCorso(true);
-    const risultato = await salvaSchedaLavoro(
-      appuntamentoId,
-      "Nuova installazione",
-      {
-        esito: "Installazione certificata con successo",
-        note,
-        metodoPagamentoPosa: metodoPagamento,
-        materiali,
-        firmaCliente,
-        firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
-        supporto,
-        posizione,
-        gpsLat: gps?.lat,
-        gpsLng: gps?.lng,
-        tipoCavo,
-        metriCavo,
-        bts,
-        modelloCpe,
-        mac,
-        vlan,
-        rssi,
-        snr,
-        router,
-        pingMs: ping,
-        downloadMbps: download,
-        uploadMbps: upload,
-      },
-      foto
-    );
-    setInCorso(false);
-    if (risultato.errore) {
-      setErroreInvio(risultato.errore);
-      return;
+    // ★ FIX (2026-08-28, bug reale segnalato su pose: "fermo su
+    // salvataggio", stesso rischio qui — vedi il commento gemello in
+    // pose/scheda-installazione-domande.tsx) — senza try/catch un errore
+    // imprevisto lasciava il pulsante bloccato per sempre.
+    try {
+      const risultato = await salvaSchedaLavoro(
+        appuntamentoId,
+        "Nuova installazione",
+        {
+          esito: "Installazione certificata con successo",
+          note,
+          metodoPagamentoPosa: metodoPagamento,
+          materiali,
+          firmaCliente,
+          firmaTecnicoDataUrl: firmaTecnicoRef.current?.ottieniDataUrl() ?? "",
+          supporto,
+          posizione,
+          gpsLat: gps?.lat,
+          gpsLng: gps?.lng,
+          tipoCavo,
+          metriCavo,
+          bts,
+          modelloCpe,
+          mac,
+          vlan,
+          rssi,
+          snr,
+          router,
+          pingMs: ping,
+          downloadMbps: download,
+          uploadMbps: upload,
+        },
+        foto
+      );
+      if (risultato.errore) {
+        setErroreInvio(risultato.errore);
+        return;
+      }
+      cancellaBozzaScheda(chiaveBozza);
+      onSalvato();
+    } catch {
+      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
     }
-    cancellaBozzaScheda(chiaveBozza);
-    onSalvato();
   }
 
   const passi: PassoScheda[] = [

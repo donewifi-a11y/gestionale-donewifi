@@ -76,26 +76,35 @@ export function SchedaLavorazioneForm({
       return;
     }
     setInCorso(true);
-    const risultato = await salvaSchedaLavoro(
-      appuntamentoId,
-      "Lavorazione tecnica",
-      {
-        esito,
-        note,
-        metodoPagamentoPosa: metodoPagamento,
-        materiali,
-        firmaCliente,
-        interventiEseguiti: interventi,
-      },
-      []
-    );
-    setInCorso(false);
-    if (risultato.errore) {
-      setErroreInvio(risultato.errore);
-      return;
+    // ★ FIX (2026-08-28, bug reale segnalato su pose: "fermo su
+    // salvataggio" — vedi il commento gemello in
+    // pose/scheda-installazione-domande.tsx) — senza try/catch un errore
+    // imprevisto lasciava il pulsante bloccato per sempre.
+    try {
+      const risultato = await salvaSchedaLavoro(
+        appuntamentoId,
+        "Lavorazione tecnica",
+        {
+          esito,
+          note,
+          metodoPagamentoPosa: metodoPagamento,
+          materiali,
+          firmaCliente,
+          interventiEseguiti: interventi,
+        },
+        []
+      );
+      if (risultato.errore) {
+        setErroreInvio(risultato.errore);
+        return;
+      }
+      cancellaBozzaScheda(chiaveBozza);
+      onSalvato();
+    } catch {
+      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
     }
-    cancellaBozzaScheda(chiaveBozza);
-    onSalvato();
   }
 
   const passi: PassoScheda[] = [
