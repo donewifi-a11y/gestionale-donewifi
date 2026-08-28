@@ -78,7 +78,10 @@ export function InstallazioniTabella({ installazioni }: { installazioni: RigaIns
             className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
-        <div className="flex overflow-hidden rounded-lg border">
+        {/* ★ UNIFORMATO (2026-08-28, artifact "Armonia UI", "sì, pillola
+        arrotondata ovunque") — stesso guscio di Calendario/navigazione data/
+        rail sidebar, al posto del segmento quadrato usato qui prima. */}
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
           {([
             ["tutte", "Tutte"],
             ["mese", "Questo mese"],
@@ -87,7 +90,7 @@ export function InstallazioniTabella({ installazioni }: { installazioni: RigaIns
             <button
               key={valore}
               onClick={() => setFiltro(valore)}
-              className={`px-3 py-1.5 text-xs font-semibold transition ${filtro === valore ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${filtro === valore ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
             >
               {etichetta}
             </button>

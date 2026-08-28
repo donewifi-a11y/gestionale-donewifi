@@ -58,28 +58,33 @@ export function MaterialiBoard({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex overflow-hidden rounded-lg border">
+        {/* ★ UNIFORMATO (2026-08-28, richiesta esplicita: "uniforma tutto il
+        sistema con lo stesso stile" → artifact "Armonia UI", confermato "sì,
+        pillola arrotondata ovunque") — stesso guscio "pillola" già usato in
+        Calendario/navigazione data/rail sidebar, al posto del segmento
+        quadrato usato qui prima. */}
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
           <button
             onClick={() => setVista("catalogo")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "catalogo" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "catalogo" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Catalogo
           </button>
           <button
             onClick={() => setVista("magazzino")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "magazzino" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "magazzino" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Magazzino
           </button>
           <button
             onClick={() => setVista("antenne")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "antenne" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "antenne" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Antenne
           </button>
           <button
             onClick={() => setVista("trasferire")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition ${vista === "trasferire" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "trasferire" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Da trasferire
             {daTrasferire.length > 0 && (
@@ -92,7 +97,7 @@ export function MaterialiBoard({
           </button>
           <button
             onClick={() => setVista("schede")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "schede" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "schede" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             In Scheda di lavoro
           </button>

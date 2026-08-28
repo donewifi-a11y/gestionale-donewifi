@@ -149,23 +149,26 @@ export function ClientiBoard({
 
   return (
     <div>
-      <div className="mb-5 flex overflow-hidden rounded-lg border" style={{ width: "fit-content" }}>
+      {/* ★ UNIFORMATO (2026-08-28, artifact "Armonia UI", "sì, pillola
+      arrotondata ovunque") — stesso guscio di Calendario/navigazione data/
+      rail sidebar, al posto del segmento quadrato usato qui prima. */}
+      <div className="mb-5 flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm" style={{ width: "fit-content" }}>
         <button
           onClick={() => setVista("clienti")}
-          className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "clienti" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "clienti" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
         >
           Clienti
         </button>
         <button
           onClick={() => setVista("installazioni")}
-          className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "installazioni" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "installazioni" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
         >
           Installazioni ({installazioni.length})
         </button>
         {anagrafica && (
           <button
             onClick={() => setVista("anagrafica")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "anagrafica" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "anagrafica" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Anagrafica
           </button>

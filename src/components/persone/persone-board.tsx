@@ -62,22 +62,25 @@ export function PersoneBoard({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex overflow-hidden rounded-lg border">
+        {/* ★ UNIFORMATO (2026-08-28, artifact "Armonia UI", "sì, pillola
+        arrotondata ovunque") — stesso guscio di Calendario/navigazione data/
+        rail sidebar, al posto del segmento quadrato usato qui prima. */}
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
           <button
             onClick={() => setVista("persone")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "persone" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "persone" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Persone
           </button>
           <button
             onClick={() => setVista("utenti")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "utenti" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "utenti" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Accessi condivisi
           </button>
           <button
             onClick={() => setVista("esterni")}
-            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "esterni" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "esterni" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Tecnici esterni
           </button>

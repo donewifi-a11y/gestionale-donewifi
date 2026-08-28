@@ -2750,3 +2750,17 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     stata in menu) — un solo ingresso per tutta l'amministrazione-accessi.
   Verificato sui dati reali: 6 persone, 2 account condivisi, 1 tecnico esterno in produzione, tutti
   ancora raggiungibili dalla pagina unificata. Build/lint puliti.
+✅ Selettori a schede uniformati su un solo stile (2026-08-28, richiesta esplicita: "uniforma tutto
+  il sistema con lo stesso stile di ui/ux... fammi proposte con artifact" → artifact "Armonia UI":
+  trovato che i selettori a schede (Catalogo/Magazzino, Persone/Accessi, Giorno/Settimana/Mese...)
+  usavano due stili diversi solo perché scritti in momenti diversi → confermato "sì, pillola
+  arrotondata ovunque") — Materiali, Persone e Clienti (+ il filtro nella tabella Installazioni)
+  passano dal "segmento quadrato" (`rounded-lg`, tinta piena) alla "pillola arrotondata" già usata
+  in Calendario, nei pulsanti di navigazione data e nel rail dei mondi in sidebar — cambia solo il
+  guscio esterno, zero rischio sulle azioni dentro. Lasciati fuori (di proposito, non sono lo stesso
+  pattern): i selettori a 3 vie dentro i form (Classificazione materiale, Metodo di pagamento della
+  posa) — sono controlli tipo radio-button a larghezza piena, un concetto diverso da "quale vista sto
+  guardando".
+  pose.donewifi.it resta con la sua identità visiva "Segnale" (font/colori/sfondo scuro) — chiarito
+  con l'utente: "uniforma tutto" riguarda solo il gestionale principale, pose è deliberatamente
+  un'app a parte per l'uso da smartphone sul campo. Build/lint puliti.
