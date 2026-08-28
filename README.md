@@ -2616,3 +2616,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   toccato da questo problema (non ha mai usato Supabase Auth).
   Verificato sui dati reali: 4 persone attive con un account collegato (`auth_user_id`) in
   produzione oggi, pronte a poter usare pose senza altro da configurare. Build/lint puliti.
+✅ Sezione "Da assegnare" su pose.donewifi.it (2026-08-28, "mancano un po' di pose da fare" — dopo
+  aver verificato coi dati reali che il primo utente della SSO qui sopra vedeva solo 1 appuntamento
+  su pose e chiesto conferma: "voglio vedere anche i non assegnati") — trovati 12 appuntamenti
+  "Programmato" reali senza NESSUN tecnico assegnato (né interno né esterno): invisibili ovunque,
+  anche a chi era pronto a farli, perché ogni vista (pose, Vista Tecnico) filtra per un
+  `tecnico_id`/`tecnico_esterno_id` preciso — nessuno risultava assegnato quindi nessuno li vedeva.
+  Esempi reali: "Installazione Annalisa Martinod" (05/08), "Assistenza Enrico Marcoz" (18/08),
+  "Pianificazione installazione Roberta Arlenghi" (25/08) e altri 9, fino a un'installazione
+  pianificata per il 05/10.
+  - `getInterventiTecnicoEsterno()` porta ora anche questi (`appuntamentiNonAssegnati`), con una
+    terza query dedicata (`tecnico_id` e `tecnico_esterno_id` entrambi null).
+  - pose/page.tsx: nuova sezione "Da assegnare — nessun tecnico ancora" (tratteggiata, tra "In
+    programma" e "Interventi da chiudere"), con un bottone "Prendi in carico" per riga.
+  - Nuova azione `prendiInCaricoAppuntamentoPose()`: assegna l'operatore collegato (interno o
+    esterno, stessa colonna giusta già scelta da `colonnaAssegnazione()`) — ma solo con un
+    `UPDATE ... WHERE tecnico_id IS NULL AND tecnico_esterno_id IS NULL` condizionale, non un
+    controllo separato prima di scrivere: due persone potrebbero aprire pose nello stesso momento e
+    cliccare sullo stesso appuntamento, deve vincere chi arriva prima, non chi clicca per ultimo
+    sovrascrivendo il primo. Verificato con un vero tentativo concorrente sui dati reali (poi
+    ripristinato): la prima richiesta assegna, la seconda sullo stesso appuntamento fallisce con un
+    messaggio chiaro invece di sovrascrivere in silenzio.
+  Build/lint puliti; verificato sui dati reali (12 appuntamenti trovati, race condition testata
+  davvero e non solo letta nel codice).

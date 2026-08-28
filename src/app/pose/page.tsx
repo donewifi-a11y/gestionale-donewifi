@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { HardHat, MapPin, Phone, CalendarClock, ChevronRight, Users, AlertTriangle } from "lucide-react";
+import { HardHat, MapPin, Phone, CalendarClock, ChevronRight, Users, AlertTriangle, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { getInterventiTecnicoEsterno } from "./actions";
 import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
+import { PrendiInCaricoButton } from "@/components/pose/prendi-in-carico-button";
 
 // ★ NUOVA (2026-08-26) — dashboard di pose.donewifi.it: solo ciò che è
 // assegnato AL tecnico collegato, niente sidebar/mondi del gestionale
@@ -17,7 +18,7 @@ export default async function PosePage() {
   const dati = await getInterventiTecnicoEsterno();
   if (!dati) redirect("/pose/login");
 
-  const { tecnico, tickets, appuntamenti } = dati;
+  const { tecnico, tickets, appuntamenti, appuntamentiNonAssegnati } = dati;
 
   // ★ NUOVA (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
   // le installazioni da fare rapporto di lavoro quando non completate") —
@@ -117,6 +118,40 @@ export default async function PosePage() {
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ★ NUOVA (2026-08-28, "mancano un po' di pose da fare") — appuntamenti
+      "Programmato" senza nessun tecnico assegnato: prima invisibili
+      ovunque, anche a chi era pronto a farli. Chiunque su pose li vede e
+      può prenderli in carico da qui, senza passare dal gestionale
+      principale (vedi getInterventiTecnicoEsterno() in actions.ts). */}
+      {appuntamentiNonAssegnati.length > 0 && (
+        <div className="flex flex-col gap-2.5 rounded-2xl border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-3.5">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <HelpCircle className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+            Da assegnare — nessun tecnico ancora
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {appuntamentiNonAssegnati.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold">
+                    <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                    {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <p className="mt-1.5 truncate text-base font-medium">{a.titolo}</p>
+                  {a.indirizzo && (
+                    <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                      <span className="truncate">{a.indirizzo}</span>
+                    </p>
+                  )}
+                </div>
+                <PrendiInCaricoButton appuntamentoId={a.id} />
+              </div>
             ))}
           </div>
         </div>

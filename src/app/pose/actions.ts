@@ -145,6 +145,13 @@ export interface InterventiTecnicoEsterno {
   tecnico: { id: string; nome: string; tipo: Operatore["tipo"] };
   tickets: Ticket[];
   appuntamenti: Appuntamento[];
+  /** ★ NUOVA (2026-08-28, "mancano un po' di pose da fare") — appuntamenti
+   * "Programmato" senza NESSUN tecnico assegnato (né interno né esterno):
+   * prima erano invisibili ovunque, anche a chi era pronto a farli, perché
+   * ogni vista pose/Vista Tecnico filtra per un tecnico_id/tecnico_esterno_id
+   * preciso. Chiunque collegato a pose li vede tutti e può "prenderli in
+   * carico" — vedi prendiInCaricoAppuntamentoPose() più sotto. */
+  appuntamentiNonAssegnati: Appuntamento[];
 }
 
 /** Colonna di assegnazione giusta per questo operatore, sulla tabella indicata. */
@@ -181,7 +188,7 @@ export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEs
   const colonnaTickets = colonnaAssegnazione(operatore, "tickets");
   const colonnaAppuntamenti = colonnaAssegnazione(operatore, "appuntamenti");
 
-  const [{ data: tickets }, { data: appuntamenti }] = await Promise.all([
+  const [{ data: tickets }, { data: appuntamenti }, { data: appuntamentiNonAssegnati }] = await Promise.all([
     service
       .from("tickets")
       .select("*")
@@ -194,13 +201,54 @@ export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEs
       .eq(colonnaAppuntamenti, operatore.id)
       .eq("stato", "Programmato")
       .order("data_ora", { ascending: true }),
+    service
+      .from("appuntamenti")
+      .select("*")
+      .is("tecnico_id", null)
+      .is("tecnico_esterno_id", null)
+      .eq("stato", "Programmato")
+      .order("data_ora", { ascending: true }),
   ]);
 
   return {
     tecnico: { id: operatore.id, nome: operatore.nome, tipo: operatore.tipo },
     tickets: (tickets as Ticket[]) ?? [],
     appuntamenti: (appuntamenti as Appuntamento[]) ?? [],
+    appuntamentiNonAssegnati: (appuntamentiNonAssegnati as Appuntamento[]) ?? [],
   };
+}
+
+/**
+ * ★ NUOVA (2026-08-28) — un operatore di pose (interno o esterno) prende in
+ * carico un appuntamento finora senza nessuno assegnato. Ricontrolla
+ * `tecnico_id`/`tecnico_esterno_id` ancora entrambi null proprio prima di
+ * scrivere (non solo lato client): due persone potrebbero aprire pose nello
+ * stesso momento e provare a prendere lo stesso appuntamento, va assegnato
+ * a chi arriva prima, non a chi clicca per ultimo sovrascrivendo il primo.
+ */
+export async function prendiInCaricoAppuntamentoPose(appuntamentoId: string): Promise<{ errore: string | null }> {
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return { errore: "Sessione scaduta — accedi di nuovo." };
+
+  const service = createServiceClient();
+  const colonna = colonnaAssegnazione(operatore, "appuntamenti");
+
+  const { data, error } = await service
+    .from("appuntamenti")
+    .update({ [colonna]: operatore.id })
+    .eq("id", appuntamentoId)
+    .eq("stato", "Programmato")
+    .is("tecnico_id", null)
+    .is("tecnico_esterno_id", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { errore: error.message };
+  if (!data) return { errore: "Questo appuntamento è già stato preso in carico da qualcun altro." };
+
+  revalidatePath("/pose");
+  return { errore: null };
 }
 
 /** Il Ticket, solo se assegnato all'operatore collegato — mai un altro. */
