@@ -178,18 +178,17 @@ export function AppSidebar({
         // solo a chi le assegna. Persone/Stato Sistema restano riservate
         // agli amministratori (ogni pagina si protegge comunque da sola
         // lato server, questo è solo cosa compare nel menu).
-        // ★ "Utenti" (account condivisi) non è più promosso qui: dal login
-        // individuale, l'accesso vero passa da Persone — Utenti resta
-        // raggiungibile su /utenti per chi lo conosce già, solo non in menu.
+        // ★ "Utenti" (account condivisi) e "Tecnici esterni" (account
+        // pose.donewifi.it) non sono più voci a sé qui: sono tab dentro
+        // "Persone" (vedi PersoneBoard) — richiesta esplicita "rendere
+        // univoci i posti dove aprire le diverse sezioni", artifact "Audit
+        // Ingressi". /utenti e /tecnici-esterni restano raggiungibili per
+        // chi ha un link salvato, ma ora reindirizzano qui.
         voci: [
           { href: "/lavorazioni", etichetta: "Lavorazioni Interne", icona: Wrench, separatoreDopo: isAdmin },
           ...(isAdmin
             ? [
                 { href: "/persone", etichetta: "Persone", icona: UserCircle },
-                // ★ NUOVA (2026-08-26) — account pose.donewifi.it (tecnici
-                // esterni, sistema separato dal gestionale): stessa
-                // riservatezza di Persone, nessun altro modo per crearli.
-                { href: "/tecnici-esterni", etichetta: "Tecnici esterni", icona: HardHat },
                 { href: "/sistema", etichetta: "Stato Sistema", icona: ShieldCheck },
               ]
             : []),

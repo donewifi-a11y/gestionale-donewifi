@@ -51,7 +51,7 @@ export async function creaStaff(dati: { email: string; password: string; nome: s
   });
   if (erroreStaff) return { errore: erroreStaff.message };
 
-  revalidatePath("/utenti");
+  revalidatePath("/persone");
   return { errore: null };
 }
 
@@ -70,6 +70,6 @@ export async function aggiornaStaff(id: string, dati: { nome: string; area_acces
     .eq("id", id);
   if (error) return { errore: error.message };
 
-  revalidatePath("/utenti");
+  revalidatePath("/persone");
   return { errore: null };
 }

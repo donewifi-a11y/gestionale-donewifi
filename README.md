@@ -2733,3 +2733,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   rinominata in `VistaSettimana` (è di nuovo l'unica), `GIORNI_SETTIMANA` spostata più in alto perché
   ancora usata da Vista Mese. Build/lint puliti (nessun import rimasto inutilizzato dopo la
   rimozione).
+✅ "Team" unificato: Persone + Utenti + Tecnici esterni in un solo posto (2026-08-28, richiesta
+  esplicita: "riorganizziamo tutto... rendere univoci i posti dove aprire le diverse sezioni" →
+  presentato un audit completo con artifact "Audit Ingressi": Ticket/Appuntamento/Scheda di
+  Lavoro/Nuovi Clienti restano com'erano, doppioni voluti; l'unica vera incoerenza trovata era qui →
+  confermato "sì, 3 tab in una sezione") — "Persone" e "Utenti" (accessi condivisi) erano già state
+  unite in un giro precedente (tab dentro /persone); "Tecnici esterni" (account pose.donewifi.it,
+  nato dopo, 2026-08-26) era rimasta l'ultima pagina di amministrazione-accessi separata.
+  - `PersoneBoard` ha ora una terza tab "Tecnici esterni" (riusa `TecniciEsterniBoard` esistente,
+    non ricreato).
+  - `/utenti` e `/tecnici-esterni` non sono più pagine vere: **reindirizzano** a `/persone` — chi ha
+    un link salvato o il segnalibro finisce comunque nel posto giusto, invece di vedere una pagina
+    "vecchia" gemella di quella nuova. `revalidatePath` delle rispettive azioni ripuntato a
+    `/persone`.
+  - Sidebar: tolta la voce "Tecnici esterni" dal mondo Team (restava "Persone" e "Utenti" non era mai
+    stata in menu) — un solo ingresso per tutta l'amministrazione-accessi.
+  Verificato sui dati reali: 6 persone, 2 account condivisi, 1 tecnico esterno in produzione, tutti
+  ancora raggiungibili dalla pagina unificata. Build/lint puliti.

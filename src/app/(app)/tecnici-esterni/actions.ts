@@ -88,7 +88,7 @@ export async function creaTecnicoEsterno(dati: {
   const { error: erroreHash } = await service.rpc("imposta_password_tecnico_esterno", { p_id: data.id, p_password: dati.password.trim() });
   if (erroreHash) return { errore: erroreHash.message };
 
-  revalidatePath("/tecnici-esterni");
+  revalidatePath("/persone");
   return { errore: null };
 }
 
@@ -123,6 +123,6 @@ export async function aggiornaTecnicoEsterno(
     if (erroreHash) return { errore: erroreHash.message };
   }
 
-  revalidatePath("/tecnici-esterni");
+  revalidatePath("/persone");
   return { errore: null };
 }

@@ -20,9 +20,10 @@ import {
   type CaricoPersona,
 } from "@/app/(app)/persone/actions";
 import { UtentiBoard } from "@/components/utenti/utenti-board";
+import { TecniciEsterniBoard } from "@/components/tecnici-esterni/tecnici-esterni-board";
 import type { StaffCompleto } from "@/app/(app)/utenti/page";
 import { REPARTI, coloreReparto } from "@/lib/types";
-import type { AreaAccesso, Persona } from "@/lib/types";
+import type { AreaAccesso, Persona, TecnicoEsterno } from "@/lib/types";
 
 // ★ NUOVA (2026-08) — richiesta esplicita: uniformare Persone/Utenti al
 // resto del gestionale — proposta con artifact (audit grafico completo),
@@ -32,8 +33,27 @@ import type { AreaAccesso, Persona } from "@/lib/types";
 // Materiali (Catalogo/Magazzino/Antenne/Schede). La pagina /utenti resta
 // comunque raggiungibile per compatibilità con eventuali link salvati,
 // ma il punto d'ingresso vero è sempre questo.
-export function PersoneBoard({ persone, staff, currentUserId }: { persone: Persona[]; staff: StaffCompleto[]; currentUserId: string }) {
-  const [vista, setVista] = useState<"persone" | "utenti">("persone");
+//
+// ★ ESTESA (2026-08-28, richiesta esplicita — "riorganizziamo tutto...
+// rendere univoci i posti dove aprire le diverse sezioni" → artifact
+// "Audit Ingressi", sezione Persone/Utenti/Tecnici esterni) — stessa
+// unificazione, terza tab: "Tecnici esterni" (account pose.donewifi.it)
+// era l'ultima delle tre pagine di amministrazione-accessi rimasta a sé,
+// staccata solo perché nata dopo (2026-08-26). Nessuna nuova voce in menu:
+// il "mondo" Team perde la voce "Tecnici esterni", "Persone" resta l'unico
+// ingresso per tutte e tre.
+export function PersoneBoard({
+  persone,
+  staff,
+  tecnici,
+  currentUserId,
+}: {
+  persone: Persona[];
+  staff: StaffCompleto[];
+  tecnici: TecnicoEsterno[];
+  currentUserId: string;
+}) {
+  const [vista, setVista] = useState<"persone" | "utenti" | "esterni">("persone");
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Persona | null>(null);
 
@@ -55,6 +75,12 @@ export function PersoneBoard({ persone, staff, currentUserId }: { persone: Perso
           >
             Accessi condivisi
           </button>
+          <button
+            onClick={() => setVista("esterni")}
+            className={`px-3 py-1.5 text-xs font-semibold transition ${vista === "esterni" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Tecnici esterni
+          </button>
         </div>
         {vista === "persone" && (
           <Button onClick={() => setNuova(true)}>
@@ -66,6 +92,8 @@ export function PersoneBoard({ persone, staff, currentUserId }: { persone: Perso
 
       {vista === "utenti" ? (
         <UtentiBoard staff={staff} currentUserId={currentUserId} />
+      ) : vista === "esterni" ? (
+        <TecniciEsterniBoard tecnici={tecnici} />
       ) : (
         <>
           {senzaLogin.length > 0 && (
