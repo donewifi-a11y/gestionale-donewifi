@@ -134,19 +134,26 @@ export default async function PosePage() {
             <HelpCircle className="h-4 w-4 shrink-0" strokeWidth={2.25} />
             Da assegnare — nessun tecnico ancora
           </p>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {/* ★ FIX (2026-08-28, "migliorare, non si capisce nulla") — la
+          griglia a 2 colonne usata altrove in questa pagina va bene per una
+          card cliccabile con solo una freccia, ma qui c'è anche un bottone:
+          in 2 colonne su schermo stretto restava troppo poco spazio, titolo
+          e indirizzo finivano troncati a metà parola accanto a un bottone
+          schiacciato. Una colonna sola, bottone sotto a tutta larghezza,
+          niente troncamento: si legge per intero. */}
+          <div className="flex flex-col gap-2.5">
             {appuntamentiNonAssegnati.map((a) => (
-              <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                <div className="min-w-0">
+              <div key={a.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                <div>
                   <div className="flex items-center gap-1.5 text-sm font-semibold">
                     <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />
                     {new Date(a.data_ora).toLocaleString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
-                  <p className="mt-1.5 truncate text-base font-medium">{a.titolo}</p>
+                  <p className="mt-1.5 text-base font-medium">{a.titolo}</p>
                   {a.indirizzo && (
                     <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
                       <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                      <span className="truncate">{a.indirizzo}</span>
+                      <span>{a.indirizzo}</span>
                     </p>
                   )}
                 </div>

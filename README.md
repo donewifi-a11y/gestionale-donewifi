@@ -2639,3 +2639,16 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     messaggio chiaro invece di sovrascrivere in silenzio.
   Build/lint puliti; verificato sui dati reali (12 appuntamenti trovati, race condition testata
   davvero e non solo letta nel codice).
+✅ Fix layout "Da assegnare" (2026-08-28, screenshot: "migliorare, non si capisce nulla") — la
+  griglia a 2 colonne, presa in prestito dalle altre sezioni della pagina, andava bene per una card
+  solo cliccabile (titolo troncato + freccia), ma qui c'era anche il bottone "Prendi in carico"
+  affiancato: su schermo stretto restava pochissimo spazio, titolo e indirizzo troncati a metà
+  parola accanto a un bottone schiacciato — illeggibile, esattamente come segnalato.
+  - Una colonna sola invece di due, bottone spostato sotto a tutta larghezza invece che di fianco,
+    titolo e indirizzo senza più troncamento (`truncate` tolto): ogni card ora ha lo spazio per
+    leggersi per intero.
+  - Bottone anche ricolorato: era `bg-primary` (il rosso di brand — stesso rosso della sezione "In
+    ritardo" appena sopra), leggeva come un secondo avviso critico per un'azione che invece è
+    neutra. Ora blu (stesso accento già usato in pose per "Calendario squadra"/badge "Tu"), per
+    distinguerlo visivamente da un allarme.
+  Build/lint puliti.
