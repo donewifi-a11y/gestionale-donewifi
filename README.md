@@ -2684,3 +2684,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   blocco se esiste già una Scheda di Lavoro collegata) ora raggiungibile anche qui: un'iconcina
   cestino (solo per admin) sull'intestazione di ogni card, sia in "In ritardo" che in "Appuntamenti
   di oggi", con la stessa conferma esplicita del Calendario. Build/lint puliti.
+✅ Fix: l'eliminazione appuntamenti non cancellava davvero nulla (2026-08-28, bug reale segnalato
+  dall'utente: "non si cancella", nessun errore mostrato ma la riga restava dopo il refresh) —
+  causa: `appuntamenti` ha RLS attiva con policy solo per select/insert/update (migrazione 0004),
+  MAI una policy `for delete`. `eliminaAppuntamento()` usava il client legato ai cookie (soggetto a
+  RLS) anche per la scrittura: senza una policy di cancellazione, Postgres accetta la richiesta ma
+  cancella ZERO righe, senza sollevare errore — il codice proseguiva come se fosse andato tutto bene
+  (toast di successo, revalidatePath), la riga restava. Stesso principio già usato altrove per le
+  scritture da amministratore (persone/tecnici_esterni/materiali): il controllo "sei admin?" resta
+  sul client legato ai cookie, la scrittura vera ora passa dalla service role (bypassa RLS) invece
+  di aggiungere una nuova policy. Aggiunto anche un controllo `count` esplicito sul delete, per non
+  ripetere in futuro lo stesso errore silenzioso su un'altra tabella.
+  Riprodotto e verificato il fix sui dati reali con una riga di test usa-e-getta (creata ed eliminata
+  subito dopo, nessuna riga vera toccata): il delete con l'anon key cancella davvero 0 righe senza
+  errore (bug riprodotto), il delete con service role cancella la riga per davvero (fix confermato).
+  Build/lint puliti.

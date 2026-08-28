@@ -180,6 +180,18 @@ export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamen
  * `on delete cascade` (migrazione 0038) — eliminare l'appuntamento
  * cancellerebbe in silenzio anche il lavoro già registrato (materiali,
  * foto, importo fatturato). In quel caso resta solo "Annulla".
+ *
+ * ★ FIX (2026-08-28, bug reale trovato in produzione: "non si cancella" —
+ * nessun errore mostrato, ma la riga restava) — `appuntamenti` ha RLS
+ * attiva con policy solo per select/insert/update (migrazione 0004): non
+ * è mai esistita una policy `for delete`. Un `.delete()` con il client
+ * legato ai cookie (soggetto a RLS) su una tabella senza policy di
+ * cancellazione non dà errore — cancella semplicemente ZERO righe, in
+ * silenzio, e il codice proseguiva come se fosse andato tutto bene.
+ * Stesso principio già usato altrove per le scritture da amministratore
+ * (persone/tecnici_esterni/materiali): il controllo "sei admin?" resta sul
+ * client legato ai cookie, la scrittura vera passa dalla service role
+ * (bypassa RLS) invece di aggiungere una nuova policy.
  */
 export async function eliminaAppuntamento(id: string): Promise<{ errore: string | null }> {
   const supabase = await createClient();
@@ -187,28 +199,31 @@ export async function eliminaAppuntamento(id: string): Promise<{ errore: string 
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   if (!personaHaAccessoAdmin(persona)) return { errore: "Solo un amministratore può eliminare un appuntamento." };
 
-  const { data: appuntamento } = await supabase
+  const service = createServiceClient();
+
+  const { data: appuntamento } = await service
     .from("appuntamenti")
     .select("titolo, google_event_id")
     .eq("id", id)
     .maybeSingle();
   if (!appuntamento) return { errore: "Appuntamento non trovato." };
 
-  const { data: scheda } = await supabase.from("schede_lavoro").select("id").eq("appuntamento_id", id).maybeSingle();
+  const { data: scheda } = await service.from("schede_lavoro").select("id").eq("appuntamento_id", id).maybeSingle();
   if (scheda) {
     return {
       errore: "Questo appuntamento ha già una Scheda di Lavoro compilata: eliminarlo cancellerebbe anche quella. Usa \"Annulla\" invece.",
     };
   }
 
-  const { error } = await supabase.from("appuntamenti").delete().eq("id", id);
+  const { error, count } = await service.from("appuntamenti").delete({ count: "exact" }).eq("id", id);
   if (error) return { errore: error.message };
+  if (!count) return { errore: "Appuntamento non trovato (forse già eliminato da qualcun altro)." };
 
   if (appuntamento.google_event_id) {
     await aggiornaEventoCalendario(appuntamento.google_event_id, { status: "cancelled" });
   }
 
-  await supabase.from("storico").insert({
+  await service.from("storico").insert({
     origine: "appuntamento",
     riferimento_id: id,
     operazione: "Eliminazione",
