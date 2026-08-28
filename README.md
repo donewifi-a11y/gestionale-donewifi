@@ -2586,3 +2586,33 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   distanza): una probabile doppia registrazione dello stesso appuntamento, non un artefatto della
   query. Non corretta, solo segnalata: non richiesta esplicitamente.
   Build/lint puliti; verificato sui dati reali con uno script diretto su Supabase.
+✅ Login su pose.donewifi.it anche con le credenziali di gestione.donewifi (2026-08-28, richiesta
+  esplicita: "vorrei poter usare su pose.donewifi anche la possibilità di entrare con le credenziali
+  di chi usa gestione.donewifi" → chiarito con l'utente: uso completo, non solo consultazione) —
+  pose era finora un sistema separato al 100%: login fisso (username/password) per tecnico esterno,
+  dati filtrati per `tecnico_esterno_id`, scritture (rapportino/scheda) su
+  `creato_da_tecnico_esterno_id`. Ora un membro dello staff con un account attivo su
+  gestione.donewifi.it può accedere a pose con la STESSA email/password (vera sessione Supabase
+  Auth) e usarlo esattamente come un tecnico esterno: vede i propri ticket/appuntamenti (quelli
+  assegnati con `tecnico_assegnato`/`tecnico_id`, non `tecnico_esterno_id`) e può compilare
+  rapportini/Schede di Installazione/Lavorazione da lì.
+  - Login: un solo campo — se contiene "@" prova il login staff (Supabase Auth + verifica che
+    l'account sia collegato a una Persona attiva, esattamente come `selezionaPersonaDopoLogin()` sul
+    login principale), altrimenti prova il login tecnico esterno esistente.
+  - `lib/operatore.ts` (`Operatore`, già esistente per unificare la firma cliente sia da staff
+    interno che da tecnico esterno) è ora il concetto centrale in `pose/actions.ts`: ogni funzione
+    che prima leggeva solo `tecnico_esterno_id`/`getTecnicoEsternoCorrente()` sceglie ora la colonna
+    giusta in base a `operatore.tipo` ("persona" vs "tecnico_esterno").
+  - Un vantaggio in più per lo staff interno: `storico.operatore_id` (FK verso `persone`) viene ora
+    valorizzato correttamente sulle chiusure fatte da pose — per un tecnico esterno resta null per
+    forza (la FK non lo ammette), il nome va solo nel testo, come già prima.
+  **Attenzione alla sicurezza risolta in fase di sviluppo, prima del deploy**: pose.donewifi.it non
+  passa dal proxy che protegge il resto del gestionale (`src/proxy.ts` esce con un return anticipato
+  per questo host, prima del controllo `supabase.auth.getUser()`). Usare qui il cookie `persona_id`
+  da solo (valido fino a un anno, per design) sarebbe stato un problema reale: una sessione Supabase
+  scaduta o un account disattivato sarebbero rimasti "dentro" pose finché il cookie non fosse scaduto
+  per conto suo. Aggiunta una funzione dedicata (`getOperatorePose()`) che richiede sempre una
+  sessione Supabase Auth viva prima di fidarsi del cookie persona — un tecnico esterno non è
+  toccato da questo problema (non ha mai usato Supabase Auth).
+  Verificato sui dati reali: 4 persone attive con un account collegato (`auth_user_id`) in
+  produzione oggi, pronte a poter usare pose senza altro da configurare. Build/lint puliti.

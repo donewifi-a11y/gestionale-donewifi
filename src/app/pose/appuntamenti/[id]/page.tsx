@@ -1,16 +1,15 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MapPin, CalendarClock } from "lucide-react";
-import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno } from "../../actions";
-import { getTecnicoEsternoCorrente } from "@/lib/tecnico-esterno";
+import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno, chiUsaPose } from "../../actions";
 import { SchedaDettaglioPose } from "@/components/pose/scheda-dettaglio";
 import { COLORE_SERVIZIO } from "@/lib/types";
 
 export default async function AppuntamentoPosePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) redirect("/pose/login");
+  const operatore = await chiUsaPose();
+  if (!operatore) redirect("/pose/login");
 
   const [appuntamento, catalogoMateriali] = await Promise.all([getAppuntamentoTecnicoEsterno(id), getCatalogoMaterialiEsterno()]);
   if (!appuntamento) notFound();

@@ -1,15 +1,14 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
-import { getTicketTecnicoEsterno } from "../../actions";
-import { getTecnicoEsternoCorrente } from "@/lib/tecnico-esterno";
+import { getTicketTecnicoEsterno, chiUsaPose } from "../../actions";
 import { InterventoDettaglio } from "@/components/pose/intervento-dettaglio";
 
 export default async function InterventoPoseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) redirect("/pose/login");
+  const operatore = await chiUsaPose();
+  if (!operatore) redirect("/pose/login");
 
   const ticket = await getTicketTecnicoEsterno(id);
   if (!ticket) notFound();

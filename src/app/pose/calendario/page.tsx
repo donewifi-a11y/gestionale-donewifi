@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, MapPin, User, Users } from "lucide-react";
-import { getCalendarioSquadra } from "../actions";
-import { getTecnicoEsternoCorrente } from "@/lib/tecnico-esterno";
+import { getCalendarioSquadra, chiUsaPose } from "../actions";
 import { COLORE_SERVIZIO } from "@/lib/types";
 
 // ★ NUOVA (2026-08-26, richiesta esplicita: "poter consultare il calendario
@@ -10,8 +9,8 @@ import { COLORE_SERVIZIO } from "@/lib/types";
 // esterni) nei prossimi 14 giorni, raggruppati per giorno. Sola lettura —
 // vedi il commento su getCalendarioSquadra() in app/pose/actions.ts.
 export default async function CalendarioPosePage() {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) redirect("/pose/login");
+  const operatore = await chiUsaPose();
+  if (!operatore) redirect("/pose/login");
 
   const appuntamenti = await getCalendarioSquadra(14);
 

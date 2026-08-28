@@ -6,11 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle } from "lucide-react";
-import { loginTecnicoEsterno } from "@/app/pose/actions";
+import { loginTecnicoEsterno, loginStaffPose } from "@/app/pose/actions";
 
+// ★ ESTESA (2026-08-28, richiesta esplicita: "poter usare su
+// pose.donewifi.it anche la possibilità di entrare con le credenziali di
+// chi usa gestione.donewifi") — un solo campo, un solo form: se contiene
+// "@" è un'email (staff interno, stesse credenziali del login principale,
+// vera sessione Supabase Auth), altrimenti è il nome utente fisso di un
+// tecnico esterno. Evita di dover chiedere prima "chi sei" con un
+// selettore in più, su una schermata pensata per essere aperta in fretta
+// da smartphone.
 export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: string }) {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [identificativo, setIdentificativo] = useState("");
   const [password, setPassword] = useState("");
   const [errore, setErrore] = useState<string | null>(erroreIniziale ? "Accedi di nuovo per continuare." : null);
   const [caricamento, setCaricamento] = useState(false);
@@ -20,7 +28,8 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
     setErrore(null);
     setCaricamento(true);
 
-    const risultato = await loginTecnicoEsterno(username, password);
+    const valore = identificativo.trim();
+    const risultato = valore.includes("@") ? await loginStaffPose(valore, password) : await loginTecnicoEsterno(valore, password);
     setCaricamento(false);
     if (risultato.errore) {
       setErrore(risultato.errore);
@@ -36,17 +45,20 @@ export function LoginTecnicoEsternoForm({ erroreIniziale }: { erroreIniziale?: s
     // grandi del default desktop (h-8) usato altrove nel gestionale.
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="username">Nome utente</Label>
+        <Label htmlFor="username">Nome utente o email</Label>
         <Input
           id="username"
           type="text"
           autoComplete="username"
           required
           autoFocus
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          value={identificativo}
+          onChange={(e) => setIdentificativo(e.target.value)}
           className="h-12 text-base"
         />
+        <p className="text-xs text-muted-foreground">
+          Tecnico esterno: il tuo nome utente. Staff interno: la tua email di gestione.donewifi.it.
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>

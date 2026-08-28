@@ -1,11 +1,9 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/server";
-import {
-  getTecnicoEsternoCorrente,
-  impostaCookieTecnicoEsterno,
-  rimuoviCookieTecnicoEsterno,
-} from "@/lib/tecnico-esterno";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getTecnicoEsternoCorrente, impostaCookieTecnicoEsterno, rimuoviCookieTecnicoEsterno } from "@/lib/tecnico-esterno";
+import type { Operatore } from "@/lib/operatore";
+import { getPersonaCorrente, impostaCookiePersona } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { aggiornaEventoCalendario } from "@/lib/google-calendar";
@@ -17,13 +15,62 @@ import type { DatiSchedaLavoro } from "@/app/(app)/calendario/actions";
 import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizioAppuntamento } from "@/lib/types";
 
 // ============================================================
-// pose.donewifi.it — sistema separato per i tecnici esterni
-// (2026-08-26, richiesta esplicita: "semplificare la procedura per i
-// tecnici esterni, non passare dal gestionale"). Nessuna dipendenza da
-// persona.ts/Supabase Auth: solo il cookie firmato di tecnico-esterno.ts
-// e la service role (bypassa RLS, stesso principio già usato da tutte le
-// route pubbliche del gestionale — Portale, Richiesta Dati, ecc.).
+// pose.donewifi.it — sistema per i tecnici esterni, ORA anche per lo
+// staff interno (2026-08-26: "semplificare la procedura per i tecnici
+// esterni"; esteso 2026-08-28, richiesta esplicita: "poter usare su
+// pose.donewifi.it anche la possibilità di entrare con le credenziali di
+// chi usa gestione.donewifi" — uso completo, non solo consultazione).
+//
+// Chi è collegato è sempre un `Operatore` (lib/operatore.ts, già esisteva
+// per unificare "chi ha firmato" nella conferma cliente): `{tipo:"tecnico_esterno"}`
+// via il cookie firmato di tecnico-esterno.ts, oppure `{tipo:"persona"}` via
+// una vera sessione Supabase Auth (stesse credenziali di gestione.donewifi)
+// più il cookie persona_id impostato subito dopo, esattamente come fa
+// selezionaPersonaDopoLogin() sul login interno. Da qui in poi ogni
+// funzione che prima leggeva solo tecnico_esterno_id/creato_da_tecnico_esterno_id
+// sceglie la colonna giusta in base a `operatore.tipo`.
 // ============================================================
+
+/**
+ * ★ Come getOperatoreCorrente() (lib/operatore.ts), ma con una verifica in
+ * più necessaria SOLO qui: pose.donewifi.it non passa dal proxy che
+ * protegge il resto del gestionale (vedi src/proxy.ts — questo host esce
+ * con un return anticipato, prima del controllo `supabase.auth.getUser()`).
+ * Per un tecnico esterno non cambia nulla (non usa mai Supabase Auth). Per
+ * lo staff interno invece il solo cookie persona_id (valido fino a un
+ * anno, per design — vedi persona.ts) non deve MAI bastare da solo:
+ * senza questo controllo, una sessione Supabase scaduta o un account
+ * disattivato lascerebbero comunque "dentro" pose finché il cookie non
+ * scade per conto suo. Qui si richiede sempre una sessione Supabase Auth
+ * viva prima di fidarsi del cookie persona.
+ */
+async function getOperatorePose(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Operatore | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const persona = await getPersonaCorrente(supabase);
+    if (persona) return { tipo: "persona", id: persona.id, nome: persona.nome };
+  }
+  // Nessuna sessione Supabase valida (o valida ma senza persona attiva
+  // collegata): può essere comunque un tecnico esterno, che non passa
+  // mai da qui.
+  const tecnico = await getTecnicoEsternoCorrente();
+  if (tecnico) return { tipo: "tecnico_esterno", id: tecnico.id, nome: [tecnico.nome, tecnico.cognome].filter(Boolean).join(" ") };
+  return null;
+}
+
+/**
+ * ★ Versione pubblica di getOperatorePose(), da chiamare direttamente dalle
+ * pagine di pose (interventi/[id], appuntamenti/[id], calendario) al posto
+ * del solo `getTecnicoEsternoCorrente()`: senza questo, lo staff interno
+ * collegato con le proprie credenziali passerebbe la home /pose ma
+ * verrebbe rimandato al login su ogni pagina di dettaglio.
+ */
+export async function chiUsaPose(): Promise<Operatore | null> {
+  const supabase = await createClient();
+  return getOperatorePose(supabase);
+}
 
 export async function loginTecnicoEsterno(username: string, password: string): Promise<{ errore: string | null }> {
   const usernamePulito = username.trim();
@@ -41,19 +88,76 @@ export async function loginTecnicoEsterno(username: string, password: string): P
   return { errore: null };
 }
 
-export async function logoutTecnicoEsterno() {
-  await rimuoviCookieTecnicoEsterno();
+/**
+ * ★ NUOVA (2026-08-28) — login su pose.donewifi.it con le stesse
+ * credenziali (email + password) di gestione.donewifi: vera sessione
+ * Supabase Auth, poi ci si comporta come selezionaPersonaDopoLogin() sul
+ * login interno (persone.auth_user_id → cookie persona_id). Se l'account
+ * esiste ma non è collegato a nessuna Persona attiva, la sessione Auth
+ * viene subito chiusa: su pose non ha senso restare autenticati senza
+ * poter risolvere "di chi sono gli interventi".
+ */
+export async function loginStaffPose(email: string, password: string): Promise<{ errore: string | null }> {
+  const emailPulita = email.trim();
+  if (!emailPulita || !password) return { errore: "Inserisci email e password." };
+
+  const supabase = await createClient();
+  const { error: erroreAuth } = await supabase.auth.signInWithPassword({ email: emailPulita, password });
+  if (erroreAuth) return { errore: "Email o password non corrette." };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { errore: "Email o password non corrette." };
+
+  const service = createServiceClient();
+  const { data: persona } = await service
+    .from("persone")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .eq("attivo", true)
+    .maybeSingle();
+
+  if (!persona) {
+    await supabase.auth.signOut();
+    return { errore: "Questo account non è collegato a nessuna persona attiva del gestionale." };
+  }
+
+  await impostaCookiePersona(persona.id);
+  return { errore: null };
 }
 
+/** Chiude qualunque sessione pose sia attiva — tecnico esterno o staff interno. */
+export async function logoutPose() {
+  await rimuoviCookieTecnicoEsterno();
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+}
+
+// ★ nome storico mantenuto come alias — logoutPose() copre anche il caso
+// staff interno, ma il bottone/pagina di logout esistenti chiamano già
+// questo nome.
+export const logoutTecnicoEsterno = logoutPose;
+
 export interface InterventiTecnicoEsterno {
-  tecnico: { id: string; nome: string; cognome: string | null };
+  /** `nome` è già il nome completo (nome+cognome uniti per un tecnico
+   * esterno, solo nome per una Persona — vedi lib/operatore.ts). */
+  tecnico: { id: string; nome: string; tipo: Operatore["tipo"] };
   tickets: Ticket[];
   appuntamenti: Appuntamento[];
 }
 
+/** Colonna di assegnazione giusta per questo operatore, sulla tabella indicata. */
+function colonnaAssegnazione(op: Operatore, tabella: "tickets" | "appuntamenti"): string {
+  if (op.tipo === "tecnico_esterno") return "tecnico_esterno_id";
+  return tabella === "tickets" ? "tecnico_assegnato" : "tecnico_id";
+}
+
 /**
- * Tutto ciò che è assegnato al tecnico esterno collegato — o `null` se
- * nessuna sessione valida (la pagina reindirizza al login in quel caso).
+ * Tutto ciò che è assegnato all'operatore collegato a pose — tecnico
+ * esterno o, dal 2026-08-28, staff interno via le sue stesse credenziali
+ * di gestione.donewifi — o `null` se nessuna sessione valida (la pagina
+ * reindirizza al login in quel caso).
  *
  * ★ FIX (2026-08-28, richiesta esplicita: "bisogna avere anche una
  * sezione in cui ci sono le installazioni da fare rapporto di lavoro
@@ -69,58 +173,73 @@ export interface InterventiTecnicoEsterno {
  * "In programma" invece di lasciarli mescolati per data.
  */
 export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEsterno | null> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return null;
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return null;
 
   const service = createServiceClient();
+  const colonnaTickets = colonnaAssegnazione(operatore, "tickets");
+  const colonnaAppuntamenti = colonnaAssegnazione(operatore, "appuntamenti");
 
   const [{ data: tickets }, { data: appuntamenti }] = await Promise.all([
     service
       .from("tickets")
       .select("*")
-      .eq("tecnico_esterno_id", tecnico.id)
+      .eq(colonnaTickets, operatore.id)
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
     service
       .from("appuntamenti")
       .select("*")
-      .eq("tecnico_esterno_id", tecnico.id)
+      .eq(colonnaAppuntamenti, operatore.id)
       .eq("stato", "Programmato")
       .order("data_ora", { ascending: true }),
   ]);
 
-  return { tecnico, tickets: (tickets as Ticket[]) ?? [], appuntamenti: (appuntamenti as Appuntamento[]) ?? [] };
+  return {
+    tecnico: { id: operatore.id, nome: operatore.nome, tipo: operatore.tipo },
+    tickets: (tickets as Ticket[]) ?? [],
+    appuntamenti: (appuntamenti as Appuntamento[]) ?? [],
+  };
 }
 
-/** Il Ticket, solo se assegnato al tecnico esterno collegato — mai un altro. */
+/** Il Ticket, solo se assegnato all'operatore collegato — mai un altro. */
 export async function getTicketTecnicoEsterno(ticketId: string): Promise<Ticket | null> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return null;
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return null;
   const service = createServiceClient();
   const { data } = await service
     .from("tickets")
     .select("*")
     .eq("id", ticketId)
-    .eq("tecnico_esterno_id", tecnico.id)
+    .eq(colonnaAssegnazione(operatore, "tickets"), operatore.id)
     .maybeSingle();
   return (data as Ticket | null) ?? null;
 }
 
 export async function urlDocumentoRapportinoEsterno(percorso: string): Promise<{ errore: string | null; url: string | null }> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return { errore: "Sessione scaduta — accedi di nuovo.", url: null };
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return { errore: "Sessione scaduta — accedi di nuovo.", url: null };
   return urlFirmataDocumento(percorso);
 }
 
 /**
  * ★ Equivalente di `completaTicketConRapportino()` (tickets/actions.ts) ma
- * per un tecnico esterno: stessa logica di business (rapportino + chiusura
- * Ticket + storico + email cliente), gate e scrittura diversi — nessuna
- * sessione Supabase Auth qui, solo service role, e `creato_da_tecnico_esterno_id`
+ * per pose: stessa logica di business (rapportino + chiusura Ticket +
+ * storico + email cliente), gate e scrittura diversi — solo service role
+ * (RLS bypassata), e per un tecnico esterno `creato_da_tecnico_esterno_id`
  * al posto di `creato_da` (FK diverse, vedi migrazione 0061). Tenuta
  * volutamente separata invece di generalizzare l'originale: i due percorsi
  * di autenticazione sono troppo diversi per un parametro opzionale senza
  * confondere chi legge quale delle due può scrivere cosa.
+ *
+ * ★ ESTESA (2026-08-28) — l'operatore può ora essere anche una Persona
+ * (staff interno collegato con le credenziali di gestione.donewifi): in
+ * quel caso, a differenza di un tecnico esterno, `storico.operatore_id`
+ * PUÒ essere valorizzato correttamente (la FK verso persone esiste
+ * davvero) invece di restare null con solo il nome nel testo.
  */
 export async function completaTicketConRapportinoEsterno(
   ticketId: string,
@@ -128,8 +247,9 @@ export async function completaTicketConRapportinoEsterno(
   dati: { esito: string; lavoriSvolti: string; materiali: string; importoFatturato: string },
   foto: File[]
 ): Promise<{ errore: string | null }> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return { errore: "Sessione scaduta — accedi di nuovo." };
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return { errore: "Sessione scaduta — accedi di nuovo." };
   if (!dati.esito.trim()) return { errore: "L'esito dell'intervento è obbligatorio." };
   // ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket via
   // artifact: "deve solo inviare il rapportino al cliente") — stessa
@@ -139,12 +259,17 @@ export async function completaTicketConRapportinoEsterno(
 
   const service = createServiceClient();
 
+  // ★ select statico con entrambe le colonne di assegnazione possibili
+  // (invece di una stringa dinamica): un template letterale nel `.select()`
+  // rompe l'inferenza dei tipi generata da Supabase (vedi il tipo `ticketRiga`
+  // qui sotto), oltre a essere meno leggibile.
   const { data: ticketRiga } = await service
     .from("tickets")
-    .select("cliente, numero, email, reparto, tecnico_esterno_id")
+    .select("cliente, numero, email, reparto, tecnico_assegnato, tecnico_esterno_id")
     .eq("id", ticketId)
     .single();
-  if (!ticketRiga || ticketRiga.tecnico_esterno_id !== tecnico.id) {
+  const idAssegnato = operatore.tipo === "tecnico_esterno" ? ticketRiga?.tecnico_esterno_id : ticketRiga?.tecnico_assegnato;
+  if (!ticketRiga || idAssegnato !== operatore.id) {
     return { errore: "Questo intervento non risulta assegnato a te." };
   }
 
@@ -169,8 +294,8 @@ export async function completaTicketConRapportinoEsterno(
     firma_email: null,
     firma_verificato_il: null,
     foto: fotoSalvate,
-    creato_da: null,
-    creato_da_tecnico_esterno_id: tecnico.id,
+    creato_da: operatore.tipo === "persona" ? operatore.id : null,
+    creato_da_tecnico_esterno_id: operatore.tipo === "tecnico_esterno" ? operatore.id : null,
   });
   if (erroreRapportino) return { errore: erroreRapportino.message };
 
@@ -184,14 +309,14 @@ export async function completaTicketConRapportinoEsterno(
   // ★ `storico.operatore_id` è `references persone(id)` — un tecnico
   // esterno non può comparire lì (violerebbe la FK): resta null, il nome
   // va nel testo dell'operazione invece che in una colonna che non può
-  // ospitarlo, stesso compromesso di rapportini_intervento sopra.
+  // ospitarlo. Una Persona invece può essere referenziata correttamente.
   await service.from("storico").insert({
     origine: "ticket",
     riferimento_id: ticketId,
     operazione: "Cambio Stato",
     valore_prima: statoVecchio,
-    valore_dopo: `Completato (tecnico esterno: ${tecnico.nome}${tecnico.cognome ? ` ${tecnico.cognome}` : ""})`,
-    operatore_id: null,
+    valore_dopo: `Completato (${operatore.tipo === "tecnico_esterno" ? "tecnico esterno" : "via pose"}: ${operatore.nome})`,
+    operatore_id: operatore.tipo === "persona" ? operatore.id : null,
   });
 
   if (ticketRiga.email) {
@@ -210,23 +335,25 @@ export async function completaTicketConRapportinoEsterno(
 /** Catalogo materiali attivi — serve al selettore dentro Scheda
  * Installazione/Lavorazione, stessa fonte già usata internamente. */
 export async function getCatalogoMaterialiEsterno(): Promise<MaterialeMagazzino[]> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return [];
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return [];
   const service = createServiceClient();
   const { data } = await service.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true });
   return (data as MaterialeMagazzino[]) ?? [];
 }
 
-/** L'appuntamento, solo se assegnato al tecnico esterno collegato. */
+/** L'appuntamento, solo se assegnato all'operatore collegato. */
 export async function getAppuntamentoTecnicoEsterno(appuntamentoId: string): Promise<Appuntamento | null> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return null;
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return null;
   const service = createServiceClient();
   const { data } = await service
     .from("appuntamenti")
     .select("*")
     .eq("id", appuntamentoId)
-    .eq("tecnico_esterno_id", tecnico.id)
+    .eq(colonnaAssegnazione(operatore, "appuntamenti"), operatore.id)
     .maybeSingle();
   return (data as Appuntamento | null) ?? null;
 }
@@ -250,8 +377,9 @@ export interface AppuntamentoSquadra extends Appuntamento {
  * `tecnico_id`/`tecnico_esterno_id` sono id, non nomi già pronti.
  */
 export async function getCalendarioSquadra(giorni: number = 14): Promise<AppuntamentoSquadra[]> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return [];
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return [];
 
   const service = createServiceClient();
   const oggi = new Date();
@@ -286,7 +414,7 @@ export async function getCalendarioSquadra(giorni: number = 14): Promise<Appunta
     ...a,
     assegnatoA: a.tecnico_id ? (mappaPersone.get(a.tecnico_id) ?? "Staff interno") : a.tecnico_esterno_id ? (mappaEsterni.get(a.tecnico_esterno_id) ?? "Tecnico esterno") : null,
     assegnatoEsterno: !!a.tecnico_esterno_id,
-    mio: a.tecnico_esterno_id === tecnico.id,
+    mio: operatore.tipo === "tecnico_esterno" ? a.tecnico_esterno_id === operatore.id : a.tecnico_id === operatore.id,
   }));
 }
 
@@ -297,8 +425,9 @@ export async function getCalendarioSquadra(giorni: number = 14): Promise<Appunta
  * role invece del client legato ai cookie: nessuna sessione Supabase Auth.
  */
 export async function getTipologiaClientePerAppuntamentoEsterno(appuntamentoId: string): Promise<"Privato" | "Business"> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return "Privato";
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return "Privato";
   const service = createServiceClient();
   const { data } = await service
     .from("appuntamenti")
@@ -325,18 +454,25 @@ export async function salvaSchedaLavoroEsterno(
   dati: DatiSchedaLavoro,
   foto: File[]
 ): Promise<{ errore: string | null }> {
-  const tecnico = await getTecnicoEsternoCorrente();
-  if (!tecnico) return { errore: "Sessione scaduta — accedi di nuovo." };
+  const supabase = await createClient();
+  const operatore = await getOperatorePose(supabase);
+  if (!operatore) return { errore: "Sessione scaduta — accedi di nuovo." };
 
   const service = createServiceClient();
 
+  // ★ stesso motivo del select statico in completaTicketConRapportinoEsterno()
+  // sopra: entrambe le colonne di assegnazione, invece di una stringa
+  // dinamica che romperebbe l'inferenza dei tipi di Supabase.
   const { data: appuntamento } = await service
     .from("appuntamenti")
-    .select("id, ticket_id, titolo, google_event_id, tecnico_esterno_id")
+    .select("id, ticket_id, titolo, google_event_id, tecnico_id, tecnico_esterno_id")
     .eq("id", appuntamentoId)
     .single();
   if (!appuntamento) return { errore: "Appuntamento non trovato." };
-  if (appuntamento.tecnico_esterno_id !== tecnico.id) return { errore: "Questo appuntamento non risulta assegnato a te." };
+  const idAssegnatoAppuntamento = operatore.tipo === "tecnico_esterno" ? appuntamento.tecnico_esterno_id : appuntamento.tecnico_id;
+  if (idAssegnatoAppuntamento !== operatore.id) {
+    return { errore: "Questo appuntamento non risulta assegnato a te." };
+  }
 
   if (!dati.firmaCliente?.email || !dati.firmaCliente?.metodo) {
     return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
@@ -396,8 +532,8 @@ export async function salvaSchedaLavoroEsterno(
       download_mbps: dati.downloadMbps ? Number(dati.downloadMbps) : null,
       upload_mbps: dati.uploadMbps ? Number(dati.uploadMbps) : null,
       interventi_eseguiti: dati.interventiEseguiti ?? [],
-      creato_da: null,
-      creato_da_tecnico_esterno_id: tecnico.id,
+      creato_da: operatore.tipo === "persona" ? operatore.id : null,
+      creato_da_tecnico_esterno_id: operatore.tipo === "tecnico_esterno" ? operatore.id : null,
     })
     .select("id")
     .single();
@@ -458,8 +594,8 @@ export async function salvaSchedaLavoroEsterno(
         riferimento_id: appuntamento.ticket_id,
         operazione: tipo === "Nuova installazione" ? "Certificato Installazione" : "Rapporto Intervento in Loco",
         valore_prima: ticket.stato,
-        valore_dopo: `Completato (tecnico esterno: ${tecnico.nome}${tecnico.cognome ? ` ${tecnico.cognome}` : ""})`,
-        operatore_id: null,
+        valore_dopo: `Completato (${operatore.tipo === "tecnico_esterno" ? "tecnico esterno" : "via pose"}: ${operatore.nome})`,
+        operatore_id: operatore.tipo === "persona" ? operatore.id : null,
       });
       if (ticket.email) {
         const { oggetto, corpoHtml, corpoTesto } = emailChiusuraTicket(
