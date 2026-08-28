@@ -1,5 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { CalendarioBoard } from "@/components/calendario/calendario-board";
 import { listaEventiGoogleCalendario } from "@/lib/google-calendar";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario } from "@/lib/types";
@@ -54,6 +55,8 @@ export default async function CalendarioPage({
   fineRange.setHours(23, 59, 59, 999);
 
   const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  const isAdmin = personaHaAccessoAdmin(persona);
 
   const [{ data: appuntamenti }, { data: note }, { data: persone }, { data: ticket }, { data: materiali }, eventiGoogleGrezzi] = await Promise.all([
     supabase
@@ -109,6 +112,7 @@ export default async function CalendarioPage({
         vista={vista}
         dataRiferimento={formattaData(dataRiferimento)}
         catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
+        isAdmin={isAdmin}
       />
     </div>
   );

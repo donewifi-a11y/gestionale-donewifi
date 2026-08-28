@@ -2652,3 +2652,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     neutra. Ora blu (stesso accento già usato in pose per "Calendario squadra"/badge "Tu"), per
     distinguerlo visivamente da un allarme.
   Build/lint puliti.
+✅ Amministratore: eliminazione appuntamenti dal Calendario (2026-08-28, richiesta esplicita: "dammi
+  la possibilità come amministratore di eliminare i lavori" → chiarito con l'utente: gli appuntamenti
+  sul Calendario) — finora l'unica opzione era "Annulla" (`cambiaStatoAppuntamento`), che lascia
+  comunque la riga nel database. Utile ad esempio per il doppione reale trovato durante il giro
+  precedente ("Lorenzo Moja", stesso appuntamento inserito due volte a pochi minuti di distanza) —
+  "Annulla" non lo avrebbe tolto di mezzo, solo rietichettato.
+  - Nuova `eliminaAppuntamento()` in `calendario/actions.ts`: solo un amministratore
+    (`personaHaAccessoAdmin`), bloccata se esiste già una Scheda di Lavoro compilata per
+    quell'appuntamento (`schede_lavoro.appuntamento_id` è `on delete cascade` — eliminare
+    l'appuntamento cancellerebbe in silenzio anche il lavoro già registrato: materiali, foto,
+    importo fatturato). In quel caso resta solo "Annulla". Registrata in `storico` con l'operatore
+    e il titolo dell'appuntamento eliminato.
+  - Nuovo pulsante "Elimina appuntamento" (solo visibile ad admin) nel popup "Modifica Appuntamento"
+    — raggiungibile da qualunque vista del Calendario, non solo da Giorno — con una conferma
+    esplicita (non un `confirm()` generico: nomina l'appuntamento e avverte che non si può
+    annullare).
+  - **Migrazione 0066 da applicare manualmente in Supabase SQL Editor** (stesso avviso già dato per
+    la 0043): `storico_origine_check` non ammetteva ancora `'appuntamento'` tra i valori validi —
+    senza applicarla, l'eliminazione funziona comunque (il vincolo riguarda solo la riga di
+    `storico`, il cui errore non blocca la cancellazione), ma la registrazione in storico fallisce
+    silenziosamente finché la migrazione non è applicata.
+  Verificato sui dati reali (sola lettura): il doppione "Lorenzo Moja" non ha nessuna Scheda di
+  Lavoro collegata (eliminabile), un appuntamento Completato di controllo idem — nessuna riga vera
+  toccata durante la verifica. Build/lint puliti.

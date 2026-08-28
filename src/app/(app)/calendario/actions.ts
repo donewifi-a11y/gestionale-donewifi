@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, getPersonaCorrenteId, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { getOperatoreCorrente } from "@/lib/operatore";
 import { creaEventoCalendario, aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { inviaEmail, emailChiusuraTicket, emailOtpFirmaScheda, emailLinkFirmaScheda } from "@/lib/email";
@@ -160,6 +160,62 @@ export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamen
       await aggiornaEventoCalendario(appuntamento.google_event_id, { summary: `✅ ${appuntamento.titolo}` });
     }
   }
+
+  revalidatePath("/calendario");
+  return { errore: null };
+}
+
+/**
+ * ★ NUOVA (2026-08-28, richiesta esplicita: "dammi la possibilità come
+ * amministratore di eliminare i lavori" — chiarito con l'utente: gli
+ * appuntamenti sul Calendario, non le Schede/Ticket) — finora l'unica
+ * opzione era `cambiaStatoAppuntamento(id, "Annullato")`: la riga restava
+ * comunque nel database. Utile ad esempio per un doppione reale trovato di
+ * recente ("Lorenzo Moja", lo stesso appuntamento inserito due volte a
+ * pochi minuti di distanza) — "Annulla" non lo avrebbe tolto di mezzo,
+ * solo rietichettato.
+ *
+ * Solo un amministratore. Bloccata se esiste già una Scheda di Lavoro
+ * compilata per questo appuntamento: `schede_lavoro.appuntamento_id` è
+ * `on delete cascade` (migrazione 0038) — eliminare l'appuntamento
+ * cancellerebbe in silenzio anche il lavoro già registrato (materiali,
+ * foto, importo fatturato). In quel caso resta solo "Annulla".
+ */
+export async function eliminaAppuntamento(id: string): Promise<{ errore: string | null }> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (!personaHaAccessoAdmin(persona)) return { errore: "Solo un amministratore può eliminare un appuntamento." };
+
+  const { data: appuntamento } = await supabase
+    .from("appuntamenti")
+    .select("titolo, google_event_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!appuntamento) return { errore: "Appuntamento non trovato." };
+
+  const { data: scheda } = await supabase.from("schede_lavoro").select("id").eq("appuntamento_id", id).maybeSingle();
+  if (scheda) {
+    return {
+      errore: "Questo appuntamento ha già una Scheda di Lavoro compilata: eliminarlo cancellerebbe anche quella. Usa \"Annulla\" invece.",
+    };
+  }
+
+  const { error } = await supabase.from("appuntamenti").delete().eq("id", id);
+  if (error) return { errore: error.message };
+
+  if (appuntamento.google_event_id) {
+    await aggiornaEventoCalendario(appuntamento.google_event_id, { status: "cancelled" });
+  }
+
+  await supabase.from("storico").insert({
+    origine: "appuntamento",
+    riferimento_id: id,
+    operazione: "Eliminazione",
+    valore_prima: appuntamento.titolo,
+    valore_dopo: null,
+    operatore_id: persona.id,
+  });
 
   revalidatePath("/calendario");
   return { errore: null };

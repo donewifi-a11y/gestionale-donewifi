@@ -15,6 +15,7 @@ import {
   creaAppuntamento,
   modificaAppuntamento,
   cambiaStatoAppuntamento,
+  eliminaAppuntamento,
   creaNotaCalendario,
   completaNotaCalendario,
   eliminaNotaCalendario,
@@ -109,6 +110,7 @@ export function CalendarioBoard({
   vista,
   dataRiferimento,
   catalogoMateriali,
+  isAdmin,
 }: {
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
@@ -118,6 +120,11 @@ export function CalendarioBoard({
   vista: VistaCalendario;
   dataRiferimento: string;
   catalogoMateriali: MaterialeMagazzino[];
+  /** ★ NUOVA (2026-08-28, "dammi la possibilità come amministratore di
+   * eliminare i lavori") — solo un amministratore vede il pulsante
+   * "Elimina" in FormModificaAppuntamento, gate ripetuto lato server in
+   * eliminaAppuntamento(). */
+  isAdmin: boolean;
 }) {
   const [nuovo, setNuovo] = useState(false);
   const [nuovaNota, setNuovaNota] = useState(false);
@@ -282,6 +289,7 @@ export function CalendarioBoard({
               appuntamento={modifica}
               persone={persone}
               ticket={ticket}
+              isAdmin={isAdmin}
               onApriScheda={() => setSchedaAperta(modifica)}
               onFatto={() => setModifica(null)}
             />
@@ -898,18 +906,21 @@ function FormModificaAppuntamento({
   appuntamento,
   persone,
   ticket,
+  isAdmin,
   onApriScheda,
   onFatto,
 }: {
   appuntamento: Appuntamento;
   persone: Persona[];
   ticket: TicketMinimo[];
+  isAdmin: boolean;
   onApriScheda: () => void;
   onFatto: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [inCorso, startTransizione] = useTransition();
+  const [eliminazioneInCorso, setEliminazioneInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
@@ -951,6 +962,28 @@ function FormModificaAppuntamento({
         return;
       }
       toast("Modifiche salvate.", "successo");
+      router.refresh();
+      onFatto();
+    });
+  }
+
+  // ★ NUOVA (2026-08-28, richiesta esplicita: "dammi la possibilità come
+  // amministratore di eliminare i lavori") — a differenza di "Annulla"
+  // (cambiaStatoAppuntamento), toglie davvero la riga. Doppia conferma sul
+  // client (testo esplicito, non un confirm() generico) perché non è
+  // reversibile come annullare; il vero controllo (solo admin, niente
+  // Scheda già collegata) resta lato server in eliminaAppuntamento().
+  function eliminaQuesto() {
+    if (!confirm(`Eliminare definitivamente l'appuntamento "${appuntamento.titolo}"? L'operazione non si può annullare.`)) return;
+    setEliminazioneInCorso(true);
+    startTransizione(async () => {
+      const risultato = await eliminaAppuntamento(appuntamento.id);
+      setEliminazioneInCorso(false);
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast("Appuntamento eliminato.", "successo");
       router.refresh();
       onFatto();
     });
@@ -1088,6 +1121,22 @@ function FormModificaAppuntamento({
           {inCorso ? "Salvataggio in corso…" : "Salva modifiche"}
         </Button>
       </form>
+      {/* ★ NUOVA (2026-08-28, "dammi la possibilità come amministratore di
+      eliminare i lavori") — solo un amministratore, separato dal form
+      (non è una "modifica"): elimina davvero la riga invece di solo
+      annullarla, per casi come un doppione inserito per errore. */}
+      {isAdmin && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={eliminazioneInCorso}
+          onClick={eliminaQuesto}
+          className="mt-1 min-h-11 border-critical/30 text-critical hover:bg-critical/10"
+        >
+          {eliminazioneInCorso ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-4 w-4" strokeWidth={2.25} />}
+          {eliminazioneInCorso ? "Eliminazione in corso…" : "Elimina appuntamento"}
+        </Button>
+      )}
     </>
   );
 }
