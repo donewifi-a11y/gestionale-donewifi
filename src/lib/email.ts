@@ -279,7 +279,41 @@ ${FOOTER_AZIENDA_TESTO}`,
 // singolo): questa pratica può coinvolgerne più di uno a seconda del tipo
 // (Fatturazione per IBAN/Anagrafica, Commerciale per Trasferimento/
 // Subentro) e la funzione non riceve quel dato.
+//
+// ★ RIVISTA (2026-08-28, richiesta esplicita: "rivediamo i testi di quando
+// il sistema invia le mail con richiesta dati, cambi e disdette" →
+// artifact "I testi che il sistema invia davvero": stesso identico
+// paragrafo generico ("per la tua pratica di X, apri il link") per tutte
+// e 5 le pratiche — un Cambio IBAN e una Disdetta suonavano indistinguibili
+// → "correggi così come hai fatto [con il testo dei rapporti, reso meno
+// robotico], prima era troppo colloquiale e diretto") — un paragrafo su
+// misura per ciascuna pratica invece dell'unica frase generica: dice cosa
+// è successo e cosa aspettarsi dopo il click, non solo "apri il link".
+// Lookup per titolo invece di un nuovo parametro passato da ognuno dei 4
+// punti che chiamano questa funzione (tickets/actions.ts ×2,
+// richieste-clienti/actions.ts, clienti-esterni/actions.ts): i titoli sono
+// già stringhe fisse note qui (vedi lib/richieste-cliente-config.ts e i
+// due casi "Dati per il Subentro"/"Conferma cessione..." passati a mano),
+// un solo file da mantenere invece di quattro.
+const INTRO_PRATICA: Record<string, string> = {
+  "Cambio IBAN":
+    "Ci hai comunicato di voler aggiornare l'IBAN usato per l'addebito delle fatture. Apri il link qui sotto per indicarci il nuovo IBAN — bastano un paio di minuti, e resterà valido dalla prossima fattura utile.",
+  "Cambio Anagrafica":
+    "Ci hai comunicato di voler aggiornare i tuoi dati sul contratto. Apri il link qui sotto per indicarci cosa è cambiato — un tuo documento potrebbe servirci per confermare la modifica.",
+  Trasferimento:
+    "Ci hai comunicato di voler trasferire la tua linea Done Wifi a un nuovo indirizzo. Apri il link qui sotto per indicarci dove: verificheremo la copertura e, se il trasferimento è possibile, ti contatteremo per organizzare l'intervento.",
+  Subentro:
+    "Ci hai comunicato di voler intestarti un contratto Done Wifi già attivo. Apri il link qui sotto per completare i tuoi dati — il servizio resta attivo per tutta la pratica, senza nessuna interruzione.",
+  "Disdetta contratto":
+    "Abbiamo ricevuto la tua richiesta di disdetta. Apri il link qui sotto per confermarla: ti terremo aggiornato sui tempi di disattivazione e su eventuali apparati da restituire.",
+  "Conferma cessione del contratto (Subentro)":
+    "È stata avviata una richiesta di subentro sul tuo contratto Done Wifi — prima di procedere, ci serve la tua conferma esplicita. Apri il link qui sotto per confermare la cessione: fino a quel momento il contratto resta a tuo nome.",
+  "Dati per il Subentro":
+    "Il contratto Done Wifi sull'impianto è pronto per essere intestato a te. Apri il link qui sotto per completare i tuoi dati e concludere il subentro.",
+};
+
 export function emailPraticaCliente(nome: string, titoloPratica: string, link: string) {
+  const intro = INTRO_PRATICA[titoloPratica] ?? `Per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi, apri il link qui sotto per proseguire.`;
   return {
     oggetto: `Done Wifi — ${titoloPratica}`,
     corpoHtml: involucroEmail({
@@ -287,7 +321,7 @@ export function emailPraticaCliente(nome: string, titoloPratica: string, link: s
       corpoHtml: `
         <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">${titoloPratica}</h1>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${nome},</p>
-        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi, apri il link qui sotto:</p>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">${intro}</p>
         ${bottoneEmail("Vai alla pratica", link)}
         <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Servizio Clienti Done Wifi</b></p>
       `,
@@ -295,7 +329,7 @@ export function emailPraticaCliente(nome: string, titoloPratica: string, link: s
     }),
     corpoTesto: `Gentile ${nome},
 
-per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi, apri questo link:
+${intro}
 ${link}
 
 Per qualsiasi domanda, rispondi pure a questa email.
@@ -305,6 +339,11 @@ ${FOOTER_AZIENDA_TESTO}`,
   };
 }
 
+// ★ RIVISTA (2026-08-28, stesso giro di email.ts sopra) — diceva solo
+// "inserisci qui i tuoi dati", senza spiegare quali né perché né quanto ci
+// vuole: chi la riceveva doveva aprire il link per scoprirlo. Ora nomina
+// cosa serve davvero (dati fiscali/di pagamento, un documento) e quanto
+// richiede, in linea con quello che il modulo poi chiede per davvero.
 export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
   return {
     oggetto: "Done Wifi — completa i tuoi dati",
@@ -313,7 +352,7 @@ export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
       corpoHtml: `
         <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">Completa i tuoi dati</h1>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${nome},</p>
-        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">per completare la tua richiesta Done Wifi, inserisci qui i tuoi dati:</p>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">grazie per aver scelto Done Wifi. Per procedere con l'attivazione ci servono i tuoi dati fiscali e di pagamento, oltre a un documento d'identità — bastano pochi minuti, e i dati restano al sicuro.</p>
         ${bottoneEmail("Completa i dati", link)}
         <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
       `,
@@ -321,7 +360,7 @@ export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
     }),
     corpoTesto: `Gentile ${nome},
 
-per completare la tua richiesta Done Wifi, inserisci qui i tuoi dati:
+grazie per aver scelto Done Wifi. Per procedere con l'attivazione ci servono i tuoi dati fiscali e di pagamento, oltre a un documento d'identità — bastano pochi minuti, e i dati restano al sicuro.
 ${link}
 
 Per qualsiasi domanda, rispondi pure a questa email.

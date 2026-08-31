@@ -2893,3 +2893,19 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   invece di restare bloccato in silenzio, e `finally` garantisce che il pulsante torni sempre
   cliccabile. Build/lint puliti.
   Build/lint puliti.
+✅ Testi email cliente riscritti (2026-08-31, richiesta esplicita: "ora dobbiamo rivedere i testi
+  di quando il sistema invia le mail con richiesta dati,cambi e disdette" → "correggi così come
+  hai fatto,prima era troppo colloquiale e diretto") — le email di Richiesta Dati e delle 6 pratiche
+  cliente (Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro, Disdetta contratto, Conferma
+  cessione, Dati per il Subentro) in `src/lib/email.ts` usavano un'unica introduzione generica
+  ("per la tua pratica di X, apri il link qui sotto per proseguire") che non distingueva una
+  richiesta dall'altra né anticipava cosa sarebbe successo dopo il click.
+  - Aggiunta la mappa `INTRO_PRATICA` (chiave = lo stesso `titoloPratica` già usato nei 4 punti di
+    invio, nessuna nuova firma di funzione da propagare) con un'introduzione dedicata per ciascuna
+    delle 7 pratiche, usata da `emailPraticaCliente()` al posto della riga generica.
+  - Riscritta anche l'introduzione di `emailRichiestaDatiSegnalazione()`.
+  - Tono corretto rispetto a un primo giro giudicato "troppo colloquiale e diretto": registro
+    sobrio e impersonale in linea con il resto delle comunicazioni Done Wifi, niente forme dirette
+    tipo imperativi/esclamazioni fuori posto.
+  - Aggiornato di riflesso l'artifact di anteprima "Email Cliente Aggiornate" con i nuovi testi.
+  Build/lint puliti.
