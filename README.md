@@ -2920,3 +2920,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   (`tickets-board.tsx`, che invia Subentro/Disdetta). Il messaggio di Richiesta Dati in
   `segnalazioni-board.tsx` non è stato toccato: era già specifico ("inserisci qui i tuoi dati"),
   non condivideva il problema. Build/lint puliti.
+✅ Scheda Cliente Esterno riorganizzata (2026-08-31, richiesta esplicita: "puoi riorganizzare la
+  scheda cliente e migliorarla? le pratiche sotto da aprire non sono comode" — su 3 proposte con
+  artifact ["Scheda Cliente: Proposte"], l'utente ha scelto la "Barra laterale fissa") — la pagina
+  era un'unica colonna lunga (Dati anagrafici, Contratto, Fatture, Preventivi, Installazioni,
+  "Avvia una nuova pratica" quasi in fondo, Ticket collegati): per mandare un link di
+  Trasferimento/Cambio IBAN bisognava scorrere quasi fino alla fine ogni volta.
+  - `[id]/page.tsx`: contenitore allargato a `max-w-6xl`, diviso in una barra laterale sticky
+    (`md:sticky md:top-5`, 300px) con identità cliente (contatti, profilo, CF/P.IVA/codice/
+    contratto) + azioni rapide, e una colonna principale con Storico profilo, Fatture, Preventivi,
+    Installazioni, Documenti e pratiche inviate, Ticket collegati — stesso ordine di prima, solo
+    spostati dalla colonna unica a quella principale.
+  - `NuovaPraticaClienteEsterno` (`nuova-pratica.tsx`): ora vive nella barra laterale, sempre
+    visibile mentre si scorre la pagina invece che sepolta a metà colonna. L'elenco delle pratiche
+    già inviate è uscito dal componente ed è diventato una card a sé ("Documenti e pratiche
+    inviate") nella colonna principale, per tenere la barra laterale stretta; i pulsanti di
+    Disdetta sono impilati in verticale invece che in riga, più adatti a una colonna da 300px.
+  Build/lint puliti.

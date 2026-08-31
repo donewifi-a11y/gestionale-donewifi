@@ -7,7 +7,7 @@ import { FileSignature, MapPinned, CreditCard, FileEdit, FileX2, Loader2 } from 
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { inviaEmailPraticaClienteEsterno, segnaDisdettaRicevuta } from "@/app/(app)/clienti-esterni/actions";
 import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
-import { REPARTO_PER_TIPO_RICHIESTA, type RichiestaCliente } from "@/lib/types";
+import { REPARTO_PER_TIPO_RICHIESTA } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
 
 const PRATICHE_DISPONIBILI: { slug: SlugRichiestaCliente; icona: typeof FileEdit }[] = [
@@ -22,18 +22,26 @@ const PRATICHE_DISPONIBILI: { slug: SlugRichiestaCliente; icona: typeof FileEdit
 // Ticket — nessun Ticket da creare per Trasferimento/Cambio IBAN/Cambio
 // Anagrafica. Subentro non è tra le 3: ha un flusso dedicato a doppio
 // consenso, costruito a parte (vedi tickets-board.tsx).
+//
+// ★ RIORGANIZZAZIONE (2026-08-31, proposta "Barra laterale" scelta
+// dall'utente su 3 — vedi artifact "Scheda Cliente: Proposte") — questo
+// pannello ora vive nella barra laterale fissa della scheda cliente,
+// sempre visibile mentre si scorre la pagina, invece che in un blocco a
+// metà di una colonna lunga ("le pratiche sotto da aprire non sono
+// comode"). L'elenco delle pratiche già inviate (`praticheEsistenti`) è
+// stato spostato in una card a parte nella colonna principale — qui resta
+// solo l'azione di avviarne una nuova, per tenere la barra laterale
+// stretta e compatta.
 export function NuovaPraticaClienteEsterno({
   clienteId,
   telefono,
   email,
   nome,
-  praticheEsistenti,
 }: {
   clienteId: number;
   telefono: string | null;
   email: string | null;
   nome: string;
-  praticheEsistenti: RichiestaCliente[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -64,26 +72,10 @@ export function NuovaPraticaClienteEsterno({
     <div className="rounded-2xl border bg-card p-5 shadow-md">
       <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
         <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
-        Pratiche ({praticheEsistenti.length})
+        Nuova pratica
       </h2>
 
-      {praticheEsistenti.length === 0 ? (
-        <p className="mb-3 text-sm text-muted-foreground">Nessuna pratica inviata finora per questo cliente.</p>
-      ) : (
-        <div className="mb-3 flex flex-col gap-1.5">
-          {praticheEsistenti.map((p) => (
-            <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-2.5 py-2 text-sm">
-              <span className="font-semibold">{p.tipo_richiesta}</span>
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                {p.stato} · {new Date(p.data).toLocaleDateString("it-IT")}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="border-t pt-3">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Avvia una nuova pratica</p>
+      <div>
         <select
           value={slug}
           onChange={(e) => setSlug(e.target.value as SlugRichiestaCliente | "")}
@@ -116,24 +108,24 @@ export function NuovaPraticaClienteEsterno({
       pratica qui insieme alle altre, invece di restare invisibile. */}
       <div className="mt-3 border-t pt-3">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Disdetta</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/disdetta"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
-          >
-            Vedi le istruzioni ufficiali
-          </Link>
+        <div className="flex flex-col items-stretch gap-2">
           <button
             type="button"
             onClick={segnaDisdetta}
             disabled={inCorsoDisdetta}
-            className="ml-auto flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-critical/40 hover:text-critical disabled:opacity-50"
+            className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-critical/40 hover:text-critical disabled:opacity-50"
           >
             {inCorsoDisdetta ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileX2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
             {inCorsoDisdetta ? "Salvataggio…" : "Segna disdetta ricevuta"}
           </button>
+          <Link
+            href="/disdetta"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-center text-xs font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            Vedi le istruzioni ufficiali
+          </Link>
         </div>
       </div>
     </div>
