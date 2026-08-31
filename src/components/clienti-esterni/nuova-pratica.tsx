@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FileSignature, MapPinned, CreditCard, FileEdit, FileX2, Loader2 } from "lucide-react";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { inviaEmailPraticaClienteEsterno, segnaDisdettaRicevuta } from "@/app/(app)/clienti-esterni/actions";
-import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
+import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA, type RichiestaCliente } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
 
@@ -58,8 +58,7 @@ export function NuovaPraticaClienteEsterno({
     return `${window.location.origin}/richiesta-cliente/${slug}?clienteEsternoId=${clienteId}`;
   }, [slug, clienteId]);
 
-  const primoNome = nome.trim().split(/\s+/)[0];
-  const messaggio = slug ? `Ciao ${primoNome}, per la tua pratica di ${RICHIESTE_CLIENTE_CONFIG[slug].titolo.toLowerCase()} con Done Wifi apri questo link: ${link}` : "";
+  const messaggio = slug ? messaggioWhatsappPratica(nome, RICHIESTE_CLIENTE_CONFIG[slug].titolo, link) : "";
 
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-md">

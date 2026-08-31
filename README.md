@@ -2909,3 +2909,14 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     tipo imperativi/esclamazioni fuori posto.
   - Aggiornato di riflesso l'artifact di anteprima "Email Cliente Aggiornate" con i nuovi testi.
   Build/lint puliti.
+✅ Testi WhatsApp/copia-link pratiche corretti (2026-08-31, l'utente ha notato dopo il giro sopra:
+  "ma questo è il testo della mail?" — segnalando che il pannello "Avvia una nuova pratica" del
+  Cliente Esterno mostrava ancora "Ciao Nasso, per la tua pratica di trasferimento con Done Wifi
+  apri questo link", la stessa formula generica corretta nelle email ma rimasta intatta nei
+  messaggi WhatsApp/copia-link, che vivono in un punto diverso del codice) — nuova funzione
+  `messaggioWhatsappPratica()` in `src/lib/richieste-cliente-config.ts`, con un'apertura dedicata
+  per pratica (Cambio IBAN, Cambio Anagrafica, Trasferimento, Subentro, Disdetta contratto),
+  usata sia dal pannello Cliente Esterno (`nuova-pratica.tsx`) sia dal pannello Ticket
+  (`tickets-board.tsx`, che invia Subentro/Disdetta). Il messaggio di Richiesta Dati in
+  `segnalazioni-board.tsx` non è stato toccato: era già specifico ("inserisci qui i tuoi dati"),
+  non condivideva il problema. Build/lint puliti.

@@ -31,7 +31,7 @@ import { SchedaVista } from "@/components/schede/scheda-vista";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
-import { RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
+import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
@@ -604,7 +604,7 @@ function DettaglioTicket({
     if (praticaScelta === "disdetta") return `${origine}/disdetta?ticket=${ticket.numero}`;
     return `${origine}/richiesta-cliente/${praticaScelta}?ticketId=${ticket.id}`;
   }, [praticaScelta, ticket.numero, ticket.id]);
-  const primoNomeCliente = ticket.cliente.trim().split(/\s+/)[0];
+  const titoloPraticaScelta = PRATICHE_INVIABILI.find((p) => p.slug === praticaScelta)?.titolo ?? "";
 
   // ★ NUOVA (2026-08) — Sistema Subentro: se una pratica esiste già per
   // questo Ticket (richieste è già caricato per la tab Documenti, vedi
@@ -644,7 +644,7 @@ function DettaglioTicket({
       toast("Link di conferma inviato al vecchio cliente.", "successo");
     });
   }
-  const messaggioPratica = `Ciao ${primoNomeCliente}, per la tua pratica Done Wifi apri questo link: ${linkPratica}`;
+  const messaggioPratica = praticaScelta ? messaggioWhatsappPratica(ticket.cliente, titoloPraticaScelta, linkPratica) : "";
 
   function inviaApprovazione() {
     setEsitoApprovazione("");
