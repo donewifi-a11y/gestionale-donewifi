@@ -2996,6 +2996,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   "Lavorazione Tecnica"/"Intervento in loco" leggermente diversa tra schermate.
   Build/lint puliti.
 
+✅ Controllo d'oro usabilità — copertura completa (2026-08-31, seguito di "procedi" dopo aver
+  proposto di estendere la caccia allo stesso bug a tutto il resto dell'app) — grep sistematico di
+  ogni chiamata `toast(...)` e di ogni `await` "nudo" (risultato scartato) su tutti i componenti
+  `src/components/**/*.tsx`, non solo sul campione del giro precedente. La stragrande maggioranza
+  era già corretta (segnalazioni, preventivi, persone, lavorazioni, archivio, chat, pose — tutti
+  puliti). Trovati e corretti 2 punti nuovi:
+  - `tickets-board.tsx` (assegnazione Ticket — pulsante "Rimuovi" e le 3 opzioni della tendina
+    "Assegna a..."): il risultato della server action veniva scartato e l'interfaccia si
+    aggiornava comunque come se fosse andata a buon fine — peggio del solo toast mancante, perché
+    mostrava un assegnatario sbagliato in caso di rifiuto del server. Ora controlla `.errore`
+    prima di aggiornare lo stato locale.
+  - `todo-panel.tsx` (modifica di un to-do): l'errore restituito da `onSalvaModifica` veniva
+    scartato — il form restava aperto in caso di fallimento ma senza spiegare perché, indistinguibile
+    da un banale invio non ancora premuto. Aggiunto `useToast` (mancava) per mostrare l'errore.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

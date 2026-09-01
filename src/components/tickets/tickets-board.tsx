@@ -886,7 +886,11 @@ function DettaglioTicket({
                 disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
                 onClick={() =>
                   startAssegna(async () => {
-                    await assegnaTicket(ticket.id, null);
+                    const risultato = await assegnaTicket(ticket.id, null);
+                    if (risultato.errore) {
+                      toast(risultato.errore);
+                      return;
+                    }
                     onCambiato({ ...ticket, tecnico_assegnato: null, tecnico_esterno_id: null });
                   })
                 }
@@ -904,19 +908,31 @@ function DettaglioTicket({
                 if (!v) return;
                 if (v === "io") {
                   startAssegna(async () => {
-                    await assegnaTicket(ticket.id, currentPersonaId);
+                    const risultato = await assegnaTicket(ticket.id, currentPersonaId);
+                    if (risultato.errore) {
+                      toast(risultato.errore);
+                      return;
+                    }
                     onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
                   });
                 } else if (v.startsWith("p:")) {
                   const id = v.slice(2);
                   startAssegna(async () => {
-                    await assegnaTicket(ticket.id, id);
+                    const risultato = await assegnaTicket(ticket.id, id);
+                    if (risultato.errore) {
+                      toast(risultato.errore);
+                      return;
+                    }
                     onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
                   });
                 } else {
                   const id = v.slice(2);
                   startAssegnaEsterno(async () => {
-                    await assegnaTicketTecnicoEsterno(ticket.id, id);
+                    const risultato = await assegnaTicketTecnicoEsterno(ticket.id, id);
+                    if (risultato.errore) {
+                      toast(risultato.errore);
+                      return;
+                    }
                     onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
                   });
                 }

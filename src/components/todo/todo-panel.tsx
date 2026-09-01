@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ListChecks, X, Plus, Trash2, Pencil, Check } from "lucide-react";
 import { useTodoData } from "@/components/todo/todo-data-context";
+import { useToast } from "@/components/ui/toast";
 import type { TodoPersonale } from "@/lib/types";
 
 /** ★ ESTRATTO — contenuto dei to-do personali, separato dal "come" viene
@@ -181,13 +182,19 @@ function RigaTodo({
   onAnnullaModifica: () => void;
 }) {
   const [bozza, setBozza] = useState(item.testo);
+  const toast = useToast();
 
   if (inModifica) {
     return (
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          await onSalvaModifica(bozza);
+          // ★ FIX (2026-08-31, controllo d'oro usabilità) — l'errore restituito
+          // veniva scartato: se il salvataggio falliva, il form restava aperto
+          // senza dire perché, indistinguibile da un semplice "non hai ancora
+          // premuto invio".
+          const errore = await onSalvaModifica(bozza);
+          if (errore) toast(errore);
         }}
         className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-1.5 py-1"
       >
