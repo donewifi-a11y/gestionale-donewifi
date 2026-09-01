@@ -2955,6 +2955,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     decidono più il flag "attivo" mostrato in giro per il gestionale (badge, filtri, KPI).
   Build/lint puliti.
 
-**⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0069_attivo_solo_contratto_aruba.sql`
-— sostituisce la funzione `ricalcola_clienti_attivi()` e la richiama subito sui dati esistenti.
-Da incollare nell'SQL Editor di Supabase.
+✅ "Clienti attivi" — regola ibrida definitiva (2026-08-31, seguito immediato della 0069: dopo
+  averla applicata l'utente ha visto i numeri e ha detto "sono tanti") — la 0069 (solo flag
+  Aruba) reintroduceva esattamente il problema che aveva motivato la 0060 la prima volta: Aruba
+  non aggiorna il flag alla chiusura di un contratto. Verificato sui dati reali dopo la 0069: dei
+  2922 clienti `contratto_attivo=true`, 355 hanno una fattura ma la più recente ha più di 12
+  mesi (probabile vero cessato); 244 non hanno NESSUNA fattura mai abbinata (come il caso
+  dell'utente stesso — non è cessazione, è un problema di abbinamento CF).
+  - Migrazione `0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`: nuova regola,
+    `contratto_attivo=true` E (fattura entro 12 mesi, OPPURE nessuna fattura mai trovata per quel
+    CF/P.IVA) — dà il beneficio del dubbio a chi non ha fatture abbinate invece di escluderlo,
+    ma esclude comunque chi ha una fattura vecchia accertata. Confermata dall'utente su 3
+    alternative presentate (2922 / 2323 / 2567) — scelta la via di mezzo, **2567 risultati**.
+  Build/lint puliti.
+
+**⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
+— sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
+e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

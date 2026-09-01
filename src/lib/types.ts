@@ -397,15 +397,18 @@ export interface ClienteEsterno {
   /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — stesso "Status Sì/No" mostrato dalla
    * pagina interna di ricerca anagrafica su Aruba. */
   contratto_attivo: boolean | null;
-  /** ★ Stato del contratto (2026-08-31, migrazione 0069) — uguale a `contratto_attivo`. Prima
-   * (migrazioni 0060/0059) si era provato a incrociarlo con le fatture (90 giorni, poi 12 mesi)
-   * perché il flag grezzo da solo sembrava sovrastimare gli attivi — ma l'abbinamento fattura↔
-   * cliente è per CF/P.IVA, e salta quando il pagante non coincide col nome sul contratto (nucleo
-   * familiare, contratto ereditato...): verificato un caso reale con 0 fatture abbinate pur avendo
-   * un profilo assegnato. Richiesta esplicita: "le fatture potrebbero essere non sempre un sistema
-   * preciso di verifica. Utilizzerei la pagina di ricerca con i clienti con status sì" — le fatture
-   * restano visibili in scheda cliente per un controllo caso per caso, ma non decidono più questo
-   * flag. */
+  /** ★ Stato del contratto (2026-08-31, migrazione 0070, versione finale dopo due tentativi nello
+   * stesso giorno): `contratto_attivo=true` E (una fattura emessa negli ultimi 12 mesi, OPPURE
+   * nessuna fattura mai trovata per quel CF/P.IVA). La 0069 aveva provato ad affidarsi solo al
+   * flag grezzo Aruba ("sono tanti": 2922 risultati, Aruba non aggiorna il flag alla chiusura di
+   * un contratto), ma quella era già la ragione per cui esisteva la 0060 (flag + fattura<12 mesi,
+   * 2323 risultati) — che a sua volta escludeva clienti veri il cui abbinamento fattura↔cliente
+   * (per CF/P.IVA) salta quando il pagante non coincide col nome sul contratto (nucleo familiare,
+   * contratto ereditato...): verificato un caso reale (0 fatture abbinate pur avendo un profilo
+   * assegnato). Questa versione dà il beneficio del dubbio a chi non ha ALCUNA fattura abbinata
+   * (invece di escluderlo) ma esclude comunque chi ha una fattura vecchia ACCERTATA (prova di
+   * cessazione reale) — 2567 risultati, via di mezzo tra le due. Le fatture restano visibili in
+   * scheda cliente per un controllo caso per caso. */
   attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;
