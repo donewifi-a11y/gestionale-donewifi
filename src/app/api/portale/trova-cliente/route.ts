@@ -28,7 +28,13 @@ export async function POST(request: NextRequest) {
     .or(`codice_fiscale.eq.${cf},partita_iva.eq.${cf}`)
     .limit(1);
 
-  if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+  if (error) {
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — stesso fix di
+    // apri-ticket/route.ts: messaggio Postgres grezzo verso il cliente
+    // pubblico, ora resta nei log server.
+    console.error("api/portale/trova-cliente:", error.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante la ricerca — riprova." }, { status: 500 });
+  }
   if (!data || data.length === 0) {
     return NextResponse.json(
       { errore: "Non troviamo nessun cliente con questi dati. Controlla di aver scritto correttamente telefono e codice fiscale/partita IVA, oppure contattaci direttamente." },

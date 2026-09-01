@@ -22,7 +22,12 @@ export async function POST(request: NextRequest) {
   const percorso = `${segnalazioneId}/${Date.now()}-${nomeFile}`;
   const { data, error } = await supabase.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
-    return NextResponse.json({ errore: error?.message || "Errore preparazione upload." }, { status: 500 });
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio grezzo di
+    // Supabase Storage (es. "bucket not found") arrivava al cliente proprio
+    // durante il caricamento del documento d'identità — dettaglio tecnico
+    // inutile per chi non conosce il gestionale, ora resta nei log server.
+    console.error("api/richiesta-dati/upload-url:", error?.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante la preparazione del caricamento — riprova." }, { status: 500 });
   }
 
   return NextResponse.json({ percorso: data.path, token: data.token });

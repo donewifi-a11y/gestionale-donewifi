@@ -81,7 +81,13 @@ export async function loginTecnicoEsterno(username: string, password: string): P
     p_username: usernamePulito,
     p_password: password,
   });
-  if (error) return { errore: error.message };
+  if (error) {
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio Postgres
+    // grezzo arrivava al tecnico esterno sul campo, da smartphone, invece di
+    // un errore comprensibile; resta ora nei log server.
+    console.error("loginTecnicoEsterno — RPC verifica_login_tecnico_esterno:", error.message);
+    return { errore: "Errore di accesso — riprova." };
+  }
   if (!id) return { errore: "Nome utente o password errati." };
 
   await impostaCookieTecnicoEsterno(id);

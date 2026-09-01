@@ -44,7 +44,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("id", riga.preventivo_id)
       .select("numero, cliente_nome, totale")
       .single();
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio Postgres
+    // grezzo arrivava via email a chi clicca per approvare/rifiutare un
+    // preventivo, senza alcuna familiarità col gestionale — qui e nei 5
+    // punti analoghi sotto resta ora solo nei log server.
+    if (error) {
+      console.error("api/approva — update preventivi:", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     await supabase.from("storico").insert({
       origine: "preventivo",
@@ -76,7 +83,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from("segnalazioni")
       .update({ contratto_approvato_cliente_il: adesso })
       .eq("id", riga.segnalazione_id);
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    if (error) {
+      console.error("api/approva — update segnalazioni:", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     // ★ la voce di storico è la "prova" richiesta nella pratica: data/ora
     // dell'approvazione e che è arrivata da questo stesso link inviato solo
@@ -119,7 +129,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from("schede_lavoro")
       .update({ firma_cliente_verificato_il: new Date().toISOString() })
       .eq("id", scheda.id);
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    if (error) {
+      console.error("api/approva — update schede_lavoro:", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
     // "Estensione Notifiche") — prima NESSUN avviso qui: la conferma del
@@ -161,7 +174,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from("rapportini_intervento")
       .update({ firma_verificato_il: new Date().toISOString() })
       .eq("id", rapportino.id);
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    if (error) {
+      console.error("api/approva — update rapportini_intervento:", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
     // "Estensione Notifiche") — prima NESSUN avviso qui, stesso buco del
@@ -195,7 +211,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("id", riga.richiesta_cliente_id)
       .select("cliente")
       .single();
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    if (error) {
+      console.error("api/approva — update richieste_clienti (subentro):", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     await supabase.from("storico").insert({
       origine: "richiesta_cliente",
@@ -226,7 +245,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("id", riga.ticket_id)
       .select("cliente, numero, reparto")
       .single();
-    if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+    if (error) {
+      console.error("api/approva — update tickets:", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
 
     // ★ NUOVA (2026-08-27, "fai la A" — Proposta A dell'artifact
     // "Estensione Notifiche") — prima NESSUN avviso qui: la conferma di

@@ -140,7 +140,7 @@ function RigaAntenna({ antenna, isAdmin, puoPrenotare }: { antenna: AntennaInven
           </Button>
         )}
         {isAdmin && antenna.stato !== "Installata" && (
-          <button onClick={elimina} disabled={inCorso} className="text-muted-foreground transition hover:text-critical disabled:opacity-50">
+          <button onClick={elimina} disabled={inCorso} aria-label="Rimuovi antenna dall'inventario" title="Rimuovi antenna dall'inventario" className="text-muted-foreground transition hover:text-critical disabled:opacity-50">
             <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
           </button>
         )}

@@ -148,7 +148,7 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
               <span>
                 Collegato a: <b>{clienteCollegato.nome}</b> ({clienteCollegato.tipo === "segnalazione" ? "Segnalazione" : "Cliente"})
               </span>
-              <button type="button" onClick={scollegaCliente} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={scollegaCliente} aria-label="Scollega cliente" title="Scollega cliente" className="text-muted-foreground hover:text-foreground">
                 <X className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>
             </div>

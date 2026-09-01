@@ -3012,6 +3012,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     da un banale invio non ancora premuto. Aggiunto `useToast` (mancava) per mostrare l'errore.
   Build/lint puliti.
 
+✅ Controllo d'oro usabilità — nuove aree mai controllate prima (2026-08-31, richiesta esplicita:
+  "fai ancora dei controlli che non hai mai fatto") — 3 nuovi giri: bottoni icona-pura senza
+  etichetta, protezione doppio invio (nessun problema trovato, già a posto ovunque), e le pagine
+  PUBBLICHE rivolte al cliente (mai controllate finora, sempre e solo staff interno).
+  - Accessibilità: 2 bottoni con sola icona Lucide senza `aria-label`/`title` — "Rimuovi antenna"
+    in `materiali/antenne-vista.tsx` e "Scollega cliente" in `preventivi/nuovo-preventivo-form.tsx`.
+    Aggiunte entrambe le etichette.
+  - **Il problema più serio**: messaggi di errore Postgres/Supabase grezzi (nomi di
+    colonna/tabella) mostrati direttamente al cliente finale in 6 file — il più critico,
+    `api/approva/[token]/route.ts` (6 punti), arriva via email a chi clicca per approvare
+    contratto/preventivo/intervento, senza nessuna familiarità col gestionale. Altri: dopo aver
+    già caricato 4 documenti d'identità in Richiesta Dati (`api/richiesta-dati/route.ts` +
+    `upload-url/route.ts`), nel form Cambio IBAN/Anagrafica/Trasferimento/Subentro
+    (`api/richiesta-cliente/route.ts`), nel Portale self-service (`apri-ticket`/`trova-cliente`),
+    e nel login del tecnico esterno da smartphone (`pose/actions.ts`). Sostituito ovunque con un
+    messaggio comprensibile ("Errore imprevisto — riprova o contattaci"); il dettaglio tecnico
+    vero resta nei log server (`console.error`) per il debug.
+  - Trovati ma NON ancora corretti (segnalati, bassa priorità): validazione solo-al-submit nel
+    form Richiesta Dati senza evidenziare il campo mancante; asterischi obbligatorietà mancanti
+    nel tab "Verifica Stato" del Portale; touch target sotto 44px sui toggle Privato/Azienda;
+    fac-simile disdetta a 11.5px su mobile.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

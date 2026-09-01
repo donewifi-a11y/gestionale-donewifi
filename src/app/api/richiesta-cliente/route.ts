@@ -84,7 +84,12 @@ export async function POST(request: NextRequest) {
       contentType: file.type || "application/octet-stream",
     });
     if (erroreUpload) {
-      return NextResponse.json({ errore: `Errore caricamento "${file.name}": ${erroreUpload.message}` }, { status: 500 });
+      // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio grezzo
+      // di Supabase Storage arrivava al cliente insieme al nome del file,
+      // ora resta nei log server; il nome del file al cliente resta utile
+      // (sa quale allegato ripetere), il dettaglio tecnico no.
+      console.error(`api/richiesta-cliente — upload "${file.name}":`, erroreUpload.message);
+      return NextResponse.json({ errore: `Errore imprevisto caricando "${file.name}" — riprova.` }, { status: 500 });
     }
     documenti.push({ nome: file.name, percorso, tipo: etichetta });
   }
@@ -102,7 +107,8 @@ export async function POST(request: NextRequest) {
         })
       ).error;
   if (erroreScrittura) {
-    return NextResponse.json({ errore: erroreScrittura.message }, { status: 500 });
+    console.error("api/richiesta-cliente — scrittura richieste_clienti:", erroreScrittura.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante l'invio — riprova o contattaci." }, { status: 500 });
   }
 
   const reparto = REPARTO_PER_TIPO_RICHIESTA[tipo as TipoRichiestaCliente];

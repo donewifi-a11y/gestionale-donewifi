@@ -90,7 +90,12 @@ export async function POST(request: NextRequest) {
     documenti,
   });
   if (erroreInsert) {
-    return NextResponse.json({ errore: erroreInsert.message }, { status: 500 });
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio Postgres
+    // grezzo (nomi di colonna/tabella) arrivava al cliente proprio dopo che
+    // aveva già caricato 4 documenti d'identità: dettaglio tecnico inutile
+    // per chi non conosce il gestionale, ora resta nei log del server.
+    console.error("api/richiesta-dati — insert richieste_clienti:", erroreInsert.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante l'invio — riprova o contattaci." }, { status: 500 });
   }
 
   const aggiornamentoSegnalazione: Record<string, string | null> = {
@@ -120,7 +125,8 @@ export async function POST(request: NextRequest) {
     .update(aggiornamentoSegnalazione)
     .eq("id", segnalazioneId);
   if (erroreUpdate) {
-    return NextResponse.json({ errore: erroreUpdate.message }, { status: 500 });
+    console.error("api/richiesta-dati — update segnalazioni:", erroreUpdate.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante l'invio — riprova o contattaci." }, { status: 500 });
   }
 
   // ★ stesso comportamento del vecchio gestionale: unica notifica Telegram

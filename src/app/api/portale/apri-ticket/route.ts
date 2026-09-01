@@ -52,7 +52,13 @@ export async function POST(request: NextRequest) {
     })
     .select("id, numero")
     .single();
-  if (error) return NextResponse.json({ errore: error.message }, { status: 500 });
+  if (error) {
+    // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio Postgres
+    // grezzo arrivava al cliente nel Portale pubblico self-service, ora
+    // resta nei log server.
+    console.error("api/portale/apri-ticket:", error.message);
+    return NextResponse.json({ errore: "Errore imprevisto durante l'apertura del ticket — riprova." }, { status: 500 });
+  }
 
   // ★ ESTESA (2026-08-27, richiesta esplicita: "inserisci lo stesso
   // sistema di notifica adoperato per documentazione ricevuta... in tutte
