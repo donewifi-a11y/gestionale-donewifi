@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   FileText,
   Wrench,
+  ChevronRight,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -198,30 +199,46 @@ export function AppSidebar({
     return lista.filter((m) => m.voci.length > 0);
   }, [dashboardReparti, vedeRichieste, vedeTariffe, isAdmin]);
 
-  // ★ il mondo attivo segue la pagina corrente (es. aprendo /tariffe si
-  // apre già "Mondo Business"), con ricordo della scelta manuale sopra.
+  // ★ il mondo della pagina corrente (es. aprendo /tariffe è "Vendita") —
+  // usato per tenere la sua sezione già aperta nell'accordion sotto.
   const mondoDaPercorso = useMemo(() => {
     for (const m of mondi) {
       if (m.voci.some((v) => (v.esatto ? pathname === v.href : pathname.startsWith(v.href)))) return m.id;
     }
     return mondi[0]?.id ?? "ticket";
   }, [pathname, mondi]);
-  const [mondoScelto, setMondoScelto] = useState<string | null>(null);
-  // ★ FIX — la scelta manuale (click sul rail) restava valida per sempre,
-  // anche dopo aver navigato altrove: aprire "Vendita" a mano e poi
-  // arrivare su un Ticket (Assistenza) da un link/dalla ricerca globale
-  // lasciava il rail ancora su "Vendita", mostrando le voci del mondo
-  // sbagliato mentre la pagina reale era un'altra. Un vero cambio pagina
-  // (pathname diverso) azzera la scelta manuale e lascia che sia di nuovo
-  // la pagina corrente a decidere il mondo attivo — cliccare un'icona del
-  // rail resta comunque immediato: non naviga da sola, quindi non fa
-  // scattare questo reset.
+
+  // ★ RIORGANIZZATA (2026-09-01, richiesta esplicita: "ottimizza... rendi
+  // molto più semplice e ottimizzato il sistema e la navigazione nei menu e
+  // sottomenu" — proposta con artifact "Navigazione: Due Proposte", scelta
+  // la "A · Sidebar unica ad accordion") — il binario di icone + pannello
+  // separato (due click per raggiungere una pagina di un altro mondo, ed
+  // etichette del binario leggibili solo a 9px) lascia il posto a un unico
+  // elenco verticale con sezioni pieghevoli: un click in meno per mondo, e
+  // niente più testo minuscolo da decifrare. La sezione del mondo corrente
+  // è aperta di default; le altre restano chiuse ma sempre visibili come
+  // intestazione — aprirne un'altra non richiude quella attuale, così si
+  // può confrontare voci di due mondi diversi senza perdere il posto.
+  const [gruppiAperti, setGruppiAperti] = useState<Set<string>>(() => new Set([mondoDaPercorso]));
+  // ★ un vero cambio pagina (pathname diverso, da un Link o dalla ricerca
+  // globale) apre la sezione della nuova pagina se non lo è già — non
+  // richiude le altre che l'utente avesse aperto a mano.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la navigazione (pathname cambiato da un Link/dalla ricerca globale), non derivabile durante il render: qui l'intento è proprio "un vero cambio pagina annulla la scelta manuale precedente".
-    setMondoScelto(null);
-  }, [pathname]);
-  const mondoAttivoId = mondoScelto ?? mondoDaPercorso;
-  const mondoAttivo = mondi.find((m) => m.id === mondoAttivoId) ?? mondi[0];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con la navigazione (pathname cambiato da un Link/dalla ricerca globale), non derivabile durante il render: qui l'intento è proprio "la sezione della pagina in cui sei ora è sempre aperta".
+    setGruppiAperti((prev) => {
+      if (prev.has(mondoDaPercorso)) return prev;
+      return new Set(prev).add(mondoDaPercorso);
+    });
+  }, [mondoDaPercorso]);
+
+  function toggleGruppo(id: string) {
+    setGruppiAperti((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const contenuto = (
     <>
@@ -241,64 +258,64 @@ export function AppSidebar({
 
       <RicercaGlobale />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* ★ rail dei "mondi" — tab laterali, sempre visibili */}
-        <div className="flex w-16 shrink-0 flex-col items-center gap-1.5 border-r border-sidebar-border px-1.5 pt-1">
-          {mondi.map((m) => {
-            const Icona = m.icona;
-            const attivo = m.id === mondoAttivoId;
-            return (
+      {/* ★ un solo elenco verticale, sezioni pieghevoli invece di
+      binario-icone-poi-pannello — vedi commento sopra su gruppiAperti. */}
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pt-1">
+        {mondi.map((m) => {
+          const Icona = m.icona;
+          const aperto = gruppiAperti.has(m.id);
+          const contieneAttivo = m.id === mondoDaPercorso;
+          return (
+            <div key={m.id} className="pb-0.5">
               <button
-                key={m.id}
-                onClick={() => setMondoScelto(m.id)}
-                title={m.etichetta}
-                className={`flex w-full flex-col items-center gap-1 rounded-lg py-2.5 text-center transition ${
-                  attivo
-                    ? "bg-gradient-to-b from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                }`}
+                onClick={() => toggleGruppo(m.id)}
+                aria-expanded={aperto}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider transition ${
+                  contieneAttivo ? "text-sidebar-foreground/85" : "text-sidebar-foreground/45 hover:text-sidebar-foreground/70"
+                } hover:bg-sidebar-accent`}
               >
-                <Icona className="h-4 w-4 shrink-0" strokeWidth={2.25} />
-                <span className="text-[9px] font-bold leading-tight">{m.etichetta.replace("Mondo ", "")}</span>
+                <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                <span className="flex-1 truncate">{m.etichetta}</span>
+                <ChevronRight
+                  className={`h-3 w-3 shrink-0 transition-transform ${aperto ? "rotate-90" : ""}`}
+                  strokeWidth={2.5}
+                />
               </button>
-            );
-          })}
-        </div>
-
-        {/* ★ voci del mondo selezionato */}
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2.5 pt-1">
-          <div className="mb-1 px-1.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">
-            {mondoAttivo?.etichetta}
-          </div>
-          {mondoAttivo?.voci.map((voce) => {
-            const attivo = voce.esatto ? pathname === voce.href : pathname.startsWith(voce.href);
-            const Icona = voce.icona;
-            return (
-              <div key={voce.href}>
-                <Link
-                  href={voce.href}
-                  onClick={() => setAperta(false)}
-                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
-                    attivo
-                      ? "bg-gradient-to-r from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
-                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                  <span className="truncate">{voce.etichetta}</span>
-                </Link>
-                {voce.separatoreDopo && (
-                  <div className="my-1.5 flex items-center gap-1.5 px-1.5">
-                    <div className="h-px flex-1 bg-sidebar-border" />
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-sidebar-foreground/35">Amministrazione</span>
-                    <div className="h-px flex-1 bg-sidebar-border" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </div>
+              {aperto && (
+                <div className="flex flex-col gap-0.5 py-0.5 pl-3.5">
+                  {m.voci.map((voce) => {
+                    const attivo = voce.esatto ? pathname === voce.href : pathname.startsWith(voce.href);
+                    const IconaVoce = voce.icona;
+                    return (
+                      <div key={voce.href}>
+                        <Link
+                          href={voce.href}
+                          onClick={() => setAperta(false)}
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
+                            attivo
+                              ? "bg-gradient-to-r from-sidebar-primary to-[color-mix(in_oklch,var(--sidebar-primary),black_20%)] text-sidebar-primary-foreground shadow-md shadow-black/25"
+                              : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <IconaVoce className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                          <span className="truncate">{voce.etichetta}</span>
+                        </Link>
+                        {voce.separatoreDopo && (
+                          <div className="my-1.5 flex items-center gap-1.5 px-1.5">
+                            <div className="h-px flex-1 bg-sidebar-border" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-sidebar-foreground/35">Amministrazione</span>
+                            <div className="h-px flex-1 bg-sidebar-border" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
       {/* ★ FIX — pulsanti Chat/To-Do poco scoperti (11px, in fondo, sotto
       la navigazione, nessun segnale oltre al badge): ora più grandi, con

@@ -3035,6 +3035,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     fac-simile disdetta a 11.5px su mobile.
   Build/lint puliti.
 
+✅ Navigazione: sidebar unica ad accordion (2026-09-01, richiesta esplicita: "ottimizza nel meglio
+  dei modi tutta l'interfaccia e rendi molto più semplice e ottimizzato il sistema e la
+  navigazione nei menu e sottomenu" — 2 proposte con artifact "Navigazione: Due Proposte",
+  scelta la "A") — il menu era "binario di icone poi pannello": un click per scegliere il mondo
+  (Assistenza/Vendita/Clienti/Analisi/Team), un secondo per la pagina — e le etichette del
+  binario erano leggibili solo a 9px.
+  - `app-sidebar.tsx`: il binario + pannello separato lascia il posto a un unico elenco verticale
+    con sezioni pieghevoli (accordion) — un click in meno per raggiungere una pagina di un mondo
+    diverso da quello corrente, zero per restarci. La sezione della pagina in cui ti trovi è
+    sempre aperta; aprirne un'altra non richiude quella attuale (si può confrontare voci di due
+    mondi insieme). Rimossa la logica `mondoScelto`/rail-click, sostituita da `gruppiAperti`
+    (`Set<string>`) che si sincronizza con la navigazione senza mai richiudere una sezione aperta
+    a mano.
+  - Nessun cambiamento alla logica dei permessi (chi vede quale mondo/voce) — solo il markup di
+    presentazione è stato toccato, verificato sui dati reali delle 4 persone attive in produzione.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
