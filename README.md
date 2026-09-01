@@ -2969,6 +2969,33 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     alternative presentate (2922 / 2323 / 2567) — scelta la via di mezzo, **2567 risultati**.
   Build/lint puliti.
 
+✅ Controllo d'oro usabilità (2026-08-31, richiesta esplicita: "ora fai un controllo d'oro su
+  l'usabilità") — sondaggio su dashboard/materiali/tariffe/preventivi/richieste-clienti/sistema/
+  login/vista-tecnico/sidebar/archivio/lavorazioni/segnalazioni/chat/tickets/calendario. Trovato
+  e corretto un bug di feedback ricorrente, verificato riga per riga prima di toccare nulla:
+  `toast()` senza secondo parametro è di default `"errore"` (rosso, icona di allarme) — usato per
+  errore, ma in diversi punti anche per confermare un successo, e in altri il risultato della
+  server action (`.errore`) veniva ignorato del tutto, mostrando sempre "successo" anche a
+  fronte di un rifiuto del server.
+  - `materiali/antenne-vista.tsx` (4 punti) e `magazzino-vista.tsx`: conferme di successo
+    (prenotazione, eliminazione, aggiornamento giacenza) che apparivano in rosso — aggiunto il
+    secondo parametro `"successo"` mancante.
+  - `tickets-board.tsx` (2 punti, card e dialog dettaglio) e `vista-tecnico-board.tsx`:
+    avanzamento stato Ticket — l'azione più cliccata del gestionale — mostrava sempre "Passato a…"
+    anche se il server aveva rifiutato (permessi, riga già cambiata da un altro); ora controlla
+    `.errore` prima di confermare. Stesso fix per "Prendi in carico" in `tickets-board.tsx`.
+  - `calendario-board.tsx` (3 funzioni: segna completato/annulla appuntamento, apri/chiudi
+    promemoria, elimina promemoria): stesso schema, stesso fix.
+  - `richieste-clienti-board.tsx`: cambio stato pratica, stesso fix.
+  - `tariffe-board.tsx` (duplica/sottoscrivibile/pubblica): il caso peggiore — in caso di errore
+    non succedeva letteralmente nulla, nessun toast né refresh. Aggiunto `useToast` (mancava
+    l'import) e il riscontro completo, successo e errore, per tutte e 3.
+  Altri trovati ma NON ancora corretti (bassa priorità/da valutare con l'utente): Dashboard con
+  query admin in sequenza invece che parallele; "Esporta PDF" che chiama solo `window.print()`;
+  Vista Tecnico senza link diretto per impostare "Tu sei" quando manca; terminologia
+  "Lavorazione Tecnica"/"Intervento in loco" leggermente diversa tra schermate.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
+import { useToast } from "@/components/ui/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   creaTariffa,
@@ -47,24 +48,45 @@ function statoPromozione(promo: Promozione): "Attiva" | "Programmata" | "Scaduta
 
 export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariffa[]; promozioni: Promozione[]; isAdmin: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [nuova, setNuova] = useState(false);
   const [modifica, setModifica] = useState<Tariffa | null>(null);
   const [nuovaPromo, setNuovaPromo] = useState(false);
   const [modificaPromo, setModificaPromo] = useState<Promozione | null>(null);
 
+  // ★ FIX (2026-08-31, controllo d'oro usabilità) — le 3 funzioni sotto non
+  // davano MAI un riscontro: in caso di errore non succedeva letteralmente
+  // nulla (nessun toast, nessun refresh), l'unico segnale era un clic senza
+  // effetto apparente. Ora un fallimento si vede, e un successo lo conferma
+  // — stesso standard già in uso nel resto del gestionale.
   async function duplica(t: Tariffa) {
     const risultato = await duplicaTariffa(t.id);
-    if (!risultato.errore) router.refresh();
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    toast("Tariffa duplicata.", "successo");
+    router.refresh();
   }
 
   async function toggleSottoscrivibile(t: Tariffa) {
     const risultato = await impostaSottoscrivibileTariffa(t.id, !t.attivo);
-    if (!risultato.errore) router.refresh();
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    toast(t.attivo ? "Tariffa resa non sottoscrivibile." : "Tariffa resa sottoscrivibile.", "successo");
+    router.refresh();
   }
 
   async function togglePubblica(t: Tariffa) {
     const risultato = await impostaPubblicaTariffa(t.id, !t.pubblica);
-    if (!risultato.errore) router.refresh();
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    toast(t.pubblica ? "Tariffa resa non pubblica." : "Tariffa resa pubblica.", "successo");
+    router.refresh();
   }
 
   // ★ come nel vecchio gestionale: avviso se una tariffa ha più promo attive insieme (rischio di sconti che si sommano per errore).

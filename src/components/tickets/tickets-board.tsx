@@ -131,6 +131,11 @@ export function TicketsBoard({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // ★ FIX (2026-08-31, controllo d'oro usabilità) — avanzaStato/prendiInCarico
+  // sotto ignoravano del tutto l'esito del server: un rifiuto (permessi, riga
+  // già cambiata da un altro) passava inosservato, l'utente restava convinto
+  // che l'azione fosse andata a buon fine.
+  const toast = useToast();
   const [ricerca, setRicerca] = useState("");
   // ★ FIX — filtri ricordati per utente/browser (stessa idea già applicata
   // su Hub Ticket nel gestionale precedente): lettura/scrittura ora in
@@ -209,13 +214,22 @@ export function TicketsBoard({
       setAperto(t);
       return;
     }
-    await aggiornaStatoTicket(t.id, prossimo, t.stato);
+    const risultato = await aggiornaStatoTicket(t.id, prossimo, t.stato);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    toast(`Passato a "${prossimo}".`, "successo");
     router.refresh();
   }
 
   async function prendiInCarico(t: Ticket, e: React.MouseEvent) {
     e.stopPropagation();
-    await assegnaTicket(t.id, currentPersonaId);
+    const risultato = await assegnaTicket(t.id, currentPersonaId);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
     router.refresh();
   }
 
@@ -716,7 +730,11 @@ function DettaglioTicket({
       return;
     }
     startStato(async () => {
-      await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
+      const risultato = await aggiornaStatoTicket(ticket.id, nuovo, ticket.stato);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
       onCambiato({ ...ticket, stato: nuovo });
       toast(`Passato a "${nuovo}".`, "successo");
       router.refresh();

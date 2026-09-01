@@ -190,7 +190,11 @@ function DettaglioRichiesta({
   function cambiaStato(nuovo: string) {
     if (nuovo === richiesta.stato) return;
     startTransizione(async () => {
-      await aggiornaStatoRichiestaCliente(richiesta.id, nuovo);
+      const risultato = await aggiornaStatoRichiestaCliente(richiesta.id, nuovo);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
       onCambiata({ ...richiesta, stato: nuovo });
       toast(`Passata a "${nuovo}".`, "successo");
       router.refresh();

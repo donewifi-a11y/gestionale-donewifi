@@ -109,7 +109,7 @@ function RigaAntenna({ antenna, isAdmin, puoPrenotare }: { antenna: AntennaInven
     startTransition(async () => {
       const risultato = await annullaPrenotazioneAntenna(antenna.id);
       if (risultato.errore) return toast(risultato.errore);
-      toast("Prenotazione annullata.");
+      toast("Prenotazione annullata.", "successo");
       router.refresh();
     });
   }
@@ -119,7 +119,7 @@ function RigaAntenna({ antenna, isAdmin, puoPrenotare }: { antenna: AntennaInven
     startTransition(async () => {
       const risultato = await eliminaAntennaInventario(antenna.id);
       if (risultato.errore) return toast(risultato.errore);
-      toast("Antenna rimossa dall'inventario.");
+      toast("Antenna rimossa dall'inventario.", "successo");
       router.refresh();
     });
   }
@@ -179,7 +179,7 @@ function SelettoreTicketPrenotazione({ antennaId, onFatto }: { antennaId: string
     startTransition(async () => {
       const risultato = await prenotaAntennaInventario(antennaId, ticketId);
       if (risultato.errore) return toast(risultato.errore);
-      toast("Antenna prenotata.");
+      toast("Antenna prenotata.", "successo");
       router.refresh();
       onFatto();
     });
@@ -236,7 +236,7 @@ function FormAggiungiAntenne({ tipologia, onFatto }: { tipologia: string; onFatt
     startTransition(async () => {
       const risultato = await aggiungiAntenneInventario(tipologia, testo);
       if (risultato.errore) return setErrore(risultato.errore);
-      toast(`${risultato.aggiunte ?? 0} antenna/e aggiunta/e a "${tipologia}".`);
+      toast(`${risultato.aggiunte ?? 0} antenna/e aggiunta/e a "${tipologia}".`, "successo");
       router.refresh();
       onFatto();
     });

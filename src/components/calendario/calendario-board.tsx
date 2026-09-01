@@ -173,20 +173,32 @@ export function CalendarioBoard({
   // che si spunta), ma un riscontro visivo che l'azione è andata a buon
   // fine mancava del tutto.
   async function cambiaStato(id: string, stato: Appuntamento["stato"]) {
-    await cambiaStatoAppuntamento(id, stato);
+    const risultato = await cambiaStatoAppuntamento(id, stato);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
     toast(stato === "Completato" ? "Appuntamento segnato come completato." : "Appuntamento annullato.", "successo");
     router.refresh();
   }
 
   async function alternaNota(n: NotaCalendario) {
-    await completaNotaCalendario(n.id, !n.completata);
+    const risultato = await completaNotaCalendario(n.id, !n.completata);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
     toast(n.completata ? "Promemoria riaperto." : "Promemoria completato.", "successo");
     router.refresh();
   }
 
   async function eliminaNota(id: string) {
     if (!confirm("Eliminare questo promemoria?")) return;
-    await eliminaNotaCalendario(id);
+    const risultato = await eliminaNotaCalendario(id);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
     toast("Promemoria eliminato.", "successo");
     router.refresh();
   }

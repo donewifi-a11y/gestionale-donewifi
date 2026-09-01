@@ -417,8 +417,12 @@ export function VistaTecnicoBoard({
     }
     setTicketInCorso(t.id);
     startAvanza(async () => {
-      await aggiornaStatoTicket(t.id, prossimo, t.stato);
+      const risultato = await aggiornaStatoTicket(t.id, prossimo, t.stato);
       setTicketInCorso(null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
       toast(`Passato a "${prossimo}".`, "successo");
       router.refresh();
     });

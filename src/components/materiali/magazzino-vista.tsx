@@ -134,7 +134,7 @@ function FormGiacenza({ materiale, onFatto }: { materiale: MaterialeMagazzino; o
         tracciato && soglia.trim() ? Number(soglia) : null
       );
       if (risultato.errore) return setErrore(risultato.errore);
-      toast(`Magazzino di "${materiale.nome}" aggiornato.`);
+      toast(`Magazzino di "${materiale.nome}" aggiornato.`, "successo");
       router.refresh();
       onFatto();
     });
