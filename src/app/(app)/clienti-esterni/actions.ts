@@ -150,10 +150,10 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
     if (error) return { errore: `Sincronizzazione interrotta dopo ${i} clienti su ${righe.length}: ${error.message}. Anagrafica parzialmente aggiornata — riprova per completarla.`, sincronizzati: i };
   }
 
-  // ★ il flag "attivo" mostrato in tutta l'app non è il campo grezzo
-  // Aruba (inaffidabile, tenuto solo per riferimento) ma dedotto da chi
-  // ha davvero fatturato negli ultimi 90 giorni — va ricalcolato ogni
-  // volta che cambia l'anagrafica o le fatture.
+  // ★ il flag "attivo" mostrato in tutta l'app (migrazione 0069) è uguale
+  // al campo grezzo Aruba `contratto_attivo` — stesso "Status Sì/No" della
+  // pagina interna di ricerca anagrafica — va ricalcolato ogni volta che
+  // cambia l'anagrafica.
   // ★ FIX — l'errore di questa chiamata veniva scartato: se il ricalcolo
   // falliva (successo davvero, vedi migrazione 0039), l'anagrafica restava
   // sincronizzata ma il flag "attivo" no, senza che nessuno se ne

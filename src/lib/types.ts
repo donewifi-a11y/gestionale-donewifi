@@ -394,18 +394,18 @@ export interface ClienteEsterno {
    */
   codice_gestionale: string | null;
   id_contratto: string | null;
-  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — da solo NON è affidabile per "attivo"
-   * (vedi sotto): 531 installazioni su dati reali risultavano contratto_attivo=true pur non
-   * fatturando da oltre un anno (o mai) — Aruba non lo aggiorna in modo affidabile alla chiusura
-   * di un contratto. */
+  /** ★ campo grezzo Aruba (contrattoattivo='S'/'N') — stesso "Status Sì/No" mostrato dalla
+   * pagina interna di ricerca anagrafica su Aruba. */
   contratto_attivo: boolean | null;
-  /** ★ Stato del contratto (2026-08-25, migrazione 0060): `contratto_attivo=true` E almeno una
-   * fattura emessa negli ultimi 12 mesi — nessuno dei due segnali da solo bastava. "Fatturato
-   * negli ultimi 90 giorni" da solo (logica originale) era troppo severo per chi fattura a ciclo
-   * lungo (trimestrale/annuale/Buy&Go a consumo). `contratto_attivo` da solo (migrazione 0059) era
-   * troppo permissivo: 531 installazioni marcate attive su Aruba non fatturavano da oltre un anno.
-   * Verificato sui dati reali: 1866 installazioni attive con la regola combinata, vicino al numero
-   * atteso (~1800). */
+  /** ★ Stato del contratto (2026-08-31, migrazione 0069) — uguale a `contratto_attivo`. Prima
+   * (migrazioni 0060/0059) si era provato a incrociarlo con le fatture (90 giorni, poi 12 mesi)
+   * perché il flag grezzo da solo sembrava sovrastimare gli attivi — ma l'abbinamento fattura↔
+   * cliente è per CF/P.IVA, e salta quando il pagante non coincide col nome sul contratto (nucleo
+   * familiare, contratto ereditato...): verificato un caso reale con 0 fatture abbinate pur avendo
+   * un profilo assegnato. Richiesta esplicita: "le fatture potrebbero essere non sempre un sistema
+   * preciso di verifica. Utilizzerei la pagina di ricerca con i clienti con status sì" — le fatture
+   * restano visibili in scheda cliente per un controllo caso per caso, ma non decidono più questo
+   * flag. */
   attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;

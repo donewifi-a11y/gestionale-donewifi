@@ -2937,3 +2937,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     inviate") nella colonna principale, per tenere la barra laterale stretta; i pulsanti di
     Disdetta sono impilati in verticale invece che in riga, più adatti a una colonna da 300px.
   Build/lint puliti.
+✅ "Clienti attivi" torna a essere il flag grezzo Aruba (2026-08-31, richiesta esplicita dopo
+  un'indagine su "mancano clienti": "le fatture potrebbero essere non sempre un sistema preciso
+  di verifica. Utilizzerei la pagina di ricerca con i clienti con status sì" — vedi
+  `⚠️ MIGRAZIONE DA APPLICARE`) — la migrazione 0060 (2026-08-25) incrociava `contratto_attivo`
+  con le fatture (prima 90 giorni, poi 12 mesi) perché il flag grezzo da solo sembrava
+  sovrastimare gli attivi. Verifica sui dati reali: 585 clienti con `contratto_attivo=true`
+  risultavano "non attivi" da noi, di cui 233 senza NESSUNA fattura mai abbinata pur avendo un
+  profilo assegnato — l'abbinamento fattura↔cliente è per CF/P.IVA e salta quando il pagante non
+  coincide col nome sul contratto (nucleo familiare, contratto ereditato...). Caso reale
+  verificato: l'account dell'utente stesso (cod. gestionale 900500) risultava "non attivo" perché
+  le fatture della sua utenza erano intestate a due parenti con CF diversi dal suo.
+  - Migrazione `0069_attivo_solo_contratto_aruba.sql`: `ricalcola_clienti_attivi()` ora imposta
+    `attivo = contratto_attivo`, senza più incrociare le fatture — lo stesso "Status Sì/No" già
+    mostrato dalla pagina interna di ricerca anagrafica su Aruba usata come riferimento.
+  - Le fatture restano visibili nella scheda cliente per un controllo caso per caso, ma non
+    decidono più il flag "attivo" mostrato in giro per il gestionale (badge, filtri, KPI).
+  Build/lint puliti.
+
+**⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0069_attivo_solo_contratto_aruba.sql`
+— sostituisce la funzione `ricalcola_clienti_attivi()` e la richiama subito sui dati esistenti.
+Da incollare nell'SQL Editor di Supabase.
