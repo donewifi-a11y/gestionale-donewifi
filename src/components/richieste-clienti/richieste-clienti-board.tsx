@@ -3,8 +3,9 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2 } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import { Badge } from "@/components/ui/badge";
@@ -289,7 +290,10 @@ function DettaglioRichiesta({
 
         {richiesta.documenti?.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Documenti</div>
+            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Documenti
+            </div>
             <div className="flex flex-col gap-1.5">
               {richiesta.documenti.map((doc, i) => (
                 <PulsanteDocumento

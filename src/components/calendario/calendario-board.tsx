@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
+import type { CategoriaIcona } from "@/lib/colore-icone";
 import {
   creaAppuntamento,
   modificaAppuntamento,
@@ -405,9 +407,9 @@ function RigaAppuntamento({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+              className="flex items-center gap-1.5 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
             >
-              <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
               {a.indirizzo}
             </a>
           )}
@@ -415,9 +417,9 @@ function RigaAppuntamento({
             <a
               href={`tel:${telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+              className="flex items-center gap-1.5 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
             >
-              <Phone className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
               {telefono}
             </a>
           )}
@@ -485,9 +487,9 @@ function RigaEventoGoogle({ e }: { e: EventoGoogleCalendario }) {
             href={`https://maps.google.com/?q=${encodeURIComponent(e.indirizzo)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+            className="flex items-center gap-1.5 truncate text-xs text-muted-foreground hover:text-primary hover:underline"
           >
-            <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+            <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
             {e.indirizzo}
           </a>
         )}
@@ -761,11 +763,25 @@ function VistaMese({
 // il riquadro di sezione, il selettore visivo del tipo di servizio (decide
 // quale Scheda si apre dopo — prima un <select> anonimo, ora un colore e
 // una spiegazione per opzione) e l'avviso "tecnico non assegnato".
-function SezioneForm({ icona: Icona, titolo, children }: { icona: typeof Wrench; titolo: string; children: React.ReactNode }) {
+function SezioneForm({
+  icona: Icona,
+  titolo,
+  categoria,
+  children,
+}: {
+  icona: typeof Wrench;
+  titolo: string;
+  // ★ NUOVA (2026-09-01, "icone colorate in tutto il gestionale") —
+  // facoltativa: non tutte le sezioni corrispondono a un TIPO di dato tra i
+  // 6 di COLORE_ICONA (es. "Servizio" è una categoria/tipo appuntamento, non
+  // luogo/tempo/persona/...) — quelle restano grigio neutro come prima.
+  categoria?: CategoriaIcona;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border bg-muted/40 p-3">
-      <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        <Icona className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <div className="mb-2.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {categoria ? <IconaCategoria icona={Icona} categoria={categoria} dimensione="sm" /> : <Icona className="h-3.5 w-3.5" strokeWidth={2.25} />}
         {titolo}
       </div>
       <div className="flex flex-col gap-3">{children}</div>
@@ -922,11 +938,11 @@ function FormNuovoAppuntamento({
           </div>
         </SezioneForm>
 
-        <SezioneForm icona={MapPin} titolo="Luogo">
+        <SezioneForm icona={MapPin} titolo="Luogo" categoria="luogo">
           <Input key={ticketId} id="indirizzo" name="indirizzo" defaultValue={ticketSelezionato?.indirizzo ?? ""} placeholder="Indirizzo" className="bg-background" />
         </SezioneForm>
 
-        <SezioneForm icona={CalendarClock} titolo="Quando">
+        <SezioneForm icona={CalendarClock} titolo="Quando" categoria="tempo">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Label htmlFor="data">Data *</Label>
@@ -943,7 +959,7 @@ function FormNuovoAppuntamento({
           </div>
         </SezioneForm>
 
-        <SezioneForm icona={HardHat} titolo="Assegnazione">
+        <SezioneForm icona={HardHat} titolo="Assegnazione" categoria="persona">
           <div>
             <Label htmlFor="tecnico">Tecnico</Label>
             <select
@@ -1145,11 +1161,11 @@ function FormModificaAppuntamento({
           </div>
         </SezioneForm>
 
-        <SezioneForm icona={MapPin} titolo="Luogo">
+        <SezioneForm icona={MapPin} titolo="Luogo" categoria="luogo">
           <Input id="indirizzo-m" name="indirizzo" defaultValue={appuntamento.indirizzo ?? ""} placeholder="Indirizzo" className="bg-background" />
         </SezioneForm>
 
-        <SezioneForm icona={CalendarClock} titolo="Quando">
+        <SezioneForm icona={CalendarClock} titolo="Quando" categoria="tempo">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Label htmlFor="data-m">Data *</Label>
@@ -1166,7 +1182,7 @@ function FormModificaAppuntamento({
           </div>
         </SezioneForm>
 
-        <SezioneForm icona={HardHat} titolo="Assegnazione">
+        <SezioneForm icona={HardHat} titolo="Assegnazione" categoria="persona">
           <div>
             <Label htmlFor="tecnico-m">Tecnico</Label>
             <select

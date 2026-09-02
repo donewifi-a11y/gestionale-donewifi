@@ -46,6 +46,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SegnalePulsante, type TonoSegnale } from "@/components/condivisi/segnale-pulsante";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import {
   cambiaStatoSegnalazione,
   trasmettiPerInstallazione,
@@ -874,7 +875,10 @@ function DettaglioSegnalazione({
         )}
         <div>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Indirizzo</div>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
+              Indirizzo
+            </div>
             {/* ★ FIX (2026-08-27, richiesta esplicita: "indirizzo non è
             copiabile ma solo cliccabile") — prima l'unica azione possibile
             era aprire Google Maps; niente modo di copiare il testo per
@@ -954,7 +958,8 @@ function DettaglioSegnalazione({
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="richiamare_il" className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <label htmlFor="richiamare_il" className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <IconaCategoria icona={Clock} categoria="tempo" dimensione="sm" />
                     Richiamalo il (facoltativo)
                   </label>
                   <input
@@ -990,7 +995,8 @@ function DettaglioSegnalazione({
 
         {segnalazione.stato === "Gestione Cliente" && !richiesta && (
           <div className="rounded-xl border bg-card p-3 shadow-sm">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
               Invia il modulo dati al cliente
             </p>
             <div className="mb-3 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -1225,8 +1231,8 @@ function DettaglioSegnalazione({
          * (indiceCorrente >= 2) per poter caricare il contratto. */}
         {indiceCorrente >= 2 && (
         <div className="rounded-xl border bg-card p-3 shadow-sm">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+          <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
             Contratto
           </p>
           {/* ★ form reale: il campo file invia se stesso appena scelto

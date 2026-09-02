@@ -3085,6 +3085,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Dettaglio Ticket (`tickets-board.tsx`), Clienti (`clienti-board.tsx`).
   Build/lint puliti.
 
+✅ Icone colorate per significato del dato — seconda tornata, tutto il resto (2026-09-01, seguito
+  di "integrerei le icone... in tutto il gestionale", risposta "continua e lavora su tutto") —
+  estesa la stessa palette (`lib/colore-icone.ts` + `IconaCategoria`) a tutte le altre pagine
+  principali con icone di contenuto già presenti:
+  - **Calendario**: indirizzo/telefono nelle righe appuntamento (luogo/contatto); `SezioneForm`
+    (Luogo/Quando/Assegnazione nel form nuovo appuntamento) ha ora una `categoria` facoltativa —
+    "Servizio" resta grigio neutro, non essendo un tipo di dato tra i 6.
+  - **Vista Tecnico**: indirizzo nelle 3 liste appuntamenti (luogo).
+  - **Richieste Clienti**: intestazione "Documenti" (documento).
+  - **Segnalazioni**: "Indirizzo" (luogo), "Richiamalo il" (tempo), "Invia il modulo dati al
+    cliente" e "Contratto" (documento).
+  - Non toccate deliberatamente: icone dentro pulsanti/azioni (Chiama, Apri mappa, Invia email,
+    Elimina...) — quelle restano come da convenzione già in uso (colore dell'azione, non del
+    dato), coerente con la scelta fatta fin dalla prima tornata.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

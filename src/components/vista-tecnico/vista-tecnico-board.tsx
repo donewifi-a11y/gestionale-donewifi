@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
 import { eliminaAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
@@ -478,7 +479,7 @@ export function VistaTecnicoBoard({
                     rel="noopener noreferrer"
                     className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                     {a.indirizzo}
                   </a>
                 )}
@@ -537,7 +538,7 @@ export function VistaTecnicoBoard({
                   rel="noopener noreferrer"
                   className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
                 >
-                  <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                  <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                   {a.indirizzo}
                 </a>
               )}
@@ -582,7 +583,7 @@ export function VistaTecnicoBoard({
                     rel="noopener noreferrer"
                     className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                    <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                     {t.indirizzo}
                   </a>
                 )}
