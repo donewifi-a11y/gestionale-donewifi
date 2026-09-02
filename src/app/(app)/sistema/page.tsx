@@ -3,7 +3,13 @@ import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Mail, Send, Calendar
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { checklistEnv } from "@/lib/env-check";
+import { PuliziaMedia } from "@/components/sistema/pulizia-media";
 import type { AreaAccesso } from "@/lib/types";
+
+// ★ "Pulizia media" (elencaFileMedia) scansiona ricorsivamente l'intero
+// bucket storage e incrocia 6 tabelle diverse — può richiedere più dei 10s
+// di default di una funzione serverless su uno storage con molti file.
+export const maxDuration = 30;
 
 const ICONE_SERVIZIO: Record<string, typeof Mail> = {
   email: Mail,
@@ -163,6 +169,10 @@ export default async function SistemaPage() {
           })}
         </div>
       </section>
+
+      <div className="mb-6">
+        <PuliziaMedia />
+      </div>
 
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted-foreground">Controllo email in arrivo (IMAP)</h2>

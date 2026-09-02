@@ -3185,6 +3185,28 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Verificato contro lo storage reale: creazione di una signed upload URL riuscita.
   Build/lint puliti.
 
+✅ Pulizia media in Stato Sistema, solo amministratori (2026-09-02, richiesta esplicita: "possiamo
+  avere un pulsante allora per pulire la memoria dei media e poter scegliere cosa cancellare,
+  solo per amministratore?" — seguito della domanda su Google Drive, risposta: prima capire quanto
+  spazio si usa davvero prima di aggiungere un secondo sistema di storage) — nuovo pannello in
+  Team → Stato Sistema (già interamente riservata agli admin), un pulsante "Analizza spazio
+  media" invece di caricare da solo all'apertura pagina (la scansione richiede qualche secondo).
+  - `sistema/media-actions.ts`: `elencaFileMedia()` scansiona ricorsivamente l'intero bucket
+    storage `documenti` e incrocia le 6 tabelle che vi salvano un percorso (schede_lavoro.foto/
+    firma_cliente_url/firma_tecnico_url, rapportini_intervento.foto/firma_url,
+    segnalazioni.contratto_pdf_url, richieste_clienti.documenti, tickets.dettagli_extra._allegato,
+    messaggi_chat.allegato_url) — ogni file mostra a cosa è collegato (Ticket/Scheda/Cliente) o,
+    se non trovato in nessuna tabella, è marcato "Nessun collegamento trovato" (probabile file
+    orfano, il candidato più sicuro da eliminare — pulsante rapido "Seleziona i N file orfani").
+  - `eliminaFileMedia()`: cancella sia dallo storage sia il riferimento nella tabella d'origine
+    (tolto dall'array `foto`/`documenti`, o la colonna singola messa a null) — senza questo
+    secondo passaggio un pulsante come "Vedi contratto"/"Mostra firma" resterebbe a puntare a un
+    file sparito. Conferma differenziata: avviso più insistente se tra i selezionati ci sono file
+    ancora collegati a un Ticket/Scheda/Cliente reale.
+  - Verificato sui dati reali: 71 file, 40,8 MB totali, scansione in ~3s; percorsi di
+    schede_lavoro/segnalazioni/richieste_clienti confermati identici a quelli reali nello storage.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
