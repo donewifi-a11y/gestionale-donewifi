@@ -3101,6 +3101,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     dato), coerente con la scelta fatta fin dalla prima tornata.
   Build/lint puliti.
 
+✅ Icone colorate per significato del dato — terza tornata, anche dove non c'erano (2026-09-01,
+  seguito di "integrerei le icone... in tutto il gestionale": "metti icone ovuneuq per uniformare
+  il tutto") — oltre a ricolorare le icone già presenti, aggiunta l'icona anche dove il titolo
+  della sezione non ne aveva mai avuta una, per una copertura uniforme:
+  - `Campo` (componente condiviso, usato da `schede/scheda-vista.tsx` e `tickets/rapportino.tsx`
+    per i campi di Scheda/Rapportino) ha ora `categoria`/`icona` facoltative — passate solo dove
+    il tipo di dato è chiaro (Data → tempo, Importo fatturato/Metodo pagamento → denaro, Note →
+    documento); i campi tecnici (Esito, Cablaggio, Segnale...) restano senza, non essendo
+    riconducibili a nessuno dei 6 tipi.
+  - Aggiunte anche a: Riepilogo/Foto/Firma cliente/Conferma cliente/Firma tecnico (Scheda e
+    Rapportino), Disdetta e Nuova pratica (Scheda Cliente), Note/contatti cliente (Preventivi),
+    Problema segnalato + indirizzo (pagina intervento pose), Serve attenzione ora (Assistenza,
+    home), Per reparto/Carico per tecnico/Ticket attivi/2 grafici Dashboard (dove il contenuto
+    della sezione è un singolo tipo di dato — le sezioni "ombrello" con KPI misti, es.
+    "Anagrafica Clienti (Aruba)"/"Totali generali"/"Rendimenti", restano col trattamento rosso
+    già esistente, non essendo un tipo singolo).
+  - Non colorate deliberatamente: icone dentro pulsanti/link-azione (Chiama, Apri mappa...) e
+    intestazioni "ombrello" che coprono più tipi di dato insieme — stessa scelta delle tornate
+    precedenti.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

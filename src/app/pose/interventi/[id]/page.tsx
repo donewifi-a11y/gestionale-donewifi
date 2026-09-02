@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, FileText } from "lucide-react";
 import { getTicketTecnicoEsterno, chiUsaPose } from "../../actions";
 import { InterventoDettaglio } from "@/components/pose/intervento-dettaglio";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 
 export default async function InterventoPoseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,8 +31,8 @@ export default async function InterventoPoseDetailPage({ params }: { params: Pro
         <p className="mt-1 text-lg font-bold">{ticket.cliente}</p>
         <div className="mt-2 flex flex-col gap-1.5 text-sm">
           {ticket.indirizzo && (
-            <span className="flex items-start gap-1.5">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+            <span className="flex items-start gap-2">
+              <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
               {ticket.indirizzo}
             </span>
           )}
@@ -50,7 +51,10 @@ export default async function InterventoPoseDetailPage({ params }: { params: Pro
         </div>
         {ticket.problema && (
           <div className="mt-3 border-t pt-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Problema segnalato</p>
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Problema segnalato
+            </p>
             <p className="mt-1 text-sm whitespace-pre-wrap">{ticket.problema}</p>
           </div>
         )}

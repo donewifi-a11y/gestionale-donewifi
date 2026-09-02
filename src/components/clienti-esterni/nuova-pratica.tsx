@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileSignature, MapPinned, CreditCard, FileEdit, FileX2, Loader2 } from "lucide-react";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { inviaEmailPraticaClienteEsterno, segnaDisdettaRicevuta } from "@/app/(app)/clienti-esterni/actions";
 import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA } from "@/lib/types";
@@ -70,8 +71,8 @@ export function NuovaPraticaClienteEsterno({
 
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-md">
-      <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-        <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+        <IconaCategoria icona={FileSignature} categoria="documento" />
         Nuova pratica
       </h2>
 
@@ -107,7 +108,10 @@ export function NuovaPraticaClienteEsterno({
       Questo pulsante non la sostituisce: serve solo a far comparire la
       pratica qui insieme alle altre, invece di restare invisibile. */}
       <div className="mt-3 border-t pt-3">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Disdetta</p>
+        <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <IconaCategoria icona={FileX2} categoria="documento" dimensione="sm" />
+          Disdetta
+        </p>
         <div className="flex flex-col items-stretch gap-2">
           <button
             type="button"

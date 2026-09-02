@@ -5,6 +5,7 @@ import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from 
 import { REPARTI_ELENCO } from "@/lib/analytics";
 import { ComunicazioniTicker } from "@/components/chat/comunicazioni-ticker";
 import { TodoPanel } from "@/components/todo/todo-panel";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { AreaAccesso } from "@/lib/types";
 
 const SLUG_REPARTO: Record<string, string> = {
@@ -387,7 +388,10 @@ function SezioneSettore({
 
       {dati.serveAttenzione.length > 0 ? (
         <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Serve attenzione ora</div>
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={Clock} categoria="tempo" dimensione="sm" />
+            Serve attenzione ora
+          </div>
           <div className="flex flex-col gap-1">
             {dati.serveAttenzione.map((t) => (
               <Link

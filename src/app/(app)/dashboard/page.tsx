@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { coloreReparto } from "@/lib/types";
 
 // ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
@@ -303,7 +304,7 @@ function SezionePeriodo({
       (COLORE_REPARTO/coloreReparto, src/lib/types.ts). */}
       <div className="mb-5 overflow-hidden rounded-2xl border bg-card shadow-md">
         <div className="flex items-center gap-2 border-b p-5 pb-4">
-          <Users2 className="h-4 w-4 text-primary" strokeWidth={2.5} />
+          <IconaCategoria icona={Users2} categoria="persona" />
           <h2 className="font-heading text-sm font-bold">Per reparto</h2>
         </div>
         <div className="overflow-x-auto p-5 pt-3">
@@ -450,7 +451,10 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
       </div>
 
       <div className="mb-5 rounded-2xl border bg-card p-5 shadow-md">
-        <h3 className="mb-4 font-heading text-sm font-bold">Andamento acquisizioni — giorno per giorno</h3>
+        <h3 className="mb-4 flex items-center gap-2 font-heading text-sm font-bold">
+          <IconaCategoria icona={Clock} categoria="tempo" />
+          Andamento acquisizioni — giorno per giorno
+        </h3>
         <div className="flex h-24 items-end gap-[3px]">
           {dati.andamentoGiornaliero.map((v, i) => (
             <div
@@ -533,7 +537,10 @@ function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType
       </div>
 
       <div className="mb-5 rounded-2xl border bg-card p-5 shadow-md">
-        <h3 className="mb-4 font-heading text-sm font-bold">Fatturato — ultimi 6 mesi (€)</h3>
+        <h3 className="mb-4 flex items-center gap-2 font-heading text-sm font-bold">
+          <IconaCategoria icona={Euro} categoria="denaro" />
+          Fatturato — ultimi 6 mesi (€)
+        </h3>
         <div className="flex h-24 items-end gap-2">
           {dati.andamentoFatturato.map((m) => (
             <div key={m.chiave} className="flex flex-1 flex-col items-center gap-1">

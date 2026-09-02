@@ -1,12 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Printer, FileText, AlertTriangle, Check, Mail } from "lucide-react";
+import { Printer, FileText, AlertTriangle, Check, Mail, Euro, Calendar, UserRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
+import type { CategoriaIcona } from "@/lib/colore-icone";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
 
 export function RapportinoForm({
@@ -158,20 +161,28 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
         un testo completo") — riepilogo in prosa, ricalcolato dai campi già
         sotto (non salvato a parte): stessa fonte di verità, mai disallineato. */}
         <div className="rounded-lg bg-muted/50 p-3">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Riepilogo</div>
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+            Riepilogo
+          </div>
           <p className="mt-1 leading-relaxed">{generaTestoRapportino(rapportino)}</p>
         </div>
         <Campo etichetta="Esito" valore={rapportino.esito} />
         {rapportino.lavori_svolti && <Campo etichetta="Lavori svolti" valore={rapportino.lavori_svolti} />}
         {rapportino.materiali && <Campo etichetta="Materiali usati" valore={rapportino.materiali} />}
-        {importoFatturato != null && <Campo etichetta="Importo fatturato" valore={`€ ${importoFatturato}`} />}
+        {importoFatturato != null && <Campo etichetta="Importo fatturato" valore={`€ ${importoFatturato}`} categoria="denaro" icona={Euro} />}
         <Campo
           etichetta="Data"
           valore={new Date(rapportino.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          categoria="tempo"
+          icona={Calendar}
         />
         {rapportino.foto?.length > 0 && (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Foto</div>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Foto
+            </div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {rapportino.foto.map((f, i) => (
                 <Button key={i} size="sm" variant="outline" onClick={() => apriFoto(f.percorso)}>
@@ -188,7 +199,10 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
          * conferma del cliente (giallo). Stesso schema di SchedaVista. */}
         {rapportino.firma_url ? (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma cliente</div>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+              Firma cliente
+            </div>
             {urlFirma ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={urlFirma} alt="Firma cliente" className="mt-1 h-24 rounded-md border bg-white" />
@@ -200,7 +214,10 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
           </div>
         ) : rapportino.firma_metodo ? (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Conferma cliente</div>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+              Conferma cliente
+            </div>
             {rapportino.firma_verificato_il ? (
               <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-success">
                 <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.5} />
@@ -221,10 +238,26 @@ export function RapportinoVista({ rapportino, importoFatturato }: { rapportino: 
   );
 }
 
-function Campo({ etichetta, valore }: { etichetta: string; valore: string }) {
+function Campo({
+  etichetta,
+  valore,
+  categoria,
+  icona: Icona,
+}: {
+  etichetta: string;
+  valore: string;
+  // ★ NUOVA (2026-09-01, "metti icone ovunque per uniformare") — facoltativa,
+  // stesso principio di Campo in schede/scheda-vista.tsx: solo dove il tipo
+  // di dato è chiaro (Data, Importo) si passano categoria+icona.
+  categoria?: CategoriaIcona;
+  icona?: LucideIcon;
+}) {
   return (
     <div>
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichetta}</div>
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {categoria && Icona && <IconaCategoria icona={Icona} categoria={categoria} dimensione="sm" />}
+        {etichetta}
+      </div>
       <div className="font-medium whitespace-pre-wrap">{valore}</div>
     </div>
   );

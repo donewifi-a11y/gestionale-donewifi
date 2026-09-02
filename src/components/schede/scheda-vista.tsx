@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, FileText, Check, Mail } from "lucide-react";
+import { Printer, FileText, Check, Mail, MapPin, Euro, Calendar, UserRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlDocumentoScheda } from "@/app/(app)/calendario/actions";
 import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { formattaValuta } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
+import type { CategoriaIcona } from "@/lib/colore-icone";
 import type { SchedaLavoro } from "@/lib/types";
 
 /** Vista di sola lettura di una Scheda di Installazione o Lavorazione
@@ -50,7 +53,10 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
         un testo completo") — riepilogo in prosa, ricalcolato dai campi già
         sotto (non salvato a parte): stessa fonte di verità, mai disallineato. */}
         <div className="rounded-lg bg-muted/50 p-3">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Riepilogo</div>
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+            Riepilogo
+          </div>
           <p className="mt-1 leading-relaxed">{generaTestoScheda(scheda)}</p>
         </div>
         {scheda.esito && <Campo etichetta="Esito" valore={scheda.esito} />}
@@ -60,7 +66,10 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
             <Campo etichetta="Struttura esterna" valore={`${scheda.supporto || "—"}${scheda.posizione ? ` · ${scheda.posizione}` : ""}`} />
             {scheda.gps_lat != null && scheda.gps_lng != null && (
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Posizione GPS</div>
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
+                  Posizione GPS
+                </div>
                 <a
                   href={`https://maps.google.com/?q=${scheda.gps_lat},${scheda.gps_lng}`}
                   target="_blank"
@@ -116,17 +125,22 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
           </div>
         )}
 
-        {scheda.importo_fatturato != null && <Campo etichetta="Importo fatturato" valore={formattaValuta(scheda.importo_fatturato)} />}
-        {scheda.metodo_pagamento_posa && <Campo etichetta="Metodo di pagamento" valore={scheda.metodo_pagamento_posa} />}
-        {scheda.note && <Campo etichetta="Note" valore={scheda.note} />}
+        {scheda.importo_fatturato != null && <Campo etichetta="Importo fatturato" valore={formattaValuta(scheda.importo_fatturato)} categoria="denaro" icona={Euro} />}
+        {scheda.metodo_pagamento_posa && <Campo etichetta="Metodo di pagamento" valore={scheda.metodo_pagamento_posa} categoria="denaro" icona={Euro} />}
+        {scheda.note && <Campo etichetta="Note" valore={scheda.note} categoria="documento" icona={FileText} />}
         <Campo
           etichetta="Data"
           valore={new Date(scheda.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          categoria="tempo"
+          icona={Calendar}
         />
 
         {scheda.foto.length > 0 && (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Foto</div>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Foto
+            </div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {scheda.foto.map((f, i) => (
                 <Button key={i} size="sm" variant="outline" onClick={() => apriAllegato(f.percorso)}>
@@ -146,7 +160,10 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
              * ancora in attesa di conferma del cliente (giallo). */}
             {scheda.firma_cliente_url ? (
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma cliente</div>
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+                  Firma cliente
+                </div>
                 {urlFirmaCliente ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={urlFirmaCliente} alt="Firma cliente" className="mt-1 h-24 rounded-md border bg-white" />
@@ -158,7 +175,10 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
               </div>
             ) : scheda.firma_cliente_metodo ? (
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Conferma cliente</div>
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+                  Conferma cliente
+                </div>
                 {scheda.firma_cliente_verificato_il ? (
                   <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-success">
                     <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.5} />
@@ -176,7 +196,10 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
             ) : null}
             {scheda.firma_tecnico_url && (
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Firma tecnico</div>
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+                  Firma tecnico
+                </div>
                 {urlFirmaTecnico ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={urlFirmaTecnico} alt="Firma tecnico" className="mt-1 h-24 rounded-md border bg-white" />
@@ -194,10 +217,28 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
   );
 }
 
-function Campo({ etichetta, valore }: { etichetta: string; valore: string }) {
+function Campo({
+  etichetta,
+  valore,
+  categoria,
+  icona: Icona,
+}: {
+  etichetta: string;
+  valore: string;
+  // ★ NUOVA (2026-09-01, "metti icone ovunque per uniformare") — facoltativa:
+  // Campo è riusato per molti tipi di dato diversi (tecnici, esito,
+  // collaudo...) che non corrispondono a nessuno dei 6 di COLORE_ICONA —
+  // quelli restano senza icona, invariati; solo dove il tipo è chiaro
+  // (Data, Importo, Note) si passano categoria+icona.
+  categoria?: CategoriaIcona;
+  icona?: LucideIcon;
+}) {
   return (
     <div>
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichetta}</div>
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {categoria && Icona && <IconaCategoria icona={Icona} categoria={categoria} dimensione="sm" />}
+        {etichetta}
+      </div>
       <div className="font-medium whitespace-pre-wrap">{valore}</div>
     </div>
   );

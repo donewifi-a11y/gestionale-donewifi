@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2 } from "lucide-react";
+import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2, Phone, Mail } from "lucide-react";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -214,8 +215,18 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
             {preventivo.stato === "Inviato" && <Clock className="h-3 w-3" strokeWidth={2.5} />}
             {preventivo.stato}
           </Badge>
-          {preventivo.cliente_telefono && <span className="text-xs text-muted-foreground">{preventivo.cliente_telefono}</span>}
-          {preventivo.cliente_email && <span className="text-xs text-muted-foreground">{preventivo.cliente_email}</span>}
+          {preventivo.cliente_telefono && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
+              {preventivo.cliente_telefono}
+            </span>
+          )}
+          {preventivo.cliente_email && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
+              {preventivo.cliente_email}
+            </span>
+          )}
         </div>
 
         <div className="rounded-lg border bg-muted/40 p-3">
@@ -237,7 +248,10 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
 
         {preventivo.note && (
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Note</p>
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Note
+            </p>
             <p className="break-words">{preventivo.note}</p>
           </div>
         )}

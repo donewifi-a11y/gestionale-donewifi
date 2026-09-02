@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
-import { Gauge, TriangleAlert, Clock, Euro, CheckCircle2 } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, Euro, CheckCircle2, UserRound, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaVedeReparto } from "@/lib/persona";
 import { getDatiReparto } from "@/lib/analytics";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { AreaAccesso } from "@/lib/types";
 
 const SLUG_REPARTO: Record<string, AreaAccesso> = {
@@ -57,7 +58,10 @@ export default async function DashboardRepartoPage({ params }: { params: Promise
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="rounded-2xl border bg-card p-5 shadow-md">
-          <h2 className="mb-4 font-heading text-sm font-bold">Carico per tecnico</h2>
+          <h2 className="mb-4 flex items-center gap-2 font-heading text-sm font-bold">
+            <IconaCategoria icona={UserRound} categoria="persona" />
+            Carico per tecnico
+          </h2>
           <div className="flex flex-col gap-3">
             {dati.caricoTecnici.length === 0 && (
               <p className="text-sm text-muted-foreground">Nessun ticket assegnato al momento.</p>
@@ -78,7 +82,10 @@ export default async function DashboardRepartoPage({ params }: { params: Promise
         </div>
 
         <div className="rounded-2xl border bg-card p-5 shadow-md">
-          <h2 className="mb-4 font-heading text-sm font-bold">Ticket attivi (priorità Urgente in cima)</h2>
+          <h2 className="mb-4 flex items-center gap-2 font-heading text-sm font-bold">
+            <IconaCategoria icona={FileText} categoria="documento" />
+            Ticket attivi (priorità Urgente in cima)
+          </h2>
           <div className="flex flex-col gap-2">
             {dati.listaAttivi.length === 0 && <p className="text-sm text-muted-foreground">Nessun ticket attivo.</p>}
             {dati.listaAttivi.map((t) => (
