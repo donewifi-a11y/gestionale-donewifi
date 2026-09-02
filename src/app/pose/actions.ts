@@ -299,7 +299,14 @@ export async function completaTicketConRapportinoEsterno(
   ticketId: string,
   statoVecchio: StatoTicket,
   dati: { esito: string; lavoriSvolti: string; materiali: string; importoFatturato: string },
-  foto: File[]
+  // ★ FIX (2026-09-02, "Errore imprevisto durante il salvataggio", causa
+  // reale: le foto grezze da fotocamera nel corpo della Server Action
+  // superavano il limite di default di 1MB di Next.js) — non più `File[]`:
+  // il file vero è già stato caricato dal browser direttamente allo storage
+  // (signed upload URL, vedi api/pose/upload-scheda/route.ts) prima di
+  // chiamare questa azione — qui arriva solo il percorso, poche decine di
+  // byte, mai il contenuto del file.
+  foto: { nome: string; percorso: string }[]
 ): Promise<{ errore: string | null }> {
   const supabase = await createClient();
   const operatore = await getOperatorePose(supabase);
@@ -327,17 +334,6 @@ export async function completaTicketConRapportinoEsterno(
     return { errore: "Questo intervento non risulta assegnato a te." };
   }
 
-  const fotoSalvate: { nome: string; percorso: string }[] = [];
-  for (const file of foto) {
-    if (file.size === 0) continue;
-    const percorso = `rapportini/${ticketId}/${Date.now()}-${file.name}`;
-    const { error: erroreFoto } = await service.storage.from("documenti").upload(percorso, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (erroreFoto) return { errore: `Errore caricamento "${file.name}": ${erroreFoto.message}` };
-    fotoSalvate.push({ nome: file.name, percorso });
-  }
-
   const { error: erroreRapportino } = await service.from("rapportini_intervento").insert({
     ticket_id: ticketId,
     esito: dati.esito.trim(),
@@ -347,7 +343,7 @@ export async function completaTicketConRapportinoEsterno(
     firma_metodo: null,
     firma_email: null,
     firma_verificato_il: null,
-    foto: fotoSalvate,
+    foto,
     creato_da: operatore.tipo === "persona" ? operatore.id : null,
     creato_da_tecnico_esterno_id: operatore.tipo === "tecnico_esterno" ? operatore.id : null,
   });
@@ -511,7 +507,9 @@ export async function salvaSchedaLavoroEsterno(
   appuntamentoId: string,
   tipo: TipoServizioAppuntamento,
   dati: DatiSchedaLavoro,
-  foto: File[]
+  // ★ FIX (2026-09-02) — stesso motivo di completaTicketConRapportinoEsterno()
+  // sopra: non più `File[]`, il file è già caricato lato client.
+  foto: { nome: string; percorso: string }[]
 ): Promise<{ errore: string | null }> {
   const supabase = await createClient();
   const operatore = await getOperatorePose(supabase);
@@ -550,15 +548,6 @@ export async function salvaSchedaLavoroEsterno(
     return { errore: "Il codice non risulta verificato." };
   }
 
-  const fotoSalvate: { nome: string; percorso: string }[] = [];
-  for (const file of foto) {
-    if (file.size === 0) continue;
-    const percorso = `schede/${appuntamentoId}/${Date.now()}-${file.name}`;
-    const { error } = await service.storage.from("documenti").upload(percorso, file, { contentType: file.type || "application/octet-stream" });
-    if (error) return { errore: `Errore caricamento "${file.name}": ${error.message}` };
-    fotoSalvate.push({ nome: file.name, percorso });
-  }
-
   // ★ FIX (2026-08-26, "controllo d'oro") — la firma del tecnico non viene
   // più raccolta dal flusso "una domanda alla volta" di pose (rimossa nella
   // revisione domande): `dati.firmaTecnicoDataUrl` qui è sempre undefined,
@@ -578,7 +567,7 @@ export async function salvaSchedaLavoroEsterno(
       importo_fatturato: importo,
       metodo_pagamento_posa: dati.metodoPagamentoPosa,
       materiali: dati.materiali,
-      foto: fotoSalvate,
+      foto,
       firma_cliente_url: null,
       firma_cliente_metodo: dati.firmaCliente.metodo,
       firma_cliente_email: dati.firmaCliente.email || null,

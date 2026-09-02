@@ -3155,6 +3155,36 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     quello, la causa reale sarebbe rimasta invisibile anche stavolta.
   Build/lint puliti.
 
+✅ Fix reale (bis): "An unexpected response was received from the server" — foto oltre il limite
+  di 1MB delle Server Action (2026-09-02, l'utente ha confermato che l'errore restava anche dopo
+  il fix del timeout: "no no anche facendo in altri modi da browser non entrati c'è lo stessio
+  problema" — poi mi ha girato la console col vero errore Next.js) — causa reale definitiva: le
+  foto da fotocamera (Struttura esterna/Router interno, anche più di una) passavano nel corpo
+  della Server Action `salvaSchedaLavoroEsterno()`/`completaTicketConRapportinoEsterno()`,
+  superando il limite di default di **1MB** delle Server Action di Next.js (non configurato in
+  `next.config.ts`) — Next.js rifiuta la richiesta con una risposta che il client non sa
+  interpretare. Stesso identico problema già risolto una volta per Richiesta Dati (stesso
+  commento nel codice, stesso limite) — mai esteso alle Schede di Installazione/Lavorazione né ai
+  Rapportini, né su pose né sul gestionale interno.
+  - `lib/comprimi-immagine.ts`: estratta la compressione immagine (ridimensiona + ricomprime
+    JPEG) già usata solo da `richiesta-dati-form.tsx`, ora condivisa.
+  - `lib/carica-foto-scheda.ts` + nuova rotta `api/pose/upload-scheda/route.ts` (autenticata via
+    `chiUsaPose()`, che riconosce sia i tecnici esterni sia lo staff interno collegato con le
+    proprie credenziali — riusata quindi anche dal gestionale interno): stesso schema signed-
+    upload-URL di Richiesta Dati — il file vero va dal browser direttamente allo storage
+    Supabase, mai nel corpo di una richiesta a questa app.
+  - `salvaSchedaLavoroEsterno`/`completaTicketConRapportinoEsterno` (pose) e
+    `salvaSchedaLavoro`/`completaTicketConRapportino` (staff interno) non ricevono più `File[]`
+    ma `{ nome, percorso }[]` già caricati — rimossi i cicli di upload lato server, ora inutili.
+  - Aggiornati tutti e 4 i punti di chiamata (pose × Installazione/Lavorazione/Rapportino, staff
+    interno × Installazione/Rapportino — Lavorazione non ha mai avuto foto) per caricare prima le
+    foto col nuovo helper, poi chiamare l'azione solo con i percorsi.
+  - Trovato per strada: `pose/rapportino-form.tsx` e `tickets/rapportino.tsx` non avevano mai
+    avuto il `try/catch` del giro "fermo su salvataggio" (28/08, che aveva toccato solo le Schede
+    di Installazione/Lavorazione) — aggiunto anche lì.
+  - Verificato contro lo storage reale: creazione di una signed upload URL riuscita.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { validaCodiceFiscale, validaPartitaIva, validaIban, validaEmail } from "@/lib/validazione";
 import { prezziNettoLordo, formattaValuta } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+import { comprimiImmagine } from "@/lib/comprimi-immagine";
 import type { Tariffa } from "@/lib/types";
 import type { SceltaPiano } from "@/components/richiesta-dati/configuratore-piano";
 
@@ -17,33 +18,6 @@ const ETICHETTE_FILE: Record<string, string> = {
   fronteTesseraSanitaria: "Fronte tessera sanitaria",
   retroTesseraSanitaria: "Retro tessera sanitaria",
 };
-
-/** ★ le foto da fotocamera/smartphone arrivano spesso a 4-8MB l'una: caricarle
- * così com'sono è lento e pesa inutilmente sullo storage, per un documento
- * che deve solo restare leggibile. Ridimensiona al lato lungo massimo e
- * ricomprime in JPEG — se il risultato non è più piccolo dell'originale (già
- * un PDF o un'immagine già leggera) tiene l'originale invece di peggiorarlo. */
-async function comprimiImmagine(file: File, latoMax = 1920, qualita = 0.8): Promise<File> {
-  if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scala = Math.min(1, latoMax / Math.max(bitmap.width, bitmap.height));
-    const larghezza = Math.round(bitmap.width * scala);
-    const altezza = Math.round(bitmap.height * scala);
-    const canvas = document.createElement("canvas");
-    canvas.width = larghezza;
-    canvas.height = altezza;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, larghezza, altezza);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", qualita));
-    if (!blob || blob.size >= file.size) return file;
-    const nomeCompresso = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-    return new File([blob], nomeCompresso, { type: "image/jpeg" });
-  } catch {
-    return file;
-  }
-}
 
 /** ★ FIX — i documenti non passano più nel corpo di /api/richiesta-dati: 4
  * foto ad alta risoluzione (documento + tessera sanitaria, ora entrambi

@@ -365,7 +365,11 @@ export async function completaTicketConRapportino(
   ticketId: string,
   statoVecchio: StatoTicket,
   dati: { esito: string; lavoriSvolti: string; materiali: string; importoFatturato: string },
-  foto: File[]
+  // ★ FIX (2026-09-02, bug reale trovato prima su pose — stesso limite qui:
+  // le foto grezze da fotocamera nel corpo della Server Action superavano
+  // il limite di default di 1MB di Next.js) — non più `File[]`: il file
+  // vero è già caricato dal browser allo storage prima di questa chiamata.
+  foto: { nome: string; percorso: string }[]
 ) {
   const supabase = await createClient();
   // ★ FIX SICUREZZA — controllava solo un cookie persona valido, non che
@@ -388,17 +392,6 @@ export async function completaTicketConRapportino(
 
   const { data: ticketRiga } = await supabase.from("tickets").select("cliente, numero, email, reparto").eq("id", ticketId).single();
 
-  const fotoSalvate: { nome: string; percorso: string }[] = [];
-  for (const file of foto) {
-    if (file.size === 0) continue;
-    const percorso = `rapportini/${ticketId}/${Date.now()}-${file.name}`;
-    const { error: erroreFoto } = await service.storage.from("documenti").upload(percorso, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (erroreFoto) return { errore: `Errore caricamento "${file.name}": ${erroreFoto.message}` };
-    fotoSalvate.push({ nome: file.name, percorso });
-  }
-
   const { error: erroreRapportino } = await service.from("rapportini_intervento").insert({
     ticket_id: ticketId,
     esito: dati.esito.trim(),
@@ -408,7 +401,7 @@ export async function completaTicketConRapportino(
     firma_metodo: null,
     firma_email: null,
     firma_verificato_il: null,
-    foto: fotoSalvate,
+    foto,
     creato_da: personaId,
   });
   if (erroreRapportino) return { errore: erroreRapportino.message };

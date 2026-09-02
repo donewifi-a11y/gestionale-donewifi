@@ -386,7 +386,13 @@ export async function salvaSchedaLavoro(
   appuntamentoId: string,
   tipo: TipoServizioAppuntamento,
   dati: DatiSchedaLavoro,
-  foto: File[]
+  // ★ FIX (2026-09-02, bug reale trovato prima su pose — stessa Server
+  // Action, stesso limite: le foto grezze da fotocamera nel corpo
+  // superavano il limite di default di 1MB di Next.js) — non più `File[]`:
+  // il file vero è già caricato dal browser direttamente allo storage
+  // (signed upload URL, vedi api/pose/upload-scheda/route.ts, riusata anche
+  // qui) prima di chiamare questa azione.
+  foto: { nome: string; percorso: string }[]
 ) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
@@ -400,15 +406,6 @@ export async function salvaSchedaLavoro(
   if (!appuntamento) return { errore: "Appuntamento non trovato." };
 
   const service = createServiceClient();
-
-  const fotoSalvate: { nome: string; percorso: string }[] = [];
-  for (const file of foto) {
-    if (file.size === 0) continue;
-    const percorso = `schede/${appuntamentoId}/${Date.now()}-${file.name}`;
-    const { error } = await service.storage.from("documenti").upload(percorso, file, { contentType: file.type || "application/octet-stream" });
-    if (error) return { errore: `Errore caricamento "${file.name}": ${error.message}` };
-    fotoSalvate.push({ nome: file.name, percorso });
-  }
 
   async function salvaFirma(dataUrl: string | undefined, suffisso: string): Promise<{ percorso: string | null; errore: string | null }> {
     if (!dataUrl) return { percorso: null, errore: null };
@@ -465,7 +462,7 @@ export async function salvaSchedaLavoro(
       importo_fatturato: importo,
       metodo_pagamento_posa: dati.metodoPagamentoPosa,
       materiali: dati.materiali,
-      foto: fotoSalvate,
+      foto,
       firma_cliente_url: null,
       firma_cliente_metodo: dati.firmaCliente.metodo,
       firma_cliente_email: dati.firmaCliente.email || null,

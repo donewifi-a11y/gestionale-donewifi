@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { AlertTriangle, Mail } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { completaTicketConRapportinoEsterno } from "@/app/pose/actions";
+import { caricaFotoScheda } from "@/lib/carica-foto-scheda";
 import type { StatoTicket } from "@/lib/types";
 
 // ★ pose.donewifi.it è pensato SOLO per smartphone/tablet (richiesta
@@ -43,22 +44,38 @@ export function RapportinoFormEsterno({
     const esito = String(dati.get("esito") || "").trim();
     if (!esito) return setErrore("L'esito dell'intervento è obbligatorio.");
 
-    const foto = Array.from(fileInputRef.current?.files ?? []);
+    const fileDaCaricare = Array.from(fileInputRef.current?.files ?? []);
     setInCorso(true);
-    const risultato = await completaTicketConRapportinoEsterno(
-      ticketId,
-      statoVecchio,
-      {
-        esito,
-        lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
-        materiali: String(dati.get("materiali") || ""),
-        importoFatturato: String(dati.get("importoFatturato") || ""),
-      },
-      foto
-    );
-    setInCorso(false);
-    if (risultato.errore) return setErrore(risultato.errore);
-    onSalvato();
+    // ★ FIX (2026-09-02, bug reale: "Errore imprevisto durante il
+    // salvataggio" — causa reale: le foto grezze da fotocamera nel corpo
+    // della Server Action superavano il limite di default di 1MB di
+    // Next.js, vedi il commento gemello in scheda-installazione-domande.tsx)
+    // — caricate qui, direttamente dal browser allo storage, prima di
+    // chiamare l'azione. Anche il try/catch mancava qui (mai corretto nel
+    // giro "fermo su salvataggio" del 28/08, che aveva toccato solo le
+    // Schede di Installazione/Lavorazione): senza, un errore imprevisto
+    // lasciava il pulsante bloccato su "Salvataggio…" per sempre.
+    try {
+      const foto = await Promise.all(fileDaCaricare.map((f) => caricaFotoScheda(f, ticketId)));
+      const risultato = await completaTicketConRapportinoEsterno(
+        ticketId,
+        statoVecchio,
+        {
+          esito,
+          lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
+          materiali: String(dati.get("materiali") || ""),
+          importoFatturato: String(dati.get("importoFatturato") || ""),
+        },
+        foto
+      );
+      if (risultato.errore) { setErrore(risultato.errore); return; }
+      onSalvato();
+    } catch (err) {
+      console.error("onSubmit() - errore imprevisto durante il salvataggio rapportino:", err);
+      setErrore("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
+    }
   }
 
   return (

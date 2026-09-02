@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { completaTicketConRapportino, urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
+import { caricaFotoScheda } from "@/lib/carica-foto-scheda";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { CategoriaIcona } from "@/lib/colore-icone";
 import type { RapportinoIntervento, StatoTicket } from "@/lib/types";
@@ -37,22 +38,37 @@ export function RapportinoForm({
     const esito = String(dati.get("esito") || "").trim();
     if (!esito) return setErrore("L'esito dell'intervento è obbligatorio.");
 
-    const foto = Array.from(fileInputRef.current?.files ?? []);
+    const fileDaCaricare = Array.from(fileInputRef.current?.files ?? []);
     setInCorso(true);
-    const risultato = await completaTicketConRapportino(
-      ticketId,
-      statoVecchio,
-      {
-        esito,
-        lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
-        materiali: String(dati.get("materiali") || ""),
-        importoFatturato: String(dati.get("importoFatturato") || ""),
-      },
-      foto
-    );
-    setInCorso(false);
-    if (risultato.errore) return setErrore(risultato.errore);
-    onSalvato();
+    // ★ FIX (2026-09-02, bug reale trovato prima su pose: "Errore
+    // imprevisto durante il salvataggio" — causa reale: le foto grezze da
+    // fotocamera nel corpo della Server Action superavano il limite di
+    // default di 1MB di Next.js, vedi il commento gemello in
+    // pose/scheda-installazione-domande.tsx) — caricate qui, direttamente
+    // dal browser allo storage, prima di chiamare l'azione. Il try/catch
+    // mancava anche qui (mai corretto nel giro "fermo su salvataggio" del
+    // 28/08, che aveva toccato solo le Schede di Installazione/Lavorazione).
+    try {
+      const foto = await Promise.all(fileDaCaricare.map((f) => caricaFotoScheda(f, ticketId)));
+      const risultato = await completaTicketConRapportino(
+        ticketId,
+        statoVecchio,
+        {
+          esito,
+          lavoriSvolti: String(dati.get("lavoriSvolti") || ""),
+          materiali: String(dati.get("materiali") || ""),
+          importoFatturato: String(dati.get("importoFatturato") || ""),
+        },
+        foto
+      );
+      if (risultato.errore) { setErrore(risultato.errore); return; }
+      onSalvato();
+    } catch (err) {
+      console.error("onSubmit() - errore imprevisto durante il salvataggio rapportino:", err);
+      setErrore("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+    } finally {
+      setInCorso(false);
+    }
   }
 
   return (

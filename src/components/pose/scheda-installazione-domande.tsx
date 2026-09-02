@@ -9,6 +9,7 @@ import { TileScelta, CampoGrande, AreaGrande } from "@/components/pose/tile-scel
 import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
+import { caricaFotoScheda } from "@/lib/carica-foto-scheda";
 import { OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
@@ -113,7 +114,7 @@ export function SchedaInstallazioneDomande({
 
   async function invia() {
     setErroreInvio("");
-    const foto: File[] = [
+    const fileDaCaricare: File[] = [
       ...fotoEsterna.map((f, i) => new File([f], `Struttura-esterna-${i + 1}_${f.name}`, { type: f.type })),
       ...fotoInterna.map((f, i) => new File([f], `Router-interno-${i + 1}_${f.name}`, { type: f.type })),
     ];
@@ -127,6 +128,12 @@ export function SchedaInstallazioneDomande({
     // raggiunto. Ora un errore imprevisto mostra un messaggio invece di
     // restare bloccato in silenzio.
     try {
+      // ★ FIX (2026-09-02, "Errore imprevisto durante il salvataggio",
+      // causa reale trovata: le foto grezze da fotocamera nel corpo della
+      // Server Action superavano il limite di default di 1MB di Next.js) —
+      // caricate qui, direttamente dal browser allo storage, prima di
+      // chiamare l'azione: che riceve solo i percorsi, non il contenuto.
+      const foto = await Promise.all(fileDaCaricare.map((f) => caricaFotoScheda(f, appuntamentoId)));
       const risultato = await salvaSchedaLavoroEsterno(
         appuntamentoId,
         "Nuova installazione",

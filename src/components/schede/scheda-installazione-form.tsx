@@ -10,6 +10,7 @@ import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
 import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
+import { caricaFotoScheda } from "@/lib/carica-foto-scheda";
 import { OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
@@ -139,9 +140,9 @@ export function SchedaInstallazioneForm({
       setErroreInvio("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
       return;
     }
-    const foto: File[] = [];
-    if (fotoEsterna) foto.push(new File([fotoEsterna], `Struttura-esterna_${fotoEsterna.name}`, { type: fotoEsterna.type }));
-    if (fotoInterna) foto.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
+    const fileDaCaricare: File[] = [];
+    if (fotoEsterna) fileDaCaricare.push(new File([fotoEsterna], `Struttura-esterna_${fotoEsterna.name}`, { type: fotoEsterna.type }));
+    if (fotoInterna) fileDaCaricare.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
 
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato su pose: "fermo su
@@ -149,6 +150,12 @@ export function SchedaInstallazioneForm({
     // pose/scheda-installazione-domande.tsx) — senza try/catch un errore
     // imprevisto lasciava il pulsante bloccato per sempre.
     try {
+      // ★ FIX (2026-09-02, "Errore imprevisto durante il salvataggio",
+      // causa reale trovata: le foto grezze da fotocamera nel corpo della
+      // Server Action superavano il limite di default di 1MB di Next.js) —
+      // caricate qui, direttamente dal browser allo storage, prima di
+      // chiamare l'azione.
+      const foto = await Promise.all(fileDaCaricare.map((f) => caricaFotoScheda(f, appuntamentoId)));
       const risultato = await salvaSchedaLavoro(
         appuntamentoId,
         "Nuova installazione",
