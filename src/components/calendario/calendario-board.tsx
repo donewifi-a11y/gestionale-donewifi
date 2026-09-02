@@ -24,7 +24,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket, INTERVENTI_RAPIDI } from "@/lib/types";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
@@ -855,6 +855,14 @@ function FormNuovoAppuntamento({
     return t ? tipoServizioDaTicket(t.categoria, t.sottocategoria) : "Lavorazione tecnica";
   }
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(() => tipoServizioPerTicket(ticketIniziale || ""));
+  // ★ NUOVA (2026-09-02, richiesta esplicita: "nel calendario una volta
+  // fissato l'intervento, deve essere specificato nel titolo l'intervento
+  // da fare, ovvero cambio cpe, ripuntamento ecc.") — prima il titolo
+  // dell'appuntamento era solo il nome del cliente: chi guardava il
+  // calendario non sapeva cosa fare sul posto finché non apriva il Ticket.
+  // Visibile solo per "Lavorazione tecnica" (una Nuova installazione lo
+  // dice già da sé nel tipo di servizio).
+  const [tipoIntervento, setTipoIntervento] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
 
   useEffect(() => {
@@ -872,6 +880,7 @@ function FormNuovoAppuntamento({
   function sceglieTicket(id: string) {
     setTicketId(id);
     setTipoServizio(tipoServizioPerTicket(id));
+    setTipoIntervento("");
   }
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
@@ -932,9 +941,33 @@ function FormNuovoAppuntamento({
 
         <SezioneForm icona={Wrench} titolo="Servizio">
           <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
+          {tipoServizio === "Lavorazione tecnica" && (
+            <div>
+              <Label htmlFor="tipoIntervento">Tipo di intervento</Label>
+              <select
+                id="tipoIntervento"
+                value={tipoIntervento}
+                onChange={(e) => setTipoIntervento(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">Non specificato</option>
+                {INTERVENTI_RAPIDI.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <Label htmlFor="titolo">Titolo *</Label>
-            <Input key={ticketId} id="titolo" name="titolo" required autoFocus defaultValue={ticketSelezionato?.cliente ?? ""} className="mt-1 bg-background" />
+            <Input
+              key={`${ticketId}-${tipoIntervento}`}
+              id="titolo"
+              name="titolo"
+              required
+              autoFocus
+              defaultValue={[tipoIntervento, ticketSelezionato?.cliente].filter(Boolean).join(" — ")}
+              className="mt-1 bg-background"
+            />
           </div>
         </SezioneForm>
 

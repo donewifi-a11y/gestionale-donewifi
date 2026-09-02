@@ -3207,6 +3207,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     schede_lavoro/segnalazioni/richieste_clienti confermati identici a quelli reali nello storage.
   Build/lint puliti.
 
+✅ Titolo appuntamento con il tipo di intervento (2026-09-02, richiesta esplicita: "nel calendario
+  una volta fissato l'intervento, deve essere specificato nel titolo l'intervento da fare, ovvero
+  cambio cpe, ripuntamento ecc.") — prima il titolo di un appuntamento "Lavorazione tecnica" era
+  solo il nome del cliente: chi guardava il calendario non sapeva cosa fare sul posto finché non
+  apriva il Ticket collegato.
+  - `INTERVENTI_RAPIDI` (`lib/types.ts`), già usata in "Interventi eseguiti" della Scheda di
+    Lavorazione, riusata anche qui — un solo elenco, non due che possono disallinearsi. Rinominato
+    "Riallineamento Antenna" in **"Ripuntamento Antenna"** (stesso concetto, il termine usato
+    davvero sul campo) e aggiunto **"Cambio CPE"**.
+  - Nuovo campo "Tipo di intervento" nel form Nuovo Appuntamento (`calendario-board.tsx`),
+    visibile solo per "Lavorazione tecnica" (una Nuova installazione lo dice già da sé) — la
+    scelta aggiorna subito il titolo proposto ("Cambio CPE — Roberta Arlenghi"), restando comunque
+    un testo libero modificabile prima di salvare.
+  - Il form di modifica non l'ha ricevuto: il titolo lì è bloccato per default apposta ("a prova
+    di scemo", protezione già esistente) — sbloccarlo per far posto al selettore avrebbe tolto
+    quella protezione; resta comunque modificabile a mano dopo "Modifica".
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

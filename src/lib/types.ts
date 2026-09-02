@@ -717,9 +717,20 @@ export const OPZIONI_INSTALLAZIONE = {
 } as const;
 
 /** Interventi rapidi selezionabili nella Scheda Lavorazione Tecnica — ex
- * chip di InterventoLoco.html. */
+ * chip di InterventoLoco.html.
+ *
+ * ★ ESTESA (2026-09-02, richiesta esplicita: "nel calendario una volta
+ * fissato l'intervento, deve essere specificato nel titolo l'intervento da
+ * fare, ovvero cambio cpe, ripuntamento ecc.") — stessa lista riusata anche
+ * per il titolo dell'appuntamento (vedi SelettoreTipoIntervento in
+ * calendario-board.tsx), non solo per registrare a consuntivo cosa è stato
+ * fatto: un solo elenco, non due che possono disallinearsi. "Riallineamento
+ * Antenna" è diventato "Ripuntamento Antenna" (stesso concetto, il termine
+ * usato davvero sul campo) e aggiunto "Cambio CPE" (sostituzione
+ * dell'apparato radio, distinto da una semplice riconfigurazione). */
 export const INTERVENTI_RAPIDI = [
-  "Riallineamento Antenna",
+  "Ripuntamento Antenna",
+  "Cambio CPE",
   "Sostituzione Cavo",
   "Configurazione Router",
   "Riavvio Apparati",
