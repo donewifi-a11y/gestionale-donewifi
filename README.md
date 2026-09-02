@@ -3052,6 +3052,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     presentazione è stato toccato, verificato sui dati reali delle 4 persone attive in produzione.
   Build/lint puliti.
 
+✅ Sidebar: icone colorate per mondo + affordance "cliccabile" più chiara (2026-09-01, richiesta
+  esplicita: "riesci a mettere delle icone laterali colorate e non biache che si sposino con
+  l'interfaccia. e migliorare leggibilità dei menu a tendina,perchè non si capisce che si devono
+  cliccare quelli per farli sendere" — 2 proposte con artifact "Sidebar: Icone e Affordance",
+  scelta la "2 · Barra colorata laterale") — le icone dei 5 mondi erano tutte bianche/grigie
+  (indistinguibili a colpo d'occhio) e l'intestazione di ogni sezione pieghevole non aveva alcun
+  segnale "cliccami" a riposo, solo su hover.
+  - `Mondo.accento`: un colore identitario per mondo (Assistenza ambra `#FF9F43`, Vendita verde
+    acqua `#4FD1C5`, Clienti viola `#A78BFA`, Analisi blu `#60A5FA`, Team rosa `#F472B6`), mai sul
+    testo (resta bianco/grigio come il resto della sidebar) — solo su icona, barra laterale e
+    freccia dell'intestazione.
+  - Intestazione di ogni sezione: barra verticale colorata sempre visibile a sinistra (più accesa
+    quando aperta o in hover, mai invisibile a riposo come prima), sfondo tinto dello stesso
+    colore quando la sezione è aperta, freccia colorata quando ruotata.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

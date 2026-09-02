@@ -51,6 +51,12 @@ interface Mondo {
   etichetta: string;
   icona: typeof Ticket;
   voci: VoceNav[];
+  // ★ NUOVA (2026-09-01, richiesta esplicita: "icone laterali colorate e non
+  // bianche" — proposta con artifact "Sidebar: Icone e Affordance", scelta
+  // la "2 · Barra colorata laterale") — un colore identitario per mondo,
+  // usato su icona/barra/freccia dell'intestazione (mai sul testo, resta
+  // sempre bianco/grigio come il resto della sidebar).
+  accento: string;
 }
 
 export function AppSidebar({
@@ -118,6 +124,7 @@ export function AppSidebar({
         id: "assistenza",
         etichetta: "Assistenza",
         icona: LayoutGrid,
+        accento: "#FF9F43",
         voci: [
           { href: "/", etichetta: "Assistenza", icona: LayoutGrid, esatto: true },
           { href: "/tickets", etichetta: "Ticket", icona: Ticket },
@@ -131,6 +138,7 @@ export function AppSidebar({
         id: "vendita",
         etichetta: "Vendita",
         icona: PhoneCall,
+        accento: "#4FD1C5",
         // ★ FIX (2026-08) — richiesta esplicita, proposta con artifact:
         // "Segnalazioni" era in realtà solo il flusso NUOVI contatti, nome
         // ambiguo per chi cercava dove gestire un cliente già esistente
@@ -152,6 +160,7 @@ export function AppSidebar({
         id: "clienti",
         etichetta: "Clienti",
         icona: Users2,
+        accento: "#A78BFA",
         // ★ FIX (2026-08) — "Clienti" e "Anagrafica Clienti" erano due voci
         // quasi omonime senza indizio su quale aprire (proposta con
         // artifact, Opzione B scelta): l'Anagrafica ora è una tab dentro
@@ -164,6 +173,7 @@ export function AppSidebar({
         id: "analisi",
         etichetta: "Analisi",
         icona: BarChart3,
+        accento: "#60A5FA",
         voci: [
           { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
           ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
@@ -173,6 +183,7 @@ export function AppSidebar({
         id: "team",
         etichetta: "Team",
         icona: UsersRound,
+        accento: "#F472B6",
         // ★ NUOVA — "Team" non è più "solo amministratori": Lavorazioni
         // Interne (Rete/Ufficio, assegnabili da un admin ad altro staff)
         // deve essere visibile a chiunque abbia lavorazioni assegnate, non
@@ -266,18 +277,27 @@ export function AppSidebar({
           const aperto = gruppiAperti.has(m.id);
           const contieneAttivo = m.id === mondoDaPercorso;
           return (
-            <div key={m.id} className="pb-0.5">
+            <div key={m.id} className="pb-0.5" style={{ "--accento": m.accento } as React.CSSProperties}>
               <button
                 onClick={() => toggleGruppo(m.id)}
                 aria-expanded={aperto}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider transition ${
+                className={`group relative flex w-full items-center gap-2 rounded-lg py-2 pl-4 pr-2 text-left text-[11px] font-bold uppercase tracking-wider transition ${
                   contieneAttivo ? "text-sidebar-foreground/85" : "text-sidebar-foreground/45 hover:text-sidebar-foreground/70"
-                } hover:bg-sidebar-accent`}
+                } ${aperto ? "bg-[color-mix(in_oklch,var(--accento)_16%,transparent)]" : "hover:bg-sidebar-accent"}`}
               >
-                <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                {/* ★ barra colorata a sinistra, sempre visibile (più accesa
+                quando la sezione è aperta o in hover) — segnala "sono un
+                pulsante" anche a riposo, non solo passandoci sopra. */}
+                <span
+                  aria-hidden
+                  className={`absolute bottom-1.5 left-1 top-1.5 w-[3px] rounded-full bg-[var(--accento)] transition-opacity ${
+                    aperto ? "opacity-100" : "opacity-55 group-hover:opacity-100"
+                  }`}
+                />
+                <Icona className="h-3.5 w-3.5 shrink-0 text-[var(--accento)]" strokeWidth={2.25} />
                 <span className="flex-1 truncate">{m.etichetta}</span>
                 <ChevronRight
-                  className={`h-3 w-3 shrink-0 transition-transform ${aperto ? "rotate-90" : ""}`}
+                  className={`h-3 w-3 shrink-0 transition-transform ${aperto ? "rotate-90 text-[var(--accento)]" : "text-sidebar-foreground/40"}`}
                   strokeWidth={2.5}
                 />
               </button>
