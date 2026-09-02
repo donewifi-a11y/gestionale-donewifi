@@ -145,7 +145,13 @@ export function SchedaInstallazioneDomande({
       if (risultato.errore) { setErroreInvio(risultato.errore); return; }
       cancellaBozzaScheda(chiaveBozza);
       onSalvato();
-    } catch {
+    } catch (err) {
+      // ★ FIX (2026-09-02, "di nuovo il problema" — la stessa schermata
+      // generica ricomparsa) — il catch scartava l'errore vero senza
+      // lasciarne traccia da nessuna parte: impossibile capire SE fosse di
+      // nuovo la pagina stantia sospettata a suo tempo o una causa diversa.
+      // Ora resta almeno nella console del browser, visibile da DevTools.
+      console.error("invia() - errore imprevisto durante il salvataggio scheda:", err);
       setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
     } finally {
       setInCorso(false);

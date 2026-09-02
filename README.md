@@ -3122,6 +3122,17 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     precedenti.
   Build/lint puliti.
 
+✅ Fix: log dell'errore vero su "fermo su salvataggio" (2026-09-02, l'utente ha rivisto lo stesso
+  messaggio generico su pose.donewifi.it, Scheda di Installazione con firma "Autorizzato
+  dall'ufficio": "di nuovo il problema") — il `try/catch` aggiunto il 2026-08-28 alle 4 funzioni
+  `invia()` (pose × Installazione/Lavorazione, desktop × Installazione/Lavorazione) mostrava un
+  messaggio generico ma scartava l'errore vero con un `catch {}` senza log: impossibile capire SE
+  fosse di nuovo la pagina stantia sospettata a suo tempo (aperta da prima di un deploy) o una
+  causa diversa — nessuna traccia da nessuna parte. Aggiunto `console.error(err)` in tutti e 4:
+  un errore imprevisto resta ora visibile in console del browser (DevTools), verificabile alla
+  prossima occorrenza invece di restare un mistero. Nessun'altra logica toccata — il messaggio
+  mostrato all'utente resta identico. Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -184,7 +184,11 @@ export function SchedaInstallazioneForm({
       }
       cancellaBozzaScheda(chiaveBozza);
       onSalvato();
-    } catch {
+    } catch (err) {
+      // ★ FIX (2026-09-02, "di nuovo il problema") — l'errore vero non
+      // veniva più scartato in silenzio, vedi il commento gemello in
+      // pose/scheda-installazione-domande.tsx.
+      console.error("invia() - errore imprevisto durante il salvataggio scheda:", err);
       setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
     } finally {
       setInCorso(false);
