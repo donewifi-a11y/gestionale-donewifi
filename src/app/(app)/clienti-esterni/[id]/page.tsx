@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Phone, Mail, MapPin, FileText, History, Ticket as TicketIcon, Euro, Plus, FileCheck2, FileSignature } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, History, Ticket as TicketIcon, Euro, Plus, FileCheck2, FileSignature } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno, getContrattiPrecedenti } from "../actions";
 import { InstallazioniCliente } from "@/components/clienti-esterni/installazioni-cliente";
 import { NuovaPraticaClienteEsterno } from "@/components/clienti-esterni/nuova-pratica";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
 
@@ -90,23 +91,26 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
       <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[300px_1fr]">
         <aside className="flex flex-col gap-5 md:sticky md:top-5">
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 font-heading text-sm font-bold">Dati anagrafici</h2>
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={Phone} categoria="contatto" />
+              Dati anagrafici
+            </h2>
             <div className="flex flex-col gap-2 text-sm">
               {c.telefono && (
                 <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                  <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
                   <a href={`tel:${c.telefono}`} className="text-primary hover:underline">{c.telefono}</a>
                 </div>
               )}
               {c.email && (
                 <div className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                  <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
                   <a href={`mailto:${c.email}`} className="text-primary hover:underline">{c.email}</a>
                 </div>
               )}
               {(c.indirizzo || c.comune) && (
                 <div className="flex items-start gap-2">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                  <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                   <span>{[c.indirizzo, c.numero_civico].filter(Boolean).join(" ")}{c.cap && `, ${c.cap}`} {c.comune} {c.provincia && `(${c.provincia})`}</span>
                 </div>
               )}
@@ -130,8 +134,8 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
         <div className="flex flex-col gap-5">
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-              <History className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={History} categoria="tempo" />
               Storico cambi profilo
             </h2>
             {storico.length === 0 && (
@@ -153,8 +157,8 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
             invece di sparire o comparire come clienti a sé. */}
             {contrattiPrecedenti.length > 0 && (
               <>
-                <div className="mt-3 flex items-center gap-1.5 border-t pt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <History className="h-3 w-3" strokeWidth={2.25} />
+                <div className="mt-3 flex items-center gap-2 border-t pt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={History} categoria="tempo" dimensione="sm" />
                   Contratti precedenti (rinnovi/ricodifiche di questa installazione)
                 </div>
                 <div className="mt-1 flex flex-col gap-1 text-xs">
@@ -173,8 +177,8 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-1.5 font-heading text-sm font-bold">
-                <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+              <h2 className="flex items-center gap-2 font-heading text-sm font-bold">
+                <IconaCategoria icona={Euro} categoria="denaro" />
                 Fatture ({fatture.length})
               </h2>
               <div className="flex gap-4 text-xs">
@@ -220,8 +224,8 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-              <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={Euro} categoria="denaro" />
               Preventivi collegati
             </h2>
             {preventiviCollegati.length === 0 && (
@@ -246,16 +250,16 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-              <FileCheck2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={FileCheck2} categoria="documento" />
               Installazioni effettuate ({installazioni.length})
             </h2>
             <InstallazioniCliente installazioni={installazioni} />
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-              <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={FileSignature} categoria="documento" />
               Documenti e pratiche inviate ({pratiche.length})
             </h2>
             {pratiche.length === 0 ? (
@@ -275,8 +279,8 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-1.5 font-heading text-sm font-bold">
-              <TicketIcon className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={TicketIcon} categoria="documento" />
               Ticket collegati nel gestionale
             </h2>
             {ticketCollegati.length === 0 && (

@@ -26,6 +26,7 @@ import { avviaPraticaSubentro, inviaLinkVecchioClienteSubentro } from "@/app/(ap
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
 import { SchedaVista } from "@/components/schede/scheda-vista";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
@@ -831,8 +832,8 @@ function DettaglioTicket({
         richiesta esplicitamente. */}
         {ticket.stato !== "Completato" && appuntamentoAttivo && (
           <div className="rounded-xl border bg-card p-3 shadow-sm">
-            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <CalendarCheck2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={CalendarCheck2} categoria="tempo" dimensione="sm" />
               Appuntamento pianificato
             </p>
             <p className="mb-2.5 text-sm font-medium">
@@ -854,7 +855,10 @@ function DettaglioTicket({
         )}
 
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Assegnato a</div>
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+            Assegnato a
+          </div>
           {/* ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione
           Ticket via artifact: "due meccanismi separati" → "semplifica") —
           prima "Prendi in carico" (solo se stesso) e l'assegnazione a un
@@ -1049,8 +1053,8 @@ function DettaglioTicket({
 
         {richieste.length > 0 && (
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
               Moduli ricevuti dal cliente
             </div>
             <div className="flex flex-col gap-2">
@@ -1092,8 +1096,8 @@ function DettaglioTicket({
         )}
 
         <div>
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
             Invia una pratica al cliente
           </div>
           <p className="mb-2 text-[11px] text-muted-foreground">
@@ -1541,8 +1545,8 @@ export function PianificaAppuntamento({
 
   return (
     <div className="rounded-xl border bg-card p-3 shadow-sm">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        <IconaCategoria icona={CalendarPlus} categoria="tempo" dimensione="sm" />
         Pianifica appuntamento
       </p>
 

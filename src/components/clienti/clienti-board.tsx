@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2, Database, ArrowUpRight, Loader2 } from "lucide-react";
+import { Search, Phone, MapPin, ChevronDown, FileEdit, AlertTriangle, Users2, UserPlus2, Database, ArrowUpRight, Loader2, Euro } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { salvaDatiContrattualiCliente, type RigaInstallazione } from "@/app/(app)/clienti/actions";
 import { InstallazioniTabella } from "@/components/clienti/installazioni-tabella";
 import { ClientiEsterniBoard } from "@/components/clienti-esterni/clienti-esterni-board";
@@ -238,14 +239,14 @@ export function ClientiBoard({
                   <div className="truncate font-semibold">{c.nome}</div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {c.telefono && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" strokeWidth={2.25} />
+                      <span className="flex items-center gap-1.5">
+                        <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
                         {c.telefono}
                       </span>
                     )}
                     {c.indirizzo && (
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                      <span className="flex items-center gap-1.5 truncate">
+                        <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                         {c.indirizzo}
                       </span>
                     )}
@@ -272,8 +273,8 @@ export function ClientiBoard({
                   {c.esterno && (
                     <div className="rounded-lg border bg-card p-3">
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          <Database className="h-3 w-3" strokeWidth={2.25} />
+                        <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <IconaCategoria icona={Database} categoria="documento" dimensione="sm" />
                           Da Anagrafica Aruba
                         </span>
                         <Link href={`/clienti-esterni/${c.esterno.id}`} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
@@ -298,7 +299,10 @@ export function ClientiBoard({
                   {(c.dati || puoModificare) && (
                     <div className="rounded-lg border bg-card p-3">
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Dati contrattuali</span>
+                        <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <IconaCategoria icona={Euro} categoria="denaro" dimensione="sm" />
+                          Dati contrattuali
+                        </span>
                         {puoModificare && (
                           <Button size="sm" variant="outline" onClick={() => setModifica(c)}>
                             <FileEdit className="h-3.5 w-3.5" strokeWidth={2.25} />

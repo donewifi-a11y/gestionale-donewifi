@@ -3068,6 +3068,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     colore quando la sezione è aperta, freccia colorata quando ruotata.
   Build/lint puliti.
 
+✅ Icone colorate per significato del dato — prima tornata (2026-09-01, richiesta esplicita:
+  "integrerei le icone e anche quelle colorate in tutto il gestionale per migliorare l'usabilità"
+  — 3 proposte con artifact "Icone Colorate: Proposte", scelta la "A · Colore per significato del
+  dato") — un TIPO di informazione ha sempre lo stesso colore ovunque compaia nel gestionale,
+  indipendentemente dalla pagina: contatto (telefono/email) blu, luogo (indirizzo) verde acqua,
+  documento (fatture/pratiche/ticket/moduli) viola, denaro (fatture/preventivi/dati contrattuali)
+  verde, tempo (storico/appuntamenti/calendario) ambra, persona (assegnatario) rosa — diverso,
+  deliberatamente, dal colore per-mondo della sidebar (quello risponde a "dove sei nel menu", non
+  "che tipo di dato stai guardando").
+  - Nuovi `lib/colore-icone.ts` (la mappa dei 6 colori) e `components/condivisi/icona-categoria.tsx`
+    (il "chip" quadrato colorato attorno all'icona, riusato ovunque) — un solo posto da cui
+    derivano tutti i colori, non scelti a mano pagina per pagina.
+  - Applicato a 3 pagine (l'utente ha scelto "tutte le pagine principali", si comincia da queste,
+    le altre in un giro successivo): Scheda Cliente Esterno (`clienti-esterni/[id]/page.tsx`),
+    Dettaglio Ticket (`tickets-board.tsx`), Clienti (`clienti-board.tsx`).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
