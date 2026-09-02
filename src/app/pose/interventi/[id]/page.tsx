@@ -5,6 +5,12 @@ import { getTicketTecnicoEsterno, chiUsaPose } from "../../actions";
 import { InterventoDettaglio } from "@/components/pose/intervento-dettaglio";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 
+// ★ FIX (2026-09-02) — stesso motivo di appuntamenti/[id]/page.tsx:
+// completaTicketConRapportinoEsterno() fa upload foto + più passaggi in
+// sequenza, rischiando di superare il timeout di default di una funzione
+// serverless (10s) senza questo export.
+export const maxDuration = 30;
+
 export default async function InterventoPoseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

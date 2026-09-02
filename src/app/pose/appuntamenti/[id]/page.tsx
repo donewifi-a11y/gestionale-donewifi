@@ -5,6 +5,22 @@ import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno, chiUsaPose 
 import { SchedaDettaglioPose } from "@/components/pose/scheda-dettaglio";
 import { COLORE_SERVIZIO } from "@/lib/types";
 
+// ★ FIX (2026-09-02, bug reale segnalato: "di nuovo il problema" —
+// "Errore imprevisto durante il salvataggio" riproducibile anche da browser
+// mai aperti prima, quindi non la pagina stantia sospettata inizialmente) —
+// salvaSchedaLavoroEsterno() (Nuova installazione) fa, in sequenza: upload
+// foto, insert scheda, riconciliazione antenna, notifica su 3 canali
+// (Telegram+Chat+email SMTP) verso Analisi Rete SEMPRE per una nuova
+// installazione (schedaRiguardaGestionaleAntenne ritorna true a prescindere
+// dal MAC), aggiornamento Ticket/appuntamento, chiamata Google Calendar,
+// email di chiusura al cliente — abbastanza per superare il timeout di
+// default di una funzione serverless (10s), specialmente con foto da
+// caricare. La pagina equivalente per lo staff interno (calendario/page.tsx)
+// ha già `maxDuration = 30` da tempo — questa, per pose (tecnici esterni),
+// non l'aveva mai avuta: unica differenza reale tra "funziona per lo staff"
+// e "fallisce sempre per un tecnico esterno su una Nuova installazione".
+export const maxDuration = 30;
+
 export default async function AppuntamentoPosePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

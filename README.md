@@ -3133,6 +3133,28 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   prossima occorrenza invece di restare un mistero. Nessun'altra logica toccata — il messaggio
   mostrato all'utente resta identico. Build/lint puliti.
 
+✅ Fix reale: "Errore imprevisto durante il salvataggio" su pose, Nuova installazione (2026-09-02,
+  l'utente ha confermato che si riproduceva "anche facendo in altri modi da browser non entrati" —
+  quindi NON la pagina stantia sospettata prima) — causa trovata: `salvaSchedaLavoroEsterno()`
+  (Nuova installazione via pose) fa in sequenza upload foto, insert scheda, riconciliazione
+  antenna, notifica su 3 canali verso Analisi Rete (sempre, per una nuova installazione —
+  `schedaRiguardaGestionaleAntenne` ritorna true a prescindere dal MAC), aggiornamento
+  Ticket/appuntamento, chiamata Google Calendar, email di chiusura al cliente — abbastanza per
+  superare il timeout di default di una funzione serverless (10s). La pagina equivalente per lo
+  staff interno (`calendario/page.tsx`) ha `maxDuration = 30` da tempo; le pagine pose non
+  l'avevano mai avuto — unica differenza reale tra "funziona per lo staff" e "fallisce sempre per
+  un tecnico esterno su una Nuova installazione".
+  - Aggiunto `export const maxDuration = 30` a `pose/appuntamenti/[id]/page.tsx` (Scheda
+    Installazione/Lavorazione) e `pose/interventi/[id]/page.tsx` (Rapportino) — stesso valore già
+    in uso per le pagine equivalenti dello staff interno.
+  - `notificaSuTuttiICanali()` (`lib/notifiche-interne.ts`): i 3 canali (Telegram/Chat/email) sono
+    indipendenti ma venivano eseguiti in sequenza — `Promise.all` invece di 3 `await` in fila,
+    stesso comportamento (nessuno dei tre lancia mai un errore) ma tempo reale molto più basso,
+    specialmente nei punti con più chiamate a questa funzione nello stesso salvataggio.
+  - Corretto anche il log dell'errore vero nei 4 `catch` di `invia()` (vedi voce precedente): senza
+    quello, la causa reale sarebbe rimasta invisibile anche stavolta.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
