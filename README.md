@@ -3314,6 +3314,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     popolate, confermato dal vivo il vecchio formato gergoso che questa modifica sostituisce.
   Build/lint puliti.
 
+✅ Comune nel titolo Appuntamento (2026-09-03, richiesta esplicita: "sarebbe anche preferibile
+  avere nel titolo anche il comune" — mostrato un artifact con 3 formati a confronto su
+  Calendario del gestionale e Google Calendar, scelto il formato "C — comune davanti al
+  cliente": "va bene la c") — titolo ora `Intervento — Comune — Cliente` (es. "Cambio CPE —
+  Aosta — Mario Rossi"), utile scorrendo la giornata per riconoscere subito le zone in cui si
+  gira, prima ancora di leggere il cliente.
+  - `titoloAppuntamento()` (`lib/types.ts`) esteso con un parametro `comune` facoltativo —
+    quando manca (nessun ticket selezionato, o indirizzo senza comune riconoscibile) il
+    titolo resta come prima, senza un doppio trattino vuoto.
+  - Nuova `stimaComuneDaIndirizzo()` (`lib/types.ts`): l'indirizzo di un Ticket è un unico
+    campo di testo libero (non via/comune/CAP separati) — stima il comune come l'ultimo
+    pezzo dopo l'ultima virgola, per precompilare il campo "Comune" nella maggior parte dei
+    casi reali. Resta sempre un testo libero modificabile, mai un dato salvato "silenzioso":
+    verificato su 15 indirizzi reali di produzione, 11 corretti, i rimanenti restano vuoti
+    (nessuna virgola nell'indirizzo) invece di indovinare male.
+  - Campo "Comune" aggiunto sia a "Pianifica appuntamento" nel Ticket (il percorso più usato)
+    sia a Calendario → "Nuovo Appuntamento" — in quest'ultimo il titolo si aggiorna alla
+    perdita del focus dal campo Comune (non a ogni carattere digitato, altrimenti non si
+    riuscirebbe a scrivere: il campo Titolo si sarebbe rimontato ad ogni tasto).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

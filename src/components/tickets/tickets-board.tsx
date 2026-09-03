@@ -39,7 +39,7 @@ import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, tipoServizioDaTicket, titoloAppuntamento } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, tipoServizioDaTicket, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -1496,6 +1496,11 @@ export function PianificaAppuntamento({
   // punto, usato da entrambi.
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(tipoServizioIniziale);
   const [tipoIntervento, setTipoIntervento] = useState("");
+  // ★ NUOVA (2026-09-03, "va bene la c" — comune nel titolo, formato "C"
+  // dell'artifact "Comune in Titolo") — precompilato da una stima
+  // sull'indirizzo del Ticket (vedi stimaComuneDaIndirizzo()), resta un
+  // testo libero modificabile prima di "Assegna e fissa".
+  const [comune, setComune] = useState(() => stimaComuneDaIndirizzo(ticket.indirizzo));
 
   useEffect(() => {
     if (aperto) getSlotOccupatiProssimi().then(setSlot);
@@ -1511,7 +1516,7 @@ export function PianificaAppuntamento({
 
     startTransizione(async () => {
       const risultato = await creaAppuntamento({
-        titolo: titoloAppuntamento(tipoServizio, tipoIntervento, ticket.cliente),
+        titolo: titoloAppuntamento(tipoServizio, tipoIntervento, comune, ticket.cliente),
         indirizzo: ticket.indirizzo || "",
         dataOra: new Date(`${data}T${ora}`).toISOString(),
         durataMinuti: Number(dati.get("durata") || 60),
@@ -1605,6 +1610,14 @@ export function PianificaAppuntamento({
             ))}
           </select>
         )}
+        <input
+          type="text"
+          name="comune"
+          value={comune}
+          onChange={(e) => setComune(e.target.value)}
+          placeholder="Comune (facoltativo)"
+          className="h-8 rounded-md border bg-background px-2 text-xs"
+        />
         <div className="grid grid-cols-3 gap-2">
           <input type="date" name="data" required className="h-8 rounded-md border bg-background px-2 text-xs" />
           <input type="time" name="ora" required className="h-8 rounded-md border bg-background px-2 text-xs" />

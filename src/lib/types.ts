@@ -224,9 +224,33 @@ export function tipoServizioDaTicket(categoria: string, sottocategoria: string |
  * tecnica — una Nuova installazione lo dice già da sé nel tipo di servizio)
  * seguito dal cliente, es. "Cambio CPE — Mario Rossi".
  */
-export function titoloAppuntamento(tipoServizio: TipoServizioAppuntamento, tipoIntervento: string, cliente: string): string {
+/**
+ * ★ ESTESA (2026-09-03, "va bene la c" — confermato il formato "C" tra le 3
+ * alternative mostrate nell'artifact "Comune in Titolo": comune davanti al
+ * cliente, per riconoscere a colpo d'occhio le zone in cui si gira) — il
+ * comune è facoltativo (nessun ticket selezionato, o indirizzo senza
+ * comune riconoscibile): quando manca, il titolo resta come prima.
+ */
+export function titoloAppuntamento(tipoServizio: TipoServizioAppuntamento, tipoIntervento: string, comune: string, cliente: string): string {
   const prefisso = tipoServizio === "Lavorazione tecnica" ? tipoIntervento : "";
-  return [prefisso, cliente].filter(Boolean).join(" — ");
+  return [prefisso, comune, cliente].filter(Boolean).join(" — ");
+}
+
+/**
+ * ★ NUOVA (2026-09-03, stesso contesto di titoloAppuntamento) — il comune
+ * precompilato nel campo "Comune" del form appuntamento: l'indirizzo di un
+ * Ticket è un unico campo di testo libero (es. "Via Roma 12, Aosta"), non
+ * via/comune/CAP separati — stima il comune come l'ultimo pezzo dopo
+ * l'ultima virgola (quasi sempre così, sia scrivendolo a mano sia con
+ * IndirizzoAutocomplete, che compone `testoCompleto` da Nominatim nello
+ * stesso ordine). Resta un campo di testo libero modificabile, non un dato
+ * derivato "silenzioso": se la stima è sbagliata o vuota, si corregge a
+ * mano prima di salvare.
+ */
+export function stimaComuneDaIndirizzo(indirizzo: string | null | undefined): string {
+  if (!indirizzo) return "";
+  const parti = indirizzo.split(",").map((p) => p.trim()).filter(Boolean);
+  return parti.length > 1 ? parti[parti.length - 1] : "";
 }
 
 /**

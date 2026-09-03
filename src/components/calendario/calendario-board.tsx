@@ -24,7 +24,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket, titoloAppuntamento, INTERVENTI_RAPIDI } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket, titoloAppuntamento, stimaComuneDaIndirizzo, INTERVENTI_RAPIDI } from "@/lib/types";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
@@ -863,6 +863,16 @@ function FormNuovoAppuntamento({
   // Visibile solo per "Lavorazione tecnica" (una Nuova installazione lo
   // dice già da sé nel tipo di servizio).
   const [tipoIntervento, setTipoIntervento] = useState("");
+  // ★ NUOVA (2026-09-03, "va bene la c" — comune nel titolo, formato "C"
+  // dell'artifact "Comune in Titolo") — precompilato da una stima
+  // sull'indirizzo del Ticket scelto (stimaComuneDaIndirizzo), ma è un
+  // campo di testo libero: `comune` segue la digitazione, `comuneApplicato`
+  // (aggiornato solo alla perdita del focus) è ciò che entra nel titolo
+  // proposto — separati apposta, altrimenti il campo Titolo si
+  // rimonterebbe a ogni carattere digitato qui (vedi key più sotto) e non
+  // si riuscirebbe a scrivere.
+  const [comune, setComune] = useState("");
+  const [comuneApplicato, setComuneApplicato] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
 
   useEffect(() => {
@@ -870,9 +880,13 @@ function FormNuovoAppuntamento({
     // (es. riapertura del form con un altro ticket preselezionato), non è
     // derivabile durante il render.
     if (ticketIniziale) {
+      const trovato = ticket.find((t) => t.id === ticketIniziale);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTicketId(ticketIniziale);
       setTipoServizio(tipoServizioPerTicket(ticketIniziale));
+      const stima = stimaComuneDaIndirizzo(trovato?.indirizzo);
+      setComune(stima);
+      setComuneApplicato(stima);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tipoServizioPerTicket legge `ticket`, stabile per la durata del Dialog: non serve nelle dipendenze.
   }, [ticketIniziale]);
@@ -881,6 +895,9 @@ function FormNuovoAppuntamento({
     setTicketId(id);
     setTipoServizio(tipoServizioPerTicket(id));
     setTipoIntervento("");
+    const stima = stimaComuneDaIndirizzo(ticket.find((t) => t.id === id)?.indirizzo);
+    setComune(stima);
+    setComuneApplicato(stima);
   }
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
@@ -960,12 +977,12 @@ function FormNuovoAppuntamento({
           <div>
             <Label htmlFor="titolo">Titolo *</Label>
             <Input
-              key={`${ticketId}-${tipoServizio}-${tipoIntervento}`}
+              key={`${ticketId}-${tipoServizio}-${tipoIntervento}-${comuneApplicato}`}
               id="titolo"
               name="titolo"
               required
               autoFocus
-              defaultValue={titoloAppuntamento(tipoServizio, tipoIntervento, ticketSelezionato?.cliente ?? "")}
+              defaultValue={titoloAppuntamento(tipoServizio, tipoIntervento, comuneApplicato, ticketSelezionato?.cliente ?? "")}
               className="mt-1 bg-background"
             />
           </div>
@@ -973,6 +990,17 @@ function FormNuovoAppuntamento({
 
         <SezioneForm icona={MapPin} titolo="Luogo" categoria="luogo">
           <Input key={ticketId} id="indirizzo" name="indirizzo" defaultValue={ticketSelezionato?.indirizzo ?? ""} placeholder="Indirizzo" className="bg-background" />
+          <div>
+            <Label htmlFor="comune">Comune</Label>
+            <Input
+              id="comune"
+              value={comune}
+              onChange={(e) => setComune(e.target.value)}
+              onBlur={() => setComuneApplicato(comune)}
+              placeholder="es. Aosta"
+              className="mt-1 bg-background"
+            />
+          </div>
         </SezioneForm>
 
         <SezioneForm icona={CalendarClock} titolo="Quando" categoria="tempo">
