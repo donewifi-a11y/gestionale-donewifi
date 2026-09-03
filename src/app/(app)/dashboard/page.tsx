@@ -1,11 +1,24 @@
 import Link from "next/link";
 import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, Timer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
-import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, REPARTI_ELENCO } from "@/lib/analytics";
+import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
+import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, getDatiReparto, REPARTI_ELENCO } from "@/lib/analytics";
 import { EsportaPdfButton } from "@/components/dashboard/esporta-pdf-button";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
-import { coloreReparto } from "@/lib/types";
+import { DashboardTabs, type TabDashboard } from "@/components/dashboard/dashboard-tabs";
+import { SezioneDashboardReparto } from "@/components/dashboard/sezione-reparto";
+import { coloreReparto, type AreaAccesso } from "@/lib/types";
+
+// ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
+// nel Menu", confermata) — "Dashboard generale" + una Dashboard a parte per
+// ogni reparto (fino a 4 voci di menu) mostravano la stessa cosa
+// (statistiche) filtrata diversamente: qui diventano tab di un'unica pagina
+// — stesso pattern già usato per Persone/Utenti/Tecnici esterni.
+const REPARTI_DASHBOARD: { reparto: AreaAccesso; etichetta: string }[] = [
+  { reparto: "Analisi Rete", etichetta: "Analisi Rete" },
+  { reparto: "Commerciale", etichetta: "Commerciale" },
+  { reparto: "Fatturazione", etichetta: "Fatturazione" },
+];
 
 // ★ la sezione Anagrafica Clienti (Aruba) pagina più tabelle con
 // migliaia di righe (clienti_esterni, fatture_esterne) — più dei 10s di
@@ -139,21 +152,19 @@ export default async function DashboardPage({
   const maxSegn = Math.max(1, ...segnalazioniPerStato.map((r) => r.conteggio));
   const maxCarico = Math.max(1, ...caricoTecnici.map((r) => r.conteggio));
 
-  return (
-    <div id="dashboard-stampabile" className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
-            <Gauge className="h-5 w-5" strokeWidth={2.25} />
-          </div>
-          <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Il colpo d&apos;occhio sul carico di lavoro di oggi.</p>
-          </div>
-        </div>
-        <EsportaPdfButton />
-      </div>
+  // ★ reparti che questa persona può vedere (admin li vede tutti) — stessa
+  // regola già usata dalla vecchia pagina dashboard/[reparto]/page.tsx,
+  // solo che qui si calcolano tutti insieme per costruire i tab invece di
+  // una pagina a sé per ciascuno.
+  const repartiVisibili = REPARTI_DASHBOARD.filter((r) => personaVedeReparto(personaCorrente, r.reparto));
+  const datiReparti = await Promise.all(repartiVisibili.map((r) => getDatiReparto(supabase, r.reparto)));
 
+  const tabs: TabDashboard[] = [
+    {
+      chiave: "generale",
+      etichetta: "Generale",
+      contenuto: (
+        <div id="dashboard-stampabile">
       {(() => {
         const ticketAttivi = listaTicket.filter((t) => t.stato !== "Completato").length;
         return (
@@ -236,6 +247,31 @@ export default async function DashboardPage({
       {anagraficaAruba && <SezioneAnagraficaAruba dati={anagraficaAruba} />}
 
       {totaliGenerali && <SezioneTotaliGenerali dati={totaliGenerali} />}
+        </div>
+      ),
+    },
+    ...repartiVisibili.map((r, i) => ({
+      chiave: r.reparto,
+      etichetta: r.etichetta,
+      contenuto: <SezioneDashboardReparto dati={datiReparti[i]} />,
+    })),
+  ];
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_20%)] text-primary-foreground shadow-md shadow-primary/30">
+            <Gauge className="h-5 w-5" strokeWidth={2.25} />
+          </div>
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Il colpo d&apos;occhio sul carico di lavoro di oggi.</p>
+          </div>
+        </div>
+        <EsportaPdfButton />
+      </div>
+      <DashboardTabs tabs={tabs} />
     </div>
   );
 }

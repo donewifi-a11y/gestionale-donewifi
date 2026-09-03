@@ -3264,6 +3264,33 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     per cliente/numero/importo confermato corretto.
   Build/lint puliti.
 
+✅ Meno voci di menu (2026-09-03, richiesta esplicita: "ci sono tanti tanti tab, menu e sottomenu.
+  riusciamo a dare un ordine logico e avere il meno possibile. non voglio stare tutto il tempo a
+  cercare nei sottomenu le funzioni che mi servono" — proposte 3 fusioni indipendenti in un
+  artifact ("Meno Voci nel Menu"), confermate con "si può andare") — 19 → 14 voci nella barra
+  laterale, stesso pattern già usato per Persone/Utenti/Tecnici esterni: pagine che mostravano la
+  stessa cosa filtrata diversamente diventano un'unica pagina con tab, non voci di menu separate.
+  - **Rapporti di Lavoro** (creata solo il giorno prima, vedi sopra) confluita dentro **Archivio**
+    come tab "Schede e Rapportini" accanto a "Ticket e Segnalazioni" (`archivio-board.tsx`,
+    stesso switcher a pillole già in uso altrove) — riusa `RapportiLavoroBoard`/
+    `getRapportiLavoro()` così come sono, nessun componente nuovo per i dati. `/rapporti-lavoro`
+    resta come redirect per chi avesse un link salvato.
+  - **Dashboard**: "Dashboard generale" + una Dashboard a parte per ogni reparto (Analisi Rete,
+    Commerciale, Fatturazione — fino a 4 voci) diventano tab della stessa pagina
+    (`DashboardTabs`/`SezioneDashboardReparto`, nuovi componenti) — il tab reparto compare solo
+    se `personaVedeReparto()` lo consente (un admin li vede tutti, chiunque altro solo i propri).
+    Tutte le query dati esistenti (`getDatiAmministrazione`, `getDatiReparto`, ecc.) restano
+    invariate: cambia solo come il risultato viene composto in JSX. `/dashboard/[reparto]` resta
+    come redirect.
+  - **Mondo Assistenza/Analisi**: l'intestazione della sezione nella sidebar (icona + nome) è ora
+    anche un link diretto alla sua pagina quando il mondo ne ha una sola ("Assistenza" → `/`,
+    "Analisi" → `/dashboard`) — click sull'intestazione naviga, click sulla freccetta apre/chiude;
+    prima erano due cose distinte (un'intestazione muta + una voce identica dentro l'elenco).
+  - Verificato sui dati reali: Antonietta Favre (Fatturazione) e Gabriel Christille (Analisi Rete)
+    — non admin, `reparti` con un solo elemento — vedono solo il proprio tab reparto; i due admin
+    (`reparti: []`) li vedono tutti tramite il bypass di `personaHaAccessoAdmin()`.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

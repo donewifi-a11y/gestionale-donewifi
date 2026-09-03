@@ -10,14 +10,36 @@ import { riapriTicket } from "@/app/(app)/archivio/actions";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { RapportinoVista } from "@/components/tickets/rapportino";
+import { RapportiLavoroBoard } from "@/components/rapporti-lavoro/rapporti-lavoro-board";
 import { useToast } from "@/components/ui/toast";
 import type { RapportinoIntervento, Segnalazione, Ticket } from "@/lib/types";
+import type { RigaScheda, RigaRapportino } from "@/app/(app)/rapporti-lavoro/actions";
 
 type Voce =
   | { tipo: "ticket"; data: string; item: Ticket }
   | { tipo: "segnalazione"; data: string; item: Segnalazione };
 
-export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; segnalazioni: Segnalazione[] }) {
+// ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
+// nel Menu", confermata) — "Rapporti di Lavoro" era una voce di menu a sé,
+// creata poco prima nella stessa sessione: è la stessa storia
+// dell'Archivio vista dall'altro lato (qui "quali Ticket sono chiusi", lì
+// "cosa è stato fatto in ognuno") — un secondo tab qui invece di una voce
+// a parte. RapportiLavoroBoard resta lo stesso componente, con i suoi due
+// sotto-tab Installazioni/Lavorazioni, solo annidato qui sotto.
+type VistaArchivio = "ticket" | "lavori";
+
+export function ArchivioBoard({
+  tickets,
+  segnalazioni,
+  schede,
+  rapportini,
+}: {
+  tickets: Ticket[];
+  segnalazioni: Segnalazione[];
+  schede: RigaScheda[];
+  rapportini: RigaRapportino[];
+}) {
+  const [vista, setVista] = useState<VistaArchivio>("ticket");
   const [ricerca, setRicerca] = useState("");
   const [dataDa, setDataDa] = useState("");
   const [dataA, setDataA] = useState("");
@@ -46,6 +68,27 @@ export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; se
 
   return (
     <div>
+      <div className="mb-4 flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setVista("ticket")}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "ticket" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Ticket e Segnalazioni
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista("lavori")}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "lavori" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Schede e Rapportini
+        </button>
+      </div>
+
+      {vista === "lavori" ? (
+        <RapportiLavoroBoard schede={schede} rapportini={rapportini} />
+      ) : (
+        <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
@@ -118,6 +161,8 @@ export function ArchivioBoard({ tickets, segnalazioni }: { tickets: Ticket[]; se
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }

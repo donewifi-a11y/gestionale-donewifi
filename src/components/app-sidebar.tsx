@@ -10,14 +10,12 @@ import {
   CalendarDays,
   HardHat,
   Archive,
-  Gauge,
   UserCircle,
   Menu,
   X,
   Tags,
   Boxes,
   ClipboardList,
-  FileCheck2,
   LayoutGrid,
   BarChart3,
   UsersRound,
@@ -58,6 +56,13 @@ interface Mondo {
   // usato su icona/barra/freccia dell'intestazione (mai sul testo, resta
   // sempre bianco/grigio come il resto della sidebar).
   accento: string;
+  // ★ NUOVA (2026-09-03, "meno voci di menu possibili" — artifact "Meno
+  // Voci nel Menu") — quando un mondo ha una pagina "home" propria (es.
+  // Assistenza → "/"), il nome del mondo diventa un link diretto a quella
+  // pagina invece di essere solo un pulsante che apre/chiude la sezione:
+  // due lavori in uno, non serve più una voce a parte identica al nome
+  // della sezione solo per raggiungere la sua pagina principale.
+  href?: string;
 }
 
 export function AppSidebar({
@@ -88,12 +93,14 @@ export function AppSidebar({
   const vedeTariffe = isAdmin || personaReparti.includes("Commerciale");
   const vedeRichieste = isAdmin || personaReparti.includes("Commerciale") || personaReparti.includes("Fatturazione");
 
-  const REPARTI_SLUG: { slug: string; reparto: AreaAccesso; etichetta: string }[] = [
-    { slug: "analisi-rete", reparto: "Analisi Rete", etichetta: "Dashboard Analisi Rete" },
-    { slug: "commerciale", reparto: "Commerciale", etichetta: "Dashboard Commerciale" },
-    { slug: "fatturazione", reparto: "Fatturazione", etichetta: "Dashboard Fatturazione" },
-  ];
-  const dashboardReparti = isAdmin ? REPARTI_SLUG : REPARTI_SLUG.filter((r) => personaReparti.includes(r.reparto));
+  // ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
+  // nel Menu", confermata) — prima ogni reparto aveva una voce di menu a sé
+  // ("Dashboard Analisi Rete", "Dashboard Commerciale", "Dashboard
+  // Fatturazione") oltre a "Dashboard generale": 4 voci per la stessa cosa
+  // (statistiche) filtrata diversamente. Ora è una sola voce "Dashboard" —
+  // i reparti sono tab dentro quella pagina (vedi dashboard/page.tsx),
+  // calcolati là con la stessa regola di visibilità (personaVedeReparto),
+  // non più qui nel menu.
 
   // ★ RIORGANIZZATA (2026-08) — richiesta esplicita: la sidebar era
   // "caotica", in particolare "Mondo Business" era un cassetto con dentro
@@ -126,17 +133,18 @@ export function AppSidebar({
         etichetta: "Assistenza",
         icona: LayoutGrid,
         accento: "#FF9F43",
+        href: "/",
         voci: [
-          { href: "/", etichetta: "Assistenza", icona: LayoutGrid, esatto: true },
           { href: "/tickets", etichetta: "Ticket", icona: Ticket },
           { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat },
           { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
           { href: "/materiali", etichetta: "Materiali", icona: Boxes },
-          // ★ NUOVA (2026-09-03, richiesta esplicita: "una volta salvato il
-          // rapporto di lavoro ho bisogno di poterci accedere... anche
-          // ufficio fatturazione per fatturare") — nessun gate di reparto,
-          // visibile a chiunque veda Mondo Assistenza (Fatturazione incluso).
-          { href: "/rapporti-lavoro", etichetta: "Rapporti di Lavoro", icona: FileCheck2 },
+          // ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact
+          // "Meno Voci nel Menu") — "Rapporti di Lavoro" (nata poche ore
+          // prima nella stessa sessione) è confluita qui come secondo tab
+          // ("Schede e Rapportini"): stessa storia dell'Archivio vista
+          // dall'altro lato, non due voci di menu per due metà della
+          // stessa cosa.
           { href: "/archivio", etichetta: "Archivio", icona: Archive },
         ],
       },
@@ -180,10 +188,11 @@ export function AppSidebar({
         etichetta: "Analisi",
         icona: BarChart3,
         accento: "#60A5FA",
-        voci: [
-          { href: "/dashboard", etichetta: "Dashboard generale", icona: Gauge },
-          ...dashboardReparti.map((r) => ({ href: `/dashboard/${r.slug}`, etichetta: r.etichetta, icona: Gauge })),
-        ],
+        // ★ un solo tab (Dashboard, con i reparti come tab interni — vedi
+        // sopra), quindi il mondo stesso è il link diretto invece di aprire
+        // una sezione con dentro un'unica voce identica al nome del mondo.
+        href: "/dashboard",
+        voci: [],
       },
       {
         id: "team",
@@ -213,13 +222,21 @@ export function AppSidebar({
         ],
       },
     ];
-    return lista.filter((m) => m.voci.length > 0);
-  }, [dashboardReparti, vedeRichieste, vedeTariffe, isAdmin]);
+    // ★ un mondo resta visibile anche senza voci proprie, se ha un href
+    // diretto (es. Analisi → "/dashboard", un solo tab interno) — solo un
+    // mondo senza né voci né href (nessun permesso per nulla al suo
+    // interno) sparisce del tutto.
+    return lista.filter((m) => m.voci.length > 0 || m.href);
+  }, [vedeRichieste, vedeTariffe, isAdmin]);
 
   // ★ il mondo della pagina corrente (es. aprendo /tariffe è "Vendita") —
   // usato per tenere la sua sezione già aperta nell'accordion sotto.
   const mondoDaPercorso = useMemo(() => {
     for (const m of mondi) {
+      // ★ un mondo con un href proprio (es. Assistenza → "/") conta come
+      // la sua stessa voce esatta, da quando quella voce non c'è più nella
+      // lista sotto — vedi il commento su Mondo.href.
+      if (m.href === pathname) return m.id;
       if (m.voci.some((v) => (v.esatto ? pathname === v.href : pathname.startsWith(v.href)))) return m.id;
     }
     return mondi[0]?.id ?? "ticket";
@@ -284,10 +301,8 @@ export function AppSidebar({
           const contieneAttivo = m.id === mondoDaPercorso;
           return (
             <div key={m.id} className="pb-0.5" style={{ "--accento": m.accento } as React.CSSProperties}>
-              <button
-                onClick={() => toggleGruppo(m.id)}
-                aria-expanded={aperto}
-                className={`group relative flex w-full items-center gap-2 rounded-lg py-2 pl-4 pr-2 text-left text-[11px] font-bold uppercase tracking-wider transition ${
+              <div
+                className={`group relative flex w-full items-center rounded-lg text-[11px] font-bold uppercase tracking-wider transition ${
                   contieneAttivo ? "text-sidebar-foreground/85" : "text-sidebar-foreground/45 hover:text-sidebar-foreground/70"
                 } ${aperto ? "bg-[color-mix(in_oklch,var(--accento)_16%,transparent)]" : "hover:bg-sidebar-accent"}`}
               >
@@ -300,14 +315,42 @@ export function AppSidebar({
                     aperto ? "opacity-100" : "opacity-55 group-hover:opacity-100"
                   }`}
                 />
-                <Icona className="h-3.5 w-3.5 shrink-0 text-[var(--accento)]" strokeWidth={2.25} />
-                <span className="flex-1 truncate">{m.etichetta}</span>
-                <ChevronRight
-                  className={`h-3 w-3 shrink-0 transition-transform ${aperto ? "rotate-90 text-[var(--accento)]" : "text-sidebar-foreground/40"}`}
-                  strokeWidth={2.5}
-                />
-              </button>
-              {aperto && (
+                {/* ★ NUOVA (2026-09-03, "meno voci di menu possibili") —
+                quando il mondo ha una pagina home (vedi Mondo.href), il
+                nome/icona diventa un link diretto a quella pagina; la
+                freccia resta un pulsante a sé solo per aprire/chiudere la
+                sezione, così i due gesti ("vai alla home" e "sfoglia le
+                voci") non si pestano i piedi a vicenda. Senza href, tutta
+                la riga resta un unico pulsante di apertura come prima. */}
+                {m.href ? (
+                  <Link href={m.href} onClick={() => setAperta(false)} className="flex flex-1 items-center gap-2 py-2 pl-4 pr-1">
+                    <Icona className="h-3.5 w-3.5 shrink-0 text-[var(--accento)]" strokeWidth={2.25} />
+                    <span className="flex-1 truncate">{m.etichetta}</span>
+                  </Link>
+                ) : (
+                  <button onClick={() => toggleGruppo(m.id)} aria-expanded={aperto} className="flex flex-1 items-center gap-2 py-2 pl-4 pr-1 text-left">
+                    <Icona className="h-3.5 w-3.5 shrink-0 text-[var(--accento)]" strokeWidth={2.25} />
+                    <span className="flex-1 truncate">{m.etichetta}</span>
+                  </button>
+                )}
+                {/* ★ un mondo senza voci proprie (es. Analisi, un solo tab
+                interno) non ha nulla da sfogliare: niente freccia, il link
+                sopra basta da solo. */}
+                {m.voci.length > 0 && (
+                  <button
+                    onClick={() => toggleGruppo(m.id)}
+                    aria-expanded={aperto}
+                    aria-label={aperto ? `Comprimi ${m.etichetta}` : `Espandi ${m.etichetta}`}
+                    className="flex items-center py-2 pl-1 pr-3"
+                  >
+                    <ChevronRight
+                      className={`h-3 w-3 shrink-0 transition-transform ${aperto ? "rotate-90 text-[var(--accento)]" : "text-sidebar-foreground/40"}`}
+                      strokeWidth={2.5}
+                    />
+                  </button>
+                )}
+              </div>
+              {aperto && m.voci.length > 0 && (
                 <div className="flex flex-col gap-0.5 py-0.5 pl-3.5">
                   {m.voci.map((voce) => {
                     const attivo = voce.esatto ? pathname === voce.href : pathname.startsWith(voce.href);
