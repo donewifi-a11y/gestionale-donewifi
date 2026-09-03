@@ -2,50 +2,79 @@ import nodemailer from "nodemailer";
 import type { AreaAccesso } from "@/lib/types";
 import { registraEsitoIntegrazione } from "@/lib/integrazioni-log";
 
+// ★ MIGRATA (2026-09-03, bug reale: la casella Aruba di Commerciale è
+// stata bloccata da Aruba stessa — "525 5.7.13 Sending temporarily
+// disabled for this mailbox, please change password" — e, sbloccarla
+// richiedendo un cambio password non voluto, si è scelto di smettere di
+// dipendere dalle caselle Aruba del tutto) — un solo mittente per tutte le
+// email del gestionale, verificato su Resend (dominio donewifi.it) invece
+// di tre caselle Aruba indipendenti che possono bloccarsi una per una.
+// "comunicazioni@donewifi.it" — scelto esplicitamente dall'utente, un vero
+// no-reply: nessuna casella reale legge le risposte, per questo i testi
+// delle email invitano a chiamare invece di "rispondi pure a questa
+// email" (vedi CONTATTACI_TESTO più sotto, usato ovunque prima c'era
+// quella frase).
+const MITTENTE_UNICO = "comunicazioni@donewifi.it";
+
+// ★ il nome mittente resta diverso per reparto come con le caselle Aruba —
+// cambia solo l'indirizzo dietro le quinte, non l'identità percepita dal
+// cliente ("Done Wifi Commerciale" invece di un generico "Done Wifi").
+const NOME_MITTENTE_REPARTI: Partial<Record<AreaAccesso, string>> = {
+  "Analisi Rete": "Done Wifi Assistenza",
+  Commerciale: "Done Wifi Commerciale",
+  Fatturazione: "Done Wifi",
+};
+
+function mittenteReparto(reparto?: AreaAccesso): string {
+  const nome = (reparto && NOME_MITTENTE_REPARTI[reparto]) || "Done Wifi";
+  return `"${nome}" <${MITTENTE_UNICO}>`;
+}
+
+async function inviaViaResend(mittente: string, a: string, oggetto: string, html: string, testo?: string): Promise<{ errore: string | null }> {
+  const risposta = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: mittente, to: a, subject: oggetto, html, text: testo }),
+  });
+  if (!risposta.ok) {
+    const corpo = await risposta.json().catch(() => ({}) as Record<string, unknown>);
+    const messaggio = typeof corpo.message === "string" ? corpo.message : `Resend ha risposto ${risposta.status}.`;
+    return { errore: messaggio };
+  }
+  return { errore: null };
+}
+
 // ★ ex EMAIL_MITTENTE_REPARTI del vecchio gestionale (Gmail "Invia
-// messaggi come") — qui lo stesso principio ma via le caselle Aruba vere
-// e proprie (SMTP, non l'API Resend): ogni reparto ha una propria casella
-// con le proprie credenziali, quindi il cliente riceve davvero da
-// quell'indirizzo, non da un mittente generico "spoofato".
-const CASELLE_REPARTI: Partial<Record<AreaAccesso, { nome: string; envUser: string; envPass: string }>> = {
+// messaggi come") — percorso SMTP via le caselle Aruba, tenuto solo come
+// ripiego se RESEND_API_KEY non è configurata (es. sviluppo locale senza
+// account Resend a disposizione): non più il percorso principale, vedi
+// nota sopra su MITTENTE_UNICO.
+const CASELLE_REPARTI_SMTP: Partial<Record<AreaAccesso, { nome: string; envUser: string; envPass: string }>> = {
   "Analisi Rete": { nome: "Done Wifi Assistenza", envUser: "SMTP_USER_ANALISI_RETE", envPass: "SMTP_PASS_ANALISI_RETE" },
   Commerciale: { nome: "Done Wifi Commerciale", envUser: "SMTP_USER_COMMERCIALE", envPass: "SMTP_PASS_COMMERCIALE" },
   Fatturazione: { nome: "Done Wifi", envUser: "SMTP_USER_FATTURAZIONE", envPass: "SMTP_PASS_FATTURAZIONE" },
 };
 
-function transporter(user: string, pass: string) {
+function transporterSmtp(user: string, pass: string) {
   const host = process.env.SMTP_HOST || "smtps.aruba.it";
   const port = Number(process.env.SMTP_PORT || 465);
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
 }
 
-interface CredenzialiCasella {
-  mittente: string;
-  user: string;
-  pass: string;
-}
-
-/** Credenziali della casella del reparto — o della casella di default (SMTP_USER/SMTP_PASS) se il reparto non ne ha una propria o non è specificato. */
-function credenzialiReparto(reparto?: AreaAccesso): CredenzialiCasella | null {
-  const casella = reparto ? CASELLE_REPARTI[reparto] : undefined;
+async function inviaViaSmtp(a: { a: string; oggetto: string; corpoHtml: string; corpoTesto?: string; reparto?: AreaAccesso }): Promise<{ errore: string | null }> {
+  const casella = a.reparto ? CASELLE_REPARTI_SMTP[a.reparto] : undefined;
   const user = (casella ? process.env[casella.envUser] : undefined) || process.env.SMTP_USER;
   const pass = (casella ? process.env[casella.envPass] : undefined) || process.env.SMTP_PASS;
-  if (!user || !pass) return null;
-  const nome = casella?.nome || "Done Wifi";
-  return { mittente: `"${nome}" <${user}>`, user, pass };
+  if (!user || !pass) return { errore: "Invio email non configurato (né RESEND_API_KEY né credenziali SMTP per questa casella)." };
+  const mittente = `"${casella?.nome || "Done Wifi"}" <${user}>`;
+  try {
+    await transporterSmtp(user, pass).sendMail({ from: mittente, to: a.a, subject: a.oggetto, html: a.corpoHtml, text: a.corpoTesto });
+    return { errore: null };
+  } catch (err) {
+    return { errore: err instanceof Error ? err.message : "Errore imprevisto nell'invio email." };
+  }
 }
 
-// ★ ex _inviaEmailChiusura() del vecchio gestionale — qui via SMTP Aruba
-// (nodemailer) invece di Resend: nessuna API esterna, usa direttamente le
-// caselle email aziendali già esistenti. Come Telegram e Google Calendar:
-// se le credenziali della casella non sono configurate, l'invio viene
-// segnalato come errore ma non blocca mai il resto del gestionale.
-//
 // ★ NUOVA (2026-08) — `corpoTesto` (facoltativo) aggiunge una versione
 // solo-testo accanto all'HTML: filtri antispam e client che bloccano
 // immagini/HTML vedono comunque un messaggio leggibile invece di
@@ -53,29 +82,16 @@ function credenzialiReparto(reparto?: AreaAccesso): CredenzialiCasella | null {
 export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: string; corpoTesto?: string; reparto?: AreaAccesso }) {
   if (!a.a) return { errore: "Nessun indirizzo destinatario." };
 
-  const credenziali = credenzialiReparto(a.reparto);
-  if (!credenziali) {
-    const errore = "Invio email non configurato (credenziali SMTP mancanti per questa casella).";
-    await registraEsitoIntegrazione("email", "errore", `${a.reparto ?? "default"}: ${errore}`);
-    return { errore };
-  }
+  const risultato = process.env.RESEND_API_KEY
+    ? await inviaViaResend(mittenteReparto(a.reparto), a.a, a.oggetto, a.corpoHtml, a.corpoTesto)
+    : await inviaViaSmtp(a);
 
-  try {
-    const t = transporter(credenziali.user, credenziali.pass);
-    await t.sendMail({
-      from: credenziali.mittente,
-      to: a.a,
-      subject: a.oggetto,
-      html: a.corpoHtml,
-      text: a.corpoTesto,
-    });
-    await registraEsitoIntegrazione("email", "ok", `${a.reparto ?? "default"} → ${a.a}`);
-    return { errore: null };
-  } catch (err) {
-    const errore = err instanceof Error ? err.message : "Errore imprevisto nell'invio email.";
-    await registraEsitoIntegrazione("email", "errore", `${a.reparto ?? "default"} → ${a.a}: ${errore}`);
-    return { errore };
-  }
+  await registraEsitoIntegrazione(
+    "email",
+    risultato.errore ? "errore" : "ok",
+    risultato.errore ? `${a.reparto ?? "default"} → ${a.a}: ${risultato.errore}` : `${a.reparto ?? "default"} → ${a.a}`
+  );
+  return risultato;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -101,6 +117,13 @@ const LOGO_URL = "https://gestione.donewifi.it/brand/logo-bianco.png";
 const FOOTER_AZIENDA =
   '<b style="color:#6B625E;">Done Wifi</b> — Studio Armonia Srl, Via Tourneuve 6, 11100 Aosta (AO) — P.IVA 05690180012 — Tel. 0165 1825169';
 const FOOTER_AZIENDA_TESTO = "Done Wifi — Studio Armonia Srl, Via Tourneuve 6, 11100 Aosta (AO) — P.IVA 05690180012 — Tel. 0165 1825169";
+
+// ★ NUOVA (2026-09-03, stesso contesto della migrazione a Resend sopra) —
+// da "comunicazioni@donewifi.it" (vero no-reply, nessuna casella dietro a
+// leggere le risposte) non ha più senso invitare a "rispondere a questa
+// email" come facevano le 7 email sotto quando partivano da una vera
+// casella Aruba — sostituita ovunque con un invito a chiamare.
+const CONTATTACI_TESTO = "Per qualsiasi domanda, chiamaci al 0165 1825169.";
 
 function involucroEmail({ eyebrow, corpoHtml, footerExtra }: { eyebrow: string; corpoHtml: string; footerExtra: string }): string {
   return `
@@ -136,7 +159,7 @@ export function emailApprovazioneIntervento(cliente: string, numero: number, lin
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">ti confermiamo che l'intervento relativo al tuo Ticket #${numero} è stato completato da remoto. Per confermare che tutto funzioni correttamente, clicca sul link qui sotto:</p>
         ${bottoneEmail("Conferma intervento", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Se hai ancora problemi, rispondi pure a questa email.<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché è stato risolto da remoto un intervento sul tuo Ticket.",
     }),
@@ -146,7 +169,7 @@ ti confermiamo che l'intervento relativo al tuo Ticket #${numero} è stato compl
 Per confermare che tutto funzioni correttamente, apri questo link:
 ${link}
 
-Se hai ancora problemi, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Assistenza Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -163,7 +186,7 @@ export function emailApprovazioneContratto(cliente: string, numero: number, link
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato il contratto relativo alla tua pratica #${numero}. Prima di procedere con l'installazione, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
         ${bottoneEmail("Vedi e approva il contratto", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché hai richiesto un preventivo/installazione Done Wifi.",
     }),
@@ -172,7 +195,7 @@ export function emailApprovazioneContratto(cliente: string, numero: number, link
 abbiamo preparato il contratto relativo alla tua pratica #${numero}. Prima di procedere con l'installazione, ti chiediamo di leggerlo e confermarne l'approvazione:
 ${link}
 
-Per qualsiasi domanda, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Commerciale Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -228,7 +251,7 @@ export function emailLinkFirmaScheda(cliente: string, ticketNumero: number, link
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">il tecnico Done Wifi ha completato l'intervento relativo al Ticket #${ticketNumero}. Conferma che i lavori sono stati svolti correttamente:</p>
         ${bottoneEmail("Confermo i lavori svolti", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché un tecnico Done Wifi è intervenuto sul tuo impianto.",
     }),
@@ -237,7 +260,7 @@ export function emailLinkFirmaScheda(cliente: string, ticketNumero: number, link
 il tecnico Done Wifi ha completato l'intervento relativo al Ticket #${ticketNumero}. Conferma che i lavori sono stati svolti correttamente:
 ${link}
 
-Per qualsiasi domanda, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Assistenza Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -254,7 +277,7 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato un preventivo per te (totale <b>${totale}</b>). Puoi vederlo nel dettaglio e scegliere se approvarlo direttamente da qui:</p>
         ${bottoneEmail("Vedi il preventivo", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché hai richiesto un preventivo Done Wifi.",
     }),
@@ -263,7 +286,7 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
 abbiamo preparato un preventivo per te (totale ${totale}). Puoi vederlo nel dettaglio e scegliere se approvarlo qui:
 ${link}
 
-Per qualsiasi domanda, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Commerciale Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -323,7 +346,7 @@ export function emailPraticaCliente(nome: string, titoloPratica: string, link: s
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${nome},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">${intro}</p>
         ${bottoneEmail("Vai alla pratica", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Servizio Clienti Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Servizio Clienti Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché hai richiesto questa pratica presso Done Wifi.",
     }),
@@ -332,7 +355,7 @@ export function emailPraticaCliente(nome: string, titoloPratica: string, link: s
 ${intro}
 ${link}
 
-Per qualsiasi domanda, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Servizio Clienti Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -354,7 +377,7 @@ export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${nome},</p>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">grazie per aver scelto Done Wifi. Per procedere con l'attivazione ci servono i tuoi dati fiscali e di pagamento, oltre a un documento d'identità — bastano pochi minuti, e i dati restano al sicuro.</p>
         ${bottoneEmail("Completa i dati", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi domanda, rispondi pure a questa email.<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché hai richiesto una copertura/attivazione Done Wifi.",
     }),
@@ -363,7 +386,7 @@ export function emailRichiestaDatiSegnalazione(nome: string, link: string) {
 grazie per aver scelto Done Wifi. Per procedere con l'attivazione ci servono i tuoi dati fiscali e di pagamento, oltre a un documento d'identità — bastano pochi minuti, e i dati restano al sicuro.
 ${link}
 
-Per qualsiasi domanda, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Commerciale Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
@@ -389,7 +412,7 @@ export function emailChiusuraTicket(cliente: string, numero: number, riepilogo?:
             ? `<div style="background:#F7F3F1;border-radius:10px;padding:14px 16px;margin:14px 0 0;"><p style="font-size:14px;color:#141414;line-height:1.6;margin:0;">${riepilogo}</p></div>`
             : ""
         }
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">Per qualsiasi necessità, rispondi pure a questa email.<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Assistenza Done Wifi</b></p>
       `,
       footerExtra: "Hai ricevuto questa email perché è stato completato un intervento sul tuo Ticket.",
     }),
@@ -397,7 +420,7 @@ export function emailChiusuraTicket(cliente: string, numero: number, riepilogo?:
 
 ti confermiamo che il tuo intervento (Ticket #${numero}) è stato completato.
 ${riepilogo ? `\n${riepilogo}\n` : ""}
-Per qualsiasi necessità, rispondi pure a questa email.
+${CONTATTACI_TESTO}
 
 Assistenza Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,

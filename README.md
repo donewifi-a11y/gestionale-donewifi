@@ -3349,6 +3349,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     dice già da sé.
   Build/lint puliti.
 
+✅ Invio email migrato ad un unico mittente su Resend (2026-09-03, bug reale: la casella Aruba
+  di Commerciale bloccata da Aruba stessa — "525 5.7.13 Sending temporarily disabled for this
+  mailbox, please change password" — poi anche un secondo blocco "550 5.1.0 connessione
+  temporaneamente rifiutata"; l'utente ha scelto esplicitamente di non cambiare la password e di
+  smettere di dipendere dalle caselle Aruba) — tutte le email del gestionale partono ora da
+  **comunicazioni@donewifi.it**, un vero no-reply verificato su Resend (dominio `donewifi.it`,
+  DKIM+SPF), invece di tre caselle Aruba indipendenti che possono bloccarsi una per una.
+  - `lib/email.ts`: `inviaEmail()` usa Resend (`RESEND_API_KEY`) quando configurata, altrimenti
+    ricade sul vecchio invio SMTP Aruba (`inviaViaSmtp`, tenuto solo come ripiego per lo sviluppo
+    locale senza account Resend) — stesso principio "non blocca mai il flusso principale" già in
+    uso per Telegram/Google Calendar.
+  - Nome mittente resta diverso per reparto ("Done Wifi Commerciale", "Done Wifi Assistenza",
+    "Done Wifi") — cambia solo l'indirizzo dietro le quinte, non l'identità percepita dal cliente.
+  - Le 7 email al cliente che dicevano "rispondi pure a questa email" sono state riviste — da un
+    vero no-reply non ha più senso: ora invitano a chiamare (`CONTATTACI_TESTO`, "Per qualsiasi
+    domanda, chiamaci al 0165 1825169"), stesso numero già nel footer.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
