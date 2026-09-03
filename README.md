@@ -3335,6 +3335,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     riuscirebbe a scrivere: il campo Titolo si sarebbe rimontato ad ogni tasto).
   Build/lint puliti.
 
+✅ "Tipo di intervento" obbligatorio per una Lavorazione tecnica (2026-09-03, bug reale
+  segnalato con screenshot: "non si vede il tipo di lavorazione" — l'appuntamento "Sarre —
+  Vania Luberto", pianificato con il nuovo codice ma con il selettore lasciato su "Non
+  specificato": il titolo restava solo "Comune — Cliente", senza dire cosa fare sul posto —
+  chiarito con l'utente: il campo andava reso obbligatorio, non solo proposto) — prima era
+  facoltativo in entrambi i form (Calendario → "Nuovo Appuntamento" e "Pianifica
+  appuntamento" nel Ticket): bastava dimenticarselo perché il titolo perdesse l'informazione
+  più utile.
+  - Entrambi i selettori "Tipo di intervento" ora bloccano il salvataggio (client-side, stesso
+    messaggio d'errore in entrambi) se lasciati vuoti mentre il tipo di servizio è
+    "Lavorazione tecnica" — una Nuova installazione non lo richiede, il tipo di servizio lo
+    dice già da sé.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

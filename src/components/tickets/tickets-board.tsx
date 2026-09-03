@@ -1513,6 +1513,12 @@ export function PianificaAppuntamento({
     const data = String(dati.get("data") || "");
     const ora = String(dati.get("ora") || "");
     if (!data || !ora) return setErrore("Imposta data e ora.");
+    // ★ NUOVA (2026-09-03, richiesta esplicita dopo un caso reale — "Sarre —
+    // Vania Luberto", pianificato senza scegliere il tipo di intervento —
+    // "non si vede il tipo di lavorazione") — stesso obbligo già aggiunto a
+    // Calendario → "Nuovo Appuntamento": per una Lavorazione tecnica va
+    // scelto per forza, non basta più lasciarlo "Non specificato".
+    if (tipoServizio === "Lavorazione tecnica" && !tipoIntervento) return setErrore("Scegli il tipo di intervento (Cambio CPE, Ripuntamento…).");
 
     startTransizione(async () => {
       const risultato = await creaAppuntamento({
@@ -1600,11 +1606,12 @@ export function PianificaAppuntamento({
         {tipoServizio === "Lavorazione tecnica" && (
           <select
             name="tipo_intervento"
+            required
             value={tipoIntervento}
             onChange={(e) => setTipoIntervento(e.target.value)}
             className="h-8 rounded-md border bg-background px-2 text-xs"
           >
-            <option value="">Tipo di intervento (non specificato)</option>
+            <option value="">— Scegli il tipo di intervento —</option>
             {INTERVENTI_RAPIDI.map((i) => (
               <option key={i} value={i}>{i}</option>
             ))}

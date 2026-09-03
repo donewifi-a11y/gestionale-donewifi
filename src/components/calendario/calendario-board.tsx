@@ -913,6 +913,16 @@ function FormNuovoAppuntamento({
       setErrore("Titolo, data e ora sono obbligatori.");
       return;
     }
+    // ★ NUOVA (2026-09-03, richiesta esplicita dopo un caso reale — "Sarre —
+    // Vania Luberto", pianificato senza scegliere il tipo di intervento —
+    // "non si vede il tipo di lavorazione") — prima il selettore era del
+    // tutto facoltativo: bastava lasciarlo su "Non specificato" perché il
+    // titolo restasse solo "Comune — Cliente", senza dire cosa fare sul
+    // posto. Ora, per una Lavorazione tecnica, va scelto per forza.
+    if (tipoServizio === "Lavorazione tecnica" && !tipoIntervento) {
+      setErrore("Scegli il tipo di intervento (Cambio CPE, Ripuntamento…).");
+      return;
+    }
     startTransizione(async () => {
       const risultato = await creaAppuntamento({
         titolo,
@@ -960,14 +970,15 @@ function FormNuovoAppuntamento({
           <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
           {tipoServizio === "Lavorazione tecnica" && (
             <div>
-              <Label htmlFor="tipoIntervento">Tipo di intervento</Label>
+              <Label htmlFor="tipoIntervento">Tipo di intervento *</Label>
               <select
                 id="tipoIntervento"
+                required
                 value={tipoIntervento}
                 onChange={(e) => setTipoIntervento(e.target.value)}
                 className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
-                <option value="">Non specificato</option>
+                <option value="">— Scegli il tipo di intervento —</option>
                 {INTERVENTI_RAPIDI.map((i) => (
                   <option key={i} value={i}>{i}</option>
                 ))}
