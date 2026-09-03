@@ -3,10 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
+import { GruppoDatiCliente, formattaValoreCampo } from "@/components/condivisi/dati-cliente";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +21,23 @@ import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRic
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
+
+// ★ NUOVA (2026-09-03, "rivediamo la grafica... deve essere tutta
+// omologata con il sistema attuale" — screenshot di una pratica
+// Trasferimento con CAP/VIA/NOME/NOTE ecc. come elenco piatto) — i campi
+// che una pratica di Gestione Cliente può portare (diversi da quelli di
+// "Richiesta Dati" in Segnalazioni: qui non c'è un piano scelto, ma
+// possono comparire nome/telefono per il subentro, un nuovo indirizzo per
+// il trasferimento, IBAN per il cambio pagamento...), raggruppati come già
+// avviene in Segnalazioni invece di un unico elenco piatto. Un "Altro" in
+// fondo raccoglie qualunque campo futuro non ancora previsto qui, così non
+// sparisce in silenzio (stesso principio già in uso in segnalazioni-board.tsx).
+const GRUPPI_DETTAGLI_PRATICA: { titolo: string; campi: string[] }[] = [
+  { titolo: "Contatto", campi: ["nome", "cognome", "telefono", "email", "nuovoTelefono", "nuovaEmail"] },
+  { titolo: "Pagamento", campi: ["metodoPagamento", "iban", "ibanIntestatarioNome", "ibanIntestatarioCf", "mandatoSepa"] },
+  { titolo: "Preferenze", campi: ["dataPreferita", "note"] },
+];
+const CAMPI_INDIRIZZO_PRATICA = ["via", "civico", "piano", "comune", "cap"];
 
 const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 
@@ -187,6 +205,27 @@ function DettaglioRichiesta({
   const toast = useToast();
   const [inCorso, startTransizione] = useTransition();
   const [inCorsoElimina, startElimina] = useTransition();
+  // ★ NUOVA — stesso "copia per campo/copia tutto" già in uso in Segnalazioni
+  // (GruppoDatiCliente), qui replicato per lo stesso identico bisogno: chi
+  // lavora una pratica ricopia questi dati nel gestionale contratti esterno.
+  const [campiCopiati, setCampiCopiati] = useState<Set<string>>(new Set());
+
+  function copiaCampo(chiave: string, etichetta: string, valore: string) {
+    navigator.clipboard.writeText(valore);
+    setCampiCopiati((cur) => new Set(cur).add(chiave));
+    toast(`Copiato "${etichetta}".`, "successo");
+  }
+
+  function copiaGruppo(titolo: string, voci: { chiave: string; etichetta: string; valore: string }[]) {
+    const blocco = voci.map((v) => `${v.etichetta}: ${v.valore}`).join("\n");
+    navigator.clipboard.writeText(blocco);
+    setCampiCopiati((cur) => {
+      const nuovo = new Set(cur);
+      voci.forEach((v) => nuovo.add(v.chiave));
+      return nuovo;
+    });
+    toast(`Copiata tutta la sezione "${titolo}".`, "successo");
+  }
 
   function cambiaStato(nuovo: string) {
     if (nuovo === richiesta.stato) return;
@@ -279,14 +318,78 @@ function DettaglioRichiesta({
           </Link>
         )}
 
-        {Object.entries(richiesta.dettagli || {}).map(([chiave, valore]) =>
-          valore ? (
-            <div key={chiave}>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichettaDettaglio(chiave)}</div>
-              <div className="font-medium">{valore}</div>
-            </div>
-          ) : null
-        )}
+        {(() => {
+          const dettagli = richiesta.dettagli || {};
+          const campiUsati = new Set(CAMPI_INDIRIZZO_PRATICA);
+          const vociIndirizzo = CAMPI_INDIRIZZO_PRATICA.filter((c) => !!dettagli[c]);
+          const gruppiConDati = GRUPPI_DETTAGLI_PRATICA.map((g) => ({
+            titolo: g.titolo,
+            voci: g.campi.filter((c) => {
+              const presente = !!dettagli[c];
+              if (presente) campiUsati.add(c);
+              return presente;
+            }),
+          })).filter((g) => g.voci.length > 0);
+          const altriCampi = Object.keys(dettagli).filter((c) => !campiUsati.has(c) && dettagli[c]);
+          // ★ solo per il link "Apri in mappa" — il campo "via" può già
+          // essere una stringa d'indirizzo completa (compilata con
+          // IndirizzoAutocomplete) o solo il nome della strada a seconda di
+          // come l'ha scritta il cliente: in entrambi i casi va bene come
+          // query di ricerca su Google Maps, non va invece mostrata
+          // concatenata con civico/comune a video — il risultato per un
+          // indirizzo già completo sarebbe illeggibile (doppio comune,
+          // doppio CAP). I singoli campi restano leggibili uno per uno qui
+          // sotto (GruppoDatiCliente), come per gli altri gruppi.
+          const queryMappa = [dettagli.via, dettagli.civico, dettagli.comune].filter(Boolean).join(" ");
+
+          return (
+            <>
+              {vociIndirizzo.length > 0 && (
+                <GruppoDatiCliente
+                  titolo="Indirizzo"
+                  icona={MapPin}
+                  categoria="luogo"
+                  voci={vociIndirizzo.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: dettagli[chiave] }))}
+                  campiCopiati={campiCopiati}
+                  onCopiaCampo={copiaCampo}
+                  onCopiaGruppo={copiaGruppo}
+                  azioneDestra={
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(queryMappa)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold text-primary transition hover:border-primary/40"
+                    >
+                      <MapPin className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} />
+                      Apri in mappa
+                    </a>
+                  }
+                />
+              )}
+
+              {gruppiConDati.map((gruppo) => (
+                <GruppoDatiCliente
+                  key={gruppo.titolo}
+                  titolo={gruppo.titolo}
+                  voci={gruppo.voci.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, dettagli[chiave]) }))}
+                  campiCopiati={campiCopiati}
+                  onCopiaCampo={copiaCampo}
+                  onCopiaGruppo={copiaGruppo}
+                />
+              ))}
+
+              {altriCampi.length > 0 && (
+                <GruppoDatiCliente
+                  titolo="Altro"
+                  voci={altriCampi.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: dettagli[chiave] }))}
+                  campiCopiati={campiCopiati}
+                  onCopiaCampo={copiaCampo}
+                  onCopiaGruppo={copiaGruppo}
+                />
+              )}
+            </>
+          );
+        })()}
 
         {richiesta.documenti?.length > 0 && (
           <div>

@@ -3367,6 +3367,27 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     domanda, chiamaci al 0165 1825169"), stesso numero già nel footer.
   Build/lint puliti.
 
+✅ Grafica "Gestione Cliente" omologata al resto del gestionale (2026-09-03, richiesta esplicita
+  con screenshot: "rivediamo la grafica di alcune parti, deve essere tutta omologata con il
+  sistema attuale — parlo per esempio dell'invio dei clienti di dati") — il dettaglio di una
+  pratica (Trasferimento/Subentro/Cambio IBAN/Cambio Anagrafica/Disdetta) mostrava i dati inviati
+  dal cliente come un unico elenco piatto MAIUSCOLO/valore, senza icone né raggruppamento, mentre
+  Segnalazioni ha da tempo lo stesso trattamento con gruppi ed icone colorate e copia-negli-appunti.
+  - Estratti `RigaDatoCliente`/`GruppoDatiCliente` da `segnalazioni-board.tsx` in un nuovo file
+    condiviso (`components/condivisi/dati-cliente.tsx`) — `segnalazioni-board.tsx` NON toccato
+    (mantiene le proprie copie locali identiche): zero rischio di regressione su un flusso appena
+    passato per un controllo d'oro.
+  - `GruppoDatiCliente` esteso con icona colorata facoltativa (stesso `IconaCategoria` usato
+    ovunque) e uno slot per un'azione a destra ("Apri in mappa") — retrocompatibile, i chiamanti
+    esistenti che non passano queste prop restano identici.
+  - `richieste-clienti-board.tsx`: dati raggruppati per Indirizzo/Contatto/Pagamento/Preferenze
+    invece dell'elenco piatto, con copia-per-campo e copia-gruppo. L'indirizzo mostra i singoli
+    campi (via/civico/piano/comune/CAP) invece di comporli in un'unica frase: verificato sui dati
+    reali (Marcello Nasso) che il campo "via" può già essere una stringa completa da
+    autocompletamento — concatenarla con civico/comune avrebbe prodotto un doppio comune/CAP
+    illeggibile. "Apri in mappa" resta disponibile, costruito a parte solo per la query di ricerca.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
