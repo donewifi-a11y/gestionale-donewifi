@@ -211,6 +211,25 @@ export function tipoServizioDaTicket(categoria: string, sottocategoria: string |
 }
 
 /**
+ * ★ NUOVA (2026-09-03, richiesta esplicita: "dobbiamo rivedere completamente
+ * il calendario e come si vede come titolo sia su google che sul calendario
+ * del gestionale") — unico punto che decide il titolo di un Appuntamento,
+ * usato sia da Calendario → "Nuovo Appuntamento" sia da Dettaglio Ticket →
+ * "Pianifica appuntamento" (finora quest'ultimo componeva un titolo diverso
+ * e più gergoso, `categoria — sottocategoria · cliente`, es. "Assistenza —
+ * Guasto rete · Mario Rossi": non diceva cosa fare sul posto e non aveva mai
+ * ricevuto il selettore "Tipo di intervento" aggiunto qui la settimana
+ * prima). Stesso formato ovunque, "a colpo d'occhio" sia nel gestionale sia
+ * su Google Calendar: il tipo di intervento (solo per una Lavorazione
+ * tecnica — una Nuova installazione lo dice già da sé nel tipo di servizio)
+ * seguito dal cliente, es. "Cambio CPE — Mario Rossi".
+ */
+export function titoloAppuntamento(tipoServizio: TipoServizioAppuntamento, tipoIntervento: string, cliente: string): string {
+  const prefisso = tipoServizio === "Lavorazione tecnica" ? tipoIntervento : "";
+  return [prefisso, cliente].filter(Boolean).join(" — ");
+}
+
+/**
  * ★ NUOVA (2026-08-28, richiesta esplicita: "nel inserimento mac devi far
  * mettere i : ogni due caratteri e trasformare in stampatello le lettere")
  * — da usare come `onChange` sul campo MAC Address della Scheda di

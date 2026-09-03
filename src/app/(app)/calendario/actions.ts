@@ -44,6 +44,42 @@ export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
   return data ?? [];
 }
 
+/**
+ * ★ NUOVA (2026-09-03, "rivedere completamente il calendario e come si vede
+ * come titolo sia su google che sul calendario del gestionale" — chiarito
+ * con l'utente: il problema era che mancava informazione utile "a colpo
+ * d'occhio") — nel gestionale indirizzo/telefono/tecnico sono già visibili
+ * accanto al titolo (RigaAppuntamento); su Google Calendar (spesso aperto
+ * da telefono, fuori dal gestionale) il titolo resta volutamente sintetico
+ * ("Cambio CPE — Mario Rossi", vedi titoloAppuntamento()) e finora la
+ * descrizione dell'evento portava solo le note libere, quasi sempre vuote:
+ * aprire l'evento non diceva a quale Ticket si riferisse, chi fosse il
+ * tecnico assegnato o come richiamare il cliente. Composta qui invece che
+ * duplicata nei due punti che creano/modificano l'evento (creaAppuntamento/
+ * modificaAppuntamento).
+ */
+async function descrizioneEventoGoogle(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dati: { ticketId: string; tecnicoId: string; note: string }
+): Promise<string | null> {
+  const righe: string[] = [];
+
+  if (dati.ticketId) {
+    const { data: ticket } = await supabase.from("tickets").select("numero, cliente, telefono").eq("id", dati.ticketId).maybeSingle();
+    if (ticket) {
+      righe.push(`Ticket #${ticket.numero} — ${ticket.cliente}`);
+      if (ticket.telefono) righe.push(`Tel: ${ticket.telefono}`);
+    }
+  }
+  if (dati.tecnicoId) {
+    const { data: tecnico } = await supabase.from("persone").select("nome").eq("id", dati.tecnicoId).maybeSingle();
+    if (tecnico) righe.push(`Tecnico: ${tecnico.nome}`);
+  }
+  if (dati.note.trim()) righe.push(dati.note.trim());
+
+  return righe.length > 0 ? righe.join("\n") : null;
+}
+
 export async function creaAppuntamento(dati: {
   titolo: string;
   indirizzo: string;
@@ -69,7 +105,7 @@ export async function creaAppuntamento(dati: {
   const googleEventId = await creaEventoCalendario({
     titolo: dati.titolo,
     indirizzo: dati.indirizzo || null,
-    note: dati.note || null,
+    note: await descrizioneEventoGoogle(supabase, { ticketId: dati.ticketId, tecnicoId: dati.tecnicoId, note: dati.note }),
     dataOraInizio: dati.dataOra,
     durataMinuti: dati.durataMinuti,
   });
@@ -113,7 +149,7 @@ export async function modificaAppuntamento(
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
 
-  const { data: esistente } = await supabase.from("appuntamenti").select("google_event_id").eq("id", id).single();
+  const { data: esistente } = await supabase.from("appuntamenti").select("google_event_id, ticket_id").eq("id", id).single();
 
   const { error } = await supabase
     .from("appuntamenti")
@@ -133,7 +169,7 @@ export async function modificaAppuntamento(
     await aggiornaEventoCalendario(esistente.google_event_id, {
       summary: dati.titolo,
       location: dati.indirizzo,
-      note: dati.note,
+      note: await descrizioneEventoGoogle(supabase, { ticketId: esistente.ticket_id ?? "", tecnicoId: dati.tecnicoId, note: dati.note }),
       dataOraInizio: dati.dataOra,
       durataMinuti: dati.durataMinuti,
     });

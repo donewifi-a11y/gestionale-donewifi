@@ -3291,6 +3291,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     (`reparti: []`) li vedono tutti tramite il bypass di `personaHaAccessoAdmin()`.
   Build/lint puliti.
 
+✅ Titolo Appuntamento uniformato — Calendario e "Pianifica" dal Ticket (2026-09-03,
+  richiesta esplicita: "dobbiamo rivedere completamente il calendario e come si vede come
+  titolo sia su google che sul calendario del gestionale" — chiarito: il problema era
+  gergo interno nel titolo e mancanza di info a colpo d'occhio su Google, non il layout) —
+  "Pianifica appuntamento" nel Ticket (il percorso più usato per fissare un lavoro) generava
+  un titolo diverso da quello di Calendario → "Nuovo Appuntamento": `categoria —
+  sottocategoria · cliente` (es. "Assistenza — Guasto rete · Mario Rossi", gergo del ticket,
+  non diceva cosa fare sul posto) invece di "Cambio CPE — Mario Rossi", e non aveva mai
+  ricevuto il selettore "Tipo di intervento" aggiunto la settimana prima solo nell'altro form.
+  - Nuova `titoloAppuntamento()` (`lib/types.ts`) — unico punto che decide il titolo, usato
+    da entrambi i form: tipo di intervento (solo per una Lavorazione tecnica) + cliente, o
+    solo cliente per una Nuova installazione (il tipo di servizio lo dice già da sé).
+  - "Pianifica appuntamento" (`tickets-board.tsx`) riceve lo stesso selettore "Tipo di
+    intervento" già in Calendario, visibile solo per "Lavorazione tecnica".
+  - Descrizione dell'evento Google arricchita (`descrizioneEventoGoogle()`,
+    `calendario/actions.ts`): prima portava solo le note libere (quasi sempre vuote) — ora
+    anche numero Ticket, cliente, telefono e tecnico assegnato, per non dover riaprire il
+    gestionale leggendo l'evento da telefono. Il titolo resta volutamente sintetico
+    ("a colpo d'occhio" si è chiarito riguardare la descrizione, non il titolo).
+  - Verificato sui dati reali: colonne `tickets.telefono`/`appuntamenti.tecnico_id`
+    popolate, confermato dal vivo il vecchio formato gergoso che questa modifica sostituisce.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

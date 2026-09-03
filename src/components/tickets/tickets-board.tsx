@@ -39,7 +39,7 @@ import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, coloreReparto, coloreGruppo, tipoServizioDaTicket } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, tipoServizioDaTicket, titoloAppuntamento } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -1485,6 +1485,17 @@ export function PianificaAppuntamento({
   const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [fatto, setFatto] = useState(false);
+  // ★ NUOVA (2026-09-03, "rivedere completamente il calendario e come si
+  // vede come titolo sia su google che sul calendario del gestionale") —
+  // prima il titolo qui era sempre `categoria — sottocategoria · cliente`
+  // (es. "Assistenza — Guasto rete · Mario Rossi", gergo interno del
+  // ticket, non diceva cosa fare sul posto) e non riceveva mai il
+  // selettore "Tipo di intervento" aggiunto in Calendario → "Nuovo
+  // Appuntamento": stesso concetto, risultato diverso a seconda di dove si
+  // pianificava. Ora titoloAppuntamento() decide il titolo in un solo
+  // punto, usato da entrambi.
+  const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(tipoServizioIniziale);
+  const [tipoIntervento, setTipoIntervento] = useState("");
 
   useEffect(() => {
     if (aperto) getSlotOccupatiProssimi().then(setSlot);
@@ -1500,14 +1511,14 @@ export function PianificaAppuntamento({
 
     startTransizione(async () => {
       const risultato = await creaAppuntamento({
-        titolo: `${ticket.categoria}${ticket.sottocategoria ? ` — ${ticket.sottocategoria}` : ""} · ${ticket.cliente}`,
+        titolo: titoloAppuntamento(tipoServizio, tipoIntervento, ticket.cliente),
         indirizzo: ticket.indirizzo || "",
         dataOra: new Date(`${data}T${ora}`).toISOString(),
         durataMinuti: Number(dati.get("durata") || 60),
         tecnicoId: String(dati.get("tecnico") || ""),
         ticketId: ticket.id,
         note: "",
-        tipoServizio: String(dati.get("tipo_servizio") || "Lavorazione tecnica") as TipoServizioAppuntamento,
+        tipoServizio,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1571,11 +1582,29 @@ export function PianificaAppuntamento({
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        <select name="tipo_servizio" defaultValue={tipoServizioIniziale} className="h-8 rounded-md border bg-background px-2 text-xs">
+        <select
+          name="tipo_servizio"
+          value={tipoServizio}
+          onChange={(e) => setTipoServizio(e.target.value as TipoServizioAppuntamento)}
+          className="h-8 rounded-md border bg-background px-2 text-xs"
+        >
           {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        {tipoServizio === "Lavorazione tecnica" && (
+          <select
+            name="tipo_intervento"
+            value={tipoIntervento}
+            onChange={(e) => setTipoIntervento(e.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+          >
+            <option value="">Tipo di intervento (non specificato)</option>
+            {INTERVENTI_RAPIDI.map((i) => (
+              <option key={i} value={i}>{i}</option>
+            ))}
+          </select>
+        )}
         <div className="grid grid-cols-3 gap-2">
           <input type="date" name="data" required className="h-8 rounded-md border bg-background px-2 text-xs" />
           <input type="time" name="ora" required className="h-8 rounded-md border bg-background px-2 text-xs" />

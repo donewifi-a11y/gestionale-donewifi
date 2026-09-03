@@ -24,7 +24,7 @@ import {
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
-import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket, INTERVENTI_RAPIDI } from "@/lib/types";
+import { TIPI_SERVIZIO_APPUNTAMENTO, COLORE_SERVIZIO, tipoServizioDaTicket, titoloAppuntamento, INTERVENTI_RAPIDI } from "@/lib/types";
 import type { Appuntamento, MaterialeMagazzino, NotaCalendario, Persona, TipoServizioAppuntamento } from "@/lib/types";
 import type { EventoGoogleCalendario } from "@/lib/google-calendar";
 import type { VistaCalendario } from "@/app/(app)/calendario/page";
@@ -960,12 +960,12 @@ function FormNuovoAppuntamento({
           <div>
             <Label htmlFor="titolo">Titolo *</Label>
             <Input
-              key={`${ticketId}-${tipoIntervento}`}
+              key={`${ticketId}-${tipoServizio}-${tipoIntervento}`}
               id="titolo"
               name="titolo"
               required
               autoFocus
-              defaultValue={[tipoIntervento, ticketSelezionato?.cliente].filter(Boolean).join(" — ")}
+              defaultValue={titoloAppuntamento(tipoServizio, tipoIntervento, ticketSelezionato?.cliente ?? "")}
               className="mt-1 bg-background"
             />
           </div>
