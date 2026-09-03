@@ -3244,6 +3244,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     configurazione dominio prima di arrivare alla vera causa nel codice.
   Build/lint puliti.
 
+✅ Nuova pagina "Rapporti di Lavoro" (2026-09-03, richiesta esplicita: "una volta salvato il
+  rapporto di lavoro ho bisogno di poterci accedere per visionare tutti i dati fatti e anche
+  ufficio fatturazione per fatturare" — precisata: "deve esserci un tab con i rapporti di lavoro
+  divisi per tipologia e devo poter consultare tutto quello inserito, tutti i dati e foto") —
+  prima l'unico modo di rivedere una Scheda/Rapportino era riaprire il Ticket collegato;
+  l'Archivio mostrava il Rapportino ma MAI la Scheda di Installazione (materiali, CPE, importo —
+  proprio i dati utili per fatturare).
+  - `rapporti-lavoro/page.tsx` + `rapporti-lavoro/actions.ts`: due tab "Installazioni"/"Lavorazioni"
+    (quest'ultima unisce Schede di Lavorazione Tecnica e Rapportini — due flussi diversi per lo
+    stesso concetto), righe espandibili con la stessa vista di sola lettura già usata nel Ticket
+    (`SchedaVista`/`RapportinoVista`, nessun componente nuovo per il dettaglio). Ricerca per
+    cliente/numero Ticket.
+  - Paginato con lo stesso schema già in uso per le tabelle grandi (`fetchTuttiClientiEsterni`),
+    con "id" come spareggio dopo "creato_il" per un ordine stabile su `.range()`.
+  - Nuova voce "Rapporti di Lavoro" in Mondo Assistenza — nessun gate di reparto, visibile anche
+    all'ufficio Fatturazione come le altre pagine di quel mondo.
+  - Verificato sui dati reali: 4 Schede (tutte Installazione) + 11 Rapportini, join con `tickets`
+    per cliente/numero/importo confermato corretto.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

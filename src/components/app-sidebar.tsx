@@ -17,6 +17,7 @@ import {
   Tags,
   Boxes,
   ClipboardList,
+  FileCheck2,
   LayoutGrid,
   BarChart3,
   UsersRound,
@@ -131,6 +132,11 @@ export function AppSidebar({
           { href: "/vista-tecnico", etichetta: "Vista Tecnico", icona: HardHat },
           { href: "/calendario", etichetta: "Calendario", icona: CalendarDays },
           { href: "/materiali", etichetta: "Materiali", icona: Boxes },
+          // ★ NUOVA (2026-09-03, richiesta esplicita: "una volta salvato il
+          // rapporto di lavoro ho bisogno di poterci accedere... anche
+          // ufficio fatturazione per fatturare") — nessun gate di reparto,
+          // visibile a chiunque veda Mondo Assistenza (Fatturazione incluso).
+          { href: "/rapporti-lavoro", etichetta: "Rapporti di Lavoro", icona: FileCheck2 },
           { href: "/archivio", etichetta: "Archivio", icona: Archive },
         ],
       },
