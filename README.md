@@ -3225,6 +3225,25 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     quella protezione; resta comunque modificabile a mano dopo "Modifica".
   Build/lint puliti.
 
+✅ Fix reale (tris): 404 su /api/pose/upload-scheda — non era cache né dominio Vercel (2026-09-03,
+  "errore sempre nelle pose") — indagine lunga: prima sospettata la cache CDN (X-Vercel-Cache: HIT),
+  poi una configurazione del dominio `pose.donewifi.it` su Vercel (rimosso e riaggiunto su
+  indicazione dell'utente, nessun cambiamento) — causa vera trovata in `src/proxy.ts` (il
+  "middleware", rinominato in Next.js 16): per il dominio `pose.donewifi.it` riscrive OGNI
+  percorso con il prefisso `/pose` (necessario per le pagine, che vivono sotto `src/app/pose/...`
+  ma su questo host non devono mai mostrare "/pose" nell'URL) — compresa però `/api/pose/
+  upload-scheda`, diventata `/pose/api/pose/upload-scheda`: un percorso inesistente, 404 sempre,
+  indipendentemente da deploy o cache. Confermato con un test decisivo: anche `/tickets` (una
+  pagina interna qualsiasi, non `/pose`, non `/api`) dava 404 sullo stesso dominio.
+  - `proxy.ts`: i percorsi che iniziano per `/api/` non vengono più riscritti quando l'host è
+    `pose.donewifi.it` — le rotte API vivono alla radice del progetto, mai sotto `/pose`. Le
+    pagine restano riscritte come prima.
+  - Verificato via `vercel domains inspect`/`vercel inspect` con `npx vercel` (accesso CLI già
+    autorizzato sul progetto) che `pose.donewifi.it` e `gestione.donewifi.it` puntano allo stesso
+    identico deployment — ha permesso di escludere in sequenza cache, deploy vecchio e
+    configurazione dominio prima di arrivare alla vera causa nel codice.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

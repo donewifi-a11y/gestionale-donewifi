@@ -68,6 +68,20 @@ export async function proxy(request: NextRequest) {
     // questo host passa DI NUOVO da questa riscrittura — raddoppiando il
     // prefisso in "/pose/pose/login" (404). Idempotente: se il percorso è
     // già "/pose" o inizia per "/pose/", non lo tocca.
+    //
+    // ★ FIX (2026-09-03, bug reale segnalato: "errore sempre nelle pose" —
+    // 404 su /api/pose/upload-scheda) — le chiamate fetch fatte dal browser
+    // a una rotta API (es. /api/pose/upload-scheda, chiamata con il
+    // percorso assoluto letterale da carica-foto-scheda.ts) finivano
+    // ANCH'ESSE riscritte con lo stesso prefisso, diventando
+    // "/pose/api/pose/upload-scheda" — un percorso che non esiste, 404
+    // sempre e comunque, indipendentemente da deploy/cache (ci ho messo
+    // un'ora a escluderle prima di trovare questa). Le rotte API vivono
+    // alla radice del progetto, mai sotto "/pose": non vanno mai
+    // riscritte, qui su questo host o su qualunque altro.
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.next({ request });
+    }
     const url = request.nextUrl.clone();
     const pathname = request.nextUrl.pathname;
     url.pathname = pathname === "/pose" || pathname.startsWith("/pose/") ? pathname : `/pose${pathname === "/" ? "" : pathname}`;
