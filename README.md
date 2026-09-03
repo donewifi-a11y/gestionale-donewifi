@@ -3388,6 +3388,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     illeggibile. "Apri in mappa" resta disponibile, costruito a parte solo per la query di ricerca.
   Build/lint puliti.
 
+✅ Colorazione dei gruppi dati "C" (2026-09-03, richiesta esplicita dopo l'artifact "Colorazione
+  Gestione Cliente" — 3 trattamenti a confronto, scelto "vai con la c") — il titolo rosso pieno
+  ripetuto su ogni intestazione di gruppo (Indirizzo/Contatto/Pagamento/Preferenze) è diventato
+  neutro (`text-muted-foreground`): il rosso resta per azioni davvero enfatizzate altrove nel
+  gestionale, il colore del gruppo lo porta ora solo l'icona (già presente per "Indirizzo") più
+  un bordo pieno a sinistra nello stesso colore.
+  - `COLORE_ICONA` (`lib/colore-icone.ts`) esteso con un campo `bordo` (`border-[#hex]`) accanto
+    a `ic`/`bg` — unica fonte anche per questo, non ricalcolato a mano dove serve.
+  - `GruppoDatiCliente` (`components/condivisi/dati-cliente.tsx`) applica bordo+titolo neutro
+    quando riceve una `categoria`; un gruppo senza categoria (es. "Altro") resta neutro come prima,
+    nessuna rottura per chiamanti futuri che non la passano.
+  - I 3 gruppi che non avevano ancora un'icona (Contatto/Pagamento/Preferenze in
+    `richieste-clienti-board.tsx`) l'hanno ricevuta ora (blu/verde/ambra), completando lo stesso
+    trattamento già presente solo su "Indirizzo".
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { GruppoDatiCliente, formattaValoreCampo } from "@/components/condivisi/dati-cliente";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
+import type { CategoriaIcona } from "@/lib/colore-icone";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -32,10 +33,14 @@ import { useToast } from "@/components/ui/toast";
 // avviene in Segnalazioni invece di un unico elenco piatto. Un "Altro" in
 // fondo raccoglie qualunque campo futuro non ancora previsto qui, così non
 // sparisce in silenzio (stesso principio già in uso in segnalazioni-board.tsx).
-const GRUPPI_DETTAGLI_PRATICA: { titolo: string; campi: string[] }[] = [
-  { titolo: "Contatto", campi: ["nome", "cognome", "telefono", "email", "nuovoTelefono", "nuovaEmail"] },
-  { titolo: "Pagamento", campi: ["metodoPagamento", "iban", "ibanIntestatarioNome", "ibanIntestatarioCf", "mandatoSepa"] },
-  { titolo: "Preferenze", campi: ["dataPreferita", "note"] },
+// ★ ESTESA (2026-09-03, "vai con la c" — trattamento "C" dell'artifact
+// "Colorazione Gestione Cliente") — icona/categoria per ogni gruppo, stesso
+// COLORE_ICONA usato ovunque nel gestionale: "Altro" resta senza (nessuna
+// delle 6 categorie di significato dato gli si addice davvero).
+const GRUPPI_DETTAGLI_PRATICA: { titolo: string; campi: string[]; icona: typeof Phone; categoria: CategoriaIcona }[] = [
+  { titolo: "Contatto", campi: ["nome", "cognome", "telefono", "email", "nuovoTelefono", "nuovaEmail"], icona: Phone, categoria: "contatto" },
+  { titolo: "Pagamento", campi: ["metodoPagamento", "iban", "ibanIntestatarioNome", "ibanIntestatarioCf", "mandatoSepa"], icona: CreditCard, categoria: "denaro" },
+  { titolo: "Preferenze", campi: ["dataPreferita", "note"], icona: Clock, categoria: "tempo" },
 ];
 const CAMPI_INDIRIZZO_PRATICA = ["via", "civico", "piano", "comune", "cap"];
 
@@ -324,6 +329,8 @@ function DettaglioRichiesta({
           const vociIndirizzo = CAMPI_INDIRIZZO_PRATICA.filter((c) => !!dettagli[c]);
           const gruppiConDati = GRUPPI_DETTAGLI_PRATICA.map((g) => ({
             titolo: g.titolo,
+            icona: g.icona,
+            categoria: g.categoria,
             voci: g.campi.filter((c) => {
               const presente = !!dettagli[c];
               if (presente) campiUsati.add(c);
@@ -371,6 +378,8 @@ function DettaglioRichiesta({
                 <GruppoDatiCliente
                   key={gruppo.titolo}
                   titolo={gruppo.titolo}
+                  icona={gruppo.icona}
+                  categoria={gruppo.categoria}
                   voci={gruppo.voci.map((chiave) => ({ chiave, etichetta: etichettaDettaglio(chiave), valore: formattaValoreCampo(chiave, dettagli[chiave]) }))}
                   campiCopiati={campiCopiati}
                   onCopiaCampo={copiaCampo}

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { Check, Copy, ClipboardList } from "lucide-react";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
-import type { CategoriaIcona } from "@/lib/colore-icone";
+import { COLORE_ICONA, type CategoriaIcona } from "@/lib/colore-icone";
 
 /**
  * ★ NUOVA (2026-09-03, richiesta esplicita: "rivediamo la grafica di
@@ -95,10 +95,18 @@ export function GruppoDatiCliente({
    * tutto" (es. "Apri in mappa" per un gruppo Indirizzo). */
   azioneDestra?: ReactNode;
 }) {
+  // ★ NUOVA (2026-09-03, "vai con la c" — trattamento "C" dell'artifact
+  // "Colorazione Gestione Cliente") — il rosso primario ripetuto su ogni
+  // intestazione (era così prima) lo svuota di significato: qui usato
+  // altrove per azioni davvero enfatizzate. Il colore del gruppo lo porta
+  // ora solo l'icona (chip tenue) più un bordo pieno a sinistra — il
+  // titolo diventa un neutro uniforme. Un gruppo senza categoria (es.
+  // "Altro") resta col bordo/titolo neutri di sempre, nessuna icona.
+  const bordo = categoria ? `border-l-[3px] ${COLORE_ICONA[categoria].bordo}` : "";
   return (
-    <div className="rounded-lg border bg-card p-2.5">
+    <div className={`rounded-lg border bg-card p-2.5 ${bordo}`}>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {Icona && categoria && <IconaCategoria icona={Icona} categoria={categoria} dimensione="sm" />}
           {titolo}
         </p>
