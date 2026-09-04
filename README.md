@@ -3480,6 +3480,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Verificato sul dato reale: `2026-08-31` → `31/08/2026`.
   Build/lint puliti.
 
+✅ Ctrl/⌘K diventa una palette di azioni, non solo ricerca (2026-09-04, richiesta esplicita:
+  "studia le ultime tendenze ui/ux... fammi con artifact delle proposte" → artifact "Proposte UX
+  2026", 5 proposte, l'utente: "io farei tutto" — questa è la ①, impatto alto/sforzo basso) —
+  stesso pannello di ⌘K, finora solo ricerca su Ticket/Segnalazioni/Clienti, ora mostra anche un
+  gruppo "Azioni": Nuovo Ticket/Segnalazione/Preventivo, Vai a Calendario/Vista Tecnico/
+  Materiali/Gestione Cliente/Archivio/Dashboard/Tariffe — stesso principio di Linear ("ogni
+  azione raggiungibile da ⌘K"), ridotto alle azioni che qui hanno senso davvero.
+  - `ricerca-globale.tsx`: nuova lista `AZIONI_RAPIDE` (11 voci), filtrata sull'etichetta più
+    sinonimi extra (`parole`, es. "tick" trova "Nuovo Ticket") — nessuna chiamata server, a
+    differenza della ricerca vera compare anche a campo vuoto o con un solo carattere.
+  - Il pannello ora si apre anche subito dopo ⌘K a campo vuoto (prima serviva scrivere almeno 2
+    caratteri) — altrimenti chi premeva la scorciatoia e si aspettava di vedere le azioni subito
+    trovava solo un campo vuoto.
+  - Invio conferma la prima voce mostrata (azioni prima, poi risultati di ricerca) — niente
+    selezione con le frecce, un guadagno marginale per la complessità che avrebbe richiesto.
+  - "Solo clienti" (il filtro già esistente) nasconde le azioni: quella modalità serve a cercare
+    solo schede cliente, le azioni ci sarebbero fuori contesto.
+  - Verificato che tutte le 11 rotte di destinazione esistano davvero.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
