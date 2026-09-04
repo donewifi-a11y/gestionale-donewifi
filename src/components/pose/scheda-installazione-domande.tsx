@@ -10,6 +10,7 @@ import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } f
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { caricaFotoScheda } from "@/lib/carica-foto-scheda";
+import { accodaScheda } from "@/lib/coda-invio-pose";
 import { OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
@@ -42,7 +43,7 @@ export function SchedaInstallazioneDomande({
 }: {
   appuntamentoId: string;
   catalogoMateriali: MaterialeMagazzino[];
-  onSalvato: () => void;
+  onSalvato: (offline?: boolean) => void;
   onAnnulla: () => void;
 }) {
   const chiaveBozza = `installazione:${appuntamentoId}`;
@@ -118,6 +119,16 @@ export function SchedaInstallazioneDomande({
       ...fotoEsterna.map((f, i) => new File([f], `Struttura-esterna-${i + 1}_${f.name}`, { type: f.type })),
       ...fotoInterna.map((f, i) => new File([f], `Router-interno-${i + 1}_${f.name}`, { type: f.type })),
     ];
+    const dati = {
+      esito: "Installazione certificata con successo",
+      note,
+      metodoPagamentoPosa: metodoPagamento,
+      materiali,
+      firmaCliente: firmaCliente!,
+      supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
+      metriCavo, bts, modelloCpe, mac, rssi,
+      pingMs: ping, downloadMbps: download, uploadMbps: upload,
+    };
 
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
@@ -134,32 +145,37 @@ export function SchedaInstallazioneDomande({
       // caricate qui, direttamente dal browser allo storage, prima di
       // chiamare l'azione: che riceve solo i percorsi, non il contenuto.
       const foto = await Promise.all(fileDaCaricare.map((f) => caricaFotoScheda(f, appuntamentoId)));
-      const risultato = await salvaSchedaLavoroEsterno(
-        appuntamentoId,
-        "Nuova installazione",
-        {
-          esito: "Installazione certificata con successo",
-          note,
-          metodoPagamentoPosa: metodoPagamento,
-          materiali,
-          firmaCliente: firmaCliente!,
-          supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
-          metriCavo, bts, modelloCpe, mac, rssi,
-          pingMs: ping, downloadMbps: download, uploadMbps: upload,
-        },
-        foto
-      );
+      const risultato = await salvaSchedaLavoroEsterno(appuntamentoId, "Nuova installazione", dati, foto);
       if (risultato.errore) { setErroreInvio(risultato.errore); return; }
       cancellaBozzaScheda(chiaveBozza);
       onSalvato();
     } catch (err) {
-      // ★ FIX (2026-09-02, "di nuovo il problema" — la stessa schermata
-      // generica ricomparsa) — il catch scartava l'errore vero senza
-      // lasciarne traccia da nessuna parte: impossibile capire SE fosse di
-      // nuovo la pagina stantia sospettata a suo tempo o una causa diversa.
-      // Ora resta almeno nella console del browser, visibile da DevTools.
-      console.error("invia() - errore imprevisto durante il salvataggio scheda:", err);
-      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+      // ★ ESTESA (2026-09-04, artifact "Proposte UX 2026", proposta ④,
+      // primo passo concordato) — prima un errore qui (quasi sempre la
+      // linea caduta a metà invio, il caso reale segnalato) mostrava solo
+      // un messaggio e lasciava al tecnico rifare tutto da capo se chiudeva
+      // l'app nel frattempo. Ora la Scheda intera (foto comprese, come
+      // Blob) si salva sul telefono e riparte da sola — vedi
+      // sincronizzaCodaInvio() in coda-invio-pose.ts, richiamata dal layout
+      // di pose a ogni apertura e al ritorno della rete.
+      console.error("invia() - errore durante il salvataggio scheda, messo in coda offline:", err);
+      try {
+        await accodaScheda({
+          tipo: "Nuova installazione",
+          appuntamentoId,
+          etichetta: `Scheda Installazione — ${new Date().toLocaleDateString("it-IT")}`,
+          dati,
+          foto: fileDaCaricare.map((f) => ({ nome: f.name, tipo: f.type, blob: f })),
+        });
+        cancellaBozzaScheda(chiaveBozza);
+        onSalvato(true);
+      } catch (erroreCoda) {
+        // ★ ripiego — se anche salvare in locale fallisce (IndexedDB non
+        // disponibile/pieno, raro), l'errore va comunque detto: non c'è
+        // un altro posto dove il lavoro possa "sparire in silenzio".
+        console.error("invia() - impossibile mettere in coda offline:", erroreCoda);
+        setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+      }
     } finally {
       setInCorso(false);
     }

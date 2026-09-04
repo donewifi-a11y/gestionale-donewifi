@@ -1,4 +1,5 @@
 import { Sora, Manrope, Space_Mono } from "next/font/google";
+import { IndicatoreCodaOffline } from "@/components/pose/indicatore-coda-offline";
 
 // ★ NUOVA (2026-08-26) — identità tipografica propria per pose.donewifi.it
 // (Opzione "1 · Segnale" scelta tra 3 proposte con artifact): Sora per i
@@ -12,6 +13,7 @@ const spaceMono = Space_Mono({ subsets: ["latin"], weight: ["700"], variable: "-
 export default function PoseLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${sora.variable} ${manrope.variable} ${spaceMono.variable} min-h-screen [font-family:var(--font-pose-body)]`}>
+      <IndicatoreCodaOffline />
       {children}
     </div>
   );

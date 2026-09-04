@@ -3531,6 +3531,32 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     entrambi i punti nuovi.
   Build/lint puliti.
 
+✅ Pose offline-first — Scheda di Installazione/Lavorazione (2026-09-04, artifact "Proposte UX
+  2026", proposta ④, "io farei tutto" — primo passo concordato: solo la Scheda, non l'intera app
+  pose, data la dimensione e il rischio di questa proposta rispetto alle altre quattro) — prima,
+  se la linea cadeva proprio all'invio finale (zone di montagna, cantine, case in costruzione —
+  reale in Valle d'Aosta), il tecnico vedeva un errore e rischiava di perdere foto/dati se chiudeva
+  l'app prima di riuscire a reinviare. `bozza-scheda.ts` salvava già i campi testo (mai le foto,
+  dichiaratamente "non serializzabili in JSON") — questa estende la stessa idea a foto e invio.
+  - Nuovo `lib/coda-invio-pose.ts`: coda in IndexedDB (unico storage di un browser capace di
+    contenere dei Blob, a differenza di localStorage) — `accodaScheda()`/`elencaCoda()`/
+    `sincronizzaCodaInvio()`. Quest'ultima ritenta upload foto + salvataggio per ogni scheda in
+    coda, toglie dalla coda solo quelle riuscite.
+  - `scheda-installazione-domande.tsx`/`scheda-lavorazione-domande.tsx`: un errore durante
+    l'invio finale (non durante la conferma cliente via OTP — quella richiede comunque rete per
+    essere ottenuta, il caso reale coperto è "la linea è caduta proprio ora", non "mai stata
+    connessa") mette la scheda in coda invece di scartarla.
+  - `scheda-dettaglio.tsx`: nuovo terzo stato "offline" per lo schermo di conferma, distinto da
+    quello di successo vero — "Nessuna rete — salvato sul telefono" invece di "intervento
+    completato", per non far credere al tecnico che sia già registrato quando non lo è ancora.
+  - Nuovo `IndicatoreCodaOffline` in `pose/layout.tsx` — visibile su ogni pagina di pose, ma solo
+    quando la coda non è vuota (zero ingombro nel caso normale): conta le schede in attesa,
+    riprova da solo all'apertura e al ritorno della rete (`window.addEventListener("online")`),
+    più un pulsante "Riprova ora" manuale.
+  - **Non verificabile con uno script** come le altre modifiche di oggi (IndexedDB/eventi di rete
+    sono API del browser) — build/lint puliti, verifica reale da fare in DevTools (Network →
+    Offline) o su un telefono vero in un punto senza segnale.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

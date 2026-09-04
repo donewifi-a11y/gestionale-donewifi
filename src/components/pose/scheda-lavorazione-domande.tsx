@@ -9,6 +9,7 @@ import { TileScelta, TileMultiScelta, AreaGrande } from "@/components/pose/tile-
 import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
+import { accodaScheda } from "@/lib/coda-invio-pose";
 import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
@@ -29,7 +30,7 @@ export function SchedaLavorazioneDomande({
 }: {
   appuntamentoId: string;
   catalogoMateriali: MaterialeMagazzino[];
-  onSalvato: () => void;
+  onSalvato: (offline?: boolean) => void;
   onAnnulla: () => void;
 }) {
   const chiaveBozza = `lavorazione:${appuntamentoId}`;
@@ -57,27 +58,38 @@ export function SchedaLavorazioneDomande({
 
   async function invia() {
     setErroreInvio("");
+    const dati = { esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
     // stesso fix gemello di scheda-installazione-domande.tsx, vedi lì per
     // il commento completo: senza try/catch un errore imprevisto lasciava
     // il pulsante bloccato per sempre su "Salvataggio…".
     try {
-      const risultato = await salvaSchedaLavoroEsterno(
-        appuntamentoId,
-        "Lavorazione tecnica",
-        { esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi },
-        []
-      );
+      const risultato = await salvaSchedaLavoroEsterno(appuntamentoId, "Lavorazione tecnica", dati, []);
       if (risultato.errore) { setErroreInvio(risultato.errore); return; }
       cancellaBozzaScheda(chiaveBozza);
       onSalvato();
     } catch (err) {
-      // ★ FIX (2026-09-02, "di nuovo il problema") — l'errore vero non
-      // veniva più scartato in silenzio, vedi il commento gemello in
-      // pose/scheda-installazione-domande.tsx.
-      console.error("invia() - errore imprevisto durante il salvataggio scheda:", err);
-      setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+      // ★ ESTESA (2026-09-04, artifact "Proposte UX 2026", proposta ④,
+      // primo passo concordato) — stesso fix gemello di
+      // scheda-installazione-domande.tsx: un errore qui (linea caduta
+      // proprio all'invio) ora mette il rapportino in coda offline invece
+      // di scartarlo, si invia da solo appena torna la rete.
+      console.error("invia() - errore durante il salvataggio scheda, messo in coda offline:", err);
+      try {
+        await accodaScheda({
+          tipo: "Lavorazione tecnica",
+          appuntamentoId,
+          etichetta: `Rapportino — ${new Date().toLocaleDateString("it-IT")}`,
+          dati,
+          foto: [],
+        });
+        cancellaBozzaScheda(chiaveBozza);
+        onSalvato(true);
+      } catch (erroreCoda) {
+        console.error("invia() - impossibile mettere in coda offline:", erroreCoda);
+        setErroreInvio("Errore imprevisto durante il salvataggio — ricarica la pagina e riprova.");
+      }
     } finally {
       setInCorso(false);
     }

@@ -19,12 +19,18 @@ import type { Appuntamento, MaterialeMagazzino } from "@/lib/types";
 // modulo su carta a scorrimento unico).
 export function SchedaDettaglioPose({ appuntamento, catalogoMateriali }: { appuntamento: Appuntamento; catalogoMateriali: MaterialeMagazzino[] }) {
   const router = useRouter();
-  const [salvato, setSalvato] = useState(false);
+  // ★ ESTESO (2026-09-04, artifact "Proposte UX 2026", proposta ④, primo
+  // passo concordato: offline-first per la Scheda) — "offline" è un terzo
+  // stato distinto da "ok": la Scheda non è ancora davvero registrata, è
+  // solo salvata sul telefono in attesa di rete — dirlo in modo diverso,
+  // non lo stesso "intervento completato" di un invio riuscito per
+  // davvero, altrimenti il tecnico crede (a torto) che sia già finita.
+  const [salvato, setSalvato] = useState<"no" | "ok" | "offline">("no");
 
   // ★ FIX (2026-08-26, "controllo d'oro") — prima usava i token rossi
   // text-success/text-primary del gestionale interno, incoerenti con
   // l'identità "Segnale" (blu/verde, Sora) del resto di questo flusso.
-  if (salvato) {
+  if (salvato === "ok") {
     return (
       <div
         className="flex flex-col items-center gap-3 rounded-2xl border-2 p-6 text-center"
@@ -51,10 +57,40 @@ export function SchedaDettaglioPose({ appuntamento, catalogoMateriali }: { appun
     );
   }
 
+  if (salvato === "offline") {
+    return (
+      <div
+        className="flex flex-col items-center gap-3 rounded-2xl border-2 p-6 text-center"
+        style={{ borderColor: "#F2A0AC", background: "#3A1416" }}
+      >
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-full text-white"
+          style={{ background: "linear-gradient(135deg, #F2A0AC, #2D6CFF)" }}
+        >
+          <Check className="h-7 w-7" strokeWidth={3} />
+        </div>
+        <p className="text-base font-extrabold [font-family:var(--font-pose-display)]" style={{ color: "#F2A0AC" }}>
+          Nessuna rete — salvato sul telefono.
+        </p>
+        <p className="text-xs font-semibold" style={{ color: "#F2A0AC" }}>
+          Si invierà da solo appena torna il segnale — non serve rifare nulla.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/pose")}
+          className="text-sm font-bold hover:underline"
+          style={{ color: "#2D6CFF" }}
+        >
+          Torna ai tuoi interventi
+        </button>
+      </div>
+    );
+  }
+
   const props = {
     appuntamentoId: appuntamento.id,
     catalogoMateriali,
-    onSalvato: () => setSalvato(true),
+    onSalvato: (offline?: boolean) => setSalvato(offline ? "offline" : "ok"),
     onAnnulla: () => router.push("/pose"),
   };
 
