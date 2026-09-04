@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
@@ -75,6 +75,30 @@ const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attes
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
 
 const CHIAVE_FILTRI = "ticketsFiltri";
+
+/**
+ * ★ NUOVA (2026-09-04, richiesta esplicita: "studia le ultime tendenze
+ * ui/ux... fammi con artifact delle proposte" → artifact "Proposte UX
+ * 2026", proposta ⑤, "io farei tutto") — il filtro "Solo mie" era già
+ * ricordato per browser (usePersistedState sopra), ma una combinazione più
+ * specifica ("Urgenti scoperti": priorità + non assegnati insieme) andava
+ * ricostruita a mano ogni volta. Tre viste integrate (sempre uguali) più
+ * la possibilità di salvarne di proprie con un nome — stesso principio di
+ * persistenza già scritto per i filtri, non un sistema nuovo da mantenere.
+ */
+type FiltriTicket = { stato: string; categoria: string; priorita: string; reparto: string; soloMiei: boolean; nonAssegnati: boolean };
+const FILTRI_VUOTI: FiltriTicket = { stato: "", categoria: "", priorita: "", reparto: "", soloMiei: false, nonAssegnati: false };
+const VISTE_INTEGRATE: { id: string; nome: string; filtri: FiltriTicket }[] = [
+  { id: "tutti", nome: "Tutti", filtri: FILTRI_VUOTI },
+  { id: "le-mie", nome: "Le mie", filtri: { ...FILTRI_VUOTI, soloMiei: true } },
+  { id: "urgenti-scoperti", nome: "Urgenti scoperti", filtri: { ...FILTRI_VUOTI, priorita: "Urgente", nonAssegnati: true } },
+];
+const CHIAVE_VISTE_SALVATE = "ticketsVisteSalvate";
+interface VistaSalvata {
+  id: string;
+  nome: string;
+  filtri: FiltriTicket;
+}
 
 const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
   { titolo: "Da Lavorare", stati: ["Da gestire"], vuoto: "Nessun ticket da lavorare al momento" },
@@ -151,6 +175,27 @@ export function TicketsBoard({
     soloMiei: false,
     nonAssegnati: false,
   });
+  // ★ NUOVA — vedi VISTE_INTEGRATE sopra: l'elenco delle viste proprie
+  // dell'utente, ricordate per browser come i filtri stessi.
+  const [visteSalvate, aggiornaVisteSalvate] = usePersistedState(CHIAVE_VISTE_SALVATE, { elenco: [] as VistaSalvata[] });
+
+  function applicaVista(v: FiltriTicket) {
+    aggiornaFiltri(v);
+  }
+
+  function salvaVistaAttuale() {
+    const nome = prompt('Nome per questa vista (es. "Urgenti Fatturazione"):');
+    if (!nome?.trim()) return;
+    const nuova: VistaSalvata = { id: crypto.randomUUID(), nome: nome.trim(), filtri: { ...filtri } };
+    aggiornaVisteSalvate({ elenco: [...visteSalvate.elenco, nuova] });
+    toast(`Vista "${nome.trim()}" salvata.`, "successo");
+  }
+
+  function eliminaVista(v: VistaSalvata, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Eliminare la vista "${v.nome}"?`)) return;
+    aggiornaVisteSalvate({ elenco: visteSalvate.elenco.filter((x) => x.id !== v.id) });
+  }
   const [aperto, setAperto] = useState<Ticket | null>(null);
   // ★ NUOVA — sollevato qui (la Scheda si apre in un Dialog centrale
   // separato dal Sheet di dettaglio Ticket, non più annidato dentro):
@@ -236,6 +281,58 @@ export function TicketsBoard({
 
   return (
     <div>
+      {/* ★ NUOVA — "viste" (③ integrate + quelle salvate dall'utente):
+      applicano l'intera combinazione di filtri con un click, invece di
+      ricostruirla a mano ogni volta con i menu a tendina sotto. Evidenziata
+      quella che corrisponde esattamente ai filtri attivi ora, nessuna se la
+      combinazione è "libera" (impostata a mano, non salvata). */}
+      <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+        {VISTE_INTEGRATE.map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => applicaVista(v.filtri)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              JSON.stringify(filtri) === JSON.stringify(v.filtri) ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:border-primary/40"
+            }`}
+          >
+            {v.nome}
+          </button>
+        ))}
+        {visteSalvate.elenco.map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => applicaVista(v.filtri)}
+            className={`group flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              JSON.stringify(filtri) === JSON.stringify(v.filtri) ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:border-primary/40"
+            }`}
+          >
+            {v.nome}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => eliminaVista(v, e)}
+              onKeyDown={(e) => e.key === "Enter" && eliminaVista(v, e as unknown as React.MouseEvent)}
+              aria-label={`Elimina vista "${v.nome}"`}
+              title="Elimina vista"
+              className="opacity-40 transition hover:opacity-100"
+            >
+              <X className="h-3 w-3" strokeWidth={2.5} />
+            </span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={salvaVistaAttuale}
+          title="Salva la combinazione di filtri attuale come vista"
+          className="flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+        >
+          <BookmarkPlus className="h-3 w-3" strokeWidth={2.5} />
+          Salva vista attuale
+        </button>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />

@@ -3500,6 +3500,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Verificato che tutte le 11 rotte di destinazione esistano davvero.
   Build/lint puliti.
 
+✅ Viste salvate sulla bacheca Ticket (2026-09-04, artifact "Proposte UX 2026", proposta ⑤,
+  "io farei tutto") — tre viste integrate ("Tutti", "Le mie", "Urgenti scoperti") più la
+  possibilità di salvarne di proprie con un nome, invece di ricostruire ogni volta a mano la
+  stessa combinazione di filtri (es. priorità Urgente + non assegnati insieme).
+  - Riusa lo stesso `usePersistedState` già scritto per "Solo mie"/"Non assegnati" — nessun
+    sistema nuovo, solo un secondo elenco persistito (`ticketsVisteSalvate`) di combinazioni
+    complete di filtri.
+  - La vista che corrisponde esattamente ai filtri attivi ora si evidenzia da sola (confronto
+    diretto sull'intero oggetto filtri) — nessuna se la combinazione è stata impostata a mano.
+  - "Salva vista attuale" chiede un nome (stesso `prompt()` leggero già in uso altrove nel
+    gestionale per input rapidi) e salva la combinazione corrente; ogni vista propria ha una "x"
+    per eliminarla, le tre integrate no (sempre disponibili).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
