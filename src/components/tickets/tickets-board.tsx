@@ -135,15 +135,21 @@ function iniziali(persona: Persona) {
 // precedente) ma il testo di categoria, quasi sempre identico su ogni
 // card di una colonna (es. 4 Ticket di fila con scritto "Assistenza ·
 // Pianificazione installazione") — nessuna informazione nuova, solo
-// ripetizione. Qui si raggruppano i Ticket per categoria/sottocategoria
-// UNA VOLTA per colonna, invece che ripeterla su ogni riga — mantiene
-// l'ordine con cui `items` è già stato ordinato (priorità prima, vedi
-// ORDINE_PRIORITA), il gruppo compare nella posizione del suo primo Ticket.
+// ripetizione. Qui si raggruppano i Ticket per categoria UNA VOLTA per
+// colonna, invece che ripeterla su ogni riga — mantiene l'ordine con cui
+// `items` è già stato ordinato (priorità prima, vedi ORDINE_PRIORITA), il
+// gruppo compare nella posizione del suo primo Ticket.
+// ★ REDESIGN (2026-09), giro 3 — richiesta esplicita "è troppo caotico
+// così, non ci capisco più nulla" su uno screenshot con una sezione per
+// ogni combinazione categoria+sottocategoria (spesso una sola card
+// dentro): raggruppare per sola categoria dimezza le sezioni; la
+// sottocategoria non sparisce, torna a essere una piccola etichetta sulla
+// card stessa (vedi il render più sotto) invece di generare una sezione a sé.
 function raggruppaPerCategoria(items: Ticket[]): { chiave: string; ticket: Ticket[] }[] {
   const gruppi: { chiave: string; ticket: Ticket[] }[] = [];
   const indice = new Map<string, number>();
   for (const t of items) {
-    const chiave = t.categoria + (t.sottocategoria ? ` · ${t.sottocategoria}` : "");
+    const chiave = t.categoria;
     if (!indice.has(chiave)) {
       indice.set(chiave, gruppi.length);
       gruppi.push({ chiave, ticket: [] });
@@ -627,6 +633,12 @@ export function TicketsBoard({
                                 <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
                                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                               </div>
+                              {/* ★ NUOVA (2026-09), giro 3 — la sottocategoria
+                              non ha più una sezione tutta sua (vedi
+                              raggruppaPerCategoria sopra): torna qui, come
+                              piccola etichetta discreta sotto il nome, non
+                              come titolo di sezione. */}
+                              {t.sottocategoria && <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>}
                               {segnale && segnale.pulsante ? (
                                 <div className="mt-1">
                                   <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
@@ -658,8 +670,22 @@ export function TicketsBoard({
                               {appuntamentoPerTicket.has(t.id) && (() => {
                                 const app = appuntamentoPerTicket.get(t.id)!;
                                 const passato = new Date(app.data_ora) < new Date();
+                                // ★ REDESIGN (2026-09), giro 3 — richiesta
+                                // esplicita "è troppo caotico, non ci capisco
+                                // più nulla" su card con "Cliente tornato" +
+                                // "Pianificato (scaduto)" impilati, due righe
+                                // colorate ad allarme una sopra l'altra.
+                                // Stesso principio già in uso in Segnalazioni:
+                                // un solo segnale acceso per card. Se c'è già
+                                // un `segnale` sopra, questa riga resta un
+                                // fatto neutro (grigio) — la data è comunque
+                                // sempre visibile, non sparisce nulla, solo
+                                // non compete più per l'attenzione. Senza
+                                // altri segnali, uno scaduto resta comunque
+                                // in giallo/arancio: è l'unica cosa da notare.
+                                const evidenziato = passato && !segnale;
                                 return (
-                                  <div className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${passato ? "text-warning" : "text-muted-foreground"}`}>
+                                  <div className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${evidenziato ? "text-warning" : "text-muted-foreground"}`}>
                                     <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
                                     {passato ? "Pianificato (scaduto) — " : "Pianificato — "}
                                     {new Date(app.data_ora).toLocaleString("it-IT", {

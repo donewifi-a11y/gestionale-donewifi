@@ -3706,6 +3706,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   momento, ma la copertura del buco è verificata per lettura del codice.
   Build/lint puliti.
 
+✅ Bacheca Ticket meno caotica: sezioni accorpate + un solo segnale acceso per card (2026-09-04,
+  screenshot con una sezione per ogni combinazione Categoria·Sottocategoria, spesso da 1 solo
+  Ticket, e card con "Cliente tornato" + "Pianificato (scaduto)" impilati uno sopra l'altro —
+  "è troppo caotico così, non ci capisco più nulla"). Scelta: entrambi gli interventi insieme.
+  - `raggruppaPerCategoria()` raggruppa ora per sola Categoria (non più Categoria+Sottocategoria):
+    dimezza le sezioni per colonna. La Sottocategoria non sparisce — torna sulla card stessa, come
+    piccola etichetta discreta sotto il nome cliente, invece che titolo di una sezione a sé.
+  - La riga "Pianificato (scaduto)" non si accende più in arancione quando la card ha già un altro
+    segnale attivo (es. "Cliente tornato"): stesso principio già in uso in Segnalazioni, un solo
+    colore d'allarme per card. La data resta sempre visibile, solo in grigio neutro quando non è
+    l'unica cosa da notare; resta arancione quando è l'unico problema della card.
+  - Verificato contro i Ticket reali dello screenshot (Eros Ribotto #44/#48, Luca Crétier #32/#42,
+    William Rolt #58): tutti "Assistenza" con sottocategoria diversa — prima 3-4 sezioni separate,
+    ora una sola sezione "ASSISTENZA" con la sottocategoria leggibile su ogni card.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
