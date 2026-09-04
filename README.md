@@ -3633,6 +3633,32 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     giorno, "Oggi"/"Ieri" corretti, le date più vecchie in "31 luglio"/"3 agosto" ecc.
   Build/lint puliti.
 
+✅ Due correzioni alla Chat interna (2026-09-04, richiesta esplicita: "come possiamo migliorare
+  la chat" — giro di revisione mirato, stessa logica del controllo d'oro usabilità).
+
+  **Allegati oltre ~1MB rotti — stesso bug già risolto 3 volte in questa sessione**
+  — `inviaAllegatoChat` validava fino a 10MB, ma passava il file dentro il corpo di una Server
+  Action: Next.js limita di default quel corpo a 1MB, esattamente il bug già diagnosticato e
+  risolto per le Schede di Installazione (pose e desktop) e Richiesta Dati. Un PDF di poche
+  pagine o una foto non compressa allegati in chat avrebbero dato lo stesso errore generico "An
+  unexpected response was received from the server" già visto altrove.
+  - Nuova `api/chat/upload-url/route.ts`: stesso schema già in uso altrove — il file si carica
+    dal browser direttamente allo storage, la Server Action riceve solo il percorso.
+  - `inviaAllegatoChat(conversazioneId, formData)` → `inviaAllegatoChat(conversazioneId,
+    percorso, nomeFile)` — il controllo dei 10MB si è spostato lato client (prima dell'upload),
+    non più possibile lato server dato che il contenuto non transita più da lì.
+  - Verificato end-to-end: URL firmata generata, upload reale riuscito (200), file confermato
+    presente nello storage.
+
+  **Il campo di scrittura non permetteva di andare a capo**
+  — un `<input>` a una riga sola, mentre il testo dei messaggi già arrivati (`TestoMessaggio`,
+  `whitespace-pre-wrap`) era già pronto a mostrarne più di una: non c'era però modo di scriverne
+  una. Sostituito con una `<textarea>` che cresce da sola col testo (fino a un massimo, poi
+  scorre) — Invio manda il messaggio, Maiusc+Invio va a capo, stesso comportamento di WhatsApp
+  Web/Slack.
+
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

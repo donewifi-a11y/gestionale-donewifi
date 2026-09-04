@@ -185,33 +185,33 @@ export async function inviaMessaggio(conversazioneId: string, testo: string): Pr
   return { errore: null };
 }
 
-/** Allegato: passa dalla service role come il resto dei documenti del gestionale (bucket privato, mai accesso diretto). */
-export async function inviaAllegatoChat(conversazioneId: string, formData: FormData): Promise<{ errore: string | null }> {
+/**
+ * Allegato: passa dalla service role come il resto dei documenti del
+ * gestionale (bucket privato, mai accesso diretto).
+ *
+ * ★ FIX (2026-09-04, bug reale: il corpo di una Server Action è limitato
+ * di default a 1MB da Next.js — un allegato fino a 10MB dentro `formData`
+ * avrebbe dato lo stesso errore generico già diagnosticato altrove in
+ * questo gestionale per le foto delle Schede di Installazione) — non più
+ * `FormData` col file dentro: il file vero è già caricato dal browser
+ * direttamente allo storage (vedi api/chat/upload-url/route.ts), questa
+ * azione riceve solo il percorso già caricato e il nome originale.
+ */
+export async function inviaAllegatoChat(conversazioneId: string, percorso: string, nomeFile: string): Promise<{ errore: string | null }> {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
   // ★ la RLS (non l'app) decide chi vede una conversazione — qui va
   // ricontrollata a mano perché sotto si passa alla service role, che la
-  // bypassa, per poter scrivere sullo storage privato.
+  // bypassa, per scrivere il messaggio.
   const { data: consentita } = await supabase.from("conversazioni").select("id").eq("id", conversazioneId).maybeSingle();
   if (!consentita) return { errore: "Conversazione non trovata o non accessibile." };
 
-  const file = formData.get("file") as File | null;
-  if (!file || file.size === 0) return { errore: "Nessun file selezionato." };
-  if (file.size > 10 * 1024 * 1024) return { errore: "Il file supera i 10 MB." };
-
   const service = createServiceClient();
-  // ★ Supabase Storage rifiuta spazi/accenti nella chiave — il nome
-  // originale resta comunque quello mostrato in chat (allegato_nome).
-  const nomeSicuro = file.name.normalize("NFKD").replace(/[^\w.-]+/g, "_");
-  const percorso = `chat/${conversazioneId}/${Date.now()}-${nomeSicuro}`;
-  const { error: erroreUpload } = await service.storage.from("documenti").upload(percorso, file, { contentType: file.type });
-  if (erroreUpload) return { errore: erroreUpload.message };
-
   const { error } = await service
     .from("messaggi_chat")
-    .insert({ conversazione_id: conversazioneId, mittente_id: personaId, allegato_url: percorso, allegato_nome: file.name });
+    .insert({ conversazione_id: conversazioneId, mittente_id: personaId, allegato_url: percorso, allegato_nome: nomeFile });
   if (error) return { errore: error.message };
   return { errore: null };
 }

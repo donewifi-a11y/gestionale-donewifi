@@ -124,6 +124,7 @@ export function ChatPanel({
   const [testo, setTesto] = useState("");
   const [inCorso, setInCorso] = useState(false);
   const fineListaRef = useRef<HTMLDivElement>(null);
+  const testoRef = useRef<HTMLTextAreaElement>(null);
   const online = useOnline();
   // ★ NUOVA (2026-08-27, richiesta esplicita: "ricerca nei messaggi") —
   // un'unica casella filtra sia l'elenco locale (nome persona/reparto,
@@ -149,6 +150,18 @@ export function ChatPanel({
   useEffect(() => {
     fineListaRef.current?.scrollIntoView({ block: "end" });
   }, [messaggi]);
+
+  // ★ NUOVA — la textarea del messaggio cresce da sola col testo (fino al
+  // `max-h-32` in CSS, poi scorre): altezza ricalcolata ad ogni carattere
+  // digitato, azzerata prima per lasciare che il browser ricalcoli
+  // `scrollHeight` per davvero (altrimenti, restringendo il testo, resta
+  // "gonfia" alla dimensione massima raggiunta in precedenza).
+  useEffect(() => {
+    const el = testoRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [testo]);
 
   // ★ FIX — chiudere il pop-up a metà messaggio (per sbaglio, o per
   // aprire il pop-up To-Do dallo stesso pulsante sidebar) smontava
@@ -280,14 +293,41 @@ export function ChatPanel({
 
   async function inviaFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !thread) return;
-    setInCorso(true);
-    const dati = new FormData();
-    dati.set("file", file);
-    const risultato = await inviaAllegatoChat(thread.conversazioneId, dati);
-    setInCorso(false);
     e.target.value = "";
-    if (risultato.errore) toast(risultato.errore);
+    if (!file || !thread) return;
+    // ★ FIX (2026-09-04) — il limite (10MB, invariato) era controllato
+    // lato server, dove ormai non arriva più il contenuto del file: va
+    // ricontrollato qui, prima di tentare l'upload.
+    if (file.size > 10 * 1024 * 1024) {
+      toast("Il file supera i 10 MB.");
+      return;
+    }
+    setInCorso(true);
+    try {
+      // ★ FIX (2026-09-04, bug reale: stesso limite di 1MB sul corpo di una
+      // Server Action già trovato altrove nel gestionale) — il file vero si
+      // carica qui, direttamente allo storage, prima di registrare il
+      // messaggio: vedi api/chat/upload-url/route.ts e il commento gemello
+      // su inviaAllegatoChat (chat/actions.ts).
+      const rispostaUrl = await fetch("/api/chat/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversazioneId: thread.conversazioneId, nomeFile: file.name }),
+      });
+      const risultatoUrl = await rispostaUrl.json();
+      if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
+
+      const supabase = createClient();
+      const { error: erroreUpload } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+      if (erroreUpload) throw new Error(erroreUpload.message);
+
+      const risultato = await inviaAllegatoChat(thread.conversazioneId, risultatoUrl.percorso, file.name);
+      if (risultato.errore) toast(risultato.errore);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Errore imprevisto durante l'invio dell'allegato.");
+    } finally {
+      setInCorso(false);
+    }
   }
 
   async function apriAllegato(percorso: string) {
@@ -567,18 +607,32 @@ export function ChatPanel({
               <div ref={fineListaRef} />
             </div>
           </div>
-          <div className="flex items-center gap-1.5 border-t p-2">
+          <div className="flex items-end gap-1.5 border-t p-2">
             <label className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted">
               <Paperclip className="h-4 w-4" strokeWidth={2.25} />
               <input type="file" className="hidden" onChange={inviaFile} disabled={inCorso} />
             </label>
-            <input
+            {/* ★ FIX (2026-09-04, "come possiamo migliorare la chat") — era
+            un `<input>` a una riga sola: non si poteva mai scrivere un
+            messaggio su più righe, mentre il testo dei messaggi già
+            arrivati (TestoMessaggio, `whitespace-pre-wrap`) è pronto a
+            mostrarle. `<textarea>` che cresce da sola fino a un massimo,
+            Invio manda, Maiusc+Invio va a capo — stesso comportamento di
+            WhatsApp Web/Slack. */}
+            <textarea
+              ref={testoRef}
+              rows={1}
               value={testo}
               onChange={(e) => setTesto(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && inviaTesto()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  inviaTesto();
+                }
+              }}
               placeholder="Scrivi un messaggio..."
               disabled={inCorso}
-              className="h-8 flex-1 rounded-full border bg-background px-3 text-sm"
+              className="max-h-32 flex-1 resize-none rounded-2xl border bg-background px-3 py-1.5 text-sm leading-snug"
             />
             <button
               onClick={inviaTesto}
