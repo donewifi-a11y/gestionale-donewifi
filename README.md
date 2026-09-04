@@ -3692,6 +3692,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     correttamente "Approvato — in attesa di installazione", non "Installato".
   Build/lint puliti.
 
+✅ Etichetta "richiesta dati inviata" da subito, non solo da 3g in poi (2026-09-04, chiarimento
+  esplicito dopo il punto precedente: "intendevo in gestione deve comparire l'etichetta che dice
+  che è stata inviata la richiesta dati" — il fraintendimento era mio, avevo lavorato sulla card
+  "Trasmessa" mentre il punto era "Gestione Cliente"). Il badge "⏳ In attesa dati da Ng —
+  sollecita" esisteva già ma scattava solo da 3 giorni in poi (per non allarmare troppo presto) —
+  nei primi 0-2 giorni dopo l'invio la card restava senza alcun segnale, sembrava non fosse
+  successo nulla. Aggiunta un'etichetta neutra "📤 Richiesta dati inviata — in attesa del cliente"
+  sempre visibile appena la richiesta parte, che lascia il posto a quella più urgente (con i
+  giorni) non appena l'attesa supera i 3 giorni. Verificato contro le 2 pratiche reali oggi in
+  "Gestione Cliente" con richiesta già inviata (Corrado Sordi 17g, Sergeeva Natalia 11g): entrambe
+  oltre soglia, badge esistente confermato invariato; nessuna pratica reale nella finestra 0-2g al
+  momento, ma la copertura del buco è verificata per lettura del codice.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

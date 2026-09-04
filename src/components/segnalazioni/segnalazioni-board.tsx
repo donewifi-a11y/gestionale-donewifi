@@ -302,6 +302,16 @@ export function SegnalazioniBoard({
                 : { testo: `🤔 Dubbioso${s.motivo_dubbio ? ` — ${s.motivo_dubbio}` : ""}`, tono: "avviso" };
             } else if (inAttesaDati && giorniAttesa >= 3) {
               segnale = { testo: `⏳ In attesa dati da ${giorniAttesa}g — sollecita`, tono: giorniAttesa >= 7 ? "critico" : "avviso" };
+            } else if (inAttesaDati) {
+              // ★ NUOVA (2026-09) — richiesta esplicita: "deve comparire
+              // l'etichetta che dice che è stata inviata la richiesta
+              // dati". Prima dei 3 giorni la card restava senza alcun
+              // segnale (il badge sopra scatta solo da 3g in poi per non
+              // allarmare troppo presto) — sembrava che non fosse successo
+              // nulla. Ora un'etichetta neutra, sempre visibile appena la
+              // richiesta parte, che lascia il posto a quella sopra (più
+              // urgente) quando i giorni di attesa salgono.
+              segnale = { testo: "📤 Richiesta dati inviata — in attesa del cliente", tono: "info" };
             } else if (mostraGiorni && giorni >= 2) {
               segnale = { testo: `⏳ Ferma da ${giorni}g — contatta il cliente`, tono: giorni >= 5 ? "critico" : "avviso" };
             } else if (col.stato === "Gestione Cliente" && s.contratto_approvato_cliente_il) {
