@@ -74,6 +74,26 @@ const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attes
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
 
+/**
+ * ★ NUOVA (2026-09-04, richiesta esplicita: "mi piace il sistema di
+ * rilevamento della disdetta" — proposta emersa parlando di tendenze UX
+ * 2026) — un solo segnale, l'unico che con i volumi reali di oggi (35
+ * ticket in tutto il gestionale) trova davvero qualcosa: un cliente
+ * tornato più di una volta per un problema di Assistenza è un segnale di
+ * insoddisfazione più concreto di un numero "ferma da N giorni". Niente
+ * IA/punteggio nascosto: una regola sola, trasparente, verificabile a
+ * occhio — 2 o più Ticket "Analisi Rete" per lo stesso numero di
+ * telefono, senza finestra temporale (con questi volumi, "negli ultimi 90
+ * giorni" non troverebbe mai nulla; da restringere quando i ticket
+ * cresceranno). Un secondo segnale valutato con l'utente — il calo del
+ * segnale radio tra una Scheda e la successiva — è stato scartato per ora:
+ * solo 4 Schede in tutto il database hanno un RSSI registrato, non
+ * abbastanza nemmeno per un solo confronto vero.
+ */
+function normalizzaTelefono(t: string | null | undefined): string {
+  return (t ?? "").replace(/\D/g, "").slice(-9);
+}
+
 const CHIAVE_FILTRI = "ticketsFiltri";
 
 /**
@@ -254,6 +274,26 @@ export function TicketsBoard({
       )
       .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
   }, [tickets, filtri, currentPersonaId, ricerca]);
+
+  // ★ NUOVA — vedi normalizzaTelefono() sopra: calcolato una volta sola su
+  // TUTTI i Ticket (non solo quelli filtrati/visibili in bacheca ora),
+  // altrimenti un cliente ripetuto sparirebbe dal segnale appena si
+  // applica un filtro che ne nasconde uno dei due ticket.
+  const ticketRipetutiPerTelefono = useMemo(() => {
+    const gruppi = new Map<string, number[]>();
+    for (const t of tickets) {
+      if (t.reparto !== "Analisi Rete") continue;
+      const chiave = normalizzaTelefono(t.telefono);
+      if (!chiave) continue;
+      const lista = gruppi.get(chiave);
+      if (lista) lista.push(t.numero);
+      else gruppi.set(chiave, [t.numero]);
+    }
+    for (const [chiave, numeri] of gruppi) {
+      if (numeri.length < 2) gruppi.delete(chiave);
+    }
+    return gruppi;
+  }, [tickets]);
 
   function trovaPersona(id: string | null) {
     return id ? persone.find((p) => p.id === id) ?? null : null;
@@ -515,9 +555,16 @@ export function TicketsBoard({
                         // all'approvazione di un contratto) ancora da
                         // assegnare, e la conferma del cliente che un
                         // intervento risolto da remoto funziona davvero.
+                        const altriTicketStessoCliente = (ticketRipetutiPerTelefono.get(normalizzaTelefono(t.telefono)) ?? []).filter((n) => n !== t.numero);
                         let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
                         if (t.priorita === "Urgente") {
                           segnale = { testo: "🔴 Urgente", critico: true };
+                        } else if (altriTicketStessoCliente.length > 0) {
+                          // ★ NUOVA — vedi ticketRipetutiPerTelefono sopra:
+                          // un cliente tornato più volte per Assistenza,
+                          // segnale di insoddisfazione più concreto di un
+                          // ticket semplicemente "fermo da giorni".
+                          segnale = { testo: `⚠️ Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, critico: false };
                         } else if (t.confermato_cliente_il && entroOreDa(t.confermato_cliente_il, 48)) {
                           segnale = { testo: "✓ Cliente ha confermato l'intervento", critico: false, pulsante: true };
                         } else if (!t.tecnico_assegnato && !t.tecnico_esterno_id && entroOreDa(t.data_creazione, 2)) {
@@ -666,6 +713,7 @@ export function TicketsBoard({
               persone={persone}
               tecniciEsterni={tecniciEsterni}
               currentPersonaId={currentPersonaId}
+              altriTicketStessoCliente={(ticketRipetutiPerTelefono.get(normalizzaTelefono(aperto.telefono)) ?? []).filter((n) => n !== aperto.numero)}
               onApriScheda={(a) => setSchedaAperta(a)}
               onCambiato={(t) => setAperto(t)}
               onEliminato={() => setAperto(null)}
@@ -744,6 +792,7 @@ function DettaglioTicket({
   persone,
   tecniciEsterni,
   currentPersonaId,
+  altriTicketStessoCliente,
   onApriScheda,
   onCambiato,
   onEliminato,
@@ -752,6 +801,10 @@ function DettaglioTicket({
   persone: Persona[];
   tecniciEsterni: { id: string; nome: string; cognome: string | null }[];
   currentPersonaId: string;
+  /** ★ NUOVA — vedi ticketRipetutiPerTelefono in TicketsBoard: numeri degli
+   * altri Ticket "Analisi Rete" dello stesso cliente (telefono), se ce ne
+   * sono almeno uno — un cliente tornato più volte per assistenza. */
+  altriTicketStessoCliente: number[];
   onApriScheda: (a: Appuntamento) => void;
   onCambiato: (t: Ticket) => void;
   onEliminato: () => void;
@@ -1012,6 +1065,18 @@ function DettaglioTicket({
             </button>
           ))}
         </div>
+
+        {/* ★ NUOVA — vedi ticketRipetutiPerTelefono in TicketsBoard: un
+        cliente tornato più volte per Assistenza, visibile qui indipendente
+        da quale tab è aperta — non solo un pallino sulla card della
+        bacheca, il contesto completo (quali Ticket) proprio dove si sta
+        già lavorando questo cliente. */}
+        {altriTicketStessoCliente.length > 0 && (
+          <p className="flex items-start gap-2 rounded-lg bg-warning/10 p-2.5 text-xs font-semibold text-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+            Cliente tornato per Assistenza — anche Ticket #{altriTicketStessoCliente.join(", #")}.
+          </p>
+        )}
 
         {tab === "dettagli" && (
         <div key="dettagli" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">

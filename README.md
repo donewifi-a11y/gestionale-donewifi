@@ -3557,6 +3557,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     sono API del browser) — build/lint puliti, verifica reale da fare in DevTools (Network →
     Offline) o su un telefono vero in un punto senza segnale.
 
+✅ Segnale "cliente tornato per Assistenza" sui Ticket (2026-09-04, richiesta esplicita: "mi
+  piace il sistema di rilevamento della disdetta" — proposta emersa parlando di tendenze UX 2026)
+  — un segnale, non un punteggio nascosto: 2 o più Ticket "Analisi Rete" per lo stesso numero di
+  telefono, un cliente tornato più volte per un problema è un indizio di insoddisfazione più
+  concreto di un ticket semplicemente "fermo da giorni".
+  - **Verificato PRIMA sui dati reali che valesse la pena costruirlo**: con soli 35 ticket totali
+    nel gestionale, la soglia inizialmente in mente ("3+ negli ultimi 90 giorni") non avrebbe mai
+    trovato nulla — ridotta a "2+ ticket, senza finestra temporale", che oggi trova davvero 4
+    clienti reali (Luca Crétier, Compagnia Energetica Alto Buthier, Eros Ribotto, William Rolt).
+    Un secondo segnale valutato insieme all'utente — calo del segnale radio tra una Scheda e la
+    successiva — è stato scartato per ora: solo 4 Schede in tutto il database hanno un RSSI
+    registrato, non abbastanza nemmeno per un confronto.
+  - `tickets-board.tsx`: `ticketRipetutiPerTelefono`, calcolato una volta su tutti i Ticket (non
+    solo quelli visibili con i filtri correnti) — normalizza il telefono (ultime 9 cifre) per
+    tollerare prefissi/spazi scritti in modo diverso.
+  - Visibile in due punti: un segnale sulla card della bacheca (stesso trattamento di "🔴
+    Urgente"/"⏳ Ferma da Ng"), e un banner nel dettaglio del Ticket con l'elenco dei numeri degli
+    altri Ticket dello stesso cliente — indipendente da quale tab è aperta.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
