@@ -3659,6 +3659,25 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
 
   Build/lint puliti.
 
+✅ Stato "Trasmessa" della Segnalazione non più muto (2026-09-04, richiesta esplicita: "vorrei
+  sapere quando un cliente ... è in attesa di inviarmi [i dati]. quando è trasmesso deve indicare
+  che il cliente ha approvato ed è in attesa di installazione. infine deve essere notificato che
+  è stato installato e mettere il link al suo rapporto di lavoro" — chiarito: nessuna notifica
+  vera, solo visibile nel gestionale, in entrambi i posti: riepilogo sulla Segnalazione, dettaglio
+  completo già presente sul Ticket) — trovato un bug più grande del previsto controllando questo:
+  la barra in fondo al popup **escludeva del tutto** lo stato "Trasmessa" — il testo già scritto
+  per quel caso ("Pratica trasmessa...") non veniva mai mostrato a nessuno, il popup restava muto.
+  - Nuova `getTicketPerSegnalazione()`: legge il Ticket nato da "Trasmetti" (`tickets.segnalazione_id`).
+  - Il popup ora mostra, per una pratica Trasmessa: "Cliente ha approvato — vai al Ticket #NN" (non
+    ancora installato) o "Installato — vedi il rapporto (Ticket #NN)" (Ticket Completato) — un
+    pulsante che porta dritto al Ticket, dove la tab Documenti mostra già la Scheda/Rapportino
+    completi (nessun lavoro in più lì, già esisteva).
+  - Tolta anche "← Torna a Gestione Cliente" per una pratica già Trasmessa: il Ticket esiste già,
+    tornare indietro la lascerebbe disallineata da un Ticket ormai a sé.
+  - Verificato su 2 Segnalazioni Trasmesse reali (Paolo Ghirotti → Ticket #53 "In lavorazione",
+    Filippo Thomasset → Ticket #63 "Da gestire") — entrambe collegate correttamente.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

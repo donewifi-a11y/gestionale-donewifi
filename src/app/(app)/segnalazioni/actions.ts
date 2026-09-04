@@ -650,6 +650,26 @@ async function eseguiTrasmissione(
   return { errore: null, id: ticket.id, numero: ticket.numero };
 }
 
+/**
+ * ★ NUOVA (2026-09-04, richiesta esplicita: "quando è trasmesso deve
+ * indicare che il cliente ha approvato ed è in attesa di installazione.
+ * infine deve essere notificato che è stato installato e mettere il link
+ * al suo rapporto di lavoro dell'installazione" — chiarito con l'utente:
+ * nessuna notifica vera e propria, solo visibile aprendo la Segnalazione/
+ * il Ticket) — prima, una volta "Trasmessa", la Segnalazione mostrava solo
+ * il testo fisso "l'installazione è in carico ad Analisi Rete", punto e
+ * fine: nessun modo di sapere se poi fosse stata davvero installata, né un
+ * link al Ticket o al rapporto di lavoro. Un solo giro leggero (3 colonne)
+ * invece di un fetch pesante — usata solo quando la Segnalazione è già
+ * "Trasmessa", non per ogni riga della bacheca.
+ */
+export async function getTicketPerSegnalazione(segnalazioneId: string): Promise<{ id: string; numero: number; stato: string } | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("tickets").select("id, numero, stato").eq("segnalazione_id", segnalazioneId).maybeSingle();
+  if (error) console.error("getTicketPerSegnalazione:", error.message);
+  return data ?? null;
+}
+
 export async function trasmettiPerInstallazione(
   segnalazioneId: string,
   reparto: AreaAccesso = "Analisi Rete"

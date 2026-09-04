@@ -59,6 +59,7 @@ import {
   impostaDubbioso,
   rimuoviDubbioso,
   aggiornaDatiSegnalazione,
+  getTicketPerSegnalazione,
 } from "@/app/(app)/segnalazioni/actions";
 import type { RichiestaCliente, Segnalazione, StatoSegnalazione, Copertura } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
@@ -510,6 +511,22 @@ function DettaglioSegnalazione({
       setInfoCaricamento(info ? { nome: info.nome, data: info.data } : null)
     );
   }, [contrattoUrl, segnalazione.id]);
+  // ★ NUOVA (2026-09-04, richiesta esplicita: "quando è trasmesso deve
+  // indicare che il cliente ha approvato ed è in attesa di installazione.
+  // infine deve essere notificato che è stato installato e mettere il
+  // link al suo rapporto di lavoro" — chiarito: nessuna notifica vera,
+  // solo visibile qui) — il Ticket nato da "Trasmetti" (vedi
+  // eseguiTrasmissione, tickets.segnalazione_id), letto solo quando serve
+  // (la Segnalazione è già "Trasmessa"), non per ogni riga della bacheca.
+  const [ticketCollegato, setTicketCollegato] = useState<{ id: string; numero: number; stato: string } | null>(null);
+  useEffect(() => {
+    if (segnalazione.stato !== "Trasmessa") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetta lo stato derivato quando si esce da "Trasmessa" (es. riapertura di un'altra Segnalazione), non derivabile durante il render.
+      setTicketCollegato(null);
+      return;
+    }
+    getTicketPerSegnalazione(segnalazione.id).then(setTicketCollegato);
+  }, [segnalazione.id, segnalazione.stato]);
   const [esitoEmail, setEsitoEmail] = useState("");
   const [tab, setTab] = useState<"anagrafica" | "indirizzo" | "documenti" | "piano">("anagrafica");
   // ★ NUOVA — richiesta esplicita: quali campi sono già stati ricopiati nel
@@ -807,7 +824,26 @@ function DettaglioSegnalazione({
       azione = { testo: "Trasmetti per l'installazione", icona: Rocket, onClick: trasmetti, disabilitato: inCorsoTrasmetti };
     }
   } else if (segnalazione.stato === "Trasmessa") {
-    statoInfo = "Pratica trasmessa — l'installazione è in carico ad Analisi Rete.";
+    // ★ FIX (2026-09-04, richiesta esplicita: "quando è trasmesso deve
+    // indicare che il cliente ha approvato ed è in attesa di
+    // installazione... deve essere notificato che è stato installato e
+    // mettere il link al suo rapporto di lavoro") — prima questo intero
+    // stato era escluso dalla barra qui sotto (vedi
+    // `segnalazione.stato !== "Trasmessa"` più avanti, tolto insieme a
+    // questa modifica): "Pratica trasmessa..." non veniva mai mostrato a
+    // nessuno, il popup restava muto una volta trasmessa la pratica.
+    // ★ il pulsante in fondo (azione) e il testo semplice (statoInfo) sono
+    // alternativi (vedi il render più sotto, `azione ? <button> : <p>`):
+    // qui l'etichetta del pulsante porta anche il significato dello stato
+    // invece di sdoppiare in "un testo che spiega" + "un pulsante a
+    // parte" — un solo elemento, non due.
+    if (!ticketCollegato) {
+      statoInfo = "Pratica trasmessa — l'installazione è in carico ad Analisi Rete.";
+    } else if (ticketCollegato.stato === "Completato") {
+      azione = { testo: `Installato — vedi il rapporto (Ticket #${ticketCollegato.numero})`, icona: FileText, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
+    } else {
+      azione = { testo: `Cliente ha approvato — vai al Ticket #${ticketCollegato.numero}`, icona: ArrowRight, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
+    }
   }
 
   return (
@@ -1385,7 +1421,12 @@ function DettaglioSegnalazione({
       nel tema scuro in globals.css) invece del solo token bg-primary, per
       rispettare alla lettera la palette richiesta pur restando leggibile
       anche a tema scuro. */}
-      {(azione || statoInfo) && segnalazione.stato !== "Trasmessa" && (
+      {/* ★ FIX (2026-09-04) — "Trasmessa" era esclusa qui del tutto: il
+      popup restava muto una volta trasmessa la pratica, "Pratica
+      trasmessa..." (statoInfo sopra) non veniva mai mostrato a nessuno.
+      Tolta l'esclusione ora che c'è davvero qualcosa da mostrare/cliccare
+      per questo stato (vedi sopra). */}
+      {(azione || statoInfo) && (
         <div className="sticky bottom-0 z-10 -mx-4 -mb-4 rounded-t-2xl border-t bg-popover px-4 pt-3 pb-4">
           {azione ? (
             <button
@@ -1403,7 +1444,13 @@ function DettaglioSegnalazione({
               {statoInfo}
             </p>
           )}
-          {indiceCorrente > 0 && (
+          {/* ★ FIX (2026-09-04) — "Torna a Gestione Cliente" non ha senso
+          una volta Trasmessa: il Ticket di installazione esiste già,
+          tornare indietro lascerebbe la Segnalazione disallineata da un
+          Ticket ormai a sé. Prima questo caso non si vedeva mai perché
+          l'intera barra era esclusa per "Trasmessa" (vedi sopra) — tolta
+          quell'esclusione, va escluso qui invece, di proposito. */}
+          {indiceCorrente > 0 && segnalazione.stato !== "Trasmessa" && (
             <button
               type="button"
               disabled={inCorsoStato}
