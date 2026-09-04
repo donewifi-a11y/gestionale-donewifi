@@ -1197,7 +1197,13 @@ function DettaglioSegnalazione({
 
                 {tab === "documenti" && (
                   <div key="documenti" className="rounded-lg border bg-card p-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-primary/80">
+                    {/* ★ FIX (2026-09-04, "analizza tutto l'interfaccia e
+                    identifica dove trovi discrepanze di stili") — era
+                    rimasta l'unica etichetta rossa piena in questo pannello,
+                    lo stesso stile tolto ovunque altro (Gestione Cliente,
+                    "Rosso Raffinato") dopo l'estrazione di GruppoDatiCliente
+                    in components/condivisi/dati-cliente.tsx. */}
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       Tipo Documento: {campiRicevuti.tipoDocumento ? (TIPI_DOCUMENTO[campiRicevuti.tipoDocumento] ?? campiRicevuti.tipoDocumento) : "—"}
                     </p>
                     {richiesta.documenti.length > 0 ? (
@@ -1473,7 +1479,10 @@ function GruppoDatiCliente({
   return (
     <div className="rounded-lg border bg-card p-2.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">{titolo}</p>
+        {/* ★ FIX (2026-09-04, "identifica discrepanze di stili") — vedi nota
+        sopra sul pannello Documenti, stessa incoerenza qui: era rimasto
+        l'unico gruppo dati ancora con l'etichetta rossa piena. */}
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{titolo}</p>
         {voci.length > 1 && (
           <button
             type="button"

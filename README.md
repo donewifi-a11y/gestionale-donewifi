@@ -3434,6 +3434,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     rilievo" passa da un'opacità .20 a .26) per un distacco più netto tra dialog/popup e sfondo.
   Build/lint puliti.
 
+✅ Ultima etichetta rossa rimasta uniformata (2026-09-04, richiesta esplicita: "analizza tutto
+  l'interfaccia e identifica dove trovi discrepanze di stili") — giro mirato (pattern di stile
+  via grep, non lettura riga-per-riga di ogni file: non esaustivo, ma trova le incoerenze più
+  concrete). Trovata una vera discrepanza, creata da me stesso pochi giorni fa: `segnalazioni-board.tsx`
+  aveva ancora 2 intestazioni di gruppo dati (tab Documenti, "Anagrafica/Contatti/Pagamento/Note")
+  con lo stile rosso pieno tolto ovunque altro dopo l'estrazione di `GruppoDatiCliente` in
+  `components/condivisi/dati-cliente.tsx` — rimasto indietro per prudenza durante quel refactoring.
+  - Entrambe passate a `text-muted-foreground`, come lo stesso componente altrove.
+  - Lasciato invariato il riquadro "Indirizzo di installazione" (bordo/sfondo rosso tenue,
+    `border-primary/30 bg-primary/5`): non è lo stesso tipo di elemento (un callout con enfasi
+    voluta, non un gruppo dati semplice) — cambiarlo avrebbe tolto un'enfasi intenzionale.
+  - Controllati anche altri due possibili sospetti, risultati **non** discrepanze reali:
+    il raggio degli angoli (`rounded-lg`/`xl`/`2xl`) segue una gerarchia coerente per dimensione
+    dell'elemento (chip piccoli → lg, card → xl, pannelli → 2xl); le dimensioni dello spinner
+    `Loader2` (h-3.5 vs h-4) seguono la dimensione del pulsante che lo contiene, non sono casuali.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
