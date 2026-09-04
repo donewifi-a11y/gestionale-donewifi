@@ -266,6 +266,7 @@ export function RigaTariffa({
             size="icon"
             variant="ghost"
             title={t.pubblica ? "Nascondi dalla documentazione inviata al cliente" : "Mostra nella documentazione inviata al cliente"}
+            aria-label={t.pubblica ? "Nascondi dalla documentazione inviata al cliente" : "Mostra nella documentazione inviata al cliente"}
             onClick={onTogglePubblica}
           >
             {t.pubblica ? <Eye className="h-3.5 w-3.5" strokeWidth={2.25} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={2.25} />}
@@ -275,11 +276,12 @@ export function RigaTariffa({
           size="icon"
           variant="ghost"
           title={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
+          aria-label={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
           onClick={onToggle}
         >
           {t.attivo ? <Ban className="h-3.5 w-3.5" strokeWidth={2.25} /> : <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />}
         </Button>
-        <Button size="icon" variant="ghost" title="Duplica tariffa" onClick={onDuplica}>
+        <Button size="icon" variant="ghost" title="Duplica tariffa" aria-label="Duplica tariffa" onClick={onDuplica}>
           <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
         </Button>
       </div>
@@ -453,7 +455,7 @@ export function FormTariffa({ tariffa, isAdmin = false, onFatto }: { tariffa?: T
             {inCorso ? "Salvataggio..." : tariffa ? "Salva modifiche" : "Aggiungi"}
           </Button>
           {tariffa && isAdmin && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)">
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)" aria-label="Elimina (solo Admin)">
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           )}
@@ -578,7 +580,7 @@ function FormPromozione({
             {inCorso ? "Salvataggio..." : promozione ? "Salva modifiche" : "Aggiungi"}
           </Button>
           {promozione && isAdmin && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)">
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina (solo Admin)" aria-label="Elimina (solo Admin)">
               <Trash2 className="h-4 w-4" strokeWidth={2.25} />
             </Button>
           )}

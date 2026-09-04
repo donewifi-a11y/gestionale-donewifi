@@ -3451,6 +3451,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     `Loader2` (h-3.5 vs h-4) seguono la dimensione del pulsante che lo contiene, non sono casuali.
   Build/lint puliti.
 
+✅ Pulsanti icon-only senza etichetta accessibile (2026-09-04, richiesta esplicita: "fai un
+  controllo in ogni parte, non deve essere lasciato nulla al caso") — giro sistematico su tutta
+  `src/` cercando pulsanti/link con solo un'icona (nessun testo visibile): un `title` da solo è
+  un tooltip per il mouse, invisibile agli screen reader — serve sempre anche `aria-label`.
+  Trovati e corretti **13 casi reali** rimasti scoperti:
+  - `calendario-board.tsx` (5): Segna completato/Annulla in Vista Giorno, Segna fatto-da fare/
+    Elimina promemoria, Apri in Google Calendar.
+  - `tickets-board.tsx` (3): Prendi in carico e Avanza allo stato successivo (bacheca Ticket),
+    Invia nota (dettaglio Ticket — questo era senza `title` *e* senza `aria-label`, nessuna
+    etichetta di alcun tipo).
+  - `tariffe-board.tsx` (5): Mostra/Nascondi dalla documentazione, Rendi non sottoscrivibile/
+    Riattiva, Duplica tariffa, Elimina (×2, stesso pulsante ripetuto in due form).
+  - Verificati anche una decina di altri pulsanti con solo `title` (`invio-link.tsx`,
+    `segnalazioni-board.tsx` "Email"/"WhatsApp") e risultati **non** un problema: hanno un testo
+    visibile accanto all'icona, che è già di per sé il nome accessibile del pulsante.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -432,10 +432,10 @@ function RigaAppuntamento({
       )}
       {a.stato === "Programmato" ? (
         <div className="flex shrink-0 gap-1">
-          <button onClick={() => onCambiaStato(a.id, "Completato")} title="Segna completato" className="flex h-7 w-7 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
+          <button onClick={() => onCambiaStato(a.id, "Completato")} title="Segna completato" aria-label="Segna completato" className="flex h-7 w-7 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
             <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
-          <button onClick={() => onCambiaStato(a.id, "Annullato")} title="Annulla" className="flex h-7 w-7 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
+          <button onClick={() => onCambiaStato(a.id, "Annullato")} title="Annulla" aria-label="Annulla appuntamento" className="flex h-7 w-7 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
             <XIcon className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
         </div>
@@ -452,10 +452,10 @@ function RigaNota({ n, onAlterna, onElimina }: { n: NotaCalendario; onAlterna: (
     <div className={`flex items-center gap-3 rounded-xl border p-3 shadow-sm ${n.completata ? "bg-muted/40 opacity-60" : scaduta ? "border-critical/30 bg-critical/5" : "border-warning/30 bg-warning/10"}`}>
       <StickyNote className={`h-4 w-4 shrink-0 ${n.completata ? "text-muted-foreground" : "text-warning"}`} strokeWidth={2.25} />
       <span className={`min-w-0 flex-1 text-sm ${n.completata ? "line-through text-muted-foreground" : ""}`}>{n.testo}</span>
-      <button onClick={() => onAlterna(n)} title={n.completata ? "Segna da fare" : "Segna fatto"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
+      <button onClick={() => onAlterna(n)} title={n.completata ? "Segna da fare" : "Segna fatto"} aria-label={n.completata ? "Segna da fare" : "Segna fatto"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-success transition hover:bg-success/10">
         <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
       </button>
-      <button onClick={() => onElimina(n.id)} title="Elimina" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
+      <button onClick={() => onElimina(n.id)} title="Elimina" aria-label="Elimina promemoria" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-critical transition hover:bg-critical/10">
         <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
       </button>
     </div>
@@ -495,7 +495,7 @@ function RigaEventoGoogle({ e }: { e: EventoGoogleCalendario }) {
         )}
       </div>
       {e.link && (
-        <a href={e.link} target="_blank" rel="noopener noreferrer" title="Apri in Google Calendar" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary">
+        <a href={e.link} target="_blank" rel="noopener noreferrer" title="Apri in Google Calendar" aria-label="Apri in Google Calendar" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary">
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
         </a>
       )}

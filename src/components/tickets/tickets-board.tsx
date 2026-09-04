@@ -390,6 +390,7 @@ export function TicketsBoard({
                                 <button
                                   onClick={(e) => prendiInCarico(t, e)}
                                   title="Prendi in carico"
+                                  aria-label="Prendi in carico"
                                   className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
                                 >
                                   <UserPlus className="h-3 w-3" strokeWidth={2.5} />
@@ -399,6 +400,7 @@ export function TicketsBoard({
                                 <button
                                   onClick={(e) => avanzaStato(t, e)}
                                   title="Avanza allo stato successivo"
+                                  aria-label="Avanza allo stato successivo"
                                   className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
                                 >
                                   <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -1205,7 +1207,7 @@ function DettaglioTicket({
               placeholder="Scrivi un aggiornamento su questo ticket..."
               className="h-9 flex-1 rounded-md border bg-background px-3 text-xs"
             />
-            <Button size="icon" className="h-11 w-11 shrink-0" disabled={inCorsoNota || !notaTesto.trim()} onClick={inviaNota}>
+            <Button size="icon" className="h-11 w-11 shrink-0" disabled={inCorsoNota || !notaTesto.trim()} onClick={inviaNota} title="Invia nota" aria-label="Invia nota">
               {inCorsoNota ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.5} />}
             </Button>
           </div>
