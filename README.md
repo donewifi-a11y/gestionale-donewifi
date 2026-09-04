@@ -3468,6 +3468,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     visibile accanto all'icona, che è già di per sé il nome accessibile del pulsante.
   Build/lint puliti.
 
+✅ Data preferita in formato italiano, non più ISO (2026-09-04, stesso giro "non deve essere
+  lasciato nulla al caso") — "Data preferita" del Trasferimento (`<input type="date">`, salva
+  sempre "AAAA-MM-GG") veniva mostrata così com'è nel dettaglio della pratica — l'unico punto del
+  gestionale rimasto a mostrare una data in formato ISO invece del gg/mm/aaaa usato ovunque altro.
+  Notato per la prima volta nello screenshot di Marcello Nasso di qualche messaggio fa
+  ("DATA PREFERITA — 2026-08-31"), poi confermato con un giro sistematico.
+  - `formattaValoreCampo()` (sia in `components/condivisi/dati-cliente.tsx` sia nella copia
+    locale di `segnalazioni-board.tsx`) riconosce ora qualunque valore a forma di data ISO
+    (`AAAA-MM-GG`, non solo il campo "dataPreferita" per nome) e lo converte al formato italiano.
+    Verificato sul dato reale: `2026-08-31` → `31/08/2026`.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -36,8 +36,19 @@ export const CAMPI_MONOSPAZIATI = new Set([
 
 export const TIPI_DOCUMENTO: Record<string, string> = { CI: "Carta d'Identità", PATENTE: "Patente", PASSAPORTO: "Passaporto" };
 
+// ★ FIX (2026-09-04, "fai un controllo in ogni parte, non deve essere
+// lasciato nulla al caso") — un campo `<input type="date">` (es.
+// "dataPreferita" del Trasferimento) salva sempre "AAAA-MM-GG": mostrato
+// così com'è, era l'unico punto del gestionale a mostrare una data in
+// formato ISO invece del gg/mm/aaaa usato ovunque altro. Generico su
+// qualunque campo a forma di data (non solo "dataPreferita" per nome),
+// per non doversi ricordare di aggiungerne uno a mano ogni volta che ne
+// arriva uno nuovo.
+const FORMATO_DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 export function formattaValoreCampo(chiave: string, valore: string) {
   if (chiave === "mandatoSepa") return valore === "on" ? "Sì" : valore;
+  if (FORMATO_DATA_ISO.test(valore)) return new Date(`${valore}T00:00:00`).toLocaleDateString("it-IT");
   return valore;
 }
 

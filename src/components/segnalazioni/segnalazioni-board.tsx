@@ -123,8 +123,18 @@ const CAMPI_MONOSPAZIATI = new Set([
   "cap",
 ]);
 
+// ★ FIX (2026-09-04, "fai un controllo in ogni parte, non deve essere
+// lasciato nulla al caso") — stesso fix di dati-cliente.tsx (Gestione
+// Cliente): un campo `<input type="date">` salva sempre "AAAA-MM-GG",
+// mostrato così com'è invece del gg/mm/aaaa usato ovunque altro. Nessun
+// campo di "Richiesta Dati" è oggi a forma di data, ma il controllo resta
+// generico (qualunque valore a 4-2-2 cifre), non serve ricordarsene se ne
+// arriva uno in futuro.
+const FORMATO_DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 function formattaValoreCampo(chiave: string, valore: string) {
   if (chiave === "mandatoSepa") return valore === "on" ? "Sì" : valore;
+  if (FORMATO_DATA_ISO.test(valore)) return new Date(`${valore}T00:00:00`).toLocaleDateString("it-IT");
   return valore;
 }
 
