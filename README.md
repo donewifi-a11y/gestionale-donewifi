@@ -3740,6 +3740,50 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Supabase, stessi risultati attesi; il filtro comincerà a nascondere ticket appena invecchiano.
   Build/lint puliti.
 
+✅ Audit generale "senza dimenticare neanche una parte" (2026-09-04, richiesta esplicita). Metodo:
+  ogni tabella controllata contro produzione (row count reale), ogni query bulk ricontrollata per
+  il bug di troncamento a 1000 righe già trovato 4 volte, ogni Server Action con service role
+  ricontrollata per il controllo "Persona attiva" (non solo cookie/sessione), ogni allegato
+  ricontrollato per il limite di 1MB sul corpo di una Server Action già trovato 4 volte.
+  - **Bug reale trovato e corretto**: `creaTicket()` accettava ancora l'allegato dei campi extra
+    ("foto apparati"/"allegato contabile" — Nuovo Ticket e Vista Tecnico) come `File` dentro il
+    corpo della Server Action — stessa classe di bug già corretta 4 volte (pose, richiesta-dati,
+    chat), mai controllata qui. Una foto da smartphone non compressa la superava quasi sempre.
+    Nuova `api/tickets/upload-url/route.ts`: il file si carica ora dal browser direttamente allo
+    storage, `creaTicket()` riceve solo `{percorso, nome}`. Due punti di chiamata corretti
+    (tickets/nuovo/page.tsx, vista-tecnico-board.tsx).
+  - **6 controlli di sicurezza rafforzati** (stessa classe già corretta più volte: un dipendente
+    disattivato con sessione/cookie ancora valido poteva continuare a scrivere tramite la service
+    role, che bypassa la RLS): `inviaAllegatoChat`, `inviaEmailPraticaClienteEsterno`,
+    `segnaDisdettaRicevuta`, `inviaPreventivoApprovazione`, `inviaEmailApprovazioneContratto`,
+    `inviaEmailApprovazioneTicket` controllavano solo `getPersonaCorrenteId()` o `auth.getUser()`
+    (sessione valida) invece di `getPersonaCorrente()` (controlla anche `persone.attivo`). Corretti
+    tutti allo stesso identico pattern già in uso altrove nel gestionale. Anche
+    `inviaEmailPraticaCliente`/`inviaEmailPraticaGenerica` allineate per coerenza (non usano la
+    service role, rischio minore, ma stesso controllo debole).
+  - **Verificato e scartato come falso allarme** (per non essere frainteso come "trascurato"):
+    `scaricaGiacenzaMateriali`/`riconciliaAntennaInstallata` (materiali/actions.ts) non hanno alcun
+    controllo diretto ma non sono mai importate da un componente client — irraggiungibili come
+    Server Action a sé, l'autenticazione la fanno già i due soli chiamanti (`salvaSchedaLavoro`,
+    `salvaSchedaLavoroEsterno`); tutte le funzioni di `pose/actions.ts` risultavano "senza
+    controllo" solo perché usano `getOperatorePose()` (sessione tecnico esterno, non Persona
+    staff) invece di `getPersonaCorrente()` — verificate una per una, tutte corrette;
+    `trasmettiPerInstallazioneAutomatico` non ha controlli perché è chiamata da
+    `api/approva/[token]/route.ts`, un endpoint pubblico gestito da token — per design, non un
+    difetto.
+  - **Pagination/1000-righe**: ricontrollate tutte le tabelle in produzione (`tickets` 35,
+    `segnalazioni` 5, `clienti_esterni` 3922, `fatture_esterne` 58743, ecc.) contro ogni pagina che
+    le legge — tutte già correttamente paginate dove serve, nessun nuovo troncamento silenzioso
+    trovato.
+  - **Accessibilità (icon-only senza aria-label)**: ripetuta la scansione automatica già fatta in
+    precedenza — i 14 nuovi candidati trovati erano tutti falsi positivi (bottoni con testo
+    visibile accanto all'icona, lo script li segnalava per via di un ternario che confondeva il
+    controllo) — nessun nuovo bottone icon-only scoperto.
+  - Non toccato (già noto, fuori scope di questa richiesta): Telegram resta senza
+    `TELEGRAM_BOT_TOKEN` in produzione (vedi voce precedente in questo changelog).
+  Build/lint puliti. La nuova rotta di upload va verificata manualmente allegando un file >1MB a
+  un Nuovo Ticket (non testabile in automatico: richiede una sessione autenticata nel browser).
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

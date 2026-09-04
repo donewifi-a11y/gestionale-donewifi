@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { revalidatePath } from "next/cache";
@@ -587,10 +587,12 @@ export async function getPraticheClienteEsterno(clienteEsternoId: number): Promi
 // sulla scheda del cliente giusto, nessuna identificazione da rifare).
 export async function inviaEmailPraticaClienteEsterno(clienteEsternoId: number, titolo: string, url: string, reparto: AreaAccesso) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // auth.getUser() (una sessione Supabase Auth valida), non se la Persona
+  // collegata fosse ancora attivo, prima di usare sotto la service role.
+  // Stesso identico bug già corretto altrove in questo gestionale.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const service = createServiceClient();
   const { data: cliente } = await service.from("clienti_esterni").select("nome, cognome, ragionesociale, email").eq("id", clienteEsternoId).maybeSingle();
@@ -616,12 +618,13 @@ export async function inviaEmailPraticaClienteEsterno(clienteEsternoId: number, 
 // stesso principio già usato per "Richiesta Dati".
 export async function segnaDisdettaRicevuta(clienteEsternoId: number) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: "Persona non impostata." };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // auth.getUser() + getPersonaCorrenteId() (cookie firmato), non se la
+  // Persona fosse ancora attivo, prima di usare sotto la service role.
+  // Stesso identico bug già corretto altrove in questo gestionale.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+  const personaId = persona.id;
 
   const service = createServiceClient();
   const { data: cliente } = await service

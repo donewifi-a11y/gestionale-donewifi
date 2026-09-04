@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaTicket, cercaClientiEsistenti, listaNomiTariffeAttive, type ClienteEsistente } from "../actions";
+import { createClient } from "@/lib/supabase/client";
 import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET, REPARTO_PER_CATEGORIA_TICKET } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import type { AreaAccesso, PrioritaTicket } from "@/lib/types";
@@ -118,6 +119,34 @@ export default function NuovoTicketPage() {
     }
 
     setInCorso(true);
+
+    // ★ FIX (2026-09, audit generale) — stessa classe di bug già corretta
+    // 4 volte (limite di 1MB sul corpo di una Server Action): il file va
+    // caricato qui, direttamente dal browser allo storage, prima di
+    // chiamare creaTicket() — che riceve solo il percorso già scritto.
+    let allegatoExtra: { percorso: string; nome: string } | null = null;
+    if (fileExtra) {
+      try {
+        const rispostaUrl = await fetch("/api/tickets/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nomeFile: fileExtra.name }),
+        });
+        const risultatoUrl = await rispostaUrl.json();
+        if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
+
+        const supabase = createClient();
+        const { error: erroreUpload } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, fileExtra);
+        if (erroreUpload) throw new Error(erroreUpload.message);
+
+        allegatoExtra = { percorso: risultatoUrl.percorso, nome: fileExtra.name };
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : "Errore imprevisto durante il caricamento dell'allegato.");
+        setInCorso(false);
+        return;
+      }
+    }
+
     const risultato = await creaTicket(
       {
         cliente: nomeCliente,
@@ -131,7 +160,7 @@ export default function NuovoTicketPage() {
         reparto,
         dettagliExtra,
       },
-      fileExtra
+      allegatoExtra
     );
     if (risultato.errore) {
       setErrore(risultato.errore);

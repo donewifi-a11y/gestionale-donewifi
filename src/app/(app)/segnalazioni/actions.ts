@@ -207,11 +207,13 @@ export async function urlContratto(percorso: string) {
 // veniva gestito anche nel vecchio gestionale per gli interventi.
 export async function inviaEmailApprovazioneContratto(segnalazioneId: string, origine: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // auth.getUser() + getPersonaCorrenteId() (cookie firmato), non se la
+  // Persona fosse ancora attivo, prima di usare sotto la service role.
+  // Stesso identico bug già corretto altrove in questo gestionale.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
 
   const { data: segnalazione } = await supabase
     .from("segnalazioni")

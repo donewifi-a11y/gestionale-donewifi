@@ -92,7 +92,13 @@ export async function creaTicket(
     dettagliExtra: Record<string, string>;
     tecnicoAssegnato?: string;
   },
-  fileExtra?: File | null
+  // ★ FIX (2026-09, audit generale) — prima era `fileExtra?: File | null`,
+  // il file intero dentro il corpo della Server Action: stessa classe di
+  // bug già corretta 4 volte in questo gestionale (limite di 1MB di
+  // default sul corpo di una Server Action). Il file va caricato prima,
+  // dal browser, tramite api/tickets/upload-url/route.ts — qui arriva solo
+  // il percorso già scritto nello storage.
+  allegatoExtra?: { percorso: string; nome: string } | null
 ) {
   const supabase = await createClient();
   // ★ FIX SICUREZZA — controllava solo getPersonaCorrenteId() (il cookie
@@ -108,18 +114,12 @@ export async function creaTicket(
   const personaId = persona.id;
 
   // ★ i campi extra per sottocategoria (ex CONFIG_CATEGORIE) possono
-  // includere un allegato (foto apparati, allegato contabile) — caricato
-  // qui con la service role, come gli altri allegati del gestionale.
+  // includere un allegato (foto apparati, allegato contabile) — già
+  // caricato nello storage dal browser (vedi sopra), solo registrato qui.
   const dettagliExtra = { ...dati.dettagliExtra };
-  if (fileExtra && fileExtra.size > 0) {
-    const service = createServiceClient();
-    const percorso = `ticket-extra/${Date.now()}-${fileExtra.name}`;
-    const { error: erroreUpload } = await service.storage.from("documenti").upload(percorso, fileExtra, {
-      contentType: fileExtra.type || "application/octet-stream",
-    });
-    if (erroreUpload) return { errore: `Errore caricamento allegato: ${erroreUpload.message}` };
-    dettagliExtra._allegato = percorso;
-    dettagliExtra._allegatoNome = fileExtra.name;
+  if (allegatoExtra) {
+    dettagliExtra._allegato = allegatoExtra.percorso;
+    dettagliExtra._allegatoNome = allegatoExtra.nome;
   }
 
   const { data, error } = await supabase
@@ -442,10 +442,12 @@ export async function completaTicketConRapportino(
 // vera tabella (token_approvazione, migrazione 0013).
 export async function inviaEmailApprovazioneTicket(ticketId: string, origine: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // auth.getUser() (una sessione Supabase Auth valida), non se la Persona
+  // collegata fosse ancora attivo, prima di usare sotto la service role.
+  // Stesso identico bug già corretto altrove in questo gestionale.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const { data: ticket } = await supabase.from("tickets").select("numero, cliente, email, reparto").eq("id", ticketId).single();
   if (!ticket) return { errore: "Ticket non trovato." };
@@ -478,10 +480,12 @@ export async function inviaEmailApprovazioneTicket(ticketId: string, origine: st
 // proprio, /disdetta) ma è la stessa casistica di competenza Fatturazione.
 export async function inviaEmailPraticaCliente(ticketId: string, slug: string, url: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // auth.getUser(), non se la Persona collegata fosse ancora attivo. Non
+  // usa la service role qui, ma stesso principio di consistenza già
+  // applicato ai vicini urlDocumentoRapportino()/inviaEmailApprovazioneTicket().
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const { data: ticket } = await supabase.from("tickets").select("cliente, email").eq("id", ticketId).single();
   if (!ticket) return { errore: "Ticket non trovato." };
@@ -504,10 +508,10 @@ export async function inviaEmailPraticaCliente(ticketId: string, slug: string, u
 // la digita a mano nel pannello di invio.
 export async function inviaEmailPraticaGenerica(destinatarioEmail: string, nomeDestinatario: string, titolo: string, url: string, reparto: AreaAccesso) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — vedi inviaEmailPraticaCliente()
+  // sopra: stesso controllo debole, stessa correzione.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
   if (!destinatarioEmail?.trim()) return { errore: "Email non specificata." };
 
   const { oggetto, corpoHtml, corpoTesto } = emailPraticaCliente(nomeDestinatario || "Cliente", titolo, url);

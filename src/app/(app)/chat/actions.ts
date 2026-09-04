@@ -199,8 +199,13 @@ export async function inviaMessaggio(conversazioneId: string, testo: string): Pr
  */
 export async function inviaAllegatoChat(conversazioneId: string, percorso: string, nomeFile: string): Promise<{ errore: string | null }> {
   const supabase = await createClient();
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX SICUREZZA (2026-09, audit generale) — controllava solo
+  // getPersonaCorrenteId() (il cookie firmato), non se la Persona fosse
+  // ancora attivo, prima di usare sotto la service role per scrivere
+  // (bypassa la RLS) — stesso identico bug già corretto altrove in questo
+  // gestionale (creaTicket, completaTicketConRapportino).
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
   // ★ la RLS (non l'app) decide chi vede una conversazione — qui va
   // ricontrollata a mano perché sotto si passa alla service role, che la
@@ -211,7 +216,7 @@ export async function inviaAllegatoChat(conversazioneId: string, percorso: strin
   const service = createServiceClient();
   const { error } = await service
     .from("messaggi_chat")
-    .insert({ conversazione_id: conversazioneId, mittente_id: personaId, allegato_url: percorso, allegato_nome: nomeFile });
+    .insert({ conversazione_id: conversazioneId, mittente_id: persona.id, allegato_url: percorso, allegato_nome: nomeFile });
   if (error) return { errore: error.message };
   return { errore: null };
 }

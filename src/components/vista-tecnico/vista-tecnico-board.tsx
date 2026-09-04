@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
+import { createClient } from "@/lib/supabase/client";
 import { eliminaAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
 import { PianificaAppuntamento } from "@/components/tickets/tickets-board";
@@ -121,6 +122,36 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
     setErrore("");
     setInCorso(true);
     const config = CONFIG_RICHIESTA_RAPIDA[tipo];
+
+    // ★ FIX (2026-09, audit generale) — stessa classe di bug già corretta
+    // 4 volte (limite di 1MB sul corpo di una Server Action, vedi il
+    // commento gemello in tickets/nuovo/page.tsx e creaTicket()): il file
+    // va caricato qui, direttamente dal browser allo storage.
+    let allegatoExtra: { percorso: string; nome: string } | null = null;
+    if (fileExtraCampo) {
+      try {
+        const rispostaUrl = await fetch("/api/tickets/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nomeFile: fileExtraCampo.name }),
+        });
+        const risultatoUrl = await rispostaUrl.json();
+        if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
+
+        const supabase = createClient();
+        const { error: erroreUpload } = await supabase.storage
+          .from("documenti")
+          .uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, fileExtraCampo);
+        if (erroreUpload) throw new Error(erroreUpload.message);
+
+        allegatoExtra = { percorso: risultatoUrl.percorso, nome: fileExtraCampo.name };
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : "Errore imprevisto durante il caricamento dell'allegato.");
+        setInCorso(false);
+        return;
+      }
+    }
+
     const risultato = await creaTicket(
       {
         cliente: cliente.trim(),
@@ -135,7 +166,7 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
         dettagliExtra: campiExtra,
         tecnicoAssegnato: personaId,
       },
-      fileExtraCampo
+      allegatoExtra
     );
     setInCorso(false);
     if (risultato.errore || !risultato.ticket) {
