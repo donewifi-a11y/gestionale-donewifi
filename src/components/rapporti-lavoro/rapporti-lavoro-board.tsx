@@ -5,9 +5,31 @@ import { Search, ChevronDown, HardHat, Wrench, FileSignature } from "lucide-reac
 import { SchedaVista } from "@/components/schede/scheda-vista";
 import { RapportinoVista } from "@/components/tickets/rapportino";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
+import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { RigaScheda, RigaRapportino } from "@/app/(app)/rapporti-lavoro/actions";
 
 type Vista = "installazioni" | "lavorazioni";
+
+/**
+ * ★ NUOVA (2026-09-04, richiesta esplicita con screenshot: "avrei bisogno
+ * di migliorare questo. non si capisce che lavorazioni erano e lo trovo
+ * caotico") — ogni riga mostrava solo "Ticket #NN · data · Rapportino",
+ * nessun indizio su COSA fosse stato fatto: bisognava aprire ogni riga una
+ * per una per scoprirlo. Il dato c'era già, semplicemente non veniva
+ * mostrato: `lavori_svolti` del Rapportino (testo libero, spesso
+ * dettagliato — "Cpe cambiata.", "Migliorato il puntamento della cpe") o
+ * `interventi_eseguiti`/`esito` della Scheda di Lavorazione tecnica.
+ */
+function descrizioneLavorazione(r: RigaLavorazione): string {
+  if (r.fonte === "scheda" && r.scheda) {
+    if (r.scheda.interventi_eseguiti?.length) return r.scheda.interventi_eseguiti.join(", ");
+    return r.scheda.esito || "Lavorazione tecnica";
+  }
+  if (r.fonte === "rapportino" && r.rapportino) {
+    return r.rapportino.lavori_svolti?.trim() || r.rapportino.esito || "Rapportino";
+  }
+  return "";
+}
 
 interface RigaLavorazione {
   chiave: string;
@@ -108,9 +130,15 @@ export function RapportiLavoroBoard({ schede, rapportini }: { schede: RigaScheda
                     onClick={() => setAperta(espansa ? null : `scheda-${s.id}`)}
                     className="flex w-full items-center gap-3 p-3 text-left text-sm"
                   >
+                    <IconaCategoria icona={HardHat} categoria="documento" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-semibold">{s.ticket?.cliente ?? "Cliente sconosciuto"}</div>
-                      <div className="text-xs text-muted-foreground">
+                      {/* ★ NUOVA — stessa coerenza applicata a "Lavorazioni":
+                      cosa è stato installato, non solo quando. */}
+                      <div className="mt-0.5 truncate text-xs font-medium text-foreground/80">
+                        {[s.modello_cpe, s.supporto].filter(Boolean).join(" su ") || "Nuova installazione"}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
                         {s.ticket ? `Ticket #${s.ticket.numero}` : "Ticket non trovato"} · {new Date(s.creato_il).toLocaleDateString("it-IT")}
                       </div>
                     </div>
@@ -135,11 +163,19 @@ export function RapportiLavoroBoard({ schede, rapportini }: { schede: RigaScheda
             return (
               <div key={r.chiave} className="overflow-hidden rounded-xl border bg-card shadow-sm">
                 <button onClick={() => setAperta(espansa ? null : r.chiave)} className="flex w-full items-center gap-3 p-3 text-left text-sm">
+                  <IconaCategoria icona={Wrench} categoria="documento" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{r.cliente ?? "Cliente sconosciuto"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {r.ticketNumero ? `Ticket #${r.ticketNumero}` : "Ticket non trovato"} · {new Date(r.creatoIl).toLocaleDateString("it-IT")} ·{" "}
-                      {r.fonte === "scheda" ? "Scheda" : "Rapportino"}
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-semibold">{r.cliente ?? "Cliente sconosciuto"}</span>
+                      <span className="shrink-0 rounded-full bg-servizio-lavorazione-bg px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-servizio-lavorazione">
+                        {r.fonte === "scheda" ? "Scheda" : "Rapportino"}
+                      </span>
+                    </div>
+                    {/* ★ NUOVA — vedi descrizioneLavorazione() sopra: la parte
+                    che rispondeva a "che lavorazioni erano", prima assente. */}
+                    <div className="mt-0.5 truncate text-xs font-medium text-foreground/80">{descrizioneLavorazione(r)}</div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {r.ticketNumero ? `Ticket #${r.ticketNumero}` : "Ticket non trovato"} · {new Date(r.creatoIl).toLocaleDateString("it-IT")}
                     </div>
                   </div>
                   <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition ${espansa ? "rotate-180" : ""}`} strokeWidth={2.25} />

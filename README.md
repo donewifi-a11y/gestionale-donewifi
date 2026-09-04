@@ -3577,6 +3577,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     altri Ticket dello stesso cliente — indipendente da quale tab è aperta.
   Build/lint puliti.
 
+✅ Archivio → "Schede e Rapportini": si vede cosa è stato fatto, non solo quando (2026-09-04,
+  richiesta esplicita con screenshot: "avrei bisogno di migliorare questo. non si capisce che
+  lavorazioni erano e lo trovo caotico") — ogni riga mostrava solo "Ticket #NN · data ·
+  Rapportino/Scheda": per sapere cosa fosse successo bisognava aprirle una per una. Il dato
+  c'era già, semplicemente non veniva mostrato.
+  - Nuova `descrizioneLavorazione()`: per un Rapportino usa `lavori_svolti` (testo libero, spesso
+    dettagliato); per una Scheda di Lavorazione tecnica usa `interventi_eseguiti` (l'elenco
+    scelto in fase di compilazione) o, in mancanza, `esito`.
+  - Verificato sulle righe reali dello screenshot: #48/#44 Eros Ribotto → "Migliorato il
+    puntamento della cpe", #52 Walter Boniforti → "Spostata cpe da una parte all'altra del
+    balcone", #58 William Rolt → "Configurazione Router" — tutte e 4 non vuote, tutte informative.
+  - Anche la tab Installazioni ha ricevuto lo stesso trattamento (modello CPE + supporto invece
+    di "Nuova installazione" muto), per coerenza tra le due tab.
+  - Icona colorata per riga (coerente col resto del gestionale) e badge Scheda/Rapportino spostato
+    accanto al nome invece che infilato nella riga di meta-informazioni.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
