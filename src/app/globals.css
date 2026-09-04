@@ -85,10 +85,16 @@
      cade: se il resto della pagina ha una tinta calda, un'ombra
      grigio-blu è quella che tradisce per prima un tema assemblato
      invece che disegnato. */
-  --shadow-xs: 0 1px 2px rgba(35,18,12,.05);
-  --shadow-sm: 0 1px 3px rgba(35,18,12,.08), 0 1px 2px rgba(35,18,12,.04);
-  --shadow-md: 0 10px 24px -10px rgba(35,18,12,.20), 0 2px 6px -2px rgba(35,18,12,.10);
-  --shadow-lg: 0 24px 48px -16px rgba(35,18,12,.32), 0 6px 16px -6px rgba(35,18,12,.15);
+  /* ★ RAFFINATO (2026-09-04, richiesta esplicita: "possiamo rivedere
+     contrasti il colore e tutto... deve essere il più leggibile, elegante
+     ma tech" — artifact "Tre Direzioni Cromatiche", scelta la "① Rosso
+     Raffinato": stesso sistema, contrasti alzati) — intensità un filo più
+     marcata di prima, stessa tinta bruna, per un rilievo più netto delle
+     card "in primo piano" (dialog, popup) sullo sfondo. */
+  --shadow-xs: 0 1px 2px rgba(35,18,12,.06);
+  --shadow-sm: 0 1px 3px rgba(35,18,12,.10), 0 1px 2px rgba(35,18,12,.05);
+  --shadow-md: 0 10px 24px -10px rgba(35,18,12,.26), 0 2px 6px -2px rgba(35,18,12,.12);
+  --shadow-lg: 0 24px 48px -16px rgba(35,18,12,.38), 0 6px 16px -6px rgba(35,18,12,.18);
 }
 
 :root {
@@ -113,12 +119,17 @@
   --secondary: oklch(0.96 0.006 30);
   --secondary-foreground: oklch(0.25 0.02 30);
   --muted: oklch(0.96 0.006 30);
-  --muted-foreground: oklch(0.5 0.02 30);
+  /* ★ RAFFINATO (2026-09-04, "Rosso Raffinato" — vedi shadow sopra) —
+     0.5 → 0.42: il testo secondario (etichette, meta-informazioni) era al
+     limite della leggibilità su bianco puro; stessa tinta, più scuro. */
+  --muted-foreground: oklch(0.42 0.02 30);
   --accent: #FBE3E2;
   --accent-foreground: #7A0007;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.008 30);
-  --input: oklch(0.91 0.008 30);
+  /* ★ RAFFINATO (2026-09-04, "Rosso Raffinato") — 0.91 → 0.87: i confini
+     tra card/sezioni erano quasi impercettibili su sfondo quasi bianco. */
+  --border: oklch(0.87 0.01 30);
+  --input: oklch(0.87 0.01 30);
   --ring: #CF000A;
   /* ★ colori di stato semantici, separati dall'accent del brand — usati
      per priorità/copertura/esiti, mai per "serie" o decorazione. Restano
@@ -221,7 +232,10 @@
   --accent: #3A1416;
   --accent-foreground: #F0A3A8;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  /* ★ RAFFINATO (2026-09-04, "Rosso Raffinato" — stessa richiesta della
+     versione chiara sopra) — 10% → 13%: stesso obiettivo, bordi un filo
+     più leggibili tra card/sezioni. */
+  --border: oklch(1 0 0 / 13%);
   --input: oklch(1 0 0 / 15%);
   --ring: #E8555F;
   --success: oklch(0.7 0.15 155);

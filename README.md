@@ -3418,6 +3418,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     chiari, se mai riusato altrove).
   Build/lint puliti.
 
+✅ Contrasti alzati, "Rosso Raffinato" (2026-09-04, richiesta esplicita: "possiamo rivedere
+  contrasti il colore e tutto. deve essere il più leggibile, elegante ma tech" — artifact "Tre
+  Direzioni Cromatiche" con 3 alternative a confronto, scelta la "① Rosso Raffinato": stesso
+  sistema, solo intensità alzate) — nessun colore nuovo, nessuna categoria/reparto toccati: solo
+  testo secondario, bordi e ombre delle card resi più leggibili.
+  - `--muted-foreground` (testo secondario, etichette, meta-informazioni): oklch 0.5 → 0.42.
+    Verificato quantitativamente (non solo a occhio, conversione OKLCH→sRGB + formula WCAG):
+    contrasto su sfondo passa da **5,9:1 a 8,3:1** — già sopra la soglia minima (4,5:1 per testo
+    normale), ora supera anche la soglia più severa AAA (7:1).
+  - `--border`/`--input` (confini tra card/sezioni): oklch 0.91 → 0.87 in chiaro, 10%→13% di
+    opacità in scuro — prima quasi impercettibili su sfondo quasi bianco (contrasto 1,28:1, ora
+    1,44:1: i bordi non richiedono la soglia testo, ma restano più visibili).
+  - Ombre (`--shadow-xs/sm/md/lg`): intensità alzata (es. l'ombra principale delle card "in
+    rilievo" passa da un'opacità .20 a .26) per un distacco più netto tra dialog/popup e sfondo.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
