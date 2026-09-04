@@ -3594,6 +3594,21 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     accanto al nome invece che infilato nella riga di meta-informazioni.
   Build/lint puliti.
 
+✅ Etichetta "Pianificato" sulla card del Ticket (2026-09-04, richiesta esplicita: "devo vedere
+  dai ticket quando sono pianificati e devo avere l'etichetta che lo dice") — prima l'unico modo
+  di sapere se (e quando) un Ticket avesse già un appuntamento fissato era aprirlo: il dettaglio
+  lo scopriva con un fetch a parte (`getAppuntamentoAttivoPerTicket`), invisibile dalla bacheca.
+  - `tickets/page.tsx`: un solo giro in più per leggere tutti gli appuntamenti "Programmato"
+    collegati a un Ticket (nessuna paginazione necessaria: per natura un insieme limitato, solo
+    lavori futuri/in corso, mai l'intero storico) — passati alla bacheca invece di un fetch per
+    ogni Ticket aperto.
+  - `tickets-board.tsx`: mappa `appuntamentoPerTicket` per accesso diretto dalla card — etichetta
+    sempre visibile (non un segnale d'allarme come "Urgente"/"Cliente tornato": un fatto, non un
+    avviso) con icona colorata "tempo" e data/ora, es. "📅 Pianificato — 02/09, 08:30".
+  - Verificato su 5 appuntamenti reali collegati a Ticket veri (es. #4 Compagnia Energetica Alto
+    Buthier → 02/09, 08:30).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -47,6 +47,19 @@ export default async function TicketsPage() {
   // attivi, per assegnare un Ticket a uno di loro dal dettaglio (vedi
   // "Assegnato a" in tickets-board.tsx).
   const { data: tecniciEsterni } = await supabase.from("tecnici_esterni").select("id, nome, cognome").eq("attivo", true).order("nome", { ascending: true });
+  // ★ NUOVA (2026-09-04, richiesta esplicita: "devo vedere dai ticket
+  // quando sono pianificati e devo avere l'etichetta che lo dice") — prima
+  // l'unico modo di sapere se (e quando) un Ticket avesse già un
+  // appuntamento fissato era aprirlo: DettaglioTicket lo scopriva con un
+  // fetch a parte, invisibile dalla bacheca. Un solo giro qui invece di un
+  // fetch per Ticket aperto — gli appuntamenti "Programmato" sono per
+  // natura un insieme limitato (solo lavori futuri/in corso, mai l'intero
+  // storico), non serve la paginazione usata per i Ticket sopra.
+  const { data: appuntamentiProgrammati } = await supabase
+    .from("appuntamenti")
+    .select("id, ticket_id, data_ora, tipo_servizio")
+    .eq("stato", "Programmato")
+    .not("ticket_id", "is", null);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -74,6 +87,7 @@ export default async function TicketsPage() {
         persone={persone ?? []}
         catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
         tecniciEsterni={tecniciEsterni ?? []}
+        appuntamentiProgrammati={appuntamentiProgrammati ?? []}
       />
     </div>
   );

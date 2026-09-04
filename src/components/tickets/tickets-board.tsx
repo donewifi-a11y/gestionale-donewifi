@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
@@ -164,6 +164,7 @@ export function TicketsBoard({
   persone,
   catalogoMateriali,
   tecniciEsterni,
+  appuntamentiProgrammati,
 }: {
   tickets: Ticket[];
   currentPersonaId: string;
@@ -173,6 +174,11 @@ export function TicketsBoard({
    * esterni attivi, per assegnare un Ticket a uno di loro invece che a un
    * tecnico interno (vedi "Assegnato a" in DettaglioTicket sotto). */
   tecniciEsterni: { id: string; nome: string; cognome: string | null }[];
+  /** ★ NUOVA (2026-09-04, richiesta esplicita: "devo vedere dai ticket
+   * quando sono pianificati e devo avere l'etichetta che lo dice") — un
+   * appuntamento "Programmato" per Ticket, se c'è (letto in blocco dalla
+   * pagina, vedi tickets/page.tsx — non serve un fetch per ogni card). */
+  appuntamentiProgrammati: { id: string; ticket_id: string | null; data_ora: string; tipo_servizio: TipoServizioAppuntamento }[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -294,6 +300,20 @@ export function TicketsBoard({
     }
     return gruppi;
   }, [tickets]);
+
+  // ★ NUOVA — vedi appuntamentiProgrammati sopra: mappa per accesso O(1)
+  // dalla card, il più vicino nel tempo se per assurdo ce ne fosse più di
+  // uno per lo stesso Ticket (non dovrebbe capitare nel flusso normale, ma
+  // meglio non presumerlo).
+  const appuntamentoPerTicket = useMemo(() => {
+    const mappa = new Map<string, { data_ora: string; tipo_servizio: TipoServizioAppuntamento }>();
+    for (const a of appuntamentiProgrammati) {
+      if (!a.ticket_id) continue;
+      const esistente = mappa.get(a.ticket_id);
+      if (!esistente || new Date(a.data_ora) < new Date(esistente.data_ora)) mappa.set(a.ticket_id, a);
+    }
+    return mappa;
+  }, [appuntamentiProgrammati]);
 
   function trovaPersona(id: string | null) {
     return id ? persone.find((p) => p.id === id) ?? null : null;
@@ -615,6 +635,26 @@ export function TicketsBoard({
                                 segnale && (
                                   <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
                                 )
+                              )}
+                              {/* ★ NUOVA (2026-09-04, richiesta esplicita:
+                              "devo vedere dai ticket quando sono pianificati
+                              e devo avere l'etichetta che lo dice") — prima
+                              l'unico modo di saperlo era aprire il Ticket
+                              (DettaglioTicket lo scopre con un fetch a
+                              parte). Etichetta sempre visibile, non un
+                              segnale d'allarme come gli altri sopra — un
+                              fatto, non un avviso. */}
+                              {appuntamentoPerTicket.has(t.id) && (
+                                <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                  <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+                                  Pianificato —{" "}
+                                  {new Date(appuntamentoPerTicket.get(t.id)!.data_ora).toLocaleString("it-IT", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
                               )}
                             </div>
 
