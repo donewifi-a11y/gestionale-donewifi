@@ -3514,6 +3514,23 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     per eliminarla, le tre integrate no (sempre disponibili).
   Build/lint puliti.
 
+✅ Riassegnazione inline e selezione multipla sulla bacheca Ticket (2026-09-04, artifact
+  "Proposte UX 2026", proposte ② e ③, "io farei tutto") — implementate insieme, stesso file.
+  - **② Riassegnazione inline**: prima un Ticket già preso da un tecnico si poteva riassegnare
+    solo aprendo il dettaglio ("Prendi in carico" sulla card copriva solo il caso "non ancora
+    assegnato a nessuno"). Ora un piccolo menu a tendina compare passando il mouse sulla card
+    anche quando è già assegnata — cambia tecnico (o lo rimuove) senza aprire nulla.
+  - **③ Selezione multipla**: una casella su ogni card (invisibile a riposo, visibile passando il
+    mouse o se la card è già selezionata) e una barra che compare solo con una selezione attiva —
+    oggi solo "Assegna a…", per riassegnare più Ticket insieme dopo un giro di smistamento.
+    **Deliberatamente esclusa** un'azione bulk "Segna completato": ogni Ticket richiede sempre un
+    rapportino di chiusura (vedi `avanzaStato` — passare a "Completato" apre il dettaglio invece
+    di cambiare stato direttamente), bypassarlo in blocco creerebbe Ticket "Completati" senza mai
+    aver registrato cosa è stato fatto — una violazione di una regola già applicata altrove.
+  - Verificato che la firma di `assegnaTicket(id, personaId)` corrisponda esattamente all'uso in
+    entrambi i punti nuovi.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

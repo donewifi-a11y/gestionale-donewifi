@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
@@ -202,6 +202,16 @@ export function TicketsBoard({
   // DettaglioTicket conosce già l'appuntamento collegato, lo passa su con
   // onApriScheda invece di doverlo rifetchare qui.
   const [schedaAperta, setSchedaAperta] = useState<Appuntamento | null>(null);
+  // ★ NUOVA (2026-09-04, artifact "Proposte UX 2026", proposta ③, "io farei
+  // tutto") — selezione multipla per riassegnare più Ticket in un colpo
+  // solo (es. dopo un giro di smistamento mattutino), invece di aprirli e
+  // chiuderli uno alla volta. Solo la riassegnazione tecnico è inclusa
+  // nelle azioni bulk: "segna completato" non lo è di proposito, richiede
+  // sempre un rapportino di chiusura per ciascun Ticket (vedi avanzaStato
+  // sotto) — bypassarlo in blocco creerebbe Ticket "Completati" senza mai
+  // aver registrato cosa è stato fatto.
+  const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
+  const [inCorsoBulk, startBulk] = useTransition();
 
   // ★ apre direttamente un ticket via ?aperto=<id> — usato dalla ricerca
   // globale e dal link "vai al ticket" dopo aver trasmesso una Segnalazione.
@@ -276,6 +286,45 @@ export function TicketsBoard({
       toast(risultato.errore);
       return;
     }
+    router.refresh();
+  }
+
+  function alternaSelezione(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelezionati((cur) => {
+      const nuovo = new Set(cur);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
+
+  function assegnaBulk(personaId: string) {
+    if (!personaId || selezionati.size === 0) return;
+    startBulk(async () => {
+      const risultati = await Promise.all([...selezionati].map((id) => assegnaTicket(id, personaId)));
+      const errori = risultati.filter((r) => r.errore);
+      if (errori.length > 0) toast(`${errori.length} su ${risultati.length} non riassegnati: ${errori[0].errore}`);
+      else toast(`${risultati.length} ticket riassegnati.`, "successo");
+      setSelezionati(new Set());
+      router.refresh();
+    });
+  }
+
+  // ★ NUOVA (2026-09-04, artifact "Proposte UX 2026", proposta ②, "io
+  // farei tutto") — prima, un Ticket già assegnato si poteva riassegnare
+  // solo aprendo il dettaglio: "Prendi in carico" sulla card copriva solo
+  // il caso "non ancora assegnato a nessuno". Un menu a tendina diretto
+  // sulla card copre anche il caso più comune — spostare un Ticket già
+  // preso da un tecnico a un altro — senza aprire nulla.
+  async function riassegnaInline(t: Ticket, personaId: string, e: React.ChangeEvent<HTMLSelectElement> | React.MouseEvent) {
+    e.stopPropagation();
+    const risultato = await assegnaTicket(t.id, personaId || null);
+    if (risultato.errore) {
+      toast(risultato.errore);
+      return;
+    }
+    toast(personaId ? "Tecnico riassegnato." : "Tecnico rimosso.", "successo");
     router.refresh();
   }
 
@@ -378,6 +427,38 @@ export function TicketsBoard({
         )}
       </div>
 
+      {/* ★ NUOVA — barra azioni bulk: compare solo quando c'è una
+      selezione, zero ingombro il resto del tempo. Vedi nota su
+      selezionati/assegnaBulk sopra sul perché "segna completato" non è
+      un'azione bulk. */}
+      {selezionati.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2.5 rounded-xl bg-foreground px-3.5 py-2.5 text-background shadow-md">
+          <span className="text-xs font-bold">
+            {selezionati.size} ticket selezionat{selezionati.size === 1 ? "o" : "i"}
+          </span>
+          <select
+            defaultValue=""
+            disabled={inCorsoBulk}
+            onChange={(e) => assegnaBulk(e.target.value)}
+            className="h-8 rounded-md border-none bg-background/15 px-2 text-xs font-semibold text-background outline-none disabled:opacity-60"
+          >
+            <option value="" disabled>Assegna a…</option>
+            {persone.map((p) => (
+              <option key={p.id} value={p.id} className="text-foreground">{p.nome}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={inCorsoBulk}
+            onClick={() => setSelezionati(new Set())}
+            className="ml-auto flex items-center gap-1 text-xs font-semibold text-background/70 transition hover:text-background disabled:opacity-60"
+          >
+            <X className="h-3 w-3" strokeWidth={2.5} />
+            Deseleziona
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLONNE.map((col) => {
           const items = filtrati.filter((t) => col.stati.includes(t.stato));
@@ -452,22 +533,43 @@ export function TicketsBoard({
                             tabIndex={0}
                             onClick={() => setAperto(t)}
                             onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                            className="group relative cursor-pointer rounded-lg border bg-card p-2 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
+                            className="group relative flex cursor-pointer items-start gap-1.5 rounded-lg border bg-card p-2 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
                           >
-                            <div className="flex items-baseline gap-1.5">
-                              {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
-                              <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
-                              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
-                            </div>
-                            {segnale && segnale.pulsante ? (
-                              <div className="mt-1">
-                                <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                            {/* ★ NUOVA — checkbox di selezione (proposta ③,
+                            azioni bulk): elemento vero del flex, non
+                            sovrapposto al pallino reparto — a riposo
+                            invisibile (`opacity-0`), visibile passando il
+                            mouse sulla card o se già selezionata, per non
+                            appesantire la card quando non si sta selezionando
+                            nulla. */}
+                            <button
+                              type="button"
+                              onClick={(e) => alternaSelezione(t.id, e)}
+                              aria-label={selezionati.has(t.id) ? "Deseleziona" : "Seleziona"}
+                              className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition ${
+                                selezionati.has(t.id)
+                                  ? "border-primary bg-primary text-primary-foreground opacity-100"
+                                  : "border-border bg-card text-transparent opacity-0 group-hover:opacity-100"
+                              }`}
+                            >
+                              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline gap-1.5">
+                                {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
+                                <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
+                                <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                               </div>
-                            ) : (
-                              segnale && (
-                                <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
-                              )
-                            )}
+                              {segnale && segnale.pulsante ? (
+                                <div className="mt-1">
+                                  <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                                </div>
+                              ) : (
+                                segnale && (
+                                  <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
+                                )
+                              )}
+                            </div>
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,
                             sostituito dalle azioni solo al passaggio del mouse —
@@ -492,6 +594,32 @@ export function TicketsBoard({
                                 >
                                   <UserPlus className="h-3 w-3" strokeWidth={2.5} />
                                 </button>
+                              )}
+                              {/* ★ NUOVA — riassegna un Ticket già preso senza
+                              aprire il dettaglio (vedi riassegnaInline sopra):
+                              select "invisibile" (nessun bordo a riposo),
+                              solo un'icona persona a fare da indizio, per non
+                              appesantire una card già stretta. */}
+                              {assegnatario && (
+                                <label
+                                  title="Riassegna"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex h-6 items-center gap-0.5 rounded-full border bg-card px-1 text-muted-foreground transition hover:border-primary hover:text-primary"
+                                >
+                                  <UserPlus className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+                                  <select
+                                    value={t.tecnico_assegnato ?? ""}
+                                    onChange={(e) => riassegnaInline(t, e.target.value, e)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label="Riassegna tecnico"
+                                    className="max-w-14 truncate border-none bg-transparent text-[10px] font-semibold outline-none"
+                                  >
+                                    <option value="">Nessuno</option>
+                                    {persone.map((p) => (
+                                      <option key={p.id} value={p.id}>{p.nome}</option>
+                                    ))}
+                                  </select>
+                                </label>
                               )}
                               {puoAvanzare && (
                                 <button
