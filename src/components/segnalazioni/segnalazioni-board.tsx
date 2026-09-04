@@ -147,11 +147,16 @@ function giorniAperta(data: string) {
 export function SegnalazioniBoard({
   segnalazioni,
   richieste,
+  ticketPerSegnalazione,
   currentPersonaId,
   isAdmin,
 }: {
   segnalazioni: Segnalazione[];
   richieste: RichiestaCliente[];
+  // ★ NUOVA (2026-09) — vedi commento in page.tsx: stato del Ticket
+  // collegato, per mostrare sulla card stessa (non solo nel popup) se il
+  // cliente ha approvato/è in attesa di installazione/è già installato.
+  ticketPerSegnalazione: Record<string, { id: string; numero: number; stato: string }>;
   currentPersonaId: string;
   isAdmin: boolean;
 }) {
@@ -327,6 +332,20 @@ export function SegnalazioniBoard({
               // pratica avanza oltre "Gestione Cliente" (il segnale sparisce
               // insieme allo stato che lo genera, niente da "spuntare" a mano).
               segnale = { testo: "✓ Dati ricevuti — pronta per il contratto", tono: "info", pulsante: true };
+            } else if (col.stato === "Trasmessa") {
+              // ★ NUOVA (2026-09) — richiesta esplicita "in entrambi i
+              // posti" dopo lo screenshot "non notifica": prima la card qui
+              // restava muta una volta trasmessa, bisognava aprire il
+              // popup per sapere a che punto fosse l'installazione. Stesso
+              // ragionamento del popup (DettaglioSegnalazione più sotto):
+              // Ticket "Completato" → installato, con link diretto al
+              // rapporto; altrimenti ancora in attesa di installazione.
+              const ticket = ticketPerSegnalazione[s.id];
+              if (ticket?.stato === "Completato") {
+                segnale = { testo: `✓ Installato — vedi rapporto (Ticket #${ticket.numero})`, tono: "successo" };
+              } else if (ticket) {
+                segnale = { testo: `📅 Approvato — in attesa di installazione (Ticket #${ticket.numero})`, tono: "info" };
+              }
             }
             return (
               <div

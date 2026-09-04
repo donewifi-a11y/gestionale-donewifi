@@ -3678,6 +3678,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Filippo Thomasset → Ticket #63 "Da gestire") — entrambe collegate correttamente.
   Build/lint puliti.
 
+✅ Stesso indicatore anche sulla card della colonna "Trasmessa" (2026-09-04, screenshot della
+  bacheca con le card di Paolo Ghirotti/Filippo Thomasset senza alcun segnale, "non notifica" — il
+  passo precedente aveva coperto solo il popup di dettaglio, non "entrambi i posti" come chiesto).
+  - `page.tsx` fa ora un fetch in blocco di tutti i Ticket con `segnalazione_id` non nullo
+    (`fetchTicketPerSegnalazione`, stesso schema del bulk-fetch `appuntamentiProgrammati` di
+    /tickets) e passa la mappa a `SegnalazioniBoard` — nessun round-trip per card.
+  - La card in colonna "Trasmessa" mostra ora lo stesso identico segnale del popup: "📅 Approvato —
+    in attesa di installazione (Ticket #NN)" oppure, a Ticket Completato, "✓ Installato — vedi
+    rapporto (Ticket #NN)" — visibile scorrendo la bacheca, senza aprire nulla.
+  - Verificato sulle stesse 2 Segnalazioni reali: entrambi i Ticket collegati (#53 "In lavorazione",
+    #63 "Da gestire") non sono ancora "Completato" → in entrambi i casi la card mostra
+    correttamente "Approvato — in attesa di installazione", non "Installato".
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

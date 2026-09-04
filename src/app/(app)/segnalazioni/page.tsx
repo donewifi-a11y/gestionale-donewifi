@@ -45,6 +45,22 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
   return tutte;
 }
 
+// ★ NUOVA (2026-09) — richiesta esplicita "in entrambi i posti": il popup
+// di dettaglio già mostra lo stato del Ticket collegato una volta
+// Trasmessa, ma la card della colonna "Trasmessa" restava muta (bisognava
+// aprire ogni pratica per saperlo). Un fetch in blocco qui, sullo stesso
+// modello dei ticket bulk-fetch di /tickets, evita un round-trip per card.
+async function fetchTicketPerSegnalazione(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Record<string, { id: string; numero: number; stato: string }>> {
+  const { data } = await supabase.from("tickets").select("id, numero, stato, segnalazione_id").not("segnalazione_id", "is", null);
+  const mappa: Record<string, { id: string; numero: number; stato: string }> = {};
+  for (const t of data ?? []) {
+    if (t.segnalazione_id) mappa[t.segnalazione_id] = { id: t.id, numero: t.numero, stato: t.stato };
+  }
+  return mappa;
+}
+
 export default async function SegnalazioniPage() {
   const supabase = await createClient();
   const personaCorrenteId = await getPersonaCorrenteId();
@@ -52,6 +68,7 @@ export default async function SegnalazioniPage() {
 
   const segnalazioni = await fetchTutteSegnalazioni(supabase);
   const richieste = await fetchTutteRichieste(supabase);
+  const ticketPerSegnalazione = await fetchTicketPerSegnalazione(supabase);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -82,6 +99,7 @@ export default async function SegnalazioniPage() {
       <SegnalazioniBoard
         segnalazioni={segnalazioni}
         richieste={richieste}
+        ticketPerSegnalazione={ticketPerSegnalazione}
         currentPersonaId={personaCorrenteId ?? ""}
         isAdmin={personaHaAccessoAdmin(persona)}
       />
