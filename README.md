@@ -3609,6 +3609,16 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     Buthier → 02/09, 08:30).
   Build/lint puliti.
 
+✅ Etichetta "Pianificato" — colore d'avviso se la data è già passata (2026-09-04, richiesta
+  esplicita: "puoi correggere e metterli su quelli già pianificati") — controllando la modifica
+  precedente è emerso un dato reale: **tutti e 5** gli appuntamenti "Programmato" di esempio
+  risultavano già scaduti (il più vecchio di oltre 2 settimane), mai segnati completati/annullati
+  nel Calendario — un problema di igiene dei dati reale, non ipotetico.
+  - Stesso principio già in uso per "⏳ Ferma da Ng": una data pianificata nel passato prende il
+    colore d'avviso (`text-warning`) e l'etichetta diventa "Pianificato (scaduto)" invece del
+    grigio neutro di un appuntamento davvero futuro.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

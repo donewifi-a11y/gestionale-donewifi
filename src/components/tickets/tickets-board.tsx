@@ -643,19 +643,34 @@ export function TicketsBoard({
                               (DettaglioTicket lo scopre con un fetch a
                               parte). Etichetta sempre visibile, non un
                               segnale d'allarme come gli altri sopra — un
-                              fatto, non un avviso. */}
-                              {appuntamentoPerTicket.has(t.id) && (
-                                <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                                  <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
-                                  Pianificato —{" "}
-                                  {new Date(appuntamentoPerTicket.get(t.id)!.data_ora).toLocaleString("it-IT", {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </div>
-                              )}
+                              fatto, non un avviso.
+                              ★ ESTESA (2026-09-04, richiesta esplicita:
+                              "puoi correggere e metterli su quelli già
+                              pianificati" — dato reale trovato controllando
+                              questa modifica: alcuni appuntamenti restano
+                              "Programmato" con data ormai passata, mai
+                              segnati completati/annullati) — data passata =
+                              colore d'avviso invece del grigio neutro,
+                              stesso principio di "Ferma da Ng" sopra: un
+                              appuntamento pianificato per ieri e mai
+                              aggiornato è a tutti gli effetti un problema
+                              da controllare, non un fatto qualunque. */}
+                              {appuntamentoPerTicket.has(t.id) && (() => {
+                                const app = appuntamentoPerTicket.get(t.id)!;
+                                const passato = new Date(app.data_ora) < new Date();
+                                return (
+                                  <div className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${passato ? "text-warning" : "text-muted-foreground"}`}>
+                                    <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+                                    {passato ? "Pianificato (scaduto) — " : "Pianificato — "}
+                                    {new Date(app.data_ora).toLocaleString("it-IT", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,
