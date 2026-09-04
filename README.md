@@ -3619,6 +3619,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     grigio neutro di un appuntamento davvero futuro.
   Build/lint puliti.
 
+✅ Separatore di giorno e orario su ogni messaggio in Chat (2026-09-04, richiesta esplicita:
+  "nelle chat devi mettere data e ora se cambia il giorno, perché altrimenti non capisco se si
+  legge") — un messaggio normale non mostrava **nessun orario**: solo "Letto"/"Consegnato" sotto
+  l'ultimo messaggio mio, tutti gli altri senza alcun riferimento temporale. Scorrendo una
+  conversazione di più giorni non c'era modo di capire quando fosse stato scritto cosa.
+  - Stesso principio di WhatsApp/Telegram: un separatore centrato ("Oggi"/"Ieri"/"31 luglio")
+    solo quando il giorno cambia rispetto al messaggio precedente nella conversazione — non
+    ripetuto su ogni messaggio, solo dove serve.
+  - Ogni messaggio ha ora la propria ora sotto la bolla; "Letto"/"Consegnato" resta dove già era
+    (solo sull'ultimo messaggio mio), ora accodato all'ora invece di sostituirla.
+  - Verificato su una conversazione reale (155 messaggi, dal 31 luglio a oggi): 22 cambi di
+    giorno, "Oggi"/"Ieri" corretti, le date più vecchie in "31 luglio"/"3 agosto" ecc.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

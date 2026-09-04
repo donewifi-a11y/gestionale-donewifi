@@ -73,6 +73,30 @@ function oraBreve(iso: string): string {
     : d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
 }
 
+// ★ NUOVA (2026-09-04, richiesta esplicita: "nelle chat devi mettere data e
+// ora se cambia il giorno, perché altrimenti non capisco se si legge") —
+// prima un messaggio normale non mostrava nessun orario (solo "Letto"/
+// "Consegnato" sotto l'ultimo mio): scorrendo una conversazione di più
+// giorni non c'era alcun modo di capire quando fosse stato scritto cosa.
+// Stesso principio di WhatsApp/Telegram: un separatore "Oggi"/"Ieri"/data
+// solo quando il giorno cambia rispetto al messaggio precedente, più
+// l'ora su ogni singolo messaggio (quella basta, il giorno lo dice già il
+// separatore sopra).
+function etichettaGiorno(iso: string): string {
+  const d = new Date(iso);
+  const oggi = new Date();
+  const ieri = new Date(oggi);
+  ieri.setDate(ieri.getDate() - 1);
+  if (d.toDateString() === oggi.toDateString()) return "Oggi";
+  if (d.toDateString() === ieri.toDateString()) return "Ieri";
+  const testo = d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: d.getFullYear() === oggi.getFullYear() ? undefined : "numeric" });
+  return testo.charAt(0).toUpperCase() + testo.slice(1);
+}
+
+function oraSola(iso: string): string {
+  return new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
 /** ★ ESTRATTO — contenuto della chat, separato dal "come" viene mostrato
  * (prima solo un pulsante flottante sempre in vista, "troppi pulsanti in
  * giro" secondo l'utente). Lo stesso contenuto ora serve sia il pop-up
@@ -466,6 +490,19 @@ export function ChatPanel({
             {messaggi.length === 0 && <p className="text-center text-xs text-muted-foreground">Nessun messaggio ancora.</p>}
             <div className="flex flex-col gap-2">
               {messaggi.map((m, i) => {
+                // ★ NUOVA — vedi etichettaGiorno() sopra: confronta col
+                // messaggio precedente (non con "adesso"), così il
+                // separatore compare esattamente dove il giorno cambia
+                // dentro la conversazione, non in base a quando la si sta
+                // leggendo.
+                const giornoCambiato = i === 0 || new Date(messaggi[i - 1].creato_il).toDateString() !== new Date(m.creato_il).toDateString();
+                const separatore = giornoCambiato && (
+                  <div key={`giorno-${m.id}`} className="my-1 flex justify-center">
+                    <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {etichettaGiorno(m.creato_il)}
+                    </span>
+                  </div>
+                );
                 const daSistema = !!sistemaId && m.mittente_id === sistemaId;
                 // ★ NUOVA (2026-08-27, richiesta esplicita: "distinguere i
                 // messaggi automatici dai messaggi delle persone") — un
@@ -477,10 +514,17 @@ export function ChatPanel({
                 // ti ha scritto e aspetta una risposta".
                 if (daSistema) {
                   return (
-                    <div key={m.id} className="mx-auto flex max-w-[92%] items-start gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground/80">
-                      <Bell className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.25} />
-                      <span className="min-w-0 flex-1 whitespace-pre-wrap">{m.testo && <TestoMessaggio testo={m.testo} />}</span>
-                      <span className="shrink-0 text-[10px] text-muted-foreground">{oraBreve(m.creato_il)}</span>
+                    <div key={m.id}>
+                      {separatore}
+                      <div className="mx-auto flex max-w-[92%] items-start gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground/80">
+                        <Bell className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.25} />
+                        <span className="min-w-0 flex-1 whitespace-pre-wrap">{m.testo && <TestoMessaggio testo={m.testo} />}</span>
+                        {/* ★ ESTESA — vedi etichettaGiorno()/separatore
+                        sopra: il giorno lo dice già il separatore, qui
+                        basta l'ora, non più "oraBreve" (che da sola, senza
+                        separatore, doveva anche dire il giorno). */}
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{oraSola(m.creato_il)}</span>
+                      </div>
                     </div>
                   );
                 }
@@ -489,22 +533,34 @@ export function ChatPanel({
                 const ultimoMio = mio && !messaggi.slice(i + 1).some((x) => x.mittente_id === personaCorrenteId);
                 const letto = ultimoMio && !thread.isGruppo && !!letturaAltro && new Date(letturaAltro) >= new Date(m.creato_il);
                 return (
-                  <div key={m.id} className={`flex flex-col ${mio ? "items-end" : "items-start"}`}>
-                    {thread.isGruppo && !mio && (
-                      <span className="mb-0.5 px-1 text-[10px] font-semibold text-muted-foreground">{nomeMittente(m.mittente_id)}</span>
-                    )}
-                    <div className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-sm ${mio ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                      {m.testo && <TestoMessaggio testo={m.testo} />}
-                      {m.allegato_url && (
-                        <button onClick={() => apriAllegato(m.allegato_url!)} className={`flex items-center gap-1.5 text-xs underline-offset-2 hover:underline ${m.testo ? "mt-1" : ""}`}>
-                          <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-                          {m.allegato_nome || "Allegato"}
-                        </button>
+                  <div key={m.id}>
+                    {separatore}
+                    <div className={`flex flex-col ${mio ? "items-end" : "items-start"}`}>
+                      {thread.isGruppo && !mio && (
+                        <span className="mb-0.5 px-1 text-[10px] font-semibold text-muted-foreground">{nomeMittente(m.mittente_id)}</span>
                       )}
+                      <div className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-sm ${mio ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                        {m.testo && <TestoMessaggio testo={m.testo} />}
+                        {m.allegato_url && (
+                          <button onClick={() => apriAllegato(m.allegato_url!)} className={`flex items-center gap-1.5 text-xs underline-offset-2 hover:underline ${m.testo ? "mt-1" : ""}`}>
+                            <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+                            {m.allegato_nome || "Allegato"}
+                          </button>
+                        )}
+                      </div>
+                      {/* ★ ESTESA (2026-09-04, richiesta esplicita: "nelle
+                      chat devi mettere data e ora se cambia il giorno,
+                      perché altrimenti non capisco se si legge") — prima
+                      solo l'ultimo messaggio mio aveva una didascalia
+                      ("Letto"/"Consegnato"), tutti gli altri nessun orario:
+                      ora c'è sempre, "Letto"/"Consegnato" si aggiunge solo
+                      dov'era già (non ha senso su un messaggio che non è
+                      né l'uno né l'altro). */}
+                      <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">
+                        {oraSola(m.creato_il)}
+                        {ultimoMio && ` · ${letto ? "Letto" : "Consegnato"}`}
+                      </span>
                     </div>
-                    {ultimoMio && (
-                      <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">{letto ? "Letto" : "Consegnato"}</span>
-                    )}
                   </div>
                 );
               })}
