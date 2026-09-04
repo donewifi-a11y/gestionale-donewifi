@@ -14,14 +14,31 @@ import type { MaterialeMagazzino, Ticket } from "@/lib/types";
 // subito invece di aspettare che il troncamento diventi visibile.
 export const maxDuration = 30;
 
+// ★ NUOVA (2026-09) — richiesta esplicita: "andrebbe ripulito ogni tot
+// giorni per non riempire" — la colonna "Lavorata" qui sopra è proprio il
+// problema descritto, cresce da sempre senza mai svuotarsi. Un ticket
+// Completato da più di GIORNI_CONSERVAZIONE_LAVORATA giorni sparisce dalla
+// bacheca operativa: resta comunque consultabile per sempre in Archivio
+// (/archivio, nessun filtro sui giorni) e nella scheda del cliente
+// (getTicketCollegati in clienti-esterni/actions.ts) — qui si toglie solo
+// dalla vista quotidiana, non si cancella nulla.
+const GIORNI_CONSERVAZIONE_LAVORATA = 14;
+
 async function fetchTuttiTicketNonAnnullati(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Ticket[]> {
   const PAGINA = 1000;
+  const cutoff = new Date(Date.now() - GIORNI_CONSERVAZIONE_LAVORATA * 24 * 60 * 60 * 1000).toISOString();
   const tutti: Ticket[] = [];
   for (let offset = 0; ; offset += PAGINA) {
     const { data } = await supabase
       .from("tickets")
       .select("*")
       .neq("stato", "Annullato")
+      // ★ un Ticket non-Completato resta sempre (prima parte dell'OR);
+      // un Completato resta solo se aggiornato di recente — non esiste un
+      // campo dedicato "completato_il" su tickets, `aggiornato_il` è
+      // un'approssimazione ragionevole (si aggiorna praticamente sempre
+      // insieme al passaggio a Completato, vedi aggiornaStatoTicket()).
+      .or(`stato.neq.Completato,aggiornato_il.gte.${cutoff}`)
       .order("data_creazione", { ascending: false })
       .range(offset, offset + PAGINA - 1);
     const pagina = (data as Ticket[] | null) ?? [];

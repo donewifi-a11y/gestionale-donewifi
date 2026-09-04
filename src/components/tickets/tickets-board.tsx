@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
@@ -530,12 +531,22 @@ export function TicketsBoard({
           const items = filtrati.filter((t) => col.stati.includes(t.stato));
           return (
             <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
-              <div className="mb-3 flex items-center justify-between px-1">
+              <div className="mb-1 flex items-center justify-between px-1">
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
                   {items.length}
                 </span>
               </div>
+              {/* ★ NUOVA (2026-09) — richiesta esplicita "andrebbe ripulito
+              ogni tot giorni per non riempire": la colonna ora mostra solo
+              i Ticket completati negli ultimi GIORNI_CONSERVAZIONE_LAVORATA
+              giorni (vedi tickets/page.tsx). Una riga qui spiega dove sono
+              finiti gli altri, invece di lasciar credere che siano persi. */}
+              {col.titolo === "Lavorata" && (
+                <Link href="/archivio" className="mb-2 block px-1 text-[11px] text-muted-foreground/70 hover:text-primary hover:underline">
+                  Ultimi 14 giorni — lo storico completo è in Archivio →
+                </Link>
+              )}
               <div className="flex flex-col gap-3">
                 {items.length === 0 && (
                   <div className="flex items-center justify-center px-4 py-8 text-center text-xs text-muted-foreground/70">

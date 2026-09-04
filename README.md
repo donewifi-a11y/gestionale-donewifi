@@ -3722,6 +3722,24 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     ora una sola sezione "ASSISTENZA" con la sottocategoria leggibile su ogni card.
   Build/lint puliti.
 
+✅ Bacheca Ticket non si riempie più di lavoro vecchio (2026-09-04, richiesta esplicita: "andrebbe
+  ripulito ogni tot giorni per non riempire. i ticket dovrebbero andare in archivio quando
+  completati e possibile consultarli dalla sched del cliente" — la seconda metà esisteva già:
+  `getTicketCollegati()` mostra da tempo i Ticket per telefono, compresi i completati, nella scheda
+  cliente di Clienti Esterni). Il problema reale era la colonna "Lavorata": accumulava OGNI Ticket
+  completato dall'inizio dell'attività, senza mai svuotarsi.
+  - `fetchTuttiTicketNonAnnullati()` (tickets/page.tsx) esclude ora i Ticket "Completato" con
+    `aggiornato_il` più vecchio di `GIORNI_CONSERVAZIONE_LAVORATA` (14 giorni) — restano sempre
+    consultabili per sempre in Archivio (nessun filtro sui giorni lì) e nella scheda cliente.
+  - Nessun campo dedicato "completato_il" su `tickets`: `aggiornato_il` è l'approssimazione più
+    ragionevole disponibile (si aggiorna insieme al passaggio a Completato in `aggiornaStatoTicket()`).
+  - Aggiunto un rimando "Ultimi 14 giorni — lo storico completo è in Archivio →" sotto il titolo
+    della colonna, per non far credere che i Ticket più vecchi siano spariti.
+  - Verificato contro produzione: 16 Ticket Completato reali, tutti con `aggiornato_il` entro 7
+    giorni (nessuno supera ancora i 14g) — query prima/dopo il filtro eseguita realmente su
+    Supabase, stessi risultati attesi; il filtro comincerà a nascondere ticket appena invecchiano.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
