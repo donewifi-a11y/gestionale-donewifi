@@ -3404,6 +3404,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     trattamento già presente solo su "Indirizzo".
   Build/lint puliti.
 
+✅ Logo del sidebar leggibile su sfondo scuro (2026-09-04, richiesta esplicita: "non va bene il
+  logo che si confonde con lo sfondo") — il marchio ha 3 toni di rosso per l'effetto "segnale
+  wifi" (anello acceso + due archi via via più scuri); i due archi più scuri (quasi bordeaux,
+  `#6C000D`/`#A3081F`) erano praticamente invisibili sul sidebar quasi nero (`#141414`) — verificato
+  componendo il file reale su quello sfondo prima e dopo il fix, non solo a occhio.
+  - Nuovo `public/brand/logo-marchio-scuro.png`: stessi 3 toni ma gli archi rischiariti verso il
+    rosa (`#E8555F`/`#F4949C` invece di `#A3081F`/`#6C000D`) — stessa identità cromatica "a
+    scalare", ora leggibile sul quasi-nero. Generato via script (`sharp`) che rimappa solo i pixel
+    dei due archi, l'anello (già `--primary`, già leggibile) resta invariato.
+  - `app-sidebar.tsx`: entrambe le occorrenze del logo (intestazione espansa e compatta) puntano
+    ora al nuovo file. `logo-marchio.png` originale lasciato intatto (ancora corretto su sfondi
+    chiari, se mai riusato altrove).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

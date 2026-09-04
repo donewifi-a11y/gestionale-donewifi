@@ -279,7 +279,7 @@ export function AppSidebar({
       {/* ★ REBRAND — logo vero (variante marchio-solo, colorata) al posto
       del badge di testo "DW" — vedi public/brand/. */}
       <div className="flex items-center gap-2.5 px-4 py-5">
-        <img src="/brand/logo-marchio.png" alt="" className="h-9 w-9 shrink-0" />
+        <img src="/brand/logo-marchio-scuro.png" alt="" className="h-9 w-9 shrink-0" />
         <div className="leading-tight">
           <div className="font-heading text-sm font-bold text-sidebar-foreground">
             Done<span className="text-sidebar-primary">Wifi</span>
@@ -455,7 +455,7 @@ export function AppSidebar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        <img src="/brand/logo-marchio.png" alt="" className="h-7 w-7 shrink-0" />
+        <img src="/brand/logo-marchio-scuro.png" alt="" className="h-7 w-7 shrink-0" />
         <span className="font-heading text-sm font-bold">
           Done<span className="text-sidebar-primary">Wifi</span>
         </span>
