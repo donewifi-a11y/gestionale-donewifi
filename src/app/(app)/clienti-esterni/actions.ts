@@ -4,6 +4,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import { fetchTuttiClientiEsterni, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
+import { creaTicket } from "@/app/(app)/tickets/actions";
+import { avviaPraticaSubentro } from "@/app/(app)/richieste-clienti/actions";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso, ClienteEsterno, FatturaEsterna, RichiestaCliente } from "@/lib/types";
 
@@ -652,6 +654,62 @@ export async function segnaDisdettaRicevuta(clienteEsternoId: number) {
   revalidatePath("/richieste-clienti");
   revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
   return { errore: null };
+}
+
+// ★ NUOVA (2026-09, richiesta esplicita da screenshot: "manca la pratica di
+// subentro" — il menu "Nuova pratica" della scheda Cliente Esterno offre
+// Trasferimento/Cambio IBAN/Cambio Anagrafica ma non Subentro, perché il
+// suo flusso a doppio consenso (avviaPraticaSubentro in
+// richieste-clienti/actions.ts) ha bisogno di un Ticket a cui agganciare
+// la conferma del vecchio cliente — da qui non ce n'è ancora uno.
+// Un solo pulsante ("un click", opzione scelta): crea il Ticket per il
+// cliente ATTUALE con i dati già in anagrafica (stesso schema del
+// pulsante "+ Nuovo Ticket" già in cima a questa scheda) e avvia subito la
+// pratica di Subentro su quel Ticket — riusa creaTicket()/
+// avviaPraticaSubentro() invece di duplicarne la logica, un solo posto
+// resta la fonte di verità per entrambe.
+export async function avviaSubentroClienteEsterno(
+  clienteEsternoId: number,
+  nomeNuovoTitolare: string | null
+): Promise<{ errore: string | null; ticketId: string | null; ticketNumero: number | null }> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", ticketId: null, ticketNumero: null };
+
+  const service = createServiceClient();
+  const { data: cliente } = await service
+    .from("clienti_esterni")
+    .select("nome, cognome, ragionesociale, telefono, email, indirizzo, numero_civico, comune")
+    .eq("id", clienteEsternoId)
+    .maybeSingle();
+  if (!cliente) return { errore: "Cliente non trovato.", ticketId: null, ticketNumero: null };
+
+  const nomeCliente = cliente.ragionesociale || [cliente.nome, cliente.cognome].filter(Boolean).join(" ") || "Cliente";
+  const indirizzoCompleto = [cliente.indirizzo, cliente.numero_civico].filter(Boolean).join(" ") + (cliente.comune ? `, ${cliente.comune}` : "");
+
+  const risultatoTicket = await creaTicket({
+    cliente: nomeCliente,
+    telefono: cliente.telefono || "",
+    email: cliente.email || "",
+    indirizzo: indirizzoCompleto.trim(),
+    categoria: "Commerciale",
+    sottocategoria: "Subentro",
+    problema: "",
+    priorita: "Normale",
+    reparto: "Commerciale",
+    dettagliExtra: {},
+  });
+  if (risultatoTicket.errore || !risultatoTicket.id) {
+    return { errore: risultatoTicket.errore || "Errore nella creazione del Ticket.", ticketId: null, ticketNumero: null };
+  }
+
+  const risultatoPratica = await avviaPraticaSubentro(risultatoTicket.id, nomeNuovoTitolare);
+  if (risultatoPratica.errore) {
+    return { errore: risultatoPratica.errore, ticketId: risultatoTicket.id, ticketNumero: risultatoTicket.numero ?? null };
+  }
+
+  revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
+  return { errore: null, ticketId: risultatoTicket.id, ticketNumero: risultatoTicket.numero ?? null };
 }
 
 export interface AttivazioneBuyGo {

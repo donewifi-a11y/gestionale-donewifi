@@ -3784,6 +3784,33 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Build/lint puliti. La nuova rotta di upload va verificata manualmente allegando un file >1MB a
   un Nuovo Ticket (non testabile in automatico: richiede una sessione autenticata nel browser).
 
+✅ Verifica del sistema di Subentro + "Avvia Subentro" a un click dalla scheda cliente
+  (2026-09-08, richiesta esplicita "verifichiamo come funziona il sistema di subentro da attuale
+  cliente ad altro?"). Nessuna pratica di Subentro era mai stata creata in produzione (0 righe) —
+  flusso mai esercitato davvero.
+  - **Test end-to-end reale eseguito contro produzione** (Ticket di prova, email vera via Resend,
+    chiamate HTTP reali a `/api/approva/[token]` e `/api/richiesta-cliente` su gestione.donewifi.it,
+    poi tutto ripulito): avvio pratica → email di conferma al vecchio cliente → conferma via link
+    (`vecchio_cliente_confermato_il` scritto, token monouso eliminato, voce in Storico) → modulo del
+    nuovo cliente compilato → dati scritti sulla stessa riga **senza** perdere la conferma già
+    registrata. Tutto corretto, nessun bug trovato.
+  - **Bug di usabilità trovato e corretto** (screenshot "manca la pratica di subentro" sulla scheda
+    Cliente Esterno di Leonardo Pavetto): il menu "Nuova pratica" lì offre solo
+    Trasferimento/Cambio IBAN/Cambio Anagrafica — Subentro ne è escluso per design (il suo flusso a
+    doppio consenso ha bisogno di un Ticket a cui agganciarsi, che da quella scheda non esiste
+    ancora) ma non c'era alcun modo di avviarlo da lì: bisognava prima creare un Ticket a parte e
+    cercare il pannello dentro.
+  - Nuovo `avviaSubentroClienteEsterno()`: un solo pulsante "Avvia Subentro" nella scheda Cliente
+    Esterno crea da solo il Ticket per il cliente attuale (dati già in anagrafica: nome, telefono,
+    email, indirizzo) e avvia subito la pratica sopra — riusa `creaTicket()`/`avviaPraticaSubentro()`
+    invece di duplicarne la logica — poi porta dritto al Ticket per inviare i due link. Bonus non
+    cercato: la sottocategoria "Subentro" scelta per il Ticket fa anche preselezionare
+    automaticamente il pannello giusto all'apertura.
+  - Verificato contro un cliente reale (Leonardo Pavetto, scheda #178): nome/indirizzo composti
+    correttamente ("Leonardo Pavetto" / "Frazione Cre 61, Gignod"), Ticket e pratica collegati,
+    poi rimossi.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
