@@ -3970,17 +3970,19 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     segue lo stesso percorso (Pianifica → Scheda → Rapportino → Completato) di ogni altro intervento.
   - Terza traccia "Contratto" aggiunta ai pallini di stato, sia nel Ticket sia nella bacheca
     "Richieste Clienti" (card + popup).
-  Build/lint puliti. **Non ancora verificato con un test reale end-to-end**: richiede prima
-  l'applicazione della migrazione qui sotto (nuove colonne + nuovo valore `origine` su
-  `token_approvazione`) — farò il test appena confermi di averla incollata.
+  **Migrazione 0071 applicata e verificata con un test end-to-end reale contro produzione**
+  (2026-09-09, dopo conferma "fatto"): Ticket + pratica creati, conferma del vecchio cliente via
+  `/api/approva/[token]` reale, modulo del nuovo cliente via `/api/richiesta-cliente` reale, upload
+  vero del PDF sullo storage, email di approvazione contratto inviata per davvero (Resend),
+  approvazione via lo stesso endpoint pubblico reale, verificato che `completaSubentro()` rifiuta
+  finché il Ticket non è "Completato" e riesce subito dopo — Storico completo con tutti e 3 i
+  passaggi in ordine. Tutto ripulito da produzione al termine (dati di test, file sullo storage).
+  Build/lint puliti.
 
-**⚠️ MIGRAZIONE DA APPLICARE (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
+**⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
-`token_approvazione.origine` (sostituisce il vincolo esistente con uno che include anche gli altri
-5 valori già in uso — nessuna riga esistente ne viene toccata). Da incollare nell'SQL Editor di
-Supabase **prima** di usare il caricamento contratto nel Subentro, altrimenti fallisce con un
-errore di colonna/vincolo mancante.
+`token_approvazione.origine`. Confermata applicata e verificata con un test reale (vedi sopra).
 
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
