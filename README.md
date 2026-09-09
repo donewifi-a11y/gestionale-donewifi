@@ -3979,6 +3979,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   passaggi in ordine. Tutto ripulito da produzione al termine (dati di test, file sullo storage).
   Build/lint puliti.
 
+✅ Popup Ticket ridisegnato (2026-09-09, richiesta esplicita dopo uno screenshot del popup reale
+  "vecchia e confusionaria... guarda i nuovi trend del 2026 per fare un sistema moderno, semplice
+  ed elegante. così non so cosa devo fare, troppi pulsanti e possibilità" — proposta con l'artifact
+  "Il Ticket Ripensato", struttura approvata con "meglio", grafica poi rifinita con "migliorami la
+  grafica, è vecchia"). Stessa applicazione dei principi 2026 "strategic minimalism"/"progressive
+  disclosure" (fonti citate nell'artifact) alla tab Dettagli reale — nessun campo/handler rimosso,
+  solo riorganizzati:
+  - I 4 pulsanti di stato sempre visibili (di cui 3 quasi sempre inutili) diventano un solo
+    `<select>` compatto colorato come lo stato corrente (stessa mappa colori di `StatusBadge`).
+  - Telefono/email/indirizzo: da tre blocchi "etichetta sopra, valore sotto" impilati a chip
+    inline con icona colorata — stesso trattamento già in uso altrove nel gestionale
+    (`IconaCategoria`/`COLORE_ICONA`, non uno stile nuovo solo per questo popup).
+  - "Pianifica appuntamento" promosso ad azione primaria (pulsante pieno) subito sotto i contatti
+    quando non c'è già un appuntamento attivo, invece che in fondo dopo ogni altro campo.
+  - Assegnato a/Reparto affiancati in una griglia invece di due blocchi a piena larghezza.
+  - Priorità, Problema/Note, i campi extra della sottocategoria ed "Elimina Ticket" (azione rara e
+    distruttiva) ora dietro un `<details>` "Altri dettagli e azioni" nativo — nessuno script, il
+    browser gestisce apertura/chiusura. "Elimina Ticket" non è più sempre visibile su ogni tab.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

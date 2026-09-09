@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check, Repeat } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check, Repeat, Phone, Mail, MapPin } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
@@ -82,6 +82,18 @@ const PRATICA_PER_SOTTOCATEGORIA: Record<string, (typeof PRATICHE_INVIABILI)[num
 };
 
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
+// ★ NUOVA (2026-09, redesign del popup Ticket) — stesse combinazioni
+// testo/sfondo di STILI_STATO in status-badge.tsx (non esportata da lì),
+// qui applicate a un <select> invece che a un Badge: il selettore di stato
+// del Ticket diventa un unico controllo colorato come lo stato corrente
+// invece di 4 pulsanti sempre visibili.
+const STILE_STATO_TICKET: Record<StatoTicket, string> = {
+  "Da gestire": "bg-muted text-muted-foreground border-transparent",
+  "In lavorazione": "bg-primary/10 text-primary border-primary/20",
+  "In attesa": "bg-warning/10 text-warning border-warning/20",
+  Completato: "bg-success/10 text-success border-success/20",
+  Annullato: "bg-muted text-muted-foreground border-transparent",
+};
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
@@ -1219,8 +1231,6 @@ function DettaglioTicket({
     });
   }
 
-  const idx = SEQUENZA_STATO.indexOf(ticket.stato);
-
   return (
     <>
       {/* ★ sticky top-0, stesso trattamento del titolo Segnalazione: resta
@@ -1277,26 +1287,29 @@ function DettaglioTicket({
 
         {tab === "dettagli" && (
         <div key="dettagli" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+        {/* ★ RIDISEGNATA (2026-09, "vecchia e confusionaria... troppi
+        pulsanti e possibilità" — richiesta esplicita dopo l'artifact "Il
+        Ticket Ripensato", trend 2026 "strategic minimalism"/"progressive
+        disclosure") — 4 pulsanti sempre visibili (di cui 3 inutili la
+        maggior parte delle volte, essendo lo stato corrente uno solo)
+        diventano un unico controllo compatto, colorato come lo stato
+        attuale (stessa mappa di StatusBadge, mai una seconda scelta di
+        colori da mantenere allineata). */}
         {ticket.stato === "Annullato" ? (
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {SEQUENZA_STATO.map((s, i) => (
-              <button
-                key={s}
-                disabled={inCorsoStato}
-                onClick={() => cambiaStato(s)}
-                className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-60 ${
-                  i === idx
-                    ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
-                    : i < idx
-                    ? "bg-success/10 text-success border-success/20"
-                    : "bg-muted text-muted-foreground hover:border-primary/40"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <select
+              value={ticket.stato}
+              disabled={inCorsoStato}
+              onChange={(e) => cambiaStato(e.target.value as StatoTicket)}
+              className={`h-8 rounded-full border px-3 text-xs font-bold disabled:opacity-60 ${STILE_STATO_TICKET[ticket.stato] ?? ""}`}
+            >
+              {SEQUENZA_STATO.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            {inCorsoStato && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
           </div>
         )}
 
@@ -1343,6 +1356,69 @@ function DettaglioTicket({
           </div>
         )}
 
+        {/* ★ NUOVA (2026-09, stesso redesign) — telefono/email/indirizzo
+        erano tre blocchi "etichetta sopra, valore sotto" impilati: qui
+        diventano chip inline, stesso trattamento icona-colorata già in
+        uso per i contatti altrove nel gestionale (preventivi-board.tsx,
+        clienti-board.tsx...) invece di un pattern nuovo solo per questo
+        popup. */}
+        {(ticket.telefono || ticket.email || ticket.indirizzo) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {ticket.telefono && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
+                {ticket.telefono}
+              </span>
+            )}
+            {ticket.email && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
+                {ticket.email}
+              </span>
+            )}
+            {ticket.indirizzo && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
+                {ticket.indirizzo}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
+        sempre una prima installazione, ma il tipo di servizio non lo
+        deduceva mai da solo: il menu partiva sempre su "Lavorazione
+        tecnica" come per qualunque altro Ticket, rischiando la Scheda
+        sbagliata sul campo se chi pianifica non se ne accorgeva.
+        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
+        nuove installazioni come interventi in loco") — prima guardava solo
+        `categoria === "Commerciale" || segnalazione_id`: un Ticket
+        categoria "Assistenza" con sottocategoria "Pianificazione
+        installazione" (trovato reale in produzione, appuntamenti già con
+        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
+        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
+        condivisa anche con Calendario → FormNuovoAppuntamento invece di
+        due condizioni copiate e disallineate; `segnalazione_id` resta
+        come controllo aggiuntivo di sicurezza.
+        ★ SPOSTATA (2026-09, redesign) — era in fondo al tab, sotto ogni
+        altro campo: quando non c'è ancora un appuntamento attivo è
+        l'azione più probabile su questo Ticket, ora promossa ad azione
+        primaria (`primario`) subito sotto i contatti invece che in coda. */}
+        <PianificaAppuntamento
+          ticket={ticket}
+          persone={persone}
+          tipoServizioIniziale={
+            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
+              ? "Nuova installazione"
+              : "Lavorazione tecnica"
+          }
+          primario={!appuntamentoAttivo && ticket.stato !== "Completato"}
+        />
+
+        {/* ★ NUOVA (2026-09, redesign) — Assegnato a/Reparto affiancati in
+        una griglia invece di due blocchi impilati a piena larghezza:
+        stessa logica/stessi handler di prima, solo più compatti. */}
+        <div className="grid grid-cols-2 gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
@@ -1465,47 +1541,47 @@ function DettaglioTicket({
             value={ticket.reparto}
             disabled={inCorsoReparto}
             onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
-            className="mt-1 h-9 rounded-md border bg-background px-2 text-xs font-medium disabled:opacity-60"
+            className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-xs font-medium disabled:opacity-60"
           >
             {REPARTI.map((r) => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </div>
-        <Campo etichetta="Priorità" valore={ticket.priorita} />
-        <Campo etichetta="Telefono" valore={ticket.telefono || "—"} />
-        <Campo etichetta="Email" valore={ticket.email || "—"} />
-        <Campo etichetta="Indirizzo" valore={ticket.indirizzo || "—"} />
-        <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
-        {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
-          <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
-        )}
-        {ticket.sottocategoria && <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />}
+        </div>
 
-        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
-        sempre una prima installazione, ma il tipo di servizio non lo
-        deduceva mai da solo: il menu partiva sempre su "Lavorazione
-        tecnica" come per qualunque altro Ticket, rischiando la Scheda
-        sbagliata sul campo se chi pianifica non se ne accorgeva.
-        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
-        nuove installazioni come interventi in loco") — prima guardava solo
-        `categoria === "Commerciale" || segnalazione_id`: un Ticket
-        categoria "Assistenza" con sottocategoria "Pianificazione
-        installazione" (trovato reale in produzione, appuntamenti già con
-        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
-        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
-        condivisa anche con Calendario → FormNuovoAppuntamento invece di
-        due condizioni copiate e disallineate; `segnalazione_id` resta
-        come controllo aggiuntivo di sicurezza. */}
-        <PianificaAppuntamento
-          ticket={ticket}
-          persone={persone}
-          tipoServizioIniziale={
-            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
-              ? "Nuova installazione"
-              : "Lavorazione tecnica"
-          }
-        />
+        {/* ★ NUOVA (2026-09, "troppi pulsanti e possibilità" — trend 2026
+        "progressive disclosure": mostra il minimo per decidere il prossimo
+        passo, il resto a richiesta) — priorità, problema/note, i campi
+        extra della sottocategoria ed "Elimina Ticket" (azione rara e
+        distruttiva) sono ora dietro un disclosure nativo invece di sempre
+        in vista: nessuno script, il `<details>` del browser gestisce
+        apertura/chiusura e lo stato non va salvato da nessuna parte. */}
+        <details className="group rounded-xl border bg-card px-3 py-2.5">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-bold uppercase tracking-wide text-muted-foreground [&::-webkit-details-marker]:hidden">
+            Altri dettagli e azioni
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-150 group-open:rotate-180" strokeWidth={2.5} />
+          </summary>
+          <div className="mt-3 flex flex-col gap-3 border-t pt-3">
+            <Campo etichetta="Priorità" valore={ticket.priorita} />
+            <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
+            {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
+              <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
+            )}
+            {ticket.sottocategoria && <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={elimina}
+                disabled={inCorsoElimina}
+                className="flex w-fit items-center gap-1.5 text-xs font-semibold text-critical hover:underline disabled:opacity-50"
+              >
+                {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                {inCorsoElimina ? "Eliminazione in corso…" : "Elimina Ticket"}
+              </button>
+            )}
+          </div>
+        </details>
         </div>
         )}
 
@@ -1717,18 +1793,6 @@ function DettaglioTicket({
           </div>
           {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
         </div>
-        )}
-
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={elimina}
-            disabled={inCorsoElimina}
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-critical/30 px-3 py-3 text-xs font-semibold text-critical transition hover:bg-critical/10 disabled:opacity-50"
-          >
-            {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
-            {inCorsoElimina ? "Eliminazione in corso…" : "Elimina Ticket"}
-          </button>
         )}
       </div>
     </>
@@ -2075,12 +2139,21 @@ export function PianificaAppuntamento({
   tipoServizioIniziale = "Lavorazione tecnica",
   apertaSubito = false,
   tecnicoIniziale,
+  primario = false,
 }: {
   ticket: Ticket;
   persone: Persona[];
   tipoServizioIniziale?: TipoServizioAppuntamento;
   apertaSubito?: boolean;
   tecnicoIniziale?: string;
+  /** ★ NUOVA (2026-09, redesign del popup Ticket) — pulsante pieno/in
+   * evidenza invece del solito outline compatto, per il caso (Ticket
+   * senza appuntamento attivo) in cui pianificare è l'azione più probabile
+   * da compiere adesso. Solo l'aspetto del pulsante di apertura cambia —
+   * il form e `creaAppuntamento()` restano identici — così l'altro punto
+   * da cui parte questo componente (vista-tecnico-board.tsx) non è
+   * toccato lasciando il default a `false`. */
+  primario?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -2147,7 +2220,12 @@ export function PianificaAppuntamento({
 
   if (!aperto) {
     return (
-      <Button size="sm" variant="outline" className="w-fit" onClick={() => setAperto(true)}>
+      <Button
+        size={primario ? "default" : "sm"}
+        variant={primario ? "default" : "outline"}
+        className={primario ? "w-full" : "w-fit"}
+        onClick={() => setAperto(true)}
+      >
         <CalendarPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
         Pianifica appuntamento
       </Button>
