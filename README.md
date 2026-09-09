@@ -3834,6 +3834,22 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     senza errori — la migrazione 0012 (login individuale) risulta applicata correttamente.
   Build/lint puliti.
 
+✅ Log diagnostico per il prossimo caso di "new row violates row-level security policy" su
+  Ticket (2026-09-09, richiesta esplicita: "era successo anche sabato, come possiamo verificare, da
+  supabase o da vercel?" — verifica avviata sul caso di Antonietta, mai conclusa: il suo profilo
+  risultava perfettamente corretto nel database, ma sabato non era lei fisicamente al dispositivo,
+  quindi il vero accesso rotto era di qualcun altro, mai identificato). Niente da fare con
+  certezza retroattiva: i log di Vercel via CLI sono solo in tempo reale (nessuna ricerca
+  all'indietro), quelli di Supabase hanno una finestra di conservazione limitata — sabato era
+  probabilmente già fuori portata al momento della richiesta.
+  - `creaTicket()` ora registra, solo quando ricapita questo identico errore, sia chi mostrava "Tu
+    sei" in sidebar (il cookie `persona_id`, indipendente dalla sessione Supabase Auth vera) sia
+    chi era DAVVERO autenticato (`auth.uid()`/email reali) — visibile nei log Vercel della funzione
+    subito dopo l'evento, senza dover cercare altrove o aspettare che l'utente lo segnali a voce.
+  - Non risolve il caso di sabato (già fuori dai log), ma rende il prossimo caso identificabile in
+    pochi secondi appena segnalato.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

@@ -159,6 +159,21 @@ export async function creaTicket(
     // applicato altrove in questo gestionale ai messaggi Postgres grezzi.
     console.error("creaTicket — insert tickets:", error.message);
     if (error.message.includes("row-level security policy")) {
+      // ★ NUOVA (2026-09-09, ricapitato — richiesta esplicita "come
+      // possiamo verificare, da supabase o da vercel") — i log di Vercel
+      // in tempo reale non conservano lo storico (nessuna ricerca
+      // all'indietro da riga di comando) e i log di Supabase hanno una
+      // finestra di conservazione limitata: la prossima volta che
+      // ricapita, questa riga da sola basta a capire subito chi era
+      // davvero autenticato (`auth.uid()`) contro chi mostrava "Tu sei"
+      // (il cookie `persona_id`, indipendente dalla sessione Supabase Auth
+      // vera) — senza dover cercare altrove.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      console.error(
+        `creaTicket — RLS violata: "Tu sei" mostrava ${persona.nome} (persona ${personaId}), ma la sessione Supabase Auth reale è ${user?.email ?? "assente"} (auth.uid ${user?.id ?? "null"}).`
+      );
       return {
         errore:
           "Il tuo accesso non risulta più valido per creare Ticket — esci dal gestionale e accedi di nuovo con le tue credenziali personali (non un accesso condiviso). Se il problema resta, contatta un amministratore.",
