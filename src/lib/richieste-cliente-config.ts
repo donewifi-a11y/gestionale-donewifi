@@ -1,3 +1,17 @@
+// ★ NUOVA (2026-09, "è un macello, va riorganizzata e semplificata" —
+// passo 2 della proposta) — chiave riservata dentro `richieste_clienti.dettagli`
+// per la bozza di telefono/email del nuovo cliente salvata dall'operatore
+// PRIMA che il nuovo cliente risponda per davvero (vedi
+// salvaContattoNuovoTitolareSubentro() in richieste-clienti/actions.ts).
+// Annidata sotto questa chiave, non appiattita — il modulo pubblico vero
+// (FormSubentro) usa "telefono"/"email" come CAMPI SUOI, con lo stesso
+// nome: senza questo confine, il traguardo "il nuovo cliente ha
+// risposto" (guardato da nuovoClienteHaRisposto/traccePratica/
+// completaSubentro) sarebbe risultato vero appena l'operatore scriveva
+// la bozza, prima ancora che il nuovo cliente aprisse il link — trovato
+// verificando il flusso con un test reale, non a tavolino.
+export const CHIAVE_BOZZA_CONTATTO_SUBENTRO = "_bozzaContattoNuovoTitolare";
+
 // ★ Configurazione condivisa (pagina pubblica + route API + bottone di
 // invio dal Ticket) per le 4 pratiche cliente ex form dedicati del
 // vecchio gestionale (RichiestaDati.html, sezioni Subentro/Trasferimento/

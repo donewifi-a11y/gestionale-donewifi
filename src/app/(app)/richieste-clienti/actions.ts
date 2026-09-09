@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
+import { CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
 import { revalidatePath } from "next/cache";
 import type { RichiestaCliente } from "@/lib/types";
 
@@ -147,9 +148,16 @@ export async function salvaContattoNuovoTitolareSubentro(praticaId: string, tele
   if (!esistente || esistente.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
 
   const service = createServiceClient();
+  // ★ FIX (2026-09, bug reale trovato con un test vero) — annidata sotto
+  // una chiave riservata, non appiattita dentro `dettagli`: il modulo
+  // pubblico vero del nuovo cliente userà "telefono"/"email" come CAMPI
+  // SUOI, con lo stesso nome — appiattire la bozza qui avrebbe reso "il
+  // nuovo cliente ha risposto" vero appena l'operatore scriveva questi
+  // due campi, prima ancora che il nuovo cliente aprisse il link. Vedi
+  // CHIAVE_BOZZA_CONTATTO_SUBENTRO.
   const { error } = await service
     .from("richieste_clienti")
-    .update({ dettagli: { ...(esistente.dettagli || {}), telefono, email } })
+    .update({ dettagli: { ...(esistente.dettagli || {}), [CHIAVE_BOZZA_CONTATTO_SUBENTRO]: { telefono, email } } })
     .eq("id", praticaId);
   if (error) return { errore: error.message };
   return { errore: null };
@@ -170,7 +178,11 @@ export async function completaSubentro(praticaId: string) {
   const { data: pratica } = await supabase.from("richieste_clienti").select("tipo_richiesta, dettagli, vecchio_cliente_confermato_il, cliente").eq("id", praticaId).maybeSingle();
   if (!pratica || pratica.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
   if (!pratica.vecchio_cliente_confermato_il) return { errore: "Il vecchio cliente non ha ancora confermato la cessione." };
-  if (!pratica.dettagli || Object.keys(pratica.dettagli).length === 0) return { errore: "Il nuovo cliente non ha ancora inviato i suoi dati." };
+  // ★ la bozza di contatto (vedi CHIAVE_BOZZA_CONTATTO_SUBENTRO) non conta
+  // come "il nuovo cliente ha risposto" — solo una risposta vera al
+  // modulo pubblico sovrascrive `dettagli` con altri campi.
+  const campiVeriNuovoCliente = Object.keys(pratica.dettagli || {}).filter((c) => c !== CHIAVE_BOZZA_CONTATTO_SUBENTRO);
+  if (campiVeriNuovoCliente.length === 0) return { errore: "Il nuovo cliente non ha ancora inviato i suoi dati." };
 
   const service = createServiceClient();
   const { error } = await service.from("richieste_clienti").update({ stato: "Lavorata" }).eq("id", praticaId);

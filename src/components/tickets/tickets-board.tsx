@@ -33,7 +33,7 @@ import { SchedaVista } from "@/components/schede/scheda-vista";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
-import { messaggioWhatsappPratica } from "@/lib/richieste-cliente-config";
+import { messaggioWhatsappPratica, CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
@@ -1006,7 +1006,13 @@ function DettaglioTicket({
     if (!praticaSubentro || typeof window === "undefined") return "";
     return `${window.location.origin}/richiesta-cliente/subentro?ticketId=${ticket.id}&praticaId=${praticaSubentro.id}`;
   }, [praticaSubentro, ticket.id]);
-  const nuovoClienteHaRisposto = !!praticaSubentro && Object.keys(praticaSubentro.dettagli || {}).length > 0;
+  // ★ FIX (2026-09, bug reale trovato con un test vero) — esclude la
+  // bozza di contatto salvata onBlur (vedi CHIAVE_BOZZA_CONTATTO_SUBENTRO):
+  // senza questo confine "il nuovo cliente ha risposto" risultava vero
+  // appena l'operatore scriveva telefono/email, prima ancora che il nuovo
+  // cliente aprisse il link.
+  const nuovoClienteHaRisposto =
+    !!praticaSubentro && Object.keys(praticaSubentro.dettagli || {}).filter((c) => c !== CHIAVE_BOZZA_CONTATTO_SUBENTRO).length > 0;
 
   function avviaSubentro() {
     startAvvioSubentro(async () => {

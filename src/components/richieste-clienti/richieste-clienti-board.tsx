@@ -21,6 +21,7 @@ import {
 import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta, completaSubentro } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
+import { CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
 import { useToast } from "@/components/ui/toast";
 
 // ★ NUOVA (2026-09-03, "rivediamo la grafica... deve essere tutta
@@ -52,9 +53,15 @@ const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 // avviaPraticaSubentro/inviaLinkVecchioClienteSubentro).
 function traccePratica(r: RichiestaCliente): { vecchio: StatoTraccia; nuovo: "ok" | "attesa" } | null {
   if (r.tipo_richiesta !== "Subentro") return null;
+  // ★ FIX (2026-09, bug reale trovato con un test vero) — esclude la
+  // bozza di contatto salvata dall'operatore onBlur (vedi
+  // CHIAVE_BOZZA_CONTATTO_SUBENTRO): senza questo confine "il nuovo
+  // cliente ha risposto" risultava vero appena l'operatore scriveva
+  // telefono/email, non quando il nuovo cliente apriva davvero il link.
+  const campiVeriNuovoCliente = Object.keys(r.dettagli || {}).filter((c) => c !== CHIAVE_BOZZA_CONTATTO_SUBENTRO);
   return {
     vecchio: r.vecchio_cliente_confermato_il ? "ok" : r.vecchio_cliente_rifiutato_il ? "no" : "attesa",
-    nuovo: Object.keys(r.dettagli || {}).length > 0 ? "ok" : "attesa",
+    nuovo: campiVeriNuovoCliente.length > 0 ? "ok" : "attesa",
   };
 }
 
@@ -374,7 +381,11 @@ function DettaglioRichiesta({
         )}
 
         {(() => {
-          const dettagli = richiesta.dettagli || {};
+          // ★ la bozza di contatto del Subentro (vedi
+          // CHIAVE_BOZZA_CONTATTO_SUBENTRO) non è un campo da mostrare qui —
+          // sparisce da sola non appena il nuovo cliente risponde per davvero.
+          const dettagli = { ...(richiesta.dettagli || {}) };
+          delete dettagli[CHIAVE_BOZZA_CONTATTO_SUBENTRO];
           const campiUsati = new Set(CAMPI_INDIRIZZO_PRATICA);
           const vociIndirizzo = CAMPI_INDIRIZZO_PRATICA.filter((c) => !!dettagli[c]);
           const gruppiConDati = GRUPPI_DETTAGLI_PRATICA.map((g) => ({
