@@ -3873,6 +3873,36 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Build/lint puliti. Nessuna modifica ai dati — comportamento solo browser, verificato per lettura
   del codice; da controllare a vista in produzione (suono/popup non testabili in automatico).
 
+✅ Audit titoli calendario + backfill degli Appuntamenti vecchi (2026-09-09, richiesta esplicita:
+  "dobbiamo migliorare i titoli dei calendari, ancora non vedono tutti i dettagli, fai un audit
+  completo"). Causa reale trovata controllando i dati veri, non ipotizzando: la revisione dei titoli
+  fatta il 3-4 settembre (comune nel titolo, tipo di intervento obbligatorio) funziona bene ma si
+  applica SOLO agli Appuntamenti creati da quel momento in poi — solo 2 col nuovo formato,
+  tutti gli altri ~30 (molti ancora "Programmato", da fare) portavano ancora il vecchio titolo
+  "Categoria — Sottocategoria · Cliente" (es. "Assistenza — Intervento in loco · Mario Rossi"),
+  senza comune né alcun dettaglio del lavoro — il redesign non era mai stato applicato
+  retroattivamente.
+  - **Backfill eseguito contro produzione** (rotta temporanea protetta dallo stesso token dei cron
+    esistenti, rimossa subito dopo l'unico utilizzo): 15 Appuntamenti "Programmato" collegati a un
+    Ticket aggiornati col nuovo titolo (comune + cliente), **e l'evento Google Calendar collegato
+    aggiornato in tempo reale per tutti e 15** — i tecnici lo vedono già sul telefono, non serve
+    aprire/risalvare nulla.
+  - Il "tipo di intervento" specifico (es. "Cambio CPE") non è mai stato salvato per gli
+    Appuntamenti vecchi — solo la sottocategoria generica del Ticket, un vocabolario diverso e non
+    mappabile 1:1 — rigenerato onestamente solo comune + cliente invece di inventare un dato mai
+    registrato (stesso trattamento già riservato a "Nuova installazione").
+  - **Limite noto, non corretto**: `stimaComuneDaIndirizzo()` stima il comune dall'ultimo pezzo
+    dopo l'ultima virgola dell'indirizzo — su un indirizzo senza virgola (3 Ticket reali su 35,
+    scritti a mano prima dell'autocompletamento indirizzo) non trova nulla e il titolo resta senza
+    comune (es. "Enrico Marcoz", "Alessandro Marcarini" nel backfill sopra). Non aggiunto un
+    tentativo "ultima parola" perché su 2 di questi 3 indirizzi reali (finiscono per "snc", "senza
+    numero civico") avrebbe prodotto un comune falso e fuorviante, peggio di uno mancante — resta un
+    campo di testo libero, si corregge a mano se serve.
+  - Lasciati intatti: 3 Appuntamenti senza Ticket collegato (nessun dato strutturato da cui
+    ricavare comune/cliente in modo affidabile — il titolo che hanno già, scritto a mano, resta la
+    fonte migliore) e quelli già Completati/Annullati (storico, non toccato).
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
