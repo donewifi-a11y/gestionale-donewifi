@@ -8,6 +8,10 @@ const TESTI = {
   intervento: { azione: "Conferma intervento", titolo: "Intervento confermato" },
   contratto: { azione: "Approvo il contratto", titolo: "Contratto approvato" },
   firma_scheda: { azione: "Confermo i lavori svolti", titolo: "Lavori confermati" },
+  // ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo") —
+  // stesso identico testo di "contratto": stesso gesto, solo un contesto
+  // diverso (Subentro invece di Segnalazione).
+  subentro_contratto: { azione: "Approvo il contratto", titolo: "Contratto approvato" },
 } as const;
 
 // ★ NUOVA — il preventivo è l'unico dei tre casi con due esiti possibili
@@ -26,7 +30,7 @@ export function ConfermaBottone({
   tipo,
 }: {
   token: string;
-  tipo: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "subentro_vecchio_cliente";
+  tipo: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "subentro_vecchio_cliente" | "subentro_contratto";
 }) {
   const [stato, setStato] = useState<"idle" | "inCorso" | "approvato" | "rifiutato" | "errore">("idle");
   const [errore, setErrore] = useState("");
@@ -54,7 +58,7 @@ export function ConfermaBottone({
         ? "Preventivo approvato"
         : tipo === "subentro_vecchio_cliente"
           ? "Cessione confermata"
-          : TESTI[tipo as "intervento" | "contratto" | "firma_scheda"].titolo;
+          : TESTI[tipo as "intervento" | "contratto" | "firma_scheda" | "subentro_contratto"].titolo;
     return (
       <div className="flex flex-col items-center gap-2 py-2 text-center">
         <CheckCircle2 className="h-10 w-10 text-success" strokeWidth={2} />
@@ -100,7 +104,7 @@ export function ConfermaBottone({
     );
   }
 
-  const testi = TESTI[tipo as "intervento" | "contratto" | "firma_scheda"];
+  const testi = TESTI[tipo as "intervento" | "contratto" | "firma_scheda" | "subentro_contratto"];
   return (
     <div className="flex flex-col items-center gap-3">
       <Button size="lg" disabled={stato === "inCorso"} onClick={() => conferma("approva")}>

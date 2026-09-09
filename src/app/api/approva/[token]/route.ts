@@ -238,6 +238,45 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         emailLink: "https://gestione.donewifi.it/richieste-clienti",
       });
     }
+  } else if (riga.origine === "subentro_contratto" && riga.richiesta_cliente_id) {
+    // ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+    // l'artifact "Il Subentro Fino all'Installazione") — a differenza di
+    // "subentro_vecchio_cliente" sopra, qui c'è un solo esito (approva,
+    // niente rifiuto — stesso principio già scelto per "contratto" delle
+    // Segnalazioni): il nuovo cliente ha già scelto di subentrare
+    // compilando il modulo, il contratto è la conferma finale di un
+    // percorso già intrapreso, non una nuova decisione da zero.
+    const adesso = new Date().toISOString();
+    const { data: richiesta, error } = await supabase
+      .from("richieste_clienti")
+      .update({ contratto_approvato_nuovo_cliente_il: adesso })
+      .eq("id", riga.richiesta_cliente_id)
+      .select("cliente")
+      .single();
+    if (error) {
+      console.error("api/approva — update richieste_clienti (subentro contratto):", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
+
+    await supabase.from("storico").insert({
+      origine: "richiesta_cliente",
+      riferimento_id: riga.richiesta_cliente_id,
+      operazione: "Subentro — contratto approvato dal nuovo cliente",
+      valore_dopo: `Approvato via link email il ${adesso}`,
+    });
+
+    if (richiesta) {
+      const reparto = REPARTO_PER_TIPO_RICHIESTA.Subentro;
+      await notificaSuTuttiICanali({
+        reparto,
+        telegramHtml: `✅ <b>Subentro — contratto approvato</b>\n\nIl nuovo cliente${richiesta.cliente ? ` (${richiesta.cliente})` : ""} ha approvato il contratto.`,
+        chatTesto: `✅ Subentro — contratto approvato dal nuovo cliente${richiesta.cliente ? ` (${richiesta.cliente})` : ""}.`,
+        emailTitolo: "Subentro — contratto approvato",
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il nuovo cliente${richiesta.cliente ? ` <b>${richiesta.cliente}</b>` : ""} ha approvato il contratto di Subentro — pronto per l'installazione.</p>`,
+        emailCorpoTesto: `Il nuovo cliente${richiesta.cliente ? ` ${richiesta.cliente}` : ""} ha approvato il contratto di Subentro — pronto per l'installazione.`,
+        emailLink: "https://gestione.donewifi.it/richieste-clienti",
+      });
+    }
   } else if (riga.ticket_id) {
     const { data: ticket, error } = await supabase
       .from("tickets")

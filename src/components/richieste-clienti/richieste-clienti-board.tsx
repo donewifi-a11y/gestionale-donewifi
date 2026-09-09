@@ -51,7 +51,7 @@ const STATI = ["Da Lavorare", "In Verifica", "Lavorata"];
 // (Opzione B): a differenza delle altre pratiche, qui lo stato non basta
 // da solo a dire "cosa manca" — servono le due tracce indipendenti (vedi
 // avviaPraticaSubentro/inviaLinkVecchioClienteSubentro).
-function traccePratica(r: RichiestaCliente): { vecchio: StatoTraccia; nuovo: "ok" | "attesa" } | null {
+function traccePratica(r: RichiestaCliente): { vecchio: StatoTraccia; nuovo: "ok" | "attesa"; contratto: "ok" | "attesa" } | null {
   if (r.tipo_richiesta !== "Subentro") return null;
   // ★ FIX (2026-09, bug reale trovato con un test vero) — esclude la
   // bozza di contatto salvata dall'operatore onBlur (vedi
@@ -62,7 +62,21 @@ function traccePratica(r: RichiestaCliente): { vecchio: StatoTraccia; nuovo: "ok
   return {
     vecchio: r.vecchio_cliente_confermato_il ? "ok" : r.vecchio_cliente_rifiutato_il ? "no" : "attesa",
     nuovo: campiVeriNuovoCliente.length > 0 ? "ok" : "attesa",
+    contratto: r.contratto_approvato_nuovo_cliente_il ? "ok" : "attesa",
   };
+}
+
+// ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+// l'artifact "Il Subentro Fino all'Installazione") — "pronta da
+// completare" ora richiede anche il contratto approvato e il Ticket
+// collegato "Completato" (installazione svolta), non solo i due consensi
+// di partenza — stessa condizione verificata di nuovo, per davvero, da
+// completaSubentro() lato server: questa è solo l'anteprima visiva.
+function subentroProntaDaCompletare(r: RichiestaCliente, statoTicketPerId: Record<string, string>): boolean {
+  if (r.tipo_richiesta !== "Subentro" || r.stato === "Lavorata") return false;
+  const tracce = traccePratica(r);
+  if (!tracce || tracce.vecchio !== "ok" || tracce.nuovo !== "ok" || tracce.contratto !== "ok") return false;
+  return !!r.ticket_id && statoTicketPerId[r.ticket_id] === "Completato";
 }
 
 function PallinoTraccia({ etichetta, stato }: { etichetta: string; stato: StatoTraccia }) {
@@ -87,7 +101,18 @@ const COLORE_TIPO: Record<string, string> = {
   Disdetta: "bg-critical/10 text-critical border-critical/20",
 };
 
-export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: RichiestaCliente[]; isAdmin: boolean }) {
+export function RichiesteClientiBoard({
+  richieste,
+  isAdmin,
+  statoTicketPerId,
+}: {
+  richieste: RichiestaCliente[];
+  isAdmin: boolean;
+  /** ★ NUOVA — stato del Ticket collegato, solo per i Subentro (vedi
+   * fetchStatoTicketSubentro() in page.tsx): "pronta da completare" ora
+   * richiede anche che l'installazione sia svolta ("Completato"). */
+  statoTicketPerId: Record<string, string>;
+}) {
   const [ricerca, setRicerca] = useState("");
   const [fTipo, setFTipo] = useState("");
   const [aperta, setAperta] = useState<RichiestaCliente | null>(null);
@@ -156,15 +181,16 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         <PallinoTraccia etichetta="Vecchio cliente" stato={traccePratica(r)!.vecchio} />
                         <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(r)!.nuovo} />
+                        <PallinoTraccia etichetta="Contratto" stato={traccePratica(r)!.contratto} />
                       </div>
                     )}
                     {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
-                    semplificata" — passo 3 della proposta) — un solo
-                    segnale quando ENTRAMBE le tracce sono complete, invece
-                    di dover aprire la pratica per scoprirlo: vince su
-                    quello sotto (una sola conferma) perché è il caso più
-                    avanzato possibile prima della chiusura vera e propria. */}
-                    {r.tipo_richiesta === "Subentro" && r.stato !== "Lavorata" && r.vecchio_cliente_confermato_il && traccePratica(r)?.nuovo === "ok" ? (
+                    semplificata" — passo 3 della proposta, poi ESTESA per
+                    "il contratto nuovo approvato solo da nuovo") — un solo
+                    segnale quando le tracce E il contratto E
+                    l'installazione sono complete, invece di dover aprire
+                    la pratica per scoprirlo. */}
+                    {subentroProntaDaCompletare(r, statoTicketPerId) ? (
                       <div className="mt-1.5">
                         <SegnalePulsante testo="✓ Pronta da completare" tono="successo" pulsante />
                       </div>
@@ -206,6 +232,7 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
               isAdmin={isAdmin}
               onCambiata={(r) => setAperta(r)}
               onEliminata={() => setAperta(null)}
+              statoTicketPerId={statoTicketPerId}
             />
           )}
         </DialogContent>
@@ -219,11 +246,13 @@ function DettaglioRichiesta({
   isAdmin,
   onCambiata,
   onEliminata,
+  statoTicketPerId,
 }: {
   richiesta: RichiestaCliente;
   isAdmin: boolean;
   onCambiata: (r: RichiestaCliente) => void;
   onEliminata: () => void;
+  statoTicketPerId: Record<string, string>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -334,17 +363,20 @@ function DettaglioRichiesta({
           <div className="flex flex-wrap gap-1.5">
             <PallinoTraccia etichetta="Vecchio cliente" stato={traccePratica(richiesta)!.vecchio} />
             <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(richiesta)!.nuovo} />
+            <PallinoTraccia etichetta="Contratto" stato={traccePratica(richiesta)!.contratto} />
           </div>
         )}
 
-        {/* ★ NUOVA — passo 5 della proposta: stesso pulsante disponibile
-        anche da qui, per chi lavora le pratiche direttamente da questa
-        bacheca invece che dal Ticket collegato. */}
-        {richiesta.tipo_richiesta === "Subentro" && richiesta.stato !== "Lavorata" && richiesta.vecchio_cliente_confermato_il && traccePratica(richiesta)?.nuovo === "ok" && (
+        {/* ★ NUOVA — passo 5 della proposta, ESTESA per "il contratto
+        nuovo approvato solo da nuovo": stesso pulsante disponibile anche
+        da qui, per chi lavora le pratiche direttamente da questa bacheca
+        invece che dal Ticket collegato — il contratto si carica/invia
+        però solo dal Ticket (unico posto con l'upload). */}
+        {subentroProntaDaCompletare(richiesta, statoTicketPerId) && (
           <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
             <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
               <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-              Pronta da completare — entrambe le conferme sono arrivate.
+              Pronta da completare — contratto approvato, installazione svolta.
             </p>
             <button
               onClick={completaSubentroClick}

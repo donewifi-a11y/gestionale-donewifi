@@ -33,9 +33,28 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
   return tutte;
 }
 
+// ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+// l'artifact "Il Subentro Fino all'Installazione") — "pronta da
+// completare" ora richiede anche che il Ticket collegato sia
+// "Completato" (installazione svolta): un giro in blocco, solo per i
+// Ticket dei Subentro (un insieme per natura piccolo), invece di un
+// fetch per card.
+async function fetchStatoTicketSubentro(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  richieste: RichiestaCliente[]
+): Promise<Record<string, string>> {
+  const ticketIds = [...new Set(richieste.filter((r) => r.tipo_richiesta === "Subentro" && r.ticket_id).map((r) => r.ticket_id as string))];
+  if (ticketIds.length === 0) return {};
+  const { data } = await supabase.from("tickets").select("id, stato").in("id", ticketIds);
+  const mappa: Record<string, string> = {};
+  for (const t of data ?? []) mappa[t.id] = t.stato;
+  return mappa;
+}
+
 export default async function RichiesteClientiPage() {
   const supabase = await createClient();
   const richieste = await fetchTutteRichieste(supabase);
+  const statoTicketPerId = await fetchStatoTicketSubentro(supabase, richieste);
   const persona = await getPersonaCorrente(supabase);
 
   return (
@@ -56,7 +75,7 @@ export default async function RichiesteClientiPage() {
         </div>
       </div>
 
-      <RichiesteClientiBoard richieste={richieste} isAdmin={personaHaAccessoAdmin(persona)} />
+      <RichiesteClientiBoard richieste={richieste} isAdmin={personaHaAccessoAdmin(persona)} statoTicketPerId={statoTicketPerId} />
     </div>
   );
 }

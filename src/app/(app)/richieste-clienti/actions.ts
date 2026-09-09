@@ -3,7 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
-import { inviaEmail, emailPraticaCliente } from "@/lib/email";
+import { inviaEmail, emailPraticaCliente, emailApprovazioneContrattoSubentro } from "@/lib/email";
 import { CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
 import { revalidatePath } from "next/cache";
 import type { RichiestaCliente } from "@/lib/types";
@@ -163,19 +163,117 @@ export async function salvaContattoNuovoTitolareSubentro(praticaId: string, tele
   return { errore: null };
 }
 
+// ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+// l'artifact "Il Subentro Fino all'Installazione") — a differenza di
+// caricaContrattoSegnalazione() (ancora un `File` dentro una Server
+// Action), riceve solo il percorso già scritto nello storage dal browser
+// (vedi api/richieste-clienti/upload-contratto-url/route.ts). Ricaricare
+// il contratto (es. errore nel primo caricamento) azzera un'eventuale
+// approvazione già data — stesso principio già in uso per le Segnalazioni:
+// non deve restare "Contratto approvato" riferito a un file che il
+// cliente non ha mai visto.
+export async function caricaContrattoSubentro(praticaId: string, percorso: string, nomeFile: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const { data: esistente } = await supabase.from("richieste_clienti").select("tipo_richiesta").eq("id", praticaId).maybeSingle();
+  if (!esistente || esistente.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("richieste_clienti")
+    .update({ contratto_pdf_url: percorso, contratto_inviato_approvazione_il: null, contratto_approvato_nuovo_cliente_il: null })
+    .eq("id", praticaId);
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: praticaId,
+    operazione: "Contratto di Subentro caricato",
+    valore_dopo: nomeFile,
+    operatore_id: persona.id,
+  });
+
+  revalidatePath("/richieste-clienti");
+  return { errore: null };
+}
+
+// ★ NUOVA — invia il contratto già caricato al SOLO nuovo cliente (il
+// vecchio ha già dato il suo consenso alla cessione al passo precedente,
+// non deve approvare anche il contratto): stesso meccanismo a token già
+// in uso per contratto/preventivo/intervento, con `origine`
+// "subentro_contratto" (migrazione 0071) per distinguerlo dal link di
+// sola conferma del vecchio cliente.
+export async function inviaEmailApprovazioneContrattoSubentro(praticaId: string, ticketId: string, origineUrl: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato.", link: null };
+
+  const { data: pratica } = await supabase.from("richieste_clienti").select("dettagli, contratto_pdf_url").eq("id", praticaId).maybeSingle();
+  if (!pratica) return { errore: "Pratica non trovata.", link: null };
+  if (!pratica.contratto_pdf_url) return { errore: "Carica prima il contratto.", link: null };
+  const emailNuovoCliente = pratica.dettagli?.email;
+  if (!emailNuovoCliente) return { errore: "Il nuovo cliente non ha ancora inviato un'email a cui scrivere.", link: null };
+
+  const { data: ticket } = await supabase.from("tickets").select("numero, reparto").eq("id", ticketId).maybeSingle();
+  if (!ticket) return { errore: "Ticket non trovato.", link: null };
+
+  const service = createServiceClient();
+  await service.from("token_approvazione").delete().eq("richiesta_cliente_id", praticaId).eq("origine", "subentro_contratto");
+  const { data: creato, error } = await service
+    .from("token_approvazione")
+    .insert({ richiesta_cliente_id: praticaId, origine: "subentro_contratto" })
+    .select("token")
+    .single();
+  if (error) return { errore: error.message, link: null };
+
+  const link = `${origineUrl}/approva/${creato.token}`;
+  const nomeNuovoCliente = pratica.dettagli?.nome || pratica.dettagli?.ragioneSociale || "Cliente";
+  const { oggetto, corpoHtml, corpoTesto } = emailApprovazioneContrattoSubentro(nomeNuovoCliente, ticket.numero, link);
+  const risultato = await inviaEmail({ a: emailNuovoCliente, oggetto, corpoHtml, corpoTesto, reparto: ticket.reparto });
+  if (risultato.errore) return { errore: risultato.errore, link: null };
+
+  await service
+    .from("richieste_clienti")
+    .update({ contratto_inviato_approvazione_il: new Date().toISOString() })
+    .eq("id", praticaId);
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: praticaId,
+    operazione: "Contratto di Subentro inviato per approvazione",
+    valore_dopo: emailNuovoCliente,
+    operatore_id: persona.id,
+  });
+
+  revalidatePath("/richieste-clienti");
+  return { errore: null, link };
+}
+
 // ★ NUOVA (2026-09, stessa richiesta — passo 5 della proposta) — prima
 // l'unico modo di "chiudere" un Subentro era spostare a mano la card tra
 // le 3 colonne di stato, senza nessun legame con le due conferme reali:
 // un operatore poteva segnarla "Lavorata" senza che nessuno dei due
 // clienti avesse risposto, o dimenticarsi di farlo con entrambi già
-// pronti da giorni. Qui si può chiudere solo se le due tracce sono
-// davvero complete — un pulsante, non un giudizio.
+// pronti da giorni. Qui si può chiudere solo se le due tracce E il
+// contratto E l'installazione sono davvero complete — un pulsante, non
+// un giudizio.
+// ★ ESTESA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+// l'artifact "Il Subentro Fino all'Installazione") — prima bastavano le
+// due conferme di partenza; ora la pratica non è "fatta" finché il
+// contratto non è approvato dal nuovo cliente E il Ticket collegato non è
+// "Completato" (installazione svolta) — lo stesso percorso di ogni altro
+// intervento, solo verificato qui prima di lasciar chiudere la pratica.
 export async function completaSubentro(praticaId: string) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato." };
 
-  const { data: pratica } = await supabase.from("richieste_clienti").select("tipo_richiesta, dettagli, vecchio_cliente_confermato_il, cliente").eq("id", praticaId).maybeSingle();
+  const { data: pratica } = await supabase
+    .from("richieste_clienti")
+    .select("tipo_richiesta, dettagli, vecchio_cliente_confermato_il, contratto_approvato_nuovo_cliente_il, ticket_id, cliente")
+    .eq("id", praticaId)
+    .maybeSingle();
   if (!pratica || pratica.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
   if (!pratica.vecchio_cliente_confermato_il) return { errore: "Il vecchio cliente non ha ancora confermato la cessione." };
   // ★ la bozza di contatto (vedi CHIAVE_BOZZA_CONTATTO_SUBENTRO) non conta
@@ -183,6 +281,12 @@ export async function completaSubentro(praticaId: string) {
   // modulo pubblico sovrascrive `dettagli` con altri campi.
   const campiVeriNuovoCliente = Object.keys(pratica.dettagli || {}).filter((c) => c !== CHIAVE_BOZZA_CONTATTO_SUBENTRO);
   if (campiVeriNuovoCliente.length === 0) return { errore: "Il nuovo cliente non ha ancora inviato i suoi dati." };
+  if (!pratica.contratto_approvato_nuovo_cliente_il) return { errore: "Il nuovo cliente non ha ancora approvato il contratto." };
+
+  if (pratica.ticket_id) {
+    const { data: ticket } = await supabase.from("tickets").select("stato").eq("id", pratica.ticket_id).maybeSingle();
+    if (!ticket || ticket.stato !== "Completato") return { errore: "L'installazione non risulta ancora completata sul Ticket." };
+  }
 
   const service = createServiceClient();
   const { error } = await service.from("richieste_clienti").update({ stato: "Lavorata" }).eq("id", praticaId);

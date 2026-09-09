@@ -359,6 +359,12 @@ export interface RichiestaCliente {
   /** Solo per tipo_richiesta "Subentro" — le due tracce di consenso indipendenti (Opzione B, 2026-08). */
   vecchio_cliente_confermato_il?: string | null;
   vecchio_cliente_rifiutato_il?: string | null;
+  /** ★ NUOVA (2026-09) — solo per tipo_richiesta "Subentro": il contratto,
+   * approvato dal SOLO nuovo cliente (il vecchio approva solo la cessione,
+   * campi sopra) — vedi l'artifact "Il Subentro Fino all'Installazione". */
+  contratto_pdf_url?: string | null;
+  contratto_inviato_approvazione_il?: string | null;
+  contratto_approvato_nuovo_cliente_il?: string | null;
 }
 
 export interface Tariffa {

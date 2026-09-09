@@ -3947,6 +3947,41 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     ripulito.
   Build/lint puliti.
 
+✅ Il Subentro fino all'installazione: contratto approvato dal nuovo cliente (2026-09-09, richiesta
+  esplicita "in pratica io devo avere approvazione da vecchio cliente, documentazione dal nuovo e
+  poter fare il contratto. una volta fatto caricarlo, farlo approvare dal cliente e poi uguale
+  all'installazione" — confermato "il contratto nuovo approvato solo da nuovo" dopo l'artifact
+  "Il Subentro Fino all'Installazione"). Colmato il buco vero trovato nell'audit precedente: dopo i
+  due consensi mancava tutta la fase del contratto — stesso identico meccanismo già in produzione
+  per i Nuovi Clienti (Segnalazioni), qui applicato alla pratica di Subentro.
+  - **Carica contratto**: nel Ticket, dopo che il nuovo cliente ha inviato i suoi dati — file PDF
+    caricato dal browser direttamente allo storage (nuova `api/richieste-clienti/upload-contratto-url`,
+    mai un `File` dentro il corpo di una Server Action, a differenza di `caricaContrattoSegnalazione()`
+    rimasta con quel limite). Ricaricarlo azzera un'eventuale approvazione già data, stesso principio
+    già in uso per le Segnalazioni.
+  - **Invia per approvazione**: email al SOLO nuovo cliente (il vecchio ha già dato il suo consenso
+    alla cessione) con link — stesso sistema a token monouso già in uso per contratto/preventivo/
+    intervento, nuova `origine` "subentro_contratto" (migrazione 0071).
+  - **Il nuovo cliente approva**: stessa pagina pubblica `/approva/[token]`, un solo esito (approva,
+    come per il contratto delle Segnalazioni) — scrive `contratto_approvato_nuovo_cliente_il`.
+  - **"Pronta da completare" ora richiede anche il contratto approvato E il Ticket "Completato"**
+    (installazione svolta) — non più solo i due consensi di partenza. La pratica non era "finita"
+    finché non lo è davvero: nessun nuovo Ticket da creare, quello aperto all'avvio della pratica
+    segue lo stesso percorso (Pianifica → Scheda → Rapportino → Completato) di ogni altro intervento.
+  - Terza traccia "Contratto" aggiunta ai pallini di stato, sia nel Ticket sia nella bacheca
+    "Richieste Clienti" (card + popup).
+  Build/lint puliti. **Non ancora verificato con un test reale end-to-end**: richiede prima
+  l'applicazione della migrazione qui sotto (nuove colonne + nuovo valore `origine` su
+  `token_approvazione`) — farò il test appena confermi di averla incollata.
+
+**⚠️ MIGRAZIONE DA APPLICARE (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
+aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
+`contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
+`token_approvazione.origine` (sostituisce il vincolo esistente con uno che include anche gli altri
+5 valori già in uso — nessuna riga esistente ne viene toccata). Da incollare nell'SQL Editor di
+Supabase **prima** di usare il caricamento contratto nel Subentro, altrimenti fallisce con un
+errore di colonna/vincolo mancante.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

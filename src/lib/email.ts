@@ -202,6 +202,40 @@ ${FOOTER_AZIENDA_TESTO}`,
   };
 }
 
+// ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+// l'artifact "Il Subentro Fino all'Installazione") — stesso testo/scopo di
+// emailApprovazioneContratto() sopra, ma per il NUOVO titolare di una
+// pratica di Subentro (non ha un "numero pratica" proprio da mostrare —
+// usa il numero del Ticket, già suo riferimento fin dall'avvio della
+// pratica). Tenuta separata invece di generalizzare l'originale: il
+// destinatario e il contesto (Segnalazione vs Subentro) sono concetti
+// diversi anche se il testo si somiglia.
+export function emailApprovazioneContrattoSubentro(clienteNuovo: string, ticketNumero: number, link: string) {
+  return {
+    oggetto: `Done Wifi — Il tuo contratto di subentro è pronto (Ticket #${ticketNumero})`,
+    corpoHtml: involucroEmail({
+      eyebrow: `Ticket #${ticketNumero} · Subentro`,
+      corpoHtml: `
+        <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">Il tuo contratto è pronto</h1>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${clienteNuovo},</p>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato il contratto per il subentro sulla linea Done Wifi. Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
+        ${bottoneEmail("Vedi e approva il contratto", link)}
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
+      `,
+      footerExtra: "Hai ricevuto questa email perché hai richiesto un subentro su una linea Done Wifi.",
+    }),
+    corpoTesto: `Gentile ${clienteNuovo},
+
+abbiamo preparato il contratto per il subentro sulla linea Done Wifi. Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione:
+${link}
+
+${CONTATTACI_TESTO}
+
+Commerciale Done Wifi
+${FOOTER_AZIENDA_TESTO}`,
+  };
+}
+
 // ★ sostituisce la firma disegnata su schermo del cliente nella Scheda di
 // Installazione/Lavorazione: un codice a 6 cifre, valido 10 minuti, che
 // il cliente legge dalla propria email e conferma di persona al tecnico

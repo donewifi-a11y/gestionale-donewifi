@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check, Repeat } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
@@ -23,7 +24,14 @@ import {
   cambiaRepartoTicket,
   eliminaTicket,
 } from "@/app/(app)/tickets/actions";
-import { avviaPraticaSubentro, inviaLinkVecchioClienteSubentro, salvaContattoNuovoTitolareSubentro, completaSubentro } from "@/app/(app)/richieste-clienti/actions";
+import {
+  avviaPraticaSubentro,
+  inviaLinkVecchioClienteSubentro,
+  salvaContattoNuovoTitolareSubentro,
+  completaSubentro,
+  caricaContrattoSubentro,
+  inviaEmailApprovazioneContrattoSubentro,
+} from "@/app/(app)/richieste-clienti/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
@@ -960,6 +968,12 @@ function DettaglioTicket({
   const [inCorsoAvvioSubentro, startAvvioSubentro] = useTransition();
   const [inCorsoLinkVecchio, startLinkVecchio] = useTransition();
   const [inCorsoCompletamentoSubentro, startCompletamentoSubentro] = useTransition();
+  // ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
+  // l'artifact "Il Subentro Fino all'Installazione") — carica/invia il
+  // contratto della pratica di Subentro, stesso schema già in uso per
+  // l'allegato dei campi extra di creaTicket() (presigned upload URL).
+  const [inCorsoContrattoSubentro, startContrattoSubentro] = useTransition();
+  const [inCorsoInvioContrattoSubentro, startInvioContrattoSubentro] = useTransition();
   const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
   const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
@@ -1066,6 +1080,62 @@ function DettaglioTicket({
       toast("Subentro chiuso — trasferimento completato.", "successo");
     });
   }
+
+  /** ★ NUOVA — vedi commento sullo stato sopra: presigned upload URL,
+   * stesso schema già in uso per l'allegato dei campi extra di
+   * creaTicket() — mai un File dentro il corpo di una Server Action. */
+  function caricaContrattoSubentroClick(file: File | null) {
+    if (!praticaSubentro || !file) return;
+    if (file.type !== "application/pdf") {
+      toast("Il contratto deve essere un file PDF.");
+      return;
+    }
+    startContrattoSubentro(async () => {
+      try {
+        const rispostaUrl = await fetch("/api/richieste-clienti/upload-contratto-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ praticaId: praticaSubentro.id, nomeFile: file.name }),
+        });
+        const risultatoUrl = await rispostaUrl.json();
+        if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
+
+        const supabase = createClient();
+        const { error: erroreUpload } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+        if (erroreUpload) throw new Error(erroreUpload.message);
+
+        const risultato = await caricaContrattoSubentro(praticaSubentro.id, risultatoUrl.percorso, file.name);
+        if (risultato.errore) throw new Error(risultato.errore);
+
+        setRichieste((prev) =>
+          prev.map((r) =>
+            r.id === praticaSubentro.id
+              ? { ...r, contratto_pdf_url: risultatoUrl.percorso, contratto_inviato_approvazione_il: null, contratto_approvato_nuovo_cliente_il: null }
+              : r
+          )
+        );
+        toast("Contratto caricato.", "successo");
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Errore imprevisto durante il caricamento.");
+      }
+    });
+  }
+
+  function inviaContrattoSubentroClick() {
+    if (!praticaSubentro) return;
+    startInvioContrattoSubentro(async () => {
+      const risultato = await inviaEmailApprovazioneContrattoSubentro(praticaSubentro.id, ticket.id, window.location.origin);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      setRichieste((prev) =>
+        prev.map((r) => (r.id === praticaSubentro.id ? { ...r, contratto_inviato_approvazione_il: new Date().toISOString() } : r))
+      );
+      toast("Contratto inviato per approvazione al nuovo cliente.", "successo");
+    });
+  }
+
   const messaggioPratica = praticaScelta ? messaggioWhatsappPratica(ticket.cliente, titoloPraticaScelta, linkPratica) : "";
 
   function inviaApprovazione() {
@@ -1547,6 +1617,11 @@ function DettaglioTicket({
             salvaContattoBozza={salvaContattoBozza}
             inCorsoCompletamentoSubentro={inCorsoCompletamentoSubentro}
             completaSubentroClick={completaSubentroClick}
+            inCorsoContrattoSubentro={inCorsoContrattoSubentro}
+            caricaContrattoSubentroClick={caricaContrattoSubentroClick}
+            inCorsoInvioContrattoSubentro={inCorsoInvioContrattoSubentro}
+            inviaContrattoSubentroClick={inviaContrattoSubentroClick}
+            ticketCompletato={ticket.stato === "Completato"}
           />
         </div>
 
@@ -1689,6 +1764,11 @@ function SubentroDoppioConsenso({
   salvaContattoBozza,
   inCorsoCompletamentoSubentro,
   completaSubentroClick,
+  inCorsoContrattoSubentro,
+  caricaContrattoSubentroClick,
+  inCorsoInvioContrattoSubentro,
+  inviaContrattoSubentroClick,
+  ticketCompletato,
 }: {
   praticaSubentro: RichiestaCliente | undefined;
   nuovoClienteHaRisposto: boolean;
@@ -1712,6 +1792,11 @@ function SubentroDoppioConsenso({
   salvaContattoBozza: () => void;
   inCorsoCompletamentoSubentro: boolean;
   completaSubentroClick: () => void;
+  inCorsoContrattoSubentro: boolean;
+  caricaContrattoSubentroClick: (file: File | null) => void;
+  inCorsoInvioContrattoSubentro: boolean;
+  inviaContrattoSubentroClick: () => void;
+  ticketCompletato: boolean;
 }) {
   if (!praticaSubentro) {
     return (
@@ -1807,11 +1892,60 @@ function SubentroDoppioConsenso({
         />
       </div>
 
+      {/* ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" —
+      vedi l'artifact "Il Subentro Fino all'Installazione") — visibile solo
+      dopo che il nuovo cliente ha inviato i suoi dati: prima di allora non
+      c'è ancora nulla su cui basare il contratto. Approva SOLO il nuovo
+      cliente (il vecchio ha già dato il suo consenso alla cessione sopra),
+      stesso meccanismo già in uso per il contratto dei Nuovi Clienti. */}
+      {nuovoClienteHaRisposto && (
+        <>
+          <StatoTraccia
+            etichetta="Contratto"
+            stato={praticaSubentro.contratto_approvato_nuovo_cliente_il ? "ok" : "attesa"}
+            testoOk="Approvato dal nuovo cliente"
+            testoNo=""
+            testoAttesa={praticaSubentro.contratto_inviato_approvazione_il ? "In attesa di approvazione" : "Da caricare"}
+          />
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs font-semibold transition hover:border-primary/40">
+                {inCorsoContrattoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                {praticaSubentro.contratto_pdf_url ? "Ricarica contratto" : "Carica contratto (PDF)"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={inCorsoContrattoSubentro}
+                  onChange={(e) => {
+                    caricaContrattoSubentroClick(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {praticaSubentro.contratto_pdf_url && (
+                <PulsanteDocumento percorso={praticaSubentro.contratto_pdf_url} nome="contratto-subentro.pdf" etichetta="Vedi contratto" onOttieniUrl={urlDocumentoRichiesta} />
+              )}
+            </div>
+            {praticaSubentro.contratto_pdf_url && !praticaSubentro.contratto_approvato_nuovo_cliente_il && (
+              <Button size="sm" variant="outline" onClick={inviaContrattoSubentroClick} disabled={inCorsoInvioContrattoSubentro} className="mt-2 min-h-9 w-full">
+                {inCorsoInvioContrattoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                {inCorsoInvioContrattoSubentro ? "Invio…" : praticaSubentro.contratto_inviato_approvazione_il ? "Invia di nuovo" : "Invia per approvazione al nuovo cliente"}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+
       {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
       semplificata" — passo 3+5 della proposta) — un solo segnale, acceso
-      da solo quando entrambe le tracce sopra sono complete, invece di
-      dover andare a spostare a mano la card tra le colonne di stato in
-      "Richieste Clienti". Il pulsante chiude per davvero la pratica. */}
+      da solo quando le tracce sopra sono complete, invece di dover andare
+      a spostare a mano la card tra le colonne di stato in "Richieste
+      Clienti". Il pulsante chiude per davvero la pratica.
+      ★ ESTESA (2026-09, "il contratto nuovo approvato solo da nuovo") —
+      "completa" ora richiede anche il contratto approvato e il Ticket
+      "Completato" (installazione svolta), non solo i due consensi di
+      partenza — la pratica non è finita finché non lo è davvero. */}
       {praticaSubentro.stato === "Lavorata" ? (
         <div className="flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-xs font-semibold text-success">
           <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
@@ -1819,11 +1953,13 @@ function SubentroDoppioConsenso({
         </div>
       ) : (
         praticaSubentro.vecchio_cliente_confermato_il &&
-        nuovoClienteHaRisposto && (
+        nuovoClienteHaRisposto &&
+        praticaSubentro.contratto_approvato_nuovo_cliente_il &&
+        ticketCompletato && (
           <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
             <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
               <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-              Pronta da completare — entrambe le conferme sono arrivate.
+              Pronta da completare — contratto approvato, installazione svolta.
             </p>
             <Button size="sm" onClick={completaSubentroClick} disabled={inCorsoCompletamentoSubentro} className="min-h-9">
               {inCorsoCompletamentoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
