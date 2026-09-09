@@ -406,9 +406,17 @@ export function AppSidebar({
               >
                 <MessageCircle className="h-4 w-4" strokeWidth={2.25} />
                 Chat
+                {/* ★ NUOVA (2026-09-09, "notifiche chat molto più
+                visibili") — un anello che pulsa dietro il numero, stesso
+                principio già in uso in SegnalePulsante per gli eventi
+                freschi: un badge fermo si perde facilmente con la coda
+                dell'occhio, uno che si muove no. */}
                 {nonLettiChat > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                    {nonLettiChat}
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      {nonLettiChat}
+                    </span>
                   </span>
                 )}
               </button>

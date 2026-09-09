@@ -57,7 +57,10 @@ export function ComunicazioniTicker() {
         ))}
       </div>
       {nonLettiTotali > 0 && (
-        <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">{nonLettiTotali}</span>
+        <span className="relative flex shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+          <span className="relative rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">{nonLettiTotali}</span>
+        </span>
       )}
     </button>
   );

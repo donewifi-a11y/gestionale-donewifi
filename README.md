@@ -3850,6 +3850,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     pochi secondi appena segnalato.
   Build/lint puliti.
 
+✅ Notifiche chat molto più visibili (2026-09-09, richiesta esplicita). Prima l'unico avviso era un
+  piccolo numero rosso sul pulsante "Chat" della sidebar — facile da non notare su un'altra scheda
+  del browser. Scelta: tutti e tre i canali insieme.
+  - **Suono**: un breve "ping" sintetizzato con Web Audio API (nessun file audio da mantenere) a ogni
+    nuovo messaggio non mio, ovunque ci si trovi nel gestionale.
+  - **Notifica desktop del browser**: un popup del sistema operativo, ma solo se la scheda non è in
+    primo piano (`document.visibilityState`/`hasFocus()`) — altrimenti sarebbe un avviso sopra
+    quello che si sta già guardando. Il permesso si chiede da un vero click (banner discreto in
+    cima all'elenco conversazioni, "Attiva le notifiche desktop" — i browser ignorano le richieste
+    non legate a un'interazione), non ricompare più se rifiutato esplicitamente.
+  - **Titolo della scheda + favicon**: "(3) Gestionale Done Wifi" e un pallino rosso col numero
+    disegnato al volo sull'icona (canvas, ripristinata quando i non letti tornano a zero) — visibile
+    anche con il gestionale in una scheda in background tra tanti altri strumenti.
+  - **Badge più vistosi nell'interfaccia**: un anello che pulsa (`animate-ping`, stesso principio già
+    in uso in SegnalePulsante per gli eventi freschi) dietro ogni numero di non letti — pulsante
+    "Chat" in sidebar, striscia "Comunicazioni" e lista conversazioni nel pannello Chat.
+  - `NotificheChat` (nuovo componente, montato una volta in app-shell.tsx) osserva i dati già
+    caricati da `ChatDataProvider` — nessuna sottoscrizione realtime duplicata — e distingue
+    l'arretrato già in sospeso al primo caricamento (non notifica tutto insieme appena si apre il
+    gestionale) dai messaggi davvero nuovi.
+  Build/lint puliti. Nessuna modifica ai dati — comportamento solo browser, verificato per lettura
+  del codice; da controllare a vista in produzione (suono/popup non testabili in automatico).
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

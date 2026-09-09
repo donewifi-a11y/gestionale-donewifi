@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText, Bell, Search } from "lucide-react";
+import { MessageCircle, X, ChevronLeft, Send, Paperclip, Users, FileText, Bell, BellRing, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnline } from "@/components/chat/online-context";
 import { useChatData } from "@/components/chat/chat-data-context";
 import { useToast } from "@/components/ui/toast";
+import { usePersistedState } from "@/lib/use-persisted-state";
+import { permessoNotificheChat, richiediPermessoNotificheChat } from "@/lib/notifiche-chat";
 import {
   getOrCreaConversazioneDiretta,
   getMessaggi,
@@ -134,6 +136,19 @@ export function ChatPanel({
   const [ricerca, setRicerca] = useState("");
   const [risultatiRicerca, setRisultatiRicerca] = useState<RisultatoRicercaChat[]>([]);
   const [cercando, setCercando] = useState(false);
+  // ★ NUOVA (2026-09-09, "notifiche chat molto più visibili") — il
+  // permesso di notifica del browser va richiesto da un vero click
+  // dell'utente (vedi lib/notifiche-chat.ts): letto qui solo per decidere
+  // se mostrare il banner, non per richiederlo da solo al caricamento.
+  // `usePersistedState` ricorda solo il rifiuto esplicito ("No grazie") —
+  // se il permesso è "denied" per conto proprio del browser il banner
+  // resta comunque nascosto, richiederlo di nuovo non servirebbe a nulla.
+  const [permessoNotifiche, setPermessoNotifiche] = useState<ReturnType<typeof permessoNotificheChat>>("non-supportato");
+  const [bannerRifiutato, aggiornaBannerRifiutato] = usePersistedState("chat-notifiche-banner-rifiutato", { rifiutato: false });
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legge Notification.permission, non disponibile lato server: va per forza in un effetto post-mount, non nel lazy initializer (mismatch di idratazione altrimenti).
+    setPermessoNotifiche(permessoNotificheChat());
+  }, []);
   // ★ FIX — ChatPanel può essere montata due volte insieme (riquadro fisso
   // in home + pop-up dalla sidebar): se l'utente apre la STESSA
   // conversazione in entrambe, due `.channel()` con lo stesso nome
@@ -429,6 +444,32 @@ export function ChatPanel({
             )}
           </div>
 
+          {/* ★ NUOVA (2026-09-09, "notifiche chat molto più visibili") —
+          il permesso va chiesto da un vero click (i browser ignorano/
+          silenziano le richieste automatiche): banner discreto, sparisce
+          da solo appena concesso/negato e non ricompare più se rifiutato
+          esplicitamente ("No grazie", ricordato per browser). */}
+          {permessoNotifiche === "default" && !bannerRifiutato.rifiutato && (
+            <div className="flex items-center gap-2 border-b bg-primary/5 px-2.5 py-2 text-xs">
+              <BellRing className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.25} />
+              <span className="min-w-0 flex-1 text-muted-foreground">Attiva le notifiche desktop per non perdere i messaggi.</span>
+              <button
+                onClick={async () => setPermessoNotifiche(await richiediPermessoNotificheChat())}
+                className="shrink-0 rounded-md bg-primary px-2 py-1 font-semibold text-primary-foreground"
+              >
+                Attiva
+              </button>
+              <button
+                onClick={() => aggiornaBannerRifiutato({ rifiutato: true })}
+                aria-label="Non mostrare più questo avviso"
+                title="Non mostrare più"
+                className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-2">
             {gruppiFiltrati.length > 0 && (
               <>
@@ -448,8 +489,11 @@ export function ChatPanel({
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       {g.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(g.ultimoCreatoIl)}</span>}
                       {g.nonLetti > 0 && (
-                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                          {g.nonLetti}
+                        <span className="relative flex h-4 min-w-4">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                          <span className="relative flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                            {g.nonLetti}
+                          </span>
                         </span>
                       )}
                     </span>
@@ -480,8 +524,11 @@ export function ChatPanel({
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       {p.ultimoCreatoIl && <span className="text-[10px] text-muted-foreground">{oraBreve(p.ultimoCreatoIl)}</span>}
                       {p.nonLetti > 0 && (
-                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                          {p.nonLetti}
+                        <span className="relative flex h-4 min-w-4">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                          <span className="relative flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                            {p.nonLetti}
+                          </span>
                         </span>
                       )}
                     </span>

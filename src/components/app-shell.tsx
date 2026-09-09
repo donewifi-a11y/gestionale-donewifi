@@ -6,6 +6,7 @@ import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { OnlineProvider } from "@/components/chat/online-context";
 import { ChatDataProvider, useChatData } from "@/components/chat/chat-data-context";
+import { NotificheChat } from "@/components/chat/notifiche-chat";
 import { ChatUiProvider } from "@/components/chat/chat-ui-context";
 import { TodoWidget } from "@/components/todo/todo-widget";
 import { TodoDataProvider, useTodoData } from "@/components/todo/todo-data-context";
@@ -87,6 +88,7 @@ function AppShellCorpo({
     // (sotto xl, dove la rail qui sotto è nascosta) deve poter aprire lo
     // stesso pop-up senza passare per la sidebar.
     <ChatUiProvider apriPopup={() => setStrumentoAperto((s) => (s === "chat" ? null : "chat"))}>
+      <NotificheChat />
       <div className="flex min-h-screen flex-col md:flex-row">
         <AppSidebar
           email={email}
