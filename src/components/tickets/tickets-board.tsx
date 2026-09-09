@@ -1641,14 +1641,28 @@ function DettaglioTicket({
           </Button>
         )}
 
-        {richieste.length > 0 && (
+        {/* ★ FIX (2026-09-09, "problema cliccando documenti" — pagina che
+        va in crash) — bug reale trovato sul Ticket #89: la pratica di
+        Subentro ha già la sua sezione dedicata più sotto
+        (SubentroDoppioConsenso), ma finiva ANCHE qui dentro, dove
+        `Object.entries(r.dettagli)` prova a scrivere ogni valore come
+        testo. La bozza di contatto salvata onBlur (vedi
+        CHIAVE_BOZZA_CONTATTO_SUBENTRO) è un OGGETTO `{telefono, email}`,
+        non una stringa — React va in crash ("Objects are not valid as a
+        React child") appena quella bozza esiste, cioè non appena lo
+        staff scrive un contatto prima che il nuovo cliente risponda.
+        Escludere qui il tipo "Subentro" risolve il crash alla radice ed
+        elimina anche il doppione (stessa pratica mostrata due volte). */}
+        {richieste.filter((r) => r.tipo_richiesta !== "Subentro").length > 0 && (
           <div>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
               Moduli ricevuti dal cliente
             </div>
             <div className="flex flex-col gap-2">
-              {richieste.map((r) => (
+              {richieste
+                .filter((r) => r.tipo_richiesta !== "Subentro")
+                .map((r) => (
                 <div key={r.id} className="rounded-lg border bg-card p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <span className="text-xs font-bold">{r.tipo_richiesta}</span>
@@ -1658,7 +1672,11 @@ function DettaglioTicket({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {Object.entries(r.dettagli || {}).map(([chiave, valore]) =>
-                      valore ? (
+                      /* ★ FIX — stesso principio di sicurezza: se un valore
+                      non è testo/numero (non dovrebbe succedere per gli
+                      altri tipi di pratica, ma "mai rompere il rendering"
+                      per un dato imprevisto), non provarlo a scrivere. */
+                      valore && (typeof valore === "string" || typeof valore === "number") ? (
                         <div key={chiave} className="text-xs">
                           <span className="text-muted-foreground">{etichettaDettaglio(chiave)}: </span>
                           <span className="font-medium break-words">{valore}</span>

@@ -4022,6 +4022,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   inviato, diventa un piccolo link testuale "Invia di nuovo" sotto la card invece di restare un
   pulsante pieno sopra di essa. Nessuna funzione toccata. Build/lint puliti.
 
+✅ **FIX urgente — crash aprendo la tab Documenti di un Ticket di Subentro** (2026-09-09, "problema
+  cliccando documenti" con schermata "This page couldn't load", riprodotto per davvero su dati di
+  produzione — Ticket #89). Causa: la pratica di Subentro compariva ANCHE nella sezione generica
+  "Moduli ricevuti dal cliente" (oltre alla sua sezione dedicata più sotto), che scrive ogni valore
+  di `dettagli` come testo — ma la bozza di contatto salvata onBlur (`CHIAVE_BOZZA_CONTATTO_SUBENTRO`,
+  vedi sopra) è un OGGETTO `{telefono, email}`, non una stringa. React va in crash ("Objects are not
+  valid as a React child") non appena quella bozza esiste, cioè non appena lo staff scrive un
+  contatto prima che il nuovo cliente risponda — esattamente il caso del Ticket #89. Risolto
+  escludendo il tipo "Subentro" da quella lista generica (ha già la sua sezione, niente perso — anzi
+  un doppione in meno) e aggiunta una guardia generale (scrive solo valori stringa/numero) per
+  qualunque altro dato imprevisto in futuro. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
