@@ -4013,6 +4013,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     intorno ai campi quando il disclosure è aperto.
   Build/lint puliti.
 
+✅ Sezione Subentro nel Ticket, tolto il doppio riquadro (2026-09-09, "un po' incasinato" su uno
+  screenshot della tab Documenti reale). Ogni traccia (vecchio cliente/nuovo cliente) incorniciava
+  la card di `InvioLinkCliente` (che ha già bordo/ombra propri) dentro un secondo riquadro
+  `bg-muted/40` — un riquadro dentro un riquadro, la stessa anteprima del messaggio percepita come
+  "doppia". Tolta la cornice esterna: resta solo la card di `InvioLinkCliente`, il testo/pulsante
+  prima di essa è ora semplice testo. Il pulsante "Invia link" del vecchio cliente, una volta
+  inviato, diventa un piccolo link testuale "Invia di nuovo" sotto la card invece di restare un
+  pulsante pieno sopra di essa. Nessuna funzione toccata. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

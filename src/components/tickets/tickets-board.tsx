@@ -1913,6 +1913,14 @@ function SubentroDoppioConsenso({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* ★ ALLEGGERITA (2026-09, "un po' incasinato" — screenshot del
+      popup reale, tab Documenti) — ogni traccia era un riquadro bordato
+      (bg-muted/40) che conteneva a sua volta la card di InvioLinkCliente
+      (bordo + ombra propria): un riquadro dentro un riquadro, la stessa
+      anteprima messaggio ripetuta due volte in sequenza. Ora la card di
+      InvioLinkCliente (già ben distinguibile da sola) resta l'unico
+      riquadro; il testo/pulsante che la precede è semplice testo, non
+      un'altra cornice. */}
       <StatoTraccia
         etichetta="Vecchio cliente"
         stato={praticaSubentro.vecchio_cliente_confermato_il ? "ok" : praticaSubentro.vecchio_cliente_rifiutato_il ? "no" : "attesa"}
@@ -1920,17 +1928,19 @@ function SubentroDoppioConsenso({
         testoNo="Non ha confermato"
         testoAttesa="In attesa di conferma"
       />
-      <div className="rounded-lg border bg-muted/40 p-3">
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
-        </p>
-        <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
-          {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
-          {inCorsoLinkVecchio ? "Invio…" : linkVecchioCliente ? "Invia di nuovo" : "Invia link di conferma al vecchio cliente"}
-        </Button>
-        {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
-        {linkVecchioCliente && (
-          <div className="mt-2">
+      <div>
+        {!linkVecchioCliente ? (
+          <>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
+            </p>
+            <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
+              {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
+              {inCorsoLinkVecchio ? "Invio…" : "Invia link di conferma al vecchio cliente"}
+            </Button>
+          </>
+        ) : (
+          <>
             {/* ★ solo WhatsApp/copia: l'email è già stata inviata dal
             pulsante sopra (stesso link) — un secondo pulsante Email qui
             manderebbe una seconda email identica invece di aprire un vero
@@ -1942,8 +1952,12 @@ function SubentroDoppioConsenso({
               messaggio={`Ciao, conferma la cessione del contratto Done Wifi: ${linkVecchioCliente}`}
               onInviaEmail={async () => ({ errore: null })}
             />
-          </div>
+            <button type="button" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="mt-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60">
+              {inCorsoLinkVecchio ? "Invio…" : "Invia di nuovo"}
+            </button>
+          </>
         )}
+        {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
       </div>
 
       <StatoTraccia
@@ -1953,9 +1967,9 @@ function SubentroDoppioConsenso({
         testoNo=""
         testoAttesa="In attesa dei dati"
       />
-      <div className="rounded-lg border bg-muted/40 p-3">
+      <div>
         <p className="mb-2 text-[11px] text-muted-foreground">Modulo dati + documenti — il contatto del nuovo titolare non è ancora noto al sistema, inseriscilo qui.</p>
-        <div className="mb-2 grid grid-cols-2 gap-2">
+        <div className="mb-2.5 grid grid-cols-2 gap-2">
           <Input
             value={telefonoNuovoCliente}
             onChange={(e) => setTelefonoNuovoCliente(e.target.value)}
