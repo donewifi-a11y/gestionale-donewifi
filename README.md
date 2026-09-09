@@ -3999,6 +3999,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     browser gestisce apertura/chiusura. "Elimina Ticket" non è più sempre visibile su ogni tab.
   Build/lint puliti.
 
+✅ Popup Ticket, seconda passata (2026-09-09, "ancora incasinato. riordinato" dopo uno screenshot
+  del popup reale già ridisegnato una prima volta). Nessuna nuova funzione, solo ordine e coerenza
+  visiva dei controlli già esistenti:
+  - Ordine dall'alto in basso ora identità → responsabilità → contesto → azione: Assegnato a/Reparto
+    (chi se ne occupa) spostati PRIMA dei contatti, "Pianifica appuntamento" spostato DOPO — prima
+    l'azione primaria interrompeva i contatti senza un perché.
+  - I 3 `<select>` del pannello (stato, assegnato a, reparto) leggevano come 3 stili diversi
+    mescolati insieme (uno una pill colorata, gli altri due rettangoli con la freccia nativa del
+    browser): ora tutti `appearance-none` con lo stesso chevron disegnato a mano.
+  - "Altri dettagli e azioni" non è più una barra bordata a piena larghezza (leggeva come un quarto
+    pulsante): solo testo + chevron, larga quanto il contenuto — il riquadro bordato compare solo
+    intorno ai campi quando il disclosure è aperto.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

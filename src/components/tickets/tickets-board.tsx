@@ -1299,16 +1299,19 @@ function DettaglioTicket({
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (
           <div className="flex items-center gap-2">
-            <select
-              value={ticket.stato}
-              disabled={inCorsoStato}
-              onChange={(e) => cambiaStato(e.target.value as StatoTicket)}
-              className={`h-8 rounded-full border px-3 text-xs font-bold disabled:opacity-60 ${STILE_STATO_TICKET[ticket.stato] ?? ""}`}
-            >
-              {SEQUENZA_STATO.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <div className="relative w-fit">
+              <select
+                value={ticket.stato}
+                disabled={inCorsoStato}
+                onChange={(e) => cambiaStato(e.target.value as StatoTicket)}
+                className={`h-8 appearance-none rounded-full border py-0 pl-3 pr-7 text-xs font-bold disabled:opacity-60 ${STILE_STATO_TICKET[ticket.stato] ?? ""}`}
+              >
+                {SEQUENZA_STATO.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
+            </div>
             {inCorsoStato && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
           </div>
         )}
@@ -1356,68 +1359,14 @@ function DettaglioTicket({
           </div>
         )}
 
-        {/* ★ NUOVA (2026-09, stesso redesign) — telefono/email/indirizzo
-        erano tre blocchi "etichetta sopra, valore sotto" impilati: qui
-        diventano chip inline, stesso trattamento icona-colorata già in
-        uso per i contatti altrove nel gestionale (preventivi-board.tsx,
-        clienti-board.tsx...) invece di un pattern nuovo solo per questo
-        popup. */}
-        {(ticket.telefono || ticket.email || ticket.indirizzo) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            {ticket.telefono && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
-                {ticket.telefono}
-              </span>
-            )}
-            {ticket.email && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
-                {ticket.email}
-              </span>
-            )}
-            {ticket.indirizzo && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
-                {ticket.indirizzo}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
-        sempre una prima installazione, ma il tipo di servizio non lo
-        deduceva mai da solo: il menu partiva sempre su "Lavorazione
-        tecnica" come per qualunque altro Ticket, rischiando la Scheda
-        sbagliata sul campo se chi pianifica non se ne accorgeva.
-        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
-        nuove installazioni come interventi in loco") — prima guardava solo
-        `categoria === "Commerciale" || segnalazione_id`: un Ticket
-        categoria "Assistenza" con sottocategoria "Pianificazione
-        installazione" (trovato reale in produzione, appuntamenti già con
-        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
-        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
-        condivisa anche con Calendario → FormNuovoAppuntamento invece di
-        due condizioni copiate e disallineate; `segnalazione_id` resta
-        come controllo aggiuntivo di sicurezza.
-        ★ SPOSTATA (2026-09, redesign) — era in fondo al tab, sotto ogni
-        altro campo: quando non c'è ancora un appuntamento attivo è
-        l'azione più probabile su questo Ticket, ora promossa ad azione
-        primaria (`primario`) subito sotto i contatti invece che in coda. */}
-        <PianificaAppuntamento
-          ticket={ticket}
-          persone={persone}
-          tipoServizioIniziale={
-            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
-              ? "Nuova installazione"
-              : "Lavorazione tecnica"
-          }
-          primario={!appuntamentoAttivo && ticket.stato !== "Completato"}
-        />
-
-        {/* ★ NUOVA (2026-09, redesign) — Assegnato a/Reparto affiancati in
-        una griglia invece di due blocchi impilati a piena larghezza:
-        stessa logica/stessi handler di prima, solo più compatti. */}
+        {/* ★ RIORDINATA (2026-09, "ancora incasinato. riordinato" —
+        seconda passata dopo screenshot del popup reale) — "chi se ne
+        occupa" (assegnazione/reparto) prima di "come contattarlo"
+        (telefono/email/indirizzo), a sua volta prima dell'azione
+        (pianifica): dall'alto in basso, identità → responsabilità →
+        contesto → azione, invece dell'ordine precedente che infilava
+        l'azione tra i contatti senza un perché. Stessa griglia/stessa
+        logica di prima, solo spostata. */}
         <div className="grid grid-cols-2 gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -1469,66 +1418,74 @@ function DettaglioTicket({
               </button>
             </div>
           ) : (
-            <select
-              defaultValue=""
-              disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v) return;
-                if (v === "io") {
-                  startAssegna(async () => {
-                    const risultato = await assegnaTicket(ticket.id, currentPersonaId);
-                    if (risultato.errore) {
-                      toast(risultato.errore);
-                      return;
-                    }
-                    onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
-                  });
-                } else if (v.startsWith("p:")) {
-                  const id = v.slice(2);
-                  startAssegna(async () => {
-                    const risultato = await assegnaTicket(ticket.id, id);
-                    if (risultato.errore) {
-                      toast(risultato.errore);
-                      return;
-                    }
-                    onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
-                  });
-                } else {
-                  const id = v.slice(2);
-                  startAssegnaEsterno(async () => {
-                    const risultato = await assegnaTicketTecnicoEsterno(ticket.id, id);
-                    if (risultato.errore) {
-                      toast(risultato.errore);
-                      return;
-                    }
-                    onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
-                  });
-                }
-              }}
-              className="mt-1.5 h-9 w-full rounded-md border bg-background px-2 text-xs disabled:opacity-60"
-            >
-              <option value="">Assegna a...</option>
-              <option value="io">Io{persone.find((p) => p.id === currentPersonaId) ? ` (${persone.find((p) => p.id === currentPersonaId)!.nome})` : ""}</option>
-              {persone.filter((p) => p.attivo && p.id !== currentPersonaId).length > 0 && (
-                <optgroup label="Staff">
-                  {persone
-                    .filter((p) => p.attivo && p.id !== currentPersonaId)
-                    .map((p) => (
-                      <option key={p.id} value={`p:${p.id}`}>{p.nome}</option>
+            /* ★ RESTILIZZATA (2026-09, "ancora incasinato") — appearance-none
+            + chevron disegnato a mano invece della freccia nativa del
+            browser: stesso trattamento del select di stato qui sopra,
+            così i tre controlli del pannello non sembrano tre stili
+            diversi mescolati insieme. */
+            <div className="relative mt-1.5">
+              <select
+                defaultValue=""
+                disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  if (v === "io") {
+                    startAssegna(async () => {
+                      const risultato = await assegnaTicket(ticket.id, currentPersonaId);
+                      if (risultato.errore) {
+                        toast(risultato.errore);
+                        return;
+                      }
+                      onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
+                    });
+                  } else if (v.startsWith("p:")) {
+                    const id = v.slice(2);
+                    startAssegna(async () => {
+                      const risultato = await assegnaTicket(ticket.id, id);
+                      if (risultato.errore) {
+                        toast(risultato.errore);
+                        return;
+                      }
+                      onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
+                    });
+                  } else {
+                    const id = v.slice(2);
+                    startAssegnaEsterno(async () => {
+                      const risultato = await assegnaTicketTecnicoEsterno(ticket.id, id);
+                      if (risultato.errore) {
+                        toast(risultato.errore);
+                        return;
+                      }
+                      onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
+                    });
+                  }
+                }}
+                className="h-9 w-full appearance-none rounded-lg border bg-background pl-2.5 pr-7 text-xs disabled:opacity-60"
+              >
+                <option value="">Assegna a...</option>
+                <option value="io">Io{persone.find((p) => p.id === currentPersonaId) ? ` (${persone.find((p) => p.id === currentPersonaId)!.nome})` : ""}</option>
+                {persone.filter((p) => p.attivo && p.id !== currentPersonaId).length > 0 && (
+                  <optgroup label="Staff">
+                    {persone
+                      .filter((p) => p.attivo && p.id !== currentPersonaId)
+                      .map((p) => (
+                        <option key={p.id} value={`p:${p.id}`}>{p.nome}</option>
+                      ))}
+                  </optgroup>
+                )}
+                {tecniciEsterni.length > 0 && (
+                  <optgroup label="Tecnici esterni">
+                    {tecniciEsterni.map((t) => (
+                      <option key={t.id} value={`e:${t.id}`}>
+                        {t.nome} {t.cognome}
+                      </option>
                     ))}
-                </optgroup>
-              )}
-              {tecniciEsterni.length > 0 && (
-                <optgroup label="Tecnici esterni">
-                  {tecniciEsterni.map((t) => (
-                    <option key={t.id} value={`e:${t.id}`}>
-                      {t.nome} {t.cognome}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+                  </optgroup>
+                )}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
+            </div>
           )}
         </div>
 
@@ -1537,18 +1494,81 @@ function DettaglioTicket({
             Reparto
             <SuggerimentoCampo testo="Il reparto responsabile di questo Ticket — cambialo se la pratica va gestita da un altro reparto (es. da Commerciale ad Analisi Rete per l'installazione)." />
           </div>
-          <select
-            value={ticket.reparto}
-            disabled={inCorsoReparto}
-            onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
-            className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-xs font-medium disabled:opacity-60"
-          >
-            {REPARTI.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+          <div className="relative mt-1.5">
+            <select
+              value={ticket.reparto}
+              disabled={inCorsoReparto}
+              onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
+              className="h-9 w-full appearance-none rounded-lg border bg-background pl-2.5 pr-7 text-xs font-medium disabled:opacity-60"
+            >
+              {REPARTI.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
+          </div>
         </div>
         </div>
+
+        {/* ★ NUOVA (2026-09, stesso redesign) — telefono/email/indirizzo
+        erano tre blocchi "etichetta sopra, valore sotto" impilati: qui
+        diventano chip inline, stesso trattamento icona-colorata già in
+        uso per i contatti altrove nel gestionale (preventivi-board.tsx,
+        clienti-board.tsx...) invece di un pattern nuovo solo per questo
+        popup. */}
+        {(ticket.telefono || ticket.email || ticket.indirizzo) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {ticket.telefono && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
+                {ticket.telefono}
+              </span>
+            )}
+            {ticket.email && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
+                {ticket.email}
+              </span>
+            )}
+            {ticket.indirizzo && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
+                {ticket.indirizzo}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
+        sempre una prima installazione, ma il tipo di servizio non lo
+        deduceva mai da solo: il menu partiva sempre su "Lavorazione
+        tecnica" come per qualunque altro Ticket, rischiando la Scheda
+        sbagliata sul campo se chi pianifica non se ne accorgeva.
+        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
+        nuove installazioni come interventi in loco") — prima guardava solo
+        `categoria === "Commerciale" || segnalazione_id`: un Ticket
+        categoria "Assistenza" con sottocategoria "Pianificazione
+        installazione" (trovato reale in produzione, appuntamenti già con
+        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
+        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
+        condivisa anche con Calendario → FormNuovoAppuntamento invece di
+        due condizioni copiate e disallineate; `segnalazione_id` resta
+        come controllo aggiuntivo di sicurezza.
+        ★ SPOSTATA (2026-09, redesign) — era in fondo al tab, sotto ogni
+        altro campo: quando non c'è ancora un appuntamento attivo è
+        l'azione più probabile su questo Ticket, ora promossa ad azione
+        primaria (`primario`), ultima nell'ordine identità → responsabilità
+        → contesto → azione. */}
+        <PianificaAppuntamento
+          ticket={ticket}
+          persone={persone}
+          tipoServizioIniziale={
+            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
+              ? "Nuova installazione"
+              : "Lavorazione tecnica"
+          }
+          primario={!appuntamentoAttivo && ticket.stato !== "Completato"}
+        />
 
         {/* ★ NUOVA (2026-09, "troppi pulsanti e possibilità" — trend 2026
         "progressive disclosure": mostra il minimo per decidere il prossimo
@@ -1556,13 +1576,18 @@ function DettaglioTicket({
         extra della sottocategoria ed "Elimina Ticket" (azione rara e
         distruttiva) sono ora dietro un disclosure nativo invece di sempre
         in vista: nessuno script, il `<details>` del browser gestisce
-        apertura/chiusura e lo stato non va salvato da nessuna parte. */}
-        <details className="group rounded-xl border bg-card px-3 py-2.5">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-bold uppercase tracking-wide text-muted-foreground [&::-webkit-details-marker]:hidden">
-            Altri dettagli e azioni
+        apertura/chiusura e lo stato non va salvato da nessuna parte.
+        ★ ALLEGGERITA (2026-09, "ancora incasinato") — non più una barra
+        bordata a piena larghezza (leggeva come un quarto pulsante invece
+        che come un "mostra altro"): solo testo + chevron, larga quanto il
+        suo contenuto; il riquadro bordato compare solo intorno al
+        contenuto quando è aperto. */}
+        <details className="group">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground [&::-webkit-details-marker]:hidden">
             <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-150 group-open:rotate-180" strokeWidth={2.5} />
+            Altri dettagli e azioni
           </summary>
-          <div className="mt-3 flex flex-col gap-3 border-t pt-3">
+          <div className="mt-2.5 flex flex-col gap-3 rounded-xl border bg-card p-3">
             <Campo etichetta="Priorità" valore={ticket.priorita} />
             <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
             {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
