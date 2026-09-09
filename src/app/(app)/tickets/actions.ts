@@ -141,7 +141,31 @@ export async function creaTicket(
     .select("*")
     .single();
 
-  if (error) return { errore: error.message };
+  if (error) {
+    // ★ FIX (2026-09-09, bug reale segnalato con screenshot: "new row
+    // violates row-level security policy for table 'tickets'" mostrato
+    // così com'è all'operatore, un messaggio Postgres grezzo che non dice
+    // cosa fare) — causa reale più probabile: chi ha inviato il modulo era
+    // autenticato su Supabase Auth con un accesso condiviso/vecchio (es.
+    // "fornitori@donewifi.it", nato prima del login individuale, oggi
+    // collegato a una Persona disattivata) mentre il selettore "Tu sei" in
+    // sidebar — un cookie separato, indipendente dalla sessione Supabase
+    // Auth vera — mostrava una Persona attiva scelta a parte solo per
+    // l'attribuzione. getPersonaCorrente() sopra guarda quel cookie e
+    // quindi non si accorge di nulla; la policy RLS reale guarda invece
+    // `auth.uid()` (l'accesso condiviso, la cui Persona è disattivata) e
+    // blocca l'inserimento — da qui il messaggio grezzo. Corretto qui con
+    // un messaggio chiaro e un'azione concreta, stesso principio già
+    // applicato altrove in questo gestionale ai messaggi Postgres grezzi.
+    console.error("creaTicket — insert tickets:", error.message);
+    if (error.message.includes("row-level security policy")) {
+      return {
+        errore:
+          "Il tuo accesso non risulta più valido per creare Ticket — esci dal gestionale e accedi di nuovo con le tue credenziali personali (non un accesso condiviso). Se il problema resta, contatta un amministratore.",
+      };
+    }
+    return { errore: error.message };
+  }
 
   await supabase.from("storico").insert({
     origine: "ticket",

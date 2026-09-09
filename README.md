@@ -3811,6 +3811,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     poi rimossi.
   Build/lint puliti.
 
+✅ Messaggio chiaro invece dell'errore Postgres grezzo su "Nuovo Ticket" (2026-09-09, screenshot:
+  "new row violates row-level security policy for table 'tickets'" mostrato così com'è
+  all'operatore). Causa reale ricostruita e verificata con un test empirico contro produzione (un
+  utente Supabase Auth di prova, collegato correttamente a una Persona attiva SOLO tramite
+  `persone.auth_user_id` — non nella vecchia tabella `staff` — riesce a creare un Ticket senza
+  problemi: la policy RLS di per sé funziona bene): il selettore "Tu sei" in sidebar è un cookie
+  separato (`persona_id`, valido 1 anno) indipendente dalla sessione Supabase Auth vera — serve solo
+  per l'attribuzione visibile nell'interfaccia. Se chi scrive è autenticato con un accesso
+  condiviso/vecchio (in produzione risultano `fornitori@donewifi.it` e `donewifi@gmail.com`, nati
+  prima del login individuale — il primo collegato a una Persona oggi disattivata) mentre ha scelto
+  da "Tu sei" una Persona attiva diversa, `getPersonaCorrente()` (guarda solo il cookie) non si
+  accorge di nulla, ma la policy RLS reale (guarda `auth.uid()`, l'accesso condiviso) blocca
+  l'inserimento — da cui il messaggio grezzo.
+  - `creaTicket()` ora riconosce questo errore specifico e restituisce un messaggio chiaro e
+    un'azione concreta ("esci e accedi di nuovo con le tue credenziali personali") invece del testo
+    Postgres, stesso principio già applicato altrove in questo gestionale ai messaggi grezzi.
+  - Non ancora applicato agli altri punti di scrittura con lo stesso schema (`avviaPraticaSubentro`,
+    `creaSegnalazione`, ecc.) — stesso rischio teorico ma non ancora segnalato come bug reale.
+  - Verificato contro produzione: creato e poi eliminato un utente/Persona di test per confermare
+    che una Persona collegata correttamente (solo `persone.auth_user_id`, non `staff`) crea Ticket
+    senza errori — la migrazione 0012 (login individuale) risulta applicata correttamente.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
