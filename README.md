@@ -4034,6 +4034,16 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   un doppione in meno) e aggiunta una guardia generale (scrive solo valori stringa/numero) per
   qualunque altro dato imprevisto in futuro. Build/lint puliti.
 
+✅ Sezione Subentro: nascosti i controlli di invio a conferma avvenuta (2026-09-09, "devi togliere
+  una volta approvati il campo email e telefono e possibilità di mandare il link al vecchio
+  cliente" — stesso screenshot del popup reale). Una volta che una traccia è "ok" (pallino verde)
+  non c'è più nulla da fare su quella traccia: i campi telefono/email del nuovo cliente e il
+  pulsante "Invia link" al vecchio cliente sparivano solo visivamente in apparenza — restavano
+  sempre visibili anche a conferma già avvenuta, permettendo di reinviare/riscrivere un modulo già
+  compilato per davvero. Ora spariscono, resta solo il pallino di stato — riappaiono da soli se lo
+  stato torna indietro (es. il vecchio cliente rifiuta). Nessuna funzione toccata, solo visibilità
+  condizionale. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

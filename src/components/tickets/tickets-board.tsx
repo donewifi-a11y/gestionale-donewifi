@@ -1946,37 +1946,46 @@ function SubentroDoppioConsenso({
         testoNo="Non ha confermato"
         testoAttesa="In attesa di conferma"
       />
-      <div>
-        {!linkVecchioCliente ? (
-          <>
-            <p className="mb-2 text-[11px] text-muted-foreground">
-              Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
-            </p>
-            <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
-              {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
-              {inCorsoLinkVecchio ? "Invio…" : "Invia link di conferma al vecchio cliente"}
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* ★ solo WhatsApp/copia: l'email è già stata inviata dal
-            pulsante sopra (stesso link) — un secondo pulsante Email qui
-            manderebbe una seconda email identica invece di aprire un vero
-            client locale, inutile. */}
-            <InvioLinkCliente
-              url={linkVecchioCliente}
-              telefono={ticketTelefono}
-              email={null}
-              messaggio={`Ciao, conferma la cessione del contratto Done Wifi: ${linkVecchioCliente}`}
-              onInviaEmail={async () => ({ errore: null })}
-            />
-            <button type="button" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="mt-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60">
-              {inCorsoLinkVecchio ? "Invio…" : "Invia di nuovo"}
-            </button>
-          </>
-        )}
-        {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
-      </div>
+      {/* ★ NASCOSTA A CONFERMA AVVENUTA (2026-09-09, "devi togliere una
+      volta approvati... la possibilità di mandare il link al vecchio
+      cliente" — dopo lo stesso screenshot del popup reale) — una volta
+      confermato non c'è più nulla da fare qui: reinviare un link di
+      conferma già dato non ha senso, il pallino verde sopra è già tutta
+      l'informazione che serve. Resta visibile solo mentre serve ancora
+      un'azione (in attesa, o rifiutato — lì può servire reinviarlo). */}
+      {!praticaSubentro.vecchio_cliente_confermato_il && (
+        <div>
+          {!linkVecchioCliente ? (
+            <>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
+              </p>
+              <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
+                {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                {inCorsoLinkVecchio ? "Invio…" : "Invia link di conferma al vecchio cliente"}
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* ★ solo WhatsApp/copia: l'email è già stata inviata dal
+              pulsante sopra (stesso link) — un secondo pulsante Email qui
+              manderebbe una seconda email identica invece di aprire un
+              vero client locale, inutile. */}
+              <InvioLinkCliente
+                url={linkVecchioCliente}
+                telefono={ticketTelefono}
+                email={null}
+                messaggio={`Ciao, conferma la cessione del contratto Done Wifi: ${linkVecchioCliente}`}
+                onInviaEmail={async () => ({ errore: null })}
+              />
+              <button type="button" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="mt-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60">
+                {inCorsoLinkVecchio ? "Invio…" : "Invia di nuovo"}
+              </button>
+            </>
+          )}
+          {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
+        </div>
+      )}
 
       <StatoTraccia
         etichetta="Nuovo cliente"
@@ -1985,6 +1994,13 @@ function SubentroDoppioConsenso({
         testoNo=""
         testoAttesa="In attesa dei dati"
       />
+      {/* ★ NASCOSTA A DATI RICEVUTI (2026-09-09, stessa richiesta) — una
+      volta che il nuovo cliente ha già inviato i suoi dati, i campi per
+      inserirne una bozza e il link da rimandargli non servono più: il
+      modulo è già stato compilato per davvero (vedi "Moduli ricevuti dal
+      cliente"/tab Documenti), riscriverlo o rimandare il link
+      creerebbe solo confusione su quale versione sia quella buona. */}
+      {!nuovoClienteHaRisposto && (
       <div>
         <p className="mb-2 text-[11px] text-muted-foreground">Modulo dati + documenti — il contatto del nuovo titolare non è ancora noto al sistema, inseriscilo qui.</p>
         <div className="mb-2.5 grid grid-cols-2 gap-2">
@@ -2012,6 +2028,7 @@ function SubentroDoppioConsenso({
           onInviaEmail={() => inviaEmailPraticaGenerica(emailNuovoCliente, nomeNuovoTitolare, "Dati per il Subentro", linkNuovoClienteSubentro, "Commerciale")}
         />
       </div>
+      )}
 
       {/* ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" —
       vedi l'artifact "Il Subentro Fino all'Installazione") — visibile solo
