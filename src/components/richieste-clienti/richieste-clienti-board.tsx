@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock, Check } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
+import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta, completaSubentro } from "@/app/(app)/richieste-clienti/actions";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { useToast } from "@/components/ui/toast";
@@ -151,14 +151,25 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
                         <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(r)!.nuovo} />
                       </div>
                     )}
-                    {/* ★ NUOVA (2026-08-27, richiesta esplicita: "rivedere il
-                    sistema di notificazione come pulsa la notifica di
-                    documenti ricevuti" → "estenderlo agli altri 6 eventi-
-                    cliente") — il vecchio cliente ha appena risposto
-                    (Subentro, entro 48h): il pallino statico sopra dice
-                    "ok"/"no", questo in più pulsa finché è fresco — stesso
-                    trattamento già in uso in Segnalazioni. */}
-                    {r.tipo_richiesta === "Subentro" &&
+                    {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
+                    semplificata" — passo 3 della proposta) — un solo
+                    segnale quando ENTRAMBE le tracce sono complete, invece
+                    di dover aprire la pratica per scoprirlo: vince su
+                    quello sotto (una sola conferma) perché è il caso più
+                    avanzato possibile prima della chiusura vera e propria. */}
+                    {r.tipo_richiesta === "Subentro" && r.stato !== "Lavorata" && r.vecchio_cliente_confermato_il && traccePratica(r)?.nuovo === "ok" ? (
+                      <div className="mt-1.5">
+                        <SegnalePulsante testo="✓ Pronta da completare" tono="successo" pulsante />
+                      </div>
+                    ) : (
+                      /* ★ richiesta esplicita: "rivedere il sistema di
+                      notificazione come pulsa la notifica di documenti
+                      ricevuti" → "estenderlo agli altri 6 eventi-cliente" —
+                      il vecchio cliente ha appena risposto (Subentro, entro
+                      48h): il pallino statico sopra dice "ok"/"no", questo
+                      in più pulsa finché è fresco — stesso trattamento già
+                      in uso in Segnalazioni. */
+                      r.tipo_richiesta === "Subentro" &&
                       (entroOreDa(r.vecchio_cliente_confermato_il, 48) || entroOreDa(r.vecchio_cliente_rifiutato_il, 48)) && (
                         <div className="mt-1.5">
                           <SegnalePulsante
@@ -167,7 +178,8 @@ export function RichiesteClientiBoard({ richieste, isAdmin }: { richieste: Richi
                             pulsante
                           />
                         </div>
-                      )}
+                      )
+                    )}
                   </div>
                 ))}
               </div>
@@ -214,6 +226,7 @@ function DettaglioRichiesta({
   // (GruppoDatiCliente), qui replicato per lo stesso identico bisogno: chi
   // lavora una pratica ricopia questi dati nel gestionale contratti esterno.
   const [campiCopiati, setCampiCopiati] = useState<Set<string>>(new Set());
+  const [inCorsoCompletamento, startCompletamento] = useTransition();
 
   function copiaCampo(chiave: string, etichetta: string, valore: string) {
     navigator.clipboard.writeText(valore);
@@ -242,6 +255,23 @@ function DettaglioRichiesta({
       }
       onCambiata({ ...richiesta, stato: nuovo });
       toast(`Passata a "${nuovo}".`, "successo");
+      router.refresh();
+    });
+  }
+
+  // ★ NUOVA (2026-09, "è un macello, va riorganizzata e semplificata" —
+  // passo 5 della proposta) — chiude un Subentro con un pulsante invece
+  // che spostando a mano la card sopra: il server rifiuta se le due
+  // tracce non sono davvero complete, non è un giudizio dell'operatore.
+  function completaSubentroClick() {
+    startCompletamento(async () => {
+      const risultato = await completaSubentro(richiesta.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      onCambiata({ ...richiesta, stato: "Lavorata" });
+      toast("Subentro chiuso — trasferimento completato.", "successo");
       router.refresh();
     });
   }
@@ -297,6 +327,26 @@ function DettaglioRichiesta({
           <div className="flex flex-wrap gap-1.5">
             <PallinoTraccia etichetta="Vecchio cliente" stato={traccePratica(richiesta)!.vecchio} />
             <PallinoTraccia etichetta="Nuovo cliente" stato={traccePratica(richiesta)!.nuovo} />
+          </div>
+        )}
+
+        {/* ★ NUOVA — passo 5 della proposta: stesso pulsante disponibile
+        anche da qui, per chi lavora le pratiche direttamente da questa
+        bacheca invece che dal Ticket collegato. */}
+        {richiesta.tipo_richiesta === "Subentro" && richiesta.stato !== "Lavorata" && richiesta.vecchio_cliente_confermato_il && traccePratica(richiesta)?.nuovo === "ok" && (
+          <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
+              <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+              Pronta da completare — entrambe le conferme sono arrivate.
+            </p>
+            <button
+              onClick={completaSubentroClick}
+              disabled={inCorsoCompletamento}
+              className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-success px-3 text-xs font-bold text-success-foreground transition hover:opacity-90 disabled:opacity-60"
+            >
+              {inCorsoCompletamento ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
+              {inCorsoCompletamento ? "Chiusura in corso…" : "Trasferimento completato"}
+            </button>
           </div>
         )}
 

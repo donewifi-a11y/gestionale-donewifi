@@ -3923,6 +3923,30 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Build/lint puliti. Comportamento solo browser (nessuna nuova tabella) — verificato per lettura
   del codice, come le notifiche di base della volta scorsa.
 
+✅ Subentro riorganizzato e semplificato (2026-09-09, richiesta esplicita "ho un problema con la
+  modalità di subentro. è un macello. va riorganizzata e semplificata" — vedi l'artifact
+  "Il Processo del Subentro": da 8 passaggi a 5, confermata la proposta con "perfetto procedi").
+  - **Sezione propria, sempre visibile**: Subentro non è più una voce tra le altre 4 in un menu a
+    tendina generico "Invia una pratica al cliente" — ora una sezione a sé nel Ticket, con lo
+    stesso "Avvia Subentro" già esistente nella scheda Cliente Esterno. Tolto da `PRATICHE_INVIABILI`
+    e da `PRATICA_PER_SOTTOCATEGORIA` (restano solo per Disdetta).
+  - **Autosave del contatto del nuovo cliente**: nuova `salvaContattoNuovoTitolareSubentro()` — 
+    telefono/email si salvano dentro `dettagli` appena si esce dal campo (`onBlur`), non più persi
+    ricaricando la pagina prima di inviare il link. Sovrascritti naturalmente quando il nuovo
+    cliente compila il modulo vero — nessun dato a parte da tenere sincronizzato.
+  - **Un solo segnale "Pronta da completare"**: quando entrambe le tracce (vecchio confermato +
+    nuovo ha risposto) sono complete, un badge acceso da solo compare sia sulla card in "Richieste
+    Clienti" sia nel pannello del Ticket — prima bisognava dedurlo guardando due pallini separati.
+  - **Chiusura vera con un pulsante**: nuova `completaSubentro()` — "Trasferimento completato"
+    porta lo stato a "Lavorata" con una riga in Storico, ma solo se le due tracce sono davvero
+    complete (il server rifiuta altrimenti) — non più uno spostamento di colonna a giudizio.
+    Disponibile sia dal Ticket sia dal popup di dettaglio in Richieste Clienti.
+  - Verificato con un test end-to-end reale contro produzione (stesso schema del test precedente su
+    Subentro): pratica creata, autosave del contatto confermato, doppia conferma, "Pronta da
+    completare" comparso al momento giusto, chiusura riuscita con voce in Storico, poi tutto
+    ripulito.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

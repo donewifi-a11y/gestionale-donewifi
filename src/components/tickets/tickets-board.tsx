@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check, Repeat } from "lucide-react";
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
@@ -23,7 +23,7 @@ import {
   cambiaRepartoTicket,
   eliminaTicket,
 } from "@/app/(app)/tickets/actions";
-import { avviaPraticaSubentro, inviaLinkVecchioClienteSubentro } from "@/app/(app)/richieste-clienti/actions";
+import { avviaPraticaSubentro, inviaLinkVecchioClienteSubentro, salvaContattoNuovoTitolareSubentro, completaSubentro } from "@/app/(app)/richieste-clienti/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
@@ -33,7 +33,7 @@ import { SchedaVista } from "@/components/schede/scheda-vista";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
-import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica } from "@/lib/richieste-cliente-config";
+import { messaggioWhatsappPratica } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
@@ -51,22 +51,25 @@ import { usePersistedState } from "@/lib/use-persisted-state";
 // Esterno (vedi NuovaPraticaClienteEsterno), non serve più un Ticket per
 // loro (proposta "Pratiche cliente senza Ticket"). Tenerle anche qui
 // sarebbe stato un secondo modo di fare la stessa cosa — esattamente il
-// doppione da evitare. Restano solo Subentro (ha un flusso a doppio
-// consenso costruito apposta su Ticket) e Disdetta (mai stata legata a
-// questo problema, resta una pagina di istruzioni).
-const PRATICHE_INVIABILI = [
-  { slug: "disdetta" as const, titolo: "Disdetta contratto" },
-  { slug: "subentro" as const, titolo: RICHIESTE_CLIENTE_CONFIG.subentro.titolo },
-];
+// doppione da evitare. Resta solo Disdetta (mai stata legata a questo
+// problema, resta una pagina di istruzioni).
+//
+// ★ TOLTA (2026-09, "è un macello, va riorganizzata e semplificata" —
+// vedi l'artifact "Il Processo del Subentro") — Subentro viveva qui in
+// mezzo, una voce tra le altre in un menu a tendina generico "manda un
+// link" — ma ha un flusso completamente diverso (doppio consenso, non un
+// solo link) e se ne accorgeva solo chi già sapeva che esisteva. Ha ora
+// una sezione propria, sempre visibile, subito sotto (vedi
+// SubentroDoppioConsenso più in basso nel render).
+const PRATICHE_INVIABILI = [{ slug: "disdetta" as const, titolo: "Disdetta contratto" }];
 
 // ★ collega le sottocategoria di Ticket (SOTTOCATEGORIE_TICKET) alla
-// pratica pubblica corrispondente per nome — solo Subentro/Disdetta restano
-// avviabili da qui (vedi nota sopra); Trasferimento/Cambio IBAN/Cambio
-// Anagrafica come sottocategoria Ticket restano scelte valide per
-// classificare un intervento di assistenza legato al tema, ma non
-// suggeriscono più automaticamente un invio pratica da questo pannello.
+// pratica pubblica corrispondente per nome — solo Disdetta resta
+// avviabile da qui (vedi nota sopra); Trasferimento/Cambio IBAN/Cambio
+// Anagrafica/Subentro come sottocategoria Ticket restano scelte valide
+// per classificare un intervento legato al tema, ma non suggeriscono più
+// automaticamente un invio pratica da questo pannello.
 const PRATICA_PER_SOTTOCATEGORIA: Record<string, (typeof PRATICHE_INVIABILI)[number]["slug"]> = {
-  Subentro: "subentro",
   Disdetta: "disdetta",
 };
 
@@ -956,6 +959,7 @@ function DettaglioTicket({
   const [emailNuovoCliente, setEmailNuovoCliente] = useState("");
   const [inCorsoAvvioSubentro, startAvvioSubentro] = useTransition();
   const [inCorsoLinkVecchio, startLinkVecchio] = useTransition();
+  const [inCorsoCompletamentoSubentro, startCompletamentoSubentro] = useTransition();
   const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
   const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
@@ -1029,6 +1033,31 @@ function DettaglioTicket({
         risultato.email ? `Email inviata a ${risultato.email}.` : "Il Ticket non ha un'email registrata — usa WhatsApp o copia il link."
       );
       toast("Link di conferma inviato al vecchio cliente.", "successo");
+    });
+  }
+
+  // ★ NUOVA (2026-09, "è un macello, va riorganizzata e semplificata" —
+  // passo 2 della proposta) — salva telefono/email del nuovo cliente
+  // appena si esce dal campo, non solo al momento di inviare il link:
+  // prima si perdevano ricaricando la pagina prima di premere "invia".
+  function salvaContattoBozza() {
+    if (!praticaSubentro) return;
+    salvaContattoNuovoTitolareSubentro(praticaSubentro.id, telefonoNuovoCliente, emailNuovoCliente);
+  }
+
+  // ★ NUOVA — passo 5 della proposta: chiude la pratica con un pulsante
+  // invece che spostando a mano la card tra le colonne di stato — il
+  // server rifiuta se le due tracce non sono davvero complete.
+  function completaSubentroClick() {
+    if (!praticaSubentro) return;
+    startCompletamentoSubentro(async () => {
+      const risultato = await completaSubentro(praticaSubentro.id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      setRichieste((prev) => prev.map((r) => (r.id === praticaSubentro.id ? { ...r, stato: "Lavorata" } : r)));
+      toast("Subentro chiuso — trasferimento completato.", "successo");
     });
   }
   const messaggioPratica = praticaScelta ? messaggioWhatsappPratica(ticket.cliente, titoloPraticaScelta, linkPratica) : "";
@@ -1479,6 +1508,42 @@ function DettaglioTicket({
           </div>
         )}
 
+        {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
+        semplificata" — vedi l'artifact "Il Processo del Subentro") —
+        sezione propria, sempre visibile, non più una voce da scegliere
+        in un menu a tendina generico: lo stesso pulsante "Avvia
+        Subentro" di NuovaPraticaClienteEsterno (scheda Cliente Esterno),
+        qui applicato al Ticket già aperto invece di doverne creare uno
+        nuovo. */}
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={Repeat} categoria="documento" dimensione="sm" />
+            Subentro
+          </div>
+          <SubentroDoppioConsenso
+            praticaSubentro={praticaSubentro}
+            nuovoClienteHaRisposto={nuovoClienteHaRisposto}
+            nomeNuovoTitolare={nomeNuovoTitolare}
+            setNomeNuovoTitolare={setNomeNuovoTitolare}
+            inCorsoAvvioSubentro={inCorsoAvvioSubentro}
+            avviaSubentro={avviaSubentro}
+            linkVecchioCliente={linkVecchioCliente}
+            esitoLinkVecchio={esitoLinkVecchio}
+            inCorsoLinkVecchio={inCorsoLinkVecchio}
+            inviaLinkVecchio={inviaLinkVecchio}
+            ticketTelefono={ticket.telefono}
+            linkNuovoClienteSubentro={linkNuovoClienteSubentro}
+            telefonoNuovoCliente={telefonoNuovoCliente}
+            setTelefonoNuovoCliente={setTelefonoNuovoCliente}
+            emailNuovoCliente={emailNuovoCliente}
+            setEmailNuovoCliente={setEmailNuovoCliente}
+            nomeCliente={ticket.cliente}
+            salvaContattoBozza={salvaContattoBozza}
+            inCorsoCompletamentoSubentro={inCorsoCompletamentoSubentro}
+            completaSubentroClick={completaSubentroClick}
+          />
+        </div>
+
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
@@ -1500,40 +1565,16 @@ function DettaglioTicket({
               </option>
             ))}
           </select>
-          {praticaScelta === "subentro" ? (
+          {praticaScelta && (
             <div className="mt-2.5">
-              <SubentroDoppioConsenso
-                praticaSubentro={praticaSubentro}
-                nuovoClienteHaRisposto={nuovoClienteHaRisposto}
-                nomeNuovoTitolare={nomeNuovoTitolare}
-                setNomeNuovoTitolare={setNomeNuovoTitolare}
-                inCorsoAvvioSubentro={inCorsoAvvioSubentro}
-                avviaSubentro={avviaSubentro}
-                linkVecchioCliente={linkVecchioCliente}
-                esitoLinkVecchio={esitoLinkVecchio}
-                inCorsoLinkVecchio={inCorsoLinkVecchio}
-                inviaLinkVecchio={inviaLinkVecchio}
-                ticketTelefono={ticket.telefono}
-                linkNuovoClienteSubentro={linkNuovoClienteSubentro}
-                telefonoNuovoCliente={telefonoNuovoCliente}
-                setTelefonoNuovoCliente={setTelefonoNuovoCliente}
-                emailNuovoCliente={emailNuovoCliente}
-                setEmailNuovoCliente={setEmailNuovoCliente}
-                nomeCliente={ticket.cliente}
+              <InvioLinkCliente
+                url={linkPratica}
+                telefono={ticket.telefono}
+                email={ticket.email}
+                messaggio={messaggioPratica}
+                onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
               />
             </div>
-          ) : (
-            praticaScelta && (
-              <div className="mt-2.5">
-                <InvioLinkCliente
-                  url={linkPratica}
-                  telefono={ticket.telefono}
-                  email={ticket.email}
-                  messaggio={messaggioPratica}
-                  onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
-                />
-              </div>
-            )
           )}
 
           {ticket.email && (
@@ -1639,6 +1680,9 @@ function SubentroDoppioConsenso({
   emailNuovoCliente,
   setEmailNuovoCliente,
   nomeCliente,
+  salvaContattoBozza,
+  inCorsoCompletamentoSubentro,
+  completaSubentroClick,
 }: {
   praticaSubentro: RichiestaCliente | undefined;
   nuovoClienteHaRisposto: boolean;
@@ -1657,6 +1701,11 @@ function SubentroDoppioConsenso({
   emailNuovoCliente: string;
   setEmailNuovoCliente: (v: string) => void;
   nomeCliente: string;
+  /** ★ NUOVA — salva la bozza di telefono/email del nuovo cliente appena
+   * si esce dal campo (vedi commento in DettaglioTicket). */
+  salvaContattoBozza: () => void;
+  inCorsoCompletamentoSubentro: boolean;
+  completaSubentroClick: () => void;
 }) {
   if (!praticaSubentro) {
     return (
@@ -1730,12 +1779,14 @@ function SubentroDoppioConsenso({
           <Input
             value={telefonoNuovoCliente}
             onChange={(e) => setTelefonoNuovoCliente(e.target.value)}
+            onBlur={salvaContattoBozza}
             placeholder="Telefono nuovo cliente"
             className="h-9 text-xs"
           />
           <Input
             value={emailNuovoCliente}
             onChange={(e) => setEmailNuovoCliente(e.target.value)}
+            onBlur={salvaContattoBozza}
             placeholder="Email nuovo cliente"
             type="email"
             className="h-9 text-xs"
@@ -1749,6 +1800,33 @@ function SubentroDoppioConsenso({
           onInviaEmail={() => inviaEmailPraticaGenerica(emailNuovoCliente, nomeNuovoTitolare, "Dati per il Subentro", linkNuovoClienteSubentro, "Commerciale")}
         />
       </div>
+
+      {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
+      semplificata" — passo 3+5 della proposta) — un solo segnale, acceso
+      da solo quando entrambe le tracce sopra sono complete, invece di
+      dover andare a spostare a mano la card tra le colonne di stato in
+      "Richieste Clienti". Il pulsante chiude per davvero la pratica. */}
+      {praticaSubentro.stato === "Lavorata" ? (
+        <div className="flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-xs font-semibold text-success">
+          <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+          Subentro chiuso — trasferimento completato.
+        </div>
+      ) : (
+        praticaSubentro.vecchio_cliente_confermato_il &&
+        nuovoClienteHaRisposto && (
+          <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
+              <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+              Pronta da completare — entrambe le conferme sono arrivate.
+            </p>
+            <Button size="sm" onClick={completaSubentroClick} disabled={inCorsoCompletamentoSubentro} className="min-h-9">
+              {inCorsoCompletamentoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
+              {inCorsoCompletamentoSubentro ? "Chiusura in corso…" : "Trasferimento completato"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">Premi qui dopo aver eseguito il cambio intestatario nel sistema esterno (Aruba/anagrafica).</p>
+          </div>
+        )
+      )}
     </div>
   );
 }

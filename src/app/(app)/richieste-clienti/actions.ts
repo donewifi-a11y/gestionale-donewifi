@@ -129,6 +129,65 @@ export async function inviaLinkVecchioClienteSubentro(richiestaClienteId: string
   return { errore: null, link, telefono: ticket.telefono, email: ticket.email };
 }
 
+// ★ NUOVA (2026-09, richiesta esplicita: "è un macello, va riorganizzata e
+// semplificata" — vedi l'artifact "Il Processo del Subentro", passo 2
+// della proposta scelta) — prima telefono/email del nuovo cliente
+// vivevano solo nello stato locale del form, persi se si ricaricava la
+// pagina prima di inviare il link. Salvati qui dentro `dettagli` (lo
+// stesso campo jsonb che il modulo pubblico del nuovo cliente sovrascrive
+// del tutto una volta compilato, vedi api/richiesta-cliente/route.ts) —
+// una bozza che sparisce naturalmente appena il nuovo cliente risponde
+// per davvero, non un dato a parte da tenere sincronizzato.
+export async function salvaContattoNuovoTitolareSubentro(praticaId: string, telefono: string, email: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const { data: esistente } = await supabase.from("richieste_clienti").select("dettagli, tipo_richiesta").eq("id", praticaId).maybeSingle();
+  if (!esistente || esistente.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("richieste_clienti")
+    .update({ dettagli: { ...(esistente.dettagli || {}), telefono, email } })
+    .eq("id", praticaId);
+  if (error) return { errore: error.message };
+  return { errore: null };
+}
+
+// ★ NUOVA (2026-09, stessa richiesta — passo 5 della proposta) — prima
+// l'unico modo di "chiudere" un Subentro era spostare a mano la card tra
+// le 3 colonne di stato, senza nessun legame con le due conferme reali:
+// un operatore poteva segnarla "Lavorata" senza che nessuno dei due
+// clienti avesse risposto, o dimenticarsi di farlo con entrambi già
+// pronti da giorni. Qui si può chiudere solo se le due tracce sono
+// davvero complete — un pulsante, non un giudizio.
+export async function completaSubentro(praticaId: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const { data: pratica } = await supabase.from("richieste_clienti").select("tipo_richiesta, dettagli, vecchio_cliente_confermato_il, cliente").eq("id", praticaId).maybeSingle();
+  if (!pratica || pratica.tipo_richiesta !== "Subentro") return { errore: "Pratica non trovata." };
+  if (!pratica.vecchio_cliente_confermato_il) return { errore: "Il vecchio cliente non ha ancora confermato la cessione." };
+  if (!pratica.dettagli || Object.keys(pratica.dettagli).length === 0) return { errore: "Il nuovo cliente non ha ancora inviato i suoi dati." };
+
+  const service = createServiceClient();
+  const { error } = await service.from("richieste_clienti").update({ stato: "Lavorata" }).eq("id", praticaId);
+  if (error) return { errore: error.message };
+
+  await service.from("storico").insert({
+    origine: "richiesta_cliente",
+    riferimento_id: praticaId,
+    operazione: "Subentro chiuso — trasferimento completato",
+    valore_dopo: `Nuovo titolare: ${pratica.cliente ?? "—"}`,
+    operatore_id: persona.id,
+  });
+
+  revalidatePath("/richieste-clienti");
+  return { errore: null };
+}
+
 // ★ NUOVA — richiesta esplicita: un amministratore deve poter cancellare
 // una Richiesta Cliente (dati/documenti inviati dal cliente per Cambio
 // IBAN/Anagrafica/Trasferimento/Subentro/Richiesta Dati) — es. un test,
