@@ -43,6 +43,56 @@ export function suonaAvvisoChat() {
   }
 }
 
+/** ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 4 dell'artifact
+ * "Notifiche in Azione") — un tono più marcato per un messaggio diretto o
+ * una menzione, diverso dal ronzio generico di un gruppo affollato:
+ * doppia nota ascendente invece del singolo "ping" discendente, si
+ * riconosce a orecchio senza guardare lo schermo. */
+export function suonaAvvisoUrgente() {
+  try {
+    if (!contestoAudio) {
+      const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return;
+      contestoAudio = new Ctor();
+    }
+    const ctx = contestoAudio;
+    if (ctx.state === "suspended") ctx.resume();
+    [523, 784].forEach((freq, i) => {
+      const inizio = ctx.currentTime + i * 0.13;
+      const oscillatore = ctx.createOscillator();
+      const guadagno = ctx.createGain();
+      oscillatore.connect(guadagno);
+      guadagno.connect(ctx.destination);
+      oscillatore.type = "sine";
+      oscillatore.frequency.setValueAtTime(freq, inizio);
+      guadagno.gain.setValueAtTime(0.0001, inizio);
+      guadagno.gain.exponentialRampToValueAtTime(0.24, inizio + 0.01);
+      guadagno.gain.exponentialRampToValueAtTime(0.0001, inizio + 0.22);
+      oscillatore.start(inizio);
+      oscillatore.stop(inizio + 0.22);
+    });
+  } catch {
+    // vedi suonaAvvisoChat() sopra — niente suono, non blocca il resto.
+  }
+}
+
+/** ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 1 dell'artifact) —
+ * Badging API: il numero di non letti compare direttamente sull'icona
+ * dell'app (taskbar/dock/home screen), non solo sul titolo della scheda —
+ * ma solo se il gestionale è stato installato come app (vedi
+ * src/app/manifest.ts): nella scheda di un browser normale i browser che
+ * supportano l'API la ignorano silenziosamente, nessun danno a chi non
+ * installa nulla. */
+export function aggiornaBadgeApp(count: number) {
+  const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+  try {
+    if (count > 0) nav.setAppBadge?.(count)?.catch(() => {});
+    else nav.clearAppBadge?.()?.catch(() => {});
+  } catch {
+    // Badging API non disponibile — nessun danno, il titolo/favicon bastano comunque.
+  }
+}
+
 /** Il permesso va richiesto da un vero click dell'utente, non in automatico
  * al caricamento — i browser moderni ignorano/silenziano le richieste non
  * legate a un'interazione. Vedi il banner in chat-panel.tsx. */

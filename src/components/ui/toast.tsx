@@ -5,14 +5,24 @@ import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 
 type TipoToast = "errore" | "successo" | "info";
 
+/** ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 2 dell'artifact
+ * "Notifiche in Azione": recap "ti sei perso N messaggi") — un pulsante
+ * facoltativo dentro il toast, es. "Apri Chat". Facoltativo e in coda:
+ * nessuna delle chiamate esistenti (solo messaggio+tipo) cambia comportamento. */
+interface AzioneToast {
+  testo: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   messaggio: string;
   tipo: TipoToast;
+  azione?: AzioneToast;
 }
 
 interface ToastContextValue {
-  mostra: (messaggio: string, tipo?: TipoToast) => void;
+  mostra: (messaggio: string, tipo?: TipoToast, azione?: AzioneToast) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({ mostra: () => {} });
@@ -39,9 +49,9 @@ const ICONA: Record<TipoToast, typeof AlertTriangle> = {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const mostra = useCallback((messaggio: string, tipo: TipoToast = "errore") => {
+  const mostra = useCallback((messaggio: string, tipo: TipoToast = "errore", azione?: AzioneToast) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, messaggio, tipo }]);
+    setToasts((t) => [...t, { id, messaggio, tipo, azione }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 6000);
   }, []);
 
@@ -62,6 +72,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             >
               <Icona className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
               <span className="flex-1">{t.messaggio}</span>
+              {t.azione && (
+                <button
+                  onClick={() => {
+                    t.azione!.onClick();
+                    rimuovi(t.id);
+                  }}
+                  className="shrink-0 whitespace-nowrap rounded-md bg-foreground/10 px-2 py-1 text-xs font-bold hover:bg-foreground/15"
+                >
+                  {t.azione.testo}
+                </button>
+              )}
               <button onClick={() => rimuovi(t.id)} className="shrink-0 rounded p-0.5 opacity-70 transition hover:opacity-100" aria-label="Chiudi">
                 <X className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>
@@ -73,6 +94,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useToast(): (messaggio: string, tipo?: TipoToast) => void {
+export function useToast(): (messaggio: string, tipo?: TipoToast, azione?: AzioneToast) => void {
   return useContext(ToastContext).mostra;
 }

@@ -3903,6 +3903,26 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
     fonte migliore) e quelli già Completati/Annullati (storico, non toccato).
   Build/lint puliti.
 
+✅ Le 4 proposte dell'artifact "Notifiche in Azione", tutte costruite (2026-09-09, richiesta
+  esplicita "procedi con tutte" dopo aver visto la demo interattiva).
+  - **Pallino sull'icona dell'app**: nuovo `src/app/manifest.ts` (rende il gestionale installabile
+    come app) + `aggiornaBadgeApp()` (Badging API, `navigator.setAppBadge()`) — nessun effetto per
+    chi lo usa da una scheda normale del browser, si vede solo se installato.
+  - **"Ti sei perso N messaggi" al rientro**: `NotificheChat` ora ascolta `visibilitychange` — se
+    tornando sulla scheda i non letti sono aumentati rispetto a quando si è nascosta, un toast
+    riassume quanti e da chi, con un pulsante "Apri Chat". Esteso `useToast()`/`ToastProvider` con
+    un'azione facoltativa nel toast (retrocompatibile, nessuna chiamata esistente cambia).
+  - **"Sta scrivendo…"**: un broadcast Realtime effimero (non salvato nel database) sul canale già
+    aperto per il thread corrente — chi digita avvisa al massimo ogni 2 secondi, l'altro vede
+    l'indicatore per 3 secondi e sparisce da solo se non arriva altro (nessun "ha smesso" esplicito
+    da gestire). Sostituisce temporaneamente Online/Offline nell'intestazione, non si aggiunge
+    accanto: stessa informazione, un livello di dettaglio diverso.
+  - **Suono diverso per un messaggio diretto o una menzione**: nuova `suonaAvvisoUrgente()` (doppia
+    nota ascendente) per una conversazione diretta o quando il testo contiene "@NomePersona" dentro
+    un gruppo — il normale "ping" resta per il resto del traffico di gruppo.
+  Build/lint puliti. Comportamento solo browser (nessuna nuova tabella) — verificato per lettura
+  del codice, come le notifiche di base della volta scorsa.
+
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.

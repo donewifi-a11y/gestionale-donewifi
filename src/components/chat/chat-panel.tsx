@@ -124,6 +124,17 @@ export function ChatPanel({
   const [messaggi, setMessaggi] = useState<MessaggioChat[]>([]);
   const [letturaAltro, setLetturaAltro] = useState<string | null>(null);
   const [testo, setTesto] = useState("");
+  // ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 3 dell'artifact
+  // "Notifiche in Azione": "sta scrivendo…") — nessuna riga nel database,
+  // solo un broadcast Realtime effimero sul canale già aperto per il
+  // thread corrente (vedi l'effetto poco sotto): chi digita avvisa,
+  // l'altro vede l'indicatore per qualche secondo e poi sparisce da solo
+  // se non arriva nulla di nuovo (nessun "ha smesso di scrivere" esplicito
+  // da gestire).
+  const [altroStaScrivendo, setAltroStaScrivendo] = useState(false);
+  const canaleThreadRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const timeoutScritturaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ultimoInvioScritturaRef = useRef(0);
   const [inCorso, setInCorso] = useState(false);
   const fineListaRef = useRef<HTMLDivElement>(null);
   const testoRef = useRef<HTMLTextAreaElement>(null);
@@ -235,6 +246,11 @@ export function ChatPanel({
         (payload) => {
           setMessaggi((prev) => [...prev, payload.new as MessaggioChat]);
           segnaConversazioneLetta(thread.conversazioneId);
+          // ★ un messaggio vero appena arrivato vale più di un "sta
+          // scrivendo" residuo — lo spegne subito invece di aspettare che
+          // scada da solo.
+          setAltroStaScrivendo(false);
+          if (timeoutScritturaRef.current) clearTimeout(timeoutScritturaRef.current);
         }
       )
       .on(
@@ -245,11 +261,37 @@ export function ChatPanel({
           if (thread.altraPersonaId && riga.persona_id === thread.altraPersonaId) setLetturaAltro(riga.ultimo_letto_il);
         }
       )
+      // ★ NUOVA (2026-09-09, proposta 3) — broadcast effimero, non salvato
+      // da nessuna parte: solo chi ha il thread aperto in questo momento
+      // lo riceve. Ignora i propri stessi eventi (li riceverebbe anche chi
+      // li manda, essendo iscritto allo stesso canale).
+      .on("broadcast", { event: "sta-scrivendo" }, (msg) => {
+        if (msg.payload?.personaId === personaCorrenteId) return;
+        setAltroStaScrivendo(true);
+        if (timeoutScritturaRef.current) clearTimeout(timeoutScritturaRef.current);
+        timeoutScritturaRef.current = setTimeout(() => setAltroStaScrivendo(false), 3000);
+      })
       .subscribe();
+    canaleThreadRef.current = canale;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- azzera un residuo "sta scrivendo" del thread precedente quando si cambia conversazione, non derivabile durante il render.
+    setAltroStaScrivendo(false);
     return () => {
+      if (timeoutScritturaRef.current) clearTimeout(timeoutScritturaRef.current);
+      canaleThreadRef.current = null;
       supabase.removeChannel(canale);
     };
-  }, [thread, istanzaId]);
+  }, [thread, istanzaId, personaCorrenteId]);
+
+  /** Chiamata a ogni tasto premuto nel campo messaggio (vedi onChange più
+   * sotto) — un invio al massimo ogni 2 secondi, non uno per carattere:
+   * l'altro non ha bisogno di sapere ESATTAMENTE quando digiti, solo che
+   * stai ancora scrivendo. */
+  function segnalaScrittura() {
+    const adesso = Date.now();
+    if (adesso - ultimoInvioScritturaRef.current < 2000) return;
+    ultimoInvioScritturaRef.current = adesso;
+    canaleThreadRef.current?.send({ type: "broadcast", event: "sta-scrivendo", payload: { personaId: personaCorrenteId } });
+  }
 
   async function apriThread(t: Thread) {
     setLetturaAltro(null);
@@ -413,11 +455,23 @@ export function ChatPanel({
           telefono lo stato online/offline era di fatto solo colore, senza
           alternativa accessibile. Etichetta testuale sempre visibile,
           non solo al passaggio del mouse. */}
-          {thread && !thread.isGruppo && thread.altraPersonaId && (
-            <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium normal-case text-muted-foreground">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${online.has(thread.altraPersonaId) ? "bg-success" : "bg-muted-foreground/40"}`} />
-              {online.has(thread.altraPersonaId) ? "Online" : "Offline"}
+          {/* ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 3) —
+          l'indicatore "sta scrivendo…" sostituisce temporaneamente
+          Online/Offline invece di aggiungersi accanto: sono la stessa
+          informazione ("cosa sta facendo l'altro"), a un livello di
+          dettaglio diverso, non due fatti distinti da mostrare insieme. */}
+          {thread && altroStaScrivendo ? (
+            <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold normal-case text-primary">
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+              {thread.isGruppo ? "Qualcuno sta scrivendo…" : `${thread.titolo} sta scrivendo…`}
             </span>
+          ) : (
+            thread && !thread.isGruppo && thread.altraPersonaId && (
+              <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium normal-case text-muted-foreground">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${online.has(thread.altraPersonaId) ? "bg-success" : "bg-muted-foreground/40"}`} />
+                {online.has(thread.altraPersonaId) ? "Online" : "Offline"}
+              </span>
+            )
           )}
         </span>
         {onChiudi && (
@@ -670,7 +724,10 @@ export function ChatPanel({
               ref={testoRef}
               rows={1}
               value={testo}
-              onChange={(e) => setTesto(e.target.value)}
+              onChange={(e) => {
+                setTesto(e.target.value);
+                if (e.target.value.trim()) segnalaScrittura();
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

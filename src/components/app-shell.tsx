@@ -80,6 +80,10 @@ function AppShellCorpo({
   const { nonLettiTotali } = useChatData();
   const { todo } = useTodoData();
   const todoDaFare = (todo ?? []).filter((t) => !t.fatto).length;
+  // ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 4: suono diverso
+  // per una menzione) — serve il proprio nome per riconoscere "@Nome"
+  // dentro un messaggio di gruppo, vedi notifiche-chat.tsx.
+  const nomePersonaCorrente = persone.find((p) => p.id === personaCorrenteId)?.nome ?? null;
 
   return (
     // ★ NUOVA (2026-08-27, "facciamo la B" — Opzione B dell'artifact
@@ -88,7 +92,7 @@ function AppShellCorpo({
     // (sotto xl, dove la rail qui sotto è nascosta) deve poter aprire lo
     // stesso pop-up senza passare per la sidebar.
     <ChatUiProvider apriPopup={() => setStrumentoAperto((s) => (s === "chat" ? null : "chat"))}>
-      <NotificheChat />
+      <NotificheChat nomePersonaCorrente={nomePersonaCorrente} />
       <div className="flex min-h-screen flex-col md:flex-row">
         <AppSidebar
           email={email}
