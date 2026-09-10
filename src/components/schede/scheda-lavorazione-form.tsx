@@ -7,7 +7,7 @@ import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
 import { salvaSchedaLavoro, getTipologiaClientePerAppuntamento, type FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
-import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
+import { INTERVENTI_RAPIDI, INTERVENTO_RECUPERO_APPARATI, ESITI_INTERVENTO, OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaLavorazione {
@@ -16,6 +16,10 @@ interface BozzaLavorazione {
   esito: string;
   metodoPagamento: "Contanti" | "POS" | "In Fattura" | null;
   note: string;
+  // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati", vedi
+  // sotto.
+  apparatoRecuperato: string;
+  macRecuperato: string;
 }
 
 const campoClass = "mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm";
@@ -50,6 +54,12 @@ export function SchedaLavorazioneForm({
   const [esito, setEsito] = useState(bozza?.esito ?? "");
   const [metodoPagamento, setMetodoPagamento] = useState<BozzaLavorazione["metodoPagamento"]>(bozza?.metodoPagamento ?? "Contanti");
   const [note, setNote] = useState(bozza?.note ?? "");
+  // ★ NUOVA (2026-09-10, "manca il recupero apparati... l'apparato
+  // recuperato e il possibile mac") — visibili solo quando "Recupero
+  // Apparati" è tra gli interventi selezionati, vedi passo "Interventi"
+  // sotto.
+  const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
+  const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
@@ -61,9 +71,11 @@ export function SchedaLavorazioneForm({
     getTipologiaClientePerAppuntamento(appuntamentoId).then(({ tipoCliente }) => setTipoClienteTicket(tipoCliente));
   }, [appuntamentoId]);
 
+  const recuperoApparati = interventi.includes(INTERVENTO_RECUPERO_APPARATI);
+
   useEffect(() => {
-    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note]);
+    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato]);
 
   function toggleIntervento(nome: string) {
     setInterventi((cur) => (cur.includes(nome) ? cur.filter((i) => i !== nome) : [...cur, nome]));
@@ -91,6 +103,11 @@ export function SchedaLavorazioneForm({
           materiali,
           firmaCliente,
           interventiEseguiti: interventi,
+          // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" è tra gli
+          // interventi selezionati (recuperoApparati), altrimenti restano
+          // vuoti come sempre.
+          modelloCpe: recuperoApparati ? apparatoRecuperato : undefined,
+          mac: recuperoApparati ? macRecuperato : undefined,
         },
         []
       );
@@ -114,6 +131,8 @@ export function SchedaLavorazioneForm({
   const passi: PassoScheda[] = [
     {
       titolo: "Interventi",
+      valida: () =>
+        recuperoApparati && !apparatoRecuperato ? "Seleziona quale apparato è stato recuperato prima di proseguire." : null,
       contenuto: (
         <div>
           <Label>Interventi eseguiti (seleziona)</Label>
@@ -131,6 +150,44 @@ export function SchedaLavorazioneForm({
               </button>
             ))}
           </div>
+          {/* ★ NUOVA (2026-09-10, "manca il recupero apparati... l'apparato
+          recuperato e il possibile mac") — solo con "Recupero Apparati"
+          selezionato: cosa è stato ritirato e, se leggibile, il suo MAC.
+          Riusano modello_cpe/mac di SchedaLavoro, finora scritti solo dalla
+          Scheda di Installazione — vedi riconciliaAntennaRecuperata()
+          (materiali/actions.ts). */}
+          {recuperoApparati && (
+            <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3">
+              <div>
+                <Label htmlFor="apparato-recuperato">Apparato recuperato *</Label>
+                <select
+                  id="apparato-recuperato"
+                  value={apparatoRecuperato}
+                  onChange={(e) => setApparatoRecuperato(e.target.value)}
+                  className={campoClass}
+                >
+                  <option value="" disabled>-- Seleziona apparato --</option>
+                  {OPZIONI_INSTALLAZIONE.cpe.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="mac-recuperato">MAC (se leggibile)</Label>
+                <input
+                  id="mac-recuperato"
+                  type="text"
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                  value={macRecuperato}
+                  onChange={(e) => setMacRecuperato(formattaMac(e.target.value))}
+                  className={campoClass}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Facoltativo — anche parziale, se l&apos;etichetta è consumata o illeggibile.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       ),
     },

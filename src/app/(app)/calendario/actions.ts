@@ -9,7 +9,7 @@ import { inviaMessaggioChatSistemaDiretto } from "@/lib/chat";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
-import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
+import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntennaRecuperata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import { createHash, randomInt } from "crypto";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
@@ -348,7 +348,10 @@ export interface DatiSchedaLavoro {
   materiali: MaterialeUsato[];
   firmaCliente: FirmaClienteApprovata;
   firmaTecnicoDataUrl?: string;
-  // solo "Nuova installazione"
+  // solo "Nuova installazione" — modelloCpe/mac servono anche a "Lavorazione
+  // tecnica" quando interventiEseguiti include "Recupero Apparati" (vedi
+  // INTERVENTO_RECUPERO_APPARATI in lib/types.ts): stesse due colonne,
+  // riconciliate però verso "Disponibile" invece che "Installata".
   supporto?: string;
   posizione?: string;
   gpsLat?: number;
@@ -533,7 +536,17 @@ export async function salvaSchedaLavoro(
   // bloccano mai il salvataggio della scheda già avvenuto sopra.
   await scaricaGiacenzaMateriali(dati.materiali.map((m) => ({ materiale_id: m.materiale_id, quantita: m.quantita })));
   if (dati.mac?.trim()) {
-    await riconciliaAntennaInstallata(dati.mac.trim().toUpperCase(), appuntamento.ticket_id, schedaCreata?.id ?? null);
+    const macMaiuscolo = dati.mac.trim().toUpperCase();
+    // ★ NUOVA (2026-09-10, "manca il recupero apparati... l'apparato
+    // recuperato e il possibile mac") — un MAC compilato su "Recupero
+    // Apparati" non è un pezzo appena installato: va riportato a
+    // "Disponibile" in inventario, non a "Installata" come per una
+    // Nuova installazione o un Cambio CPE.
+    if (tipo === "Lavorazione tecnica" && dati.interventiEseguiti?.includes("Recupero Apparati")) {
+      await riconciliaAntennaRecuperata(macMaiuscolo, schedaCreata?.id ?? null);
+    } else {
+      await riconciliaAntennaInstallata(macMaiuscolo, appuntamento.ticket_id, schedaCreata?.id ?? null);
+    }
   }
 
   // ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve

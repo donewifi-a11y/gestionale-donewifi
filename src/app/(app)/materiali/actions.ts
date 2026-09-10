@@ -372,6 +372,35 @@ export async function riconciliaAntennaInstallata(mac: string, ticketId: string 
   }
 }
 
+/** ★ NUOVA (2026-09-10, richiesta esplicita: "tra gli interventi in loco da
+ * fare manca il recupero apparati in cui si mette l'apparato recuperato e
+ * il possibile mac") — controparte di riconciliaAntennaInstallata() sopra:
+ * chiamata da salvaSchedaLavoro()/salvaSchedaLavoroEsterno() dopo il
+ * salvataggio di una Scheda Lavorazione con intervento "Recupero Apparati"
+ * e un MAC compilato. Il pezzo torna "Disponibile" (pronto per una nuova
+ * prenotazione/installazione) e si scollega dal Ticket/cliente da cui è
+ * stato ritirato — mai "Installata" come farebbe la funzione gemella, che
+ * qui sarebbe il risultato opposto a quello reale.
+ * - MAC non censito, o già "Disponibile" → nessuna azione: il gestionale
+ *   non obbliga a censire ogni pezzo, e non c'è nulla da correggere se è
+ *   già libero. Il dato (modello + MAC) resta comunque sulla Scheda stessa,
+ *   letto o meno da questa funzione.
+ * Mai bloccante verso il chiamante, stesso principio della gemella. */
+export async function riconciliaAntennaRecuperata(mac: string, schedaLavoroId: string | null) {
+  try {
+    const service = createServiceClient();
+    const { data: antenna } = await service.from("antenne_inventario").select("id, stato").eq("mac", mac).maybeSingle();
+    if (!antenna || antenna.stato === "Disponibile") return;
+
+    await service
+      .from("antenne_inventario")
+      .update({ stato: "Disponibile", ticket_id: null, scheda_lavoro_id: schedaLavoroId, aggiornato_il: new Date().toISOString() })
+      .eq("id", antenna.id);
+  } catch (errore) {
+    console.error("riconciliaAntennaRecuperata:", errore);
+  }
+}
+
 /** ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve
  * andare sul gestionale principale... in modo che poi venga inserito
  * dall'operatore nel gestionale esterno delle antenne") — riga pronta per

@@ -4181,6 +4181,25 @@ applicabili a un cliente che deve ancora essere installato o a un intervento tec
 puliti; verificato leggendo `SOTTOCATEGORIE_TICKET`/`tipoServizioDaTicket` in `lib/types.ts` per
 confermare che "Pianificazione installazione" ricade sempre sotto categoria "Assistenza".
 
+✅ **"Recupero Apparati" tra gli interventi in loco, con apparato e MAC recuperati** (2026-09-10,
+"tra gli interventi in loco da fare manca il recupero apparati in cui si mette l'apparato
+recuperato e il possibile mac"). Nuova voce in `INTERVENTI_RAPIDI` (`lib/types.ts`), stessa lista
+usata sia dal titolo dell'appuntamento sia dalla Scheda Lavorazione (interna e su pose.donewifi.it):
+selezionandola compaiono due campi in più — "Apparato recuperato" (stessa lista `OPZIONI_INSTALLAZIONE.cpe`
+della Scheda di Installazione) e "MAC (se leggibile)", facoltativo e accettato anche parziale.
+Nessuna colonna nuova: riusano `modello_cpe`/`mac` di `schede_lavoro`, finora scritte solo dalla
+Scheda di Installazione. Nuova `riconciliaAntennaRecuperata()` (`materiali/actions.ts`), gemella di
+`riconciliaAntennaInstallata()` esistente: se il MAC è censito in `antenne_inventario` torna a
+"Disponibile" (pronto per una nuova prenotazione) invece che "Installata" — altrimenti la vecchia
+funzione avrebbe agganciato il pezzo appena ritirato al Ticket sbagliato, il contrario di quello che
+sta succedendo davvero. `salvaSchedaLavoro()`/`salvaSchedaLavoroEsterno()` scelgono quale delle due
+chiamare in base a `interventiEseguiti.includes("Recupero Apparati")`. Build/lint puliti (un giro di
+fix per `pose/scheda-lavorazione-domande.tsx`: l'array `domande` con una domanda condizionale in più
+va tipizzato esplicitamente `Domanda[]`, altrimenti TypeScript allarga `categoria` a `string`
+generico). Non verificato contro un salvataggio reale in produzione — solo lettura attenta del
+codice e degli stessi pattern (signed URL, service role, reconciliazione MAC) già in uso altrove in
+questo progetto.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

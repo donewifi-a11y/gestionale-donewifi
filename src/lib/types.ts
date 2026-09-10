@@ -804,7 +804,20 @@ export const INTERVENTI_RAPIDI = [
   "Riavvio Apparati",
   "Problema Alimentazione",
   "Installazione Nuova",
+  "Recupero Apparati",
 ] as const;
+
+/** ★ NUOVA (2026-09-10, richiesta esplicita: "tra gli interventi in loco da
+ * fare manca il recupero apparati in cui si mette l'apparato recuperato e
+ * il possibile mac") — quando l'intervento selezionato è "Recupero
+ * Apparati" (es. disdetta, sostituzione guasta), la Scheda Lavorazione
+ * mostra due campi in più per registrare cosa è stato effettivamente
+ * ritirato: riusano le stesse colonne `modello_cpe`/`mac` di SchedaLavoro,
+ * finora popolate solo dalla Scheda di Installazione — vedi
+ * SchedaLavorazioneForm/SchedaLavorazioneDomande e la reconciliazione in
+ * riconciliaAntennaRecuperata() (materiali/actions.ts), che riporta il
+ * pezzo a "Disponibile" in inventario invece di "Installata". */
+export const INTERVENTO_RECUPERO_APPARATI = "Recupero Apparati" as const;
 
 export const ESITI_INTERVENTO = ["Risolto", "Parziale", "In Attesa", "Non Risolto"] as const;
 

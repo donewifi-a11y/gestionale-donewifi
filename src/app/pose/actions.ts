@@ -9,7 +9,7 @@ import { inviaEmail, emailChiusuraTicket } from "@/lib/email";
 import { aggiornaEventoCalendario } from "@/lib/google-calendar";
 import { generaTestoRapportino, generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
-import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata } from "@/app/(app)/materiali/actions";
+import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntennaRecuperata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
 import type { DatiSchedaLavoro, ContestoClienteTicket } from "@/app/(app)/calendario/actions";
 import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizioAppuntamento } from "@/lib/types";
@@ -600,7 +600,14 @@ export async function salvaSchedaLavoroEsterno(
 
   await scaricaGiacenzaMateriali(dati.materiali.map((m) => ({ materiale_id: m.materiale_id, quantita: m.quantita })));
   if (dati.mac?.trim()) {
-    await riconciliaAntennaInstallata(dati.mac.trim().toUpperCase(), appuntamento.ticket_id, schedaCreata?.id ?? null);
+    const macMaiuscolo = dati.mac.trim().toUpperCase();
+    // ★ stesso principio della versione staff interno in
+    // calendario/actions.ts, vedi lì per il commento completo.
+    if (tipo === "Lavorazione tecnica" && dati.interventiEseguiti?.includes("Recupero Apparati")) {
+      await riconciliaAntennaRecuperata(macMaiuscolo, schedaCreata?.id ?? null);
+    } else {
+      await riconciliaAntennaInstallata(macMaiuscolo, appuntamento.ticket_id, schedaCreata?.id ?? null);
+    }
   }
 
   // ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve

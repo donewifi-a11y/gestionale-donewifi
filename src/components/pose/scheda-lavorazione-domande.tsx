@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wrench, Package, Euro, ClipboardCheck, NotebookText, FileSignature } from "lucide-react";
+import { Wrench, Package, Euro, ClipboardCheck, NotebookText, FileSignature, PackageSearch } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
-import { TileScelta, TileMultiScelta, AreaGrande } from "@/components/pose/tile-scelta";
+import { TileScelta, TileMultiScelta, AreaGrande, CampoGrande } from "@/components/pose/tile-scelta";
 import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
 import { accodaScheda } from "@/lib/coda-invio-pose";
-import { INTERVENTI_RAPIDI, ESITI_INTERVENTO } from "@/lib/types";
+import { INTERVENTI_RAPIDI, INTERVENTO_RECUPERO_APPARATI, ESITI_INTERVENTO, OPZIONI_INSTALLAZIONE, formattaMac } from "@/lib/types";
 import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaLavorazione {
   interventi: string[]; materiali: MaterialeUsato[]; esito: string;
   metodoPagamento: "Contanti" | "POS" | "In Fattura" | null; note: string;
+  // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati".
+  apparatoRecuperato: string; macRecuperato: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaLavorazioneForm
@@ -43,6 +45,10 @@ export function SchedaLavorazioneDomande({
   const [esito, setEsito] = useState(bozza?.esito ?? "");
   const [metodoPagamento, setMetodoPagamento] = useState<BozzaLavorazione["metodoPagamento"]>(bozza?.metodoPagamento ?? "Contanti");
   const [note, setNote] = useState(bozza?.note ?? "");
+  // ★ NUOVA (2026-09-10, "manca il recupero apparati... l'apparato
+  // recuperato e il possibile mac") — vedi domanda dedicata sotto.
+  const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
+  const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
@@ -52,13 +58,20 @@ export function SchedaLavorazioneDomande({
     getTipologiaClientePerAppuntamentoEsterno(appuntamentoId).then(({ tipoCliente }) => setTipoClienteTicket(tipoCliente));
   }, [appuntamentoId]);
 
+  const recuperoApparati = interventi.includes(INTERVENTO_RECUPERO_APPARATI);
+
   useEffect(() => {
-    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note]);
+    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato]);
 
   async function invia() {
     setErroreInvio("");
-    const dati = { esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi };
+    const dati = {
+      esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi,
+      // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" è selezionato.
+      modelloCpe: recuperoApparati ? apparatoRecuperato : undefined,
+      mac: recuperoApparati ? macRecuperato : undefined,
+    };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
     // stesso fix gemello di scheda-installazione-domande.tsx, vedi lì per
@@ -103,6 +116,38 @@ export function SchedaLavorazioneDomande({
       aiuto: "Puoi sceglierne anche più di uno.",
       contenuto: <TileMultiScelta opzioni={INTERVENTI_RAPIDI} valore={interventi} onChange={setInterventi} />,
     },
+    // ★ NUOVA (2026-09-10, "manca il recupero apparati... l'apparato
+    // recuperato e il possibile mac") — domanda in più, solo se "Recupero
+    // Apparati" è tra gli interventi scelti sopra. Stessi campi
+    // modello_cpe/mac di SchedaLavoro, finora scritti solo dalla Scheda di
+    // Installazione — vedi riconciliaAntennaRecuperata() (materiali/actions.ts).
+    ...(recuperoApparati
+      ? ([
+          {
+            domanda: "Che apparato hai recuperato?",
+            categoria: "radio",
+            icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
+            valida: () => (apparatoRecuperato ? null : "Scegli l'apparato recuperato prima di continuare."),
+            contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.cpe} valore={apparatoRecuperato} onChange={setApparatoRecuperato} />,
+          },
+          {
+            domanda: "Indirizzo MAC?",
+            categoria: "radio",
+            icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile.",
+            contenuto: (
+              <CampoGrande
+                type="text"
+                placeholder="AA:BB:CC:DD:EE:FF"
+                value={macRecuperato}
+                onChange={(e) => setMacRecuperato(formattaMac(e.target.value))}
+                inputMode="text"
+                autoCapitalize="characters"
+              />
+            ),
+          },
+        ] as Domanda[])
+      : []),
     {
       domanda: "Hai usato materiali o consumi?",
       categoria: "materiali",
