@@ -4271,3 +4271,29 @@ aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_i
 **⚠️ MIGRAZIONE DA APPLICARE (2026-08-31):** `supabase/migrations/0070_attivo_ibrido_contratto_e_fattura_o_mai_trovata.sql`
 — sostituisce di nuovo `ricalcola_clienti_attivi()` (soppianta la 0069, applicata poche ore prima)
 e la richiama subito sui dati esistenti. Da incollare nell'SQL Editor di Supabase.
+
+**🔴 MIGRAZIONE DA APPLICARE — URGENTE (2026-09-10):**
+`supabase/migrations/0072_fix_drift_policy_scrittura_tickets.sql` — trovata la causa reale di "non è
+possibile aprire i ticket per i diversi reparti da alcuni account" (il fix del cookie "Tu sei" di
+poco prima non bastava). Verificato con 3 test reali contro produzione (persona/utente Supabase Auth
+usa e getta, ripuliti subito dopo): le policy RLS di **scrittura** su `tickets` in produzione
+richiedono `reparto = ANY(persone.reparti)` — anche per **INSERT** — mentre `0001_init.sql` le
+definisce `with check (is_active_staff())` (nessun controllo di reparto) e
+`0048_tickets_visibilita_per_reparto.sql` dice esplicitamente che insert/update dovevano restare
+aperti a qualunque staff attivo. Le policy vive in produzione sono quindi diverse da quelle nelle
+migrazioni — un drift (probabile correzione manuale fatta una volta in Supabase Studio, mai
+riportata in una migrazione), non un bug introdotto da questa sessione di lavoro. Test che l'hanno
+confermato: persona reparto=[Fatturazione] → INSERT reparto="Analisi Rete" bloccato, INSERT
+reparto="Fatturazione" (il proprio) OK; UPDATE su un Ticket di reparto diverso dal proprio →
+**0 righe modificate senza nessun errore restituito** (PostgREST non segnala un UPDATE filtrato a 0
+righe come errore — "chiudi Ticket" falliva così, in silenzio); persona amministratore con
+reparti=[] → INSERT ovunque OK (il bypass amministratore funziona già). La migrazione ripristina
+INSERT a `is_active_staff()` (creazione libera per chiunque sia staff attivo, come richiesto
+esplicitamente: "si possono aprire i ticket per tutti ma operare solo per quelli del proprio
+settore") e allinea UPDATE alla stessa `persona_vede_ticket()` già usata per la visibilità (proprio
+reparto, oppure Ticket assegnato direttamente a sé, oppure amministratore) invece del solo confronto
+reparto — copre anche il caso di un tecnico assegnato a un Ticket fuori dal proprio reparto, che
+altrimenti lo vedrebbe ma non potrebbe operarci. **Da incollare nell'SQL Editor di Supabase appena
+possibile** — finché non applicata, chi ha un reparto diverso da quello del Ticket (o un
+amministratore con `reparti` vuoto ma che, per qualche altro motivo, non passasse il bypass) resta
+bloccato in scrittura.
