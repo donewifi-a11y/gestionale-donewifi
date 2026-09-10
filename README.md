@@ -4106,6 +4106,18 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   - Spaziatura interna della card "moduli ricevuti" allineata (`p-2.5` → `p-3`, come le altre card).
   Nessun colore, dato o comportamento cambiato — solo raggi/altezze/spaziatura. Build/lint puliti.
 
+✅ "Nuova pratica" nella scheda Cliente Esterno, unificata (2026-09-10, "riorganizziamo il sistema
+  nuova pratica. semplifichiamo" — proposta approvata dell'artifact "Nuova Pratica, Unificata"). Le
+  5 pratiche disponibili (Trasferimento, Cambio IBAN, Cambio Anagrafica, Subentro, Disdetta) erano
+  trattate in 3 modi diversi — un menu a tendina per le prime 3, un blocco sempre visibile per il
+  Subentro, un altro ancora per la Disdetta, tre linguaggi diversi per la stessa domanda ("che
+  pratica vuoi avviare?"). Ora un solo menu con tutte e 5: il contenuto sotto cambia in base a cosa
+  scegli (la card WhatsApp/Email/Copia link per le prime 3, nome+"Avvia Subentro" per il Subentro,
+  "Segna ricevuta"+istruzioni per la Disdetta) invece di restare tre sezioni sempre in vista. Stesso
+  identico comportamento di prima per ciascuna pratica — cambia solo come ci si arriva. Il resto
+  della scheda Cliente (Storico, Fatture, Preventivi, Installazioni, Ticket collegati) era già
+  coerente, nessuna modifica lì. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
