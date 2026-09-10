@@ -965,9 +965,11 @@ function DettaglioTicket({
   // ★ NUOVA — richiesta esplicita: "Dettagli" / "Documenti" / "Note" invece
   // di un unico pannello lungo — i moduli inviati dal cliente, il
   // contratto e la scheda/rapportino completati erano sparsi tra vari
-  // punti dello scroll, ora tutti insieme in "Documenti" con un contatore
-  // sulla tab per sapere a colpo d'occhio se c'è qualcosa da guardare.
-  const [tab, setTab] = useState<"dettagli" | "documenti" | "note">("dettagli");
+  // punti dello scroll, ora tutti insieme in "Documenti".
+  // ★ RIMOSSE LE TAB (2026-09-10, "la a" — proposta A dell'artifact "Il
+  // Ticket, Senza Tab") — Dettagli/Documenti/Note sono ora sezioni sempre
+  // visibili in un'unica pagina che scorre, non più viste separate da
+  // scegliere: niente più stato `tab` da tenere.
   const [richieste, setRichieste] = useState<RichiestaCliente[]>([]);
   // ★ NUOVA (2026-08) — Sistema Subentro, doppio consenso in parallelo
   // (Opzione B): a differenza delle altre pratiche pubbliche (un solo
@@ -1251,27 +1253,16 @@ function DettaglioTicket({
           {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
         </DialogDescription>
       </DialogHeader>
-      <div className="flex min-w-0 flex-col gap-4 text-sm">
-        <div className="flex gap-1 border-b">
-          {(
-            [
-              ["dettagli", "Dettagli"],
-              ["documenti", `Documenti${numeroDocumenti > 0 ? ` (${numeroDocumenti})` : ""}`],
-              ["note", `Note${note.length > 0 ? ` (${note.length})` : ""}`],
-            ] as const
-          ).map(([valore, etichetta]) => (
-            <button
-              key={valore}
-              type="button"
-              onClick={() => setTab(valore)}
-              className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-bold transition ${
-                tab === valore ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {etichetta}
-            </button>
-          ))}
-        </div>
+      <div className="flex min-w-0 flex-col gap-5 text-sm">
+        {/* ★ RIMOSSE (2026-09-10, "la a" — proposta A dell'artifact "Il
+        Ticket, Senza Tab", risposta a "troppi stati/tab da tenere a
+        mente") — Dettagli/Documenti/Note erano 3 viste che nascondevano
+        contenuto finché non ci si clicca sopra: bisognava ricordarsi che
+        una Nota o un contratto esistevano prima di andare a cercarli. Ora
+        è un'unica pagina che scorre, sempre nello stesso ordine — ogni
+        sezione compare solo se ha davvero qualcosa da mostrare, MA senza
+        più bisogno di un clic o di una tab da tenere a mente per saperlo.
+        `numeroDocumenti` resta solo per l'etichetta della sezione. */}
 
         {/* ★ NUOVA — vedi ticketRipetutiPerTelefono in TicketsBoard: un
         cliente tornato più volte per Assistenza, visibile qui indipendente
@@ -1285,8 +1276,7 @@ function DettaglioTicket({
           </p>
         )}
 
-        {tab === "dettagli" && (
-        <div key="dettagli" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+        <div className="flex flex-col gap-4">
         {/* ★ RIDISEGNATA (2026-09, "vecchia e confusionaria... troppi
         pulsanti e possibilità" — richiesta esplicita dopo l'artifact "Il
         Ticket Ripensato", trend 2026 "strategic minimalism"/"progressive
@@ -1608,15 +1598,20 @@ function DettaglioTicket({
           </div>
         </details>
         </div>
-        )}
+
+        <div className="h-px bg-border" />
 
         {/* ★ NUOVA — richiesta esplicita: contratto, scheda/rapportino
         completati e moduli inviati dal cliente (Cambio IBAN/Anagrafica/
         Trasferimento/Subentro) erano sparsi in punti diversi dello scroll
         (o del tutto assenti, per i moduli) — ora tutti insieme qui, un
-        solo posto per "tutta la carta" del Ticket. */}
-        {tab === "documenti" && (
-        <div key="documenti" className="flex flex-col gap-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+        solo posto per "tutta la carta" del Ticket.
+        ★ SEZIONE, NON PIÙ TAB (2026-09-10, "la a") — sempre visibile,
+        subito sotto Dettagli invece che dietro un secondo clic. */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Documenti{numeroDocumenti > 0 ? ` (${numeroDocumenti})` : ""}
+          </div>
         {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
         {ticket.stato === "Completato" && !scheda && rapportino && (
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
@@ -1842,13 +1837,13 @@ function DettaglioTicket({
           </div>
         )}
         </div>
-        )}
 
-        {tab === "note" && (
-        <div key="note" className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
+        <div className="h-px bg-border" />
+
+        <div>
           <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <NotebookText className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Note e aggiornamenti
+            Note e aggiornamenti{note.length > 0 ? ` (${note.length})` : ""}
           </div>
           <div className="flex flex-col gap-2.5">
             {note.length === 0 && (
@@ -1886,7 +1881,6 @@ function DettaglioTicket({
           </div>
           {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
         </div>
-        )}
       </div>
     </>
   );

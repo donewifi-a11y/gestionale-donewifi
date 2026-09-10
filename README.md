@@ -4072,6 +4072,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   dal Ticket, come Subentro) resta aperto: non è un difetto da correggere ma una scelta di prodotto,
   lasciata così com'è finché non viene richiesta esplicitamente. Build/lint puliti.
 
+✅ Il Ticket, senza tab (2026-09-10, "trovo un'interfaccia difficile da capire... il Ticket in
+  generale... troppi stati/tab da tenere a mente" — proposta A dell'artifact "Il Ticket, Senza Tab").
+  Dettagli/Documenti/Note erano 3 viste separate: bisognava ricordarsi che esistevano un contratto o
+  una nota prima di andare a cliccare la tab giusta per trovarli. Ora sono 3 sezioni sempre visibili
+  in un'unica pagina che scorre, sempre nello stesso ordine — ogni sezione compare (o resta vuota
+  come prima) senza più bisogno di un clic. Rimosso lo stato `tab`/`setTab`, mai più necessario.
+  Nessun dato/logica toccata, solo presentazione. Proposta B (stato come tracciato a segmenti invece
+  che parola) resta da fare, non richiesta in questo giro. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
