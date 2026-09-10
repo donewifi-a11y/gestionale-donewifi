@@ -46,6 +46,20 @@ export async function getPersonaCorrenteId(): Promise<string | null> {
   return id;
 }
 
+/** ★ NUOVA (2026-09-10, bug reale: "non è possibile aprire i ticket per i
+ * diversi reparti da alcuni account" — vedi il fix in
+ * login/actions.ts::selezionaPersonaDopoLogin() e
+ * persone/actions.ts::scegliPersonaCorrente()) — il cookie "Tu sei" non
+ * veniva mai ripulito quando l'accesso Supabase Auth reale non era
+ * collegato a nessuna Persona attiva (es. un vecchio account condiviso,
+ * nato prima del login individuale): restava quello di una sessione
+ * precedente, magari di tutt'altra persona, e faceva sembrare valida
+ * un'identità che la RLS reale rifiutava a ogni scrittura. */
+export async function rimuoviCookiePersona() {
+  const store = await cookies();
+  store.delete(COOKIE_PERSONA);
+}
+
 export async function impostaCookiePersona(personaId: string) {
   const store = await cookies();
   store.set(COOKIE_PERSONA, `${personaId}.${firma(personaId)}`, {

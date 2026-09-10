@@ -4236,6 +4236,33 @@ Build/lint puliti. Non risolve da solo l'accesso condiviso stesso (serve login i
 — se Antonietta ha già rifatto il login e il problema persiste, il prossimo messaggio mostrato dirà
 se è ancora lo stesso caso o qualcos'altro.
 
+✅ **Trovata e chiusa la causa reale: il selettore "Tu sei" accettava qualunque Persona da un
+accesso non collegato a nessuna** (2026-09-10, "fai un controllo perchè risulta non possibile
+aprire i ticket per i diversi reparti da alcuni account,esempio quello di antonietta"). Il fix del
+2026-09-09/10-mattina (messaggio chiaro invece dell'errore Postgres grezzo) copriva solo il
+sintomo — qui la causa: `scegliPersonaCorrente()` ("Tu sei" in sidebar) verificava solo che
+*qualcuno* fosse autenticato su Supabase Auth, non che fosse *quella* Persona, con una password di
+conferma pensata solo per attribuzione, non come vero controllo accessi. Chiunque avesse ancora una
+sessione valida su un vecchio accesso condiviso — trovato in produzione: `fornitori@donewifi.it`,
+nato prima del login individuale (migrazione 0011/0012), non collegato a nessuna Persona attiva,
+ultimo utilizzo 30/07 — poteva "diventare" qualunque Persona attiva agli occhi dell'app: il cookie
+"Tu sei" risultava valido, ma la RLS reale (`is_active_staff()`, che guarda `auth.uid()`, non quel
+cookie) bloccava ogni scrittura protetta — creare o chiudere un Ticket, in qualunque reparto — non
+solo per Fatturazione/Antonietta, per chiunque nella stessa condizione.
+  - `scegliPersonaCorrente()` (`persone/actions.ts`) ora rifiuta la selezione se il proprio accesso
+    Supabase Auth non è già collegato a una Persona attiva (`auth_user_id = auth.uid()`), stesso
+    controllo già in uso in `selezionaPersonaDopoLogin()`.
+  - `selezionaPersonaDopoLogin()` (`login/actions.ts`) ora ripulisce il cookie "Tu sei" quando il
+    login appena fatto non è collegato a nessuna Persona attiva, invece di lasciare intatto un
+    cookie di una sessione precedente (nuova `rimuoviCookiePersona()`, `lib/persona.ts`).
+  - **Disattivati in produzione** (`auth.admin.updateUserById`, `ban_duration`) i due account
+    Supabase Auth "fantasma" non collegati a nessuna Persona: `fornitori@donewifi.it` (la causa
+    reale) e `donewifi@gmail.com` (mai usato). Tutte le 4 Persone attive hanno già il proprio login
+    individuale — nessuno ne aveva più bisogno.
+  Build/lint puliti. Diagnosticato interrogando produzione (persone + auth.users incrociati):
+  4 Persone attive tutte correttamente collegate al proprio auth_user_id, 2 disattivate senza
+  login proprio, 2 account auth.users orfani (nessuna Persona collegata) — quelli disattivati sopra.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

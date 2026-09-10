@@ -226,13 +226,43 @@ export async function getCaricoPersona(id: string): Promise<CaricoPersona> {
   return { attivi: attivi ?? 0, completatiMese: completatiMese ?? 0 };
 }
 
-/** Chiunque sia autenticato può scegliere "chi è" tra le persone attive — con password se ne hanno una impostata. */
+/** Chiunque sia autenticato può scegliere "chi è" tra le persone attive — con password se ne hanno una impostata.
+ *
+ * ★ FIX SICUREZZA (2026-09-10, bug reale: "non è possibile aprire i ticket
+ * per i diversi reparti da alcuni account" — causa reale trovata: questa
+ * funzione non controllava CHI fosse davvero autenticato su Supabase Auth,
+ * solo che *qualcuno* lo fosse — con la password di conferma di una
+ * Persona (spesso condivisa/semplice, pensata solo come attribuzione, non
+ * come vero controllo accessi) chiunque avesse ancora una sessione valida
+ * su un vecchio accesso condiviso (es. "fornitori@donewifi.it", nato prima
+ * del login individuale, oggi collegato a nessuna Persona) poteva
+ * "diventare" qualunque Persona attiva agli occhi dell'app. Il cookie "Tu
+ * sei" risultava quindi valido, ma la RLS reale (che guarda `auth.uid()`,
+ * non questo cookie) bloccava ogni scrittura — creare o chiudere un
+ * Ticket, in qualunque reparto — con un errore che sembrava un bug
+ * casuale invece che una conseguenza diretta di questo. Ora si può
+ * scegliere un'altra Persona solo se il proprio accesso Supabase Auth è
+ * A SUA VOLTA già collegato a una Persona attiva — stesso principio già
+ * in uso in selezionaPersonaDopoLogin() (login/actions.ts). */
 export async function scegliPersonaCorrente(id: string, password: string) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
+
+  const { data: personaPropria } = await supabase
+    .from("persone")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .eq("attivo", true)
+    .maybeSingle();
+  if (!personaPropria) {
+    return {
+      errore:
+        "Il tuo accesso non è collegato a nessun profilo attivo — non puoi selezionare qui un'altra persona. Esci dal gestionale e accedi di nuovo con le tue credenziali personali. Se il problema resta, contatta un amministratore.",
+    };
+  }
 
   const { data: valida, error } = await supabase.rpc("verifica_password_persona", {
     p_persona_id: id,
