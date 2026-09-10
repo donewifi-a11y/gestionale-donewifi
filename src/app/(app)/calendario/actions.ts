@@ -892,11 +892,20 @@ export async function getSchedaLavoro(appuntamentoId: string): Promise<SchedaLav
 }
 
 /** Come getSchedaLavoro(), ma dal Ticket collegato invece che
- * dall'appuntamento — usata nella scheda cliente/dettaglio Ticket. */
+ * dall'appuntamento — usata nella scheda cliente/dettaglio Ticket.
+ * ★ FIX (2026-09-10, "con i dati che ci servono") — risolve anche
+ * `firma_cliente_admin_nome` da `firma_cliente_admin_id` (metodo
+ * "otp_admin", il più usato in produzione — vedi commento sul tipo in
+ * lib/types.ts): una query in più solo quando serve davvero, non un
+ * campo salvato due volte. */
 export async function getSchedaLavoroPerTicket(ticketId: string): Promise<SchedaLavoro | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("schede_lavoro").select("*").eq("ticket_id", ticketId).maybeSingle();
   if (error) console.error("getSchedaLavoroPerTicket:", error.message);
+  if (data?.firma_cliente_admin_id) {
+    const { data: admin } = await supabase.from("persone").select("nome").eq("id", data.firma_cliente_admin_id).maybeSingle();
+    if (admin) (data as SchedaLavoro).firma_cliente_admin_nome = admin.nome;
+  }
   return (data as SchedaLavoro | null) ?? null;
 }
 

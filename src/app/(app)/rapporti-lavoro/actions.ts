@@ -63,7 +63,7 @@ async function fetchTutte<T>(supabase: Awaited<ReturnType<typeof createClient>>,
 export async function getRapportiLavoro(): Promise<{ schede: RigaScheda[]; rapportini: RigaRapportino[] }> {
   const supabase = await createClient();
 
-  const [schede, rapportini, tickets] = await Promise.all([
+  const [schede, rapportini, tickets, persone] = await Promise.all([
     fetchTutte<SchedaLavoro>(supabase, "schede_lavoro", "*", "creato_il"),
     fetchTutte<RapportinoIntervento>(supabase, "rapportini_intervento", "*", "creato_il"),
     fetchTutte<{ id: string; numero: number; cliente: string; reparto: string; importo_fatturato: number | null }>(
@@ -71,12 +71,24 @@ export async function getRapportiLavoro(): Promise<{ schede: RigaScheda[]; rappo
       "tickets",
       "id, numero, cliente, reparto, importo_fatturato"
     ),
+    // ★ FIX (2026-09-10, "con i dati che ci servono") — risolve
+    // firma_cliente_admin_nome da firma_cliente_admin_id (metodo
+    // "otp_admin", il più usato in produzione — vedi commento sul tipo in
+    // lib/types.ts), stesso principio del map-join già in uso qui sotto
+    // per `ticket`: mai un secondo posto per il nome (resta solo su
+    // `persone`), solo attaccato qui per comodità di chi mostra la scheda.
+    fetchTutte<{ id: string; nome: string }>(supabase, "persone", "id, nome"),
   ]);
 
   const ticketPerId = new Map(tickets.map((t) => [t.id, { numero: t.numero, cliente: t.cliente, reparto: t.reparto, importoFatturato: t.importo_fatturato }]));
+  const nomePersonaPerId = new Map(persone.map((p) => [p.id, p.nome]));
 
   return {
-    schede: schede.map((s) => ({ ...s, ticket: s.ticket_id ? (ticketPerId.get(s.ticket_id) ?? null) : null })),
+    schede: schede.map((s) => ({
+      ...s,
+      ticket: s.ticket_id ? (ticketPerId.get(s.ticket_id) ?? null) : null,
+      firma_cliente_admin_nome: s.firma_cliente_admin_id ? (nomePersonaPerId.get(s.firma_cliente_admin_id) ?? null) : null,
+    })),
     rapportini: rapportini.map((r) => ({ ...r, ticket: ticketPerId.get(r.ticket_id) ?? null })),
   };
 }

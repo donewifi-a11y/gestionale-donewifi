@@ -81,7 +81,7 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
               </div>
             )}
             <Campo etichetta="Cablaggio" valore={`${scheda.tipo_cavo || "—"}${scheda.metri_cavo ? ` · ${scheda.metri_cavo} m` : ""}`} />
-            <Campo etichetta="Radio/CPE" valore={`${scheda.modello_cpe || "—"}${scheda.mac ? ` · MAC ${scheda.mac}` : ""}${scheda.bts ? ` · BTS ${scheda.bts}` : ""}`} />
+            <Campo etichetta="Radio/CPE" valore={`${scheda.modello_cpe || "—"}${scheda.mac ? ` · MAC ${scheda.mac}` : ""}${scheda.bts ? ` · BTS ${scheda.bts}` : ""}${scheda.vlan ? ` · VLAN ${scheda.vlan}` : ""}`} />
             {(scheda.rssi != null || scheda.snr != null) && (
               <Campo etichetta="Segnale" valore={`RSSI ${scheda.rssi ?? "—"} dBm · SNR ${scheda.snr ?? "—"} dB`} />
             )}
@@ -172,6 +172,28 @@ export function SchedaVista({ scheda }: { scheda: SchedaLavoro }) {
                     Mostra firma
                   </Button>
                 )}
+              </div>
+            ) : scheda.firma_cliente_metodo === "otp_admin" ? (
+              /* ★ FIX (2026-09-10, "con i dati che ci servono" — audit
+              reale: 5 schede su 8 in produzione usano questo metodo,
+              nessuna lo mostrava) — il ramo sotto (branch "altrimenti")
+              trattava "otp_admin" come fosse "link_email", scrivendo
+              "(link email)" ed "Email: null" per il caso più comune di
+              tutti. Ramo dedicato, colore diverso (ambra, non verde):
+              un'autorizzazione dall'ufficio non è la stessa cosa di una
+              vera conferma del cliente, va distinta a colpo d'occhio. */
+              <div>
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
+                  Autorizzazione
+                </div>
+                <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-warning">
+                  <UserRound className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.5} />
+                  Autorizzato dall&apos;ufficio ({scheda.firma_cliente_admin_nome || "amministratore"})
+                  {scheda.firma_cliente_verificato_il &&
+                    ` il ${new Date(scheda.firma_cliente_verificato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+                  {" "}— cliente irraggiungibile.
+                </p>
               </div>
             ) : scheda.firma_cliente_metodo ? (
               <div>

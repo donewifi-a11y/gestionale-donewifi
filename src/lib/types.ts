@@ -715,13 +715,32 @@ export interface SchedaLavoro {
   firma_cliente_url: string | null;
   firma_tecnico_url: string | null;
   /** null = scheda storica con firma disegnata (firma_cliente_url) —
-   * altrimenti il metodo usato per l'approvazione via email del cliente. */
-  firma_cliente_metodo: "otp_email" | "link_email" | null;
+   * altrimenti il metodo usato per l'approvazione. "otp_admin" (migrazione
+   * 0068, "bypassare... facendo richiedere con otp agli amministratori")
+   * mancava qui — il tipo permetteva solo i due metodi col cliente in
+   * prima persona, mentre in produzione è di gran lunga il più usato
+   * (5 schede su 8 al momento di questo fix, contro 2 "otp_email"). */
+  firma_cliente_metodo: "otp_email" | "link_email" | "otp_admin" | null;
   firma_cliente_email: string | null;
   /** Valorizzato solo quando il cliente ha davvero confermato — con
    * "link_email" può restare null per un po' se il tecnico ha già chiuso
    * la scheda ma il cliente non ha ancora cliccato il link. */
   firma_cliente_verificato_il: string | null;
+  /** ★ FIX (2026-09-10, "con i dati che ci servono" — audit reale sui dati
+   * di produzione) — chi in ufficio ha dato il codice OTP al tecnico
+   * quando il cliente non poteva confermare di persona (metodo
+   * "otp_admin"). La colonna esiste in produzione dalla migrazione 0068 ma
+   * mancava qui e in SchedaVista non veniva letta né mostrata affatto —
+   * per il metodo di gran lunga più usato, l'informazione "chi ha
+   * autorizzato" spariva silenziosamente. */
+  firma_cliente_admin_id: string | null;
+  /** ★ NUOVA (stesso fix) — non una colonna propria: risolto a partire da
+   * `firma_cliente_admin_id` nelle funzioni che leggono la scheda
+   * (getSchedaLavoroPerTicket, getRapportiLavoro), stesso principio già in
+   * uso per `ticket` su RigaScheda — mai un secondo posto per lo stesso
+   * dato (il nome resta solo su `persone`), solo attaccato qui per comodità
+   * di chi mostra la scheda. */
+  firma_cliente_admin_nome?: string | null;
   // solo "Nuova installazione"
   supporto: string | null;
   posizione: string | null;

@@ -4118,6 +4118,29 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   della scheda Cliente (Storico, Fatture, Preventivi, Installazioni, Ticket collegati) era già
   coerente, nessuna modifica lì. Build/lint puliti.
 
+✅ **FIX — la Scheda di Installazione non mostrava chi in ufficio aveva autorizzato la firma** (2026-09-10,
+  "con i dati che ci servono" — audit reale sui dati di produzione, non a ipotesi). Da quando esiste
+  il metodo "otp_admin" (migrazione 0068, "bypassare... facendo richiedere con otp agli
+  amministratori" — il tecnico chiama l'ufficio quando il cliente è irraggiungibile), è diventato IL
+  metodo più usato: **5 schede su 8** in produzione. Ma `SchedaLavoro` non aveva nemmeno il campo nel
+  tipo, e `SchedaVista` (mostrata nel Ticket, in Archivio → Schede e Rapportini, ovunque) trattava
+  "otp_admin" come fosse "link_email" — scriveva "(link email)" per il caso più comune di tutti, e
+  non mostrava mai CHI in ufficio aveva autorizzato (dato salvato in `firma_cliente_admin_id` dalla
+  migrazione 0068, mai letto da nessuna parte finora). Corretto:
+  - `SchedaLavoro.firma_cliente_metodo` ora include "otp_admin"; aggiunto `firma_cliente_admin_id`
+    (mancava dal tipo) e un `firma_cliente_admin_nome` risolto al volo da `getSchedaLavoroPerTicket`/
+    `getRapportiLavoro` (stesso principio del map-join già in uso per `ticket` su `RigaScheda` — mai
+    una seconda colonna per lo stesso nome, resta solo su `persone`).
+  - `SchedaVista` ha ora un ramo dedicato "Autorizzazione" (colore ambra, non verde: un'autorizzazione
+    d'ufficio non è la stessa cosa di una vera conferma del cliente) — "Autorizzato dall'ufficio
+    (Nome) il [data] — cliente irraggiungibile."
+  - Bonus: il campo VLAN (raccolto dal form dell'installazione, mai mostrato in `SchedaVista` — 0/6
+    schede reali lo hanno valorizzato finora, ma la lettura ora è corretta comunque) aggiunto alla
+    riga "Radio/CPE".
+  Verificato con una query reale contro produzione (nome amministratore risolto correttamente per
+  una scheda vera con metodo "otp_admin"). Nessuna migrazione necessaria — solo lettura più
+  accurata di dati già esistenti. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
