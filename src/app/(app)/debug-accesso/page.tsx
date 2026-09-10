@@ -41,6 +41,13 @@ export default async function DebugAccessoPage() {
   const personaCookieId = await getPersonaCorrenteId();
   const persona = await getPersonaCorrente(supabase);
 
+  // ★ is_active_staff() chiamata QUI, con lo stesso identico client/richiesta
+  // usato per l'INSERT sotto — finora era sempre stata verificata con un
+  // canale diverso (script a parte, o solo indirettamente tramite la
+  // risoluzione della Persona). Se qui risulta true e l'INSERT fallisce
+  // comunque, la contraddizione è nello stesso identico contesto.
+  const { data: staffAttivoOra, error: erroreRpc } = await supabase.rpc("is_active_staff");
+
   let esitoInsertTest: string;
   const { data: inserito, error: erroreInsert } = await supabase
     .from("tickets")
@@ -59,6 +66,27 @@ export default async function DebugAccessoPage() {
     await supabase.from("tickets").delete().eq("id", inserito.id);
   }
 
+  // ★ stesso identico test ma con reparto = il proprio (Fatturazione) —
+  // nella stessa identica richiesta/contesto di sopra, per un confronto
+  // diretto senza nessuna variabile di mezzo.
+  let esitoInsertProprio: string;
+  const { data: insProprio, error: erroreInsProprio } = await supabase
+    .from("tickets")
+    .insert({
+      cliente: "DEBUG ACCESSO - test reparto proprio, cancellabile",
+      categoria: "Amministrativa",
+      priorita: "Bassa",
+      reparto: "Fatturazione",
+    })
+    .select("id")
+    .single();
+  if (erroreInsProprio) {
+    esitoInsertProprio = `FALLITO: ${erroreInsProprio.message} (code ${erroreInsProprio.code})`;
+  } else {
+    esitoInsertProprio = `RIUSCITO (id ${insProprio.id}) — elimino subito...`;
+    await supabase.from("tickets").delete().eq("id", insProprio.id);
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-6">
       <h1 className="text-xl font-bold">Debug accesso — pagina temporanea</h1>
@@ -74,8 +102,16 @@ export default async function DebugAccessoPage() {
         <p>Persona risolta: <b>{persona ? `${persona.nome} (reparti: ${persona.reparti.join(", ") || "nessuno"}, admin: ${persona.amministratore})` : "NESSUNA (null)"}</b></p>
       </div>
       <div className="rounded-lg border p-4">
-        <h2 className="mb-2 font-semibold">3. Test reale — INSERT in tickets, reparto=&quot;Analisi Rete&quot;</h2>
+        <h2 className="mb-2 font-semibold">3a. is_active_staff() — chiamata nello stesso identico contesto dell&apos;INSERT sotto</h2>
+        <p className="font-mono text-sm">{erroreRpc ? `ERRORE: ${erroreRpc.message}` : `is_active_staff() = ${staffAttivoOra}`}</p>
+      </div>
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-2 font-semibold">3b. INSERT reparto DIVERSO dal proprio (&quot;Analisi Rete&quot;)</h2>
         <p className="font-mono text-sm">{esitoInsertTest}</p>
+      </div>
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-2 font-semibold">3c. INSERT sul PROPRIO reparto ({persona?.reparti.join(", ") || "nessuno"})</h2>
+        <p className="font-mono text-sm">{esitoInsertProprio}</p>
       </div>
       <div className="rounded-lg border p-4">
         <h2 className="mb-2 font-semibold">4. Token della sessione (payload JWT, decodificato)</h2>
