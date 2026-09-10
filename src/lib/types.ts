@@ -121,6 +121,14 @@ export interface Ticket {
    * da tempo ma non ancora letto da nessuna parte dell'interfaccia —
    * vedi il segnale "pulsante" in tickets-board.tsx. */
   confermato_cliente_il: string | null;
+  /** ★ NUOVA (2026-09-10, richiesta esplicita: "una volta aperti dal
+   * reparto di fatturazione... deve dare i tempi per la dismissione e una
+   * volta fatto deve essere inoltrato al reparto analisi di rete... per il
+   * ritiro degli apparati") — solo sui Ticket di Disdetta (sottocategoria
+   * "Disdetta"), fissata da Fatturazione con fissaDataDismissioneDisdetta()
+   * (tickets/actions.ts), che passa anche il reparto ad Analisi Rete.
+   * NULL finché non ancora fissata. */
+  data_dismissione_disdetta: string | null;
 }
 
 export interface Segnalazione {

@@ -23,6 +23,7 @@ import {
   inviaEmailPraticaGenerica,
   cambiaRepartoTicket,
   eliminaTicket,
+  fissaDataDismissioneDisdetta,
 } from "@/app/(app)/tickets/actions";
 import {
   avviaPraticaSubentro,
@@ -997,6 +998,14 @@ function DettaglioTicket({
   // l'allegato dei campi extra di creaTicket() (presigned upload URL).
   const [inCorsoContrattoSubentro, startContrattoSubentro] = useTransition();
   const [inCorsoInvioContrattoSubentro, startInvioContrattoSubentro] = useTransition();
+  // ★ NUOVA (2026-09-10, richiesta esplicita: "fatturazione... deve dare i
+  // tempi per la dismissione e una volta fatto deve essere inoltrato al
+  // reparto analisi di rete... per il ritiro degli apparati") — vedi
+  // sezione "Disdetta" più sotto e fissaDataDismissioneDisdetta()
+  // (tickets/actions.ts).
+  const [dataDismissione, setDataDismissione] = useState("");
+  const [inCorsoDismissione, startDismissione] = useTransition();
+  const [erroreDismissione, setErroreDismissione] = useState("");
   const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
   const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
@@ -1180,6 +1189,26 @@ function DettaglioTicket({
       }
       onCambiato({ ...ticket, reparto: nuovo });
       toast(`Reparto cambiato in "${nuovo}".`, "successo");
+      router.refresh();
+    });
+  }
+
+  // ★ NUOVA (2026-09-10) — vedi la sezione "Disdetta" più sotto.
+  function fissaDismissione() {
+    if (!dataDismissione) {
+      setErroreDismissione("Indica la data di dismissione.");
+      return;
+    }
+    setErroreDismissione("");
+    startDismissione(async () => {
+      const risultato = await fissaDataDismissioneDisdetta(ticket.id, dataDismissione);
+      if (risultato.errore) {
+        setErroreDismissione(risultato.errore);
+        toast(risultato.errore);
+        return;
+      }
+      onCambiato({ ...ticket, reparto: "Analisi Rete", data_dismissione_disdetta: dataDismissione });
+      toast("Dismissione fissata — passato ad Analisi Rete.", "successo");
       router.refresh();
     });
   }
@@ -1789,6 +1818,49 @@ function DettaglioTicket({
             inviaContrattoSubentroClick={inviaContrattoSubentroClick}
             ticketCompletato={ticket.stato === "Completato"}
           />
+        </div>
+        )}
+
+        {/* ★ NUOVA (2026-09-10, richiesta esplicita: "problemi con i ticket
+        di disdetta... fatturazione... deve dare i tempi per la
+        dismissione e una volta fatto deve essere inoltrato al reparto
+        analisi di rete... per il ritiro degli apparati") — un solo
+        passaggio, non due da ricordarsi separatamente: vedi
+        fissaDataDismissioneDisdetta() e fissaDismissione() più sopra. */}
+        {ticket.sottocategoria === "Disdetta" && (
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+            Dismissione — ritiro apparati
+          </div>
+          {ticket.data_dismissione_disdetta ? (
+            <p className="rounded-lg border bg-muted/30 p-3 text-sm">
+              Dismissione fissata per il <b>{new Date(ticket.data_dismissione_disdetta).toLocaleDateString("it-IT")}</b>
+              {ticket.reparto === "Analisi Rete" ? " — passato ad Analisi Rete per il ritiro apparati." : "."}
+            </p>
+          ) : ticket.reparto === "Fatturazione" ? (
+            <div className="flex flex-col gap-2 rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">
+                Fissa la data di dismissione concordata col cliente — il Ticket passerà da solo ad Analisi Rete per
+                pianificare il ritiro degli apparati.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dataDismissione}
+                  onChange={(e) => setDataDismissione(e.target.value)}
+                  className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
+                />
+                <Button size="sm" onClick={fissaDismissione} disabled={inCorsoDismissione} className="min-h-9 shrink-0">
+                  {inCorsoDismissione ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <CalendarClock className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                  {inCorsoDismissione ? "Salvataggio…" : "Fissa e passa ad Analisi Rete"}
+                </Button>
+              </div>
+              {erroreDismissione && <p className="text-xs text-critical">{erroreDismissione}</p>}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">In attesa che Fatturazione fissi la data di dismissione.</p>
+          )}
         </div>
         )}
 

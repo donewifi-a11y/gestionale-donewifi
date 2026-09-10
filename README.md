@@ -4392,3 +4392,28 @@ conferma esplicita — stesso trattamento delle altre azioni distruttive del ges
 Ticket"). Build/lint puliti; verificato con un test reale contro produzione (persone/ticket usa e
 getta, ripuliti subito dopo): eliminazione senza vincoli riuscita, eliminazione con un Ticket
 collegato correttamente bloccata con `code 23503`.
+
+✅ **Passaggio Fatturazione → Analisi Rete sui Ticket di Disdetta, per la dismissione** (2026-09-10,
+"problemi con i ticket di disdetta. una volta aperti dal reparto di fatturazione che li ha
+ricevuti, la stessa deve dare i tempi per la dismissione e una volta fatto deve essere inoltrato al
+reparto analisi di rete per procedere con la pianificazione del ritiro degli apparati"). Mancava del
+tutto: un Ticket di Disdetta restava in Fatturazione senza un modo strutturato di fissare la data e
+passarlo al reparto giusto — solo il generico selettore "Reparto" di ogni Ticket, due passaggi
+separati da ricordarsi a mano invece di uno solo. Nuova colonna `tickets.data_dismissione_disdetta`
+(migrazione `0074_dismissione_disdetta.sql`, **da applicare**) + `fissaDataDismissioneDisdetta()`
+(`tickets/actions.ts`): Fatturazione fissa la data concordata col cliente, il Ticket passa da solo
+ad Analisi Rete (che riceve la notifica sui 3 canali con la data già in mano) — un'unica azione, non
+due. Nuova sezione dedicata "Dismissione — ritiro apparati" nel dettaglio Ticket (visibile solo sui
+Ticket di sottocategoria "Disdetta"): il campo data + pulsante finché è in Fatturazione senza data
+fissata, la data fissata in sola lettura una volta passato ad Analisi Rete. Si collega naturalmente
+all'intervento "Recupero Apparati" già aggiunto in mattinata alla Scheda Lavorazione, per registrare
+l'apparato e il MAC effettivamente ritirati quando arriva il giorno.
+  - `cambiaRepartoTicket()` estesa nello stesso giro alla scrittura via service role (stessa causa
+    delle altre scritture Ticket corrette oggi — non ancora sistemata, l'ho notata rileggendo il file).
+  Build/lint puliti. Non verificato con un salvataggio reale contro produzione in questo giro (serve
+  applicare prima la migrazione) — verificato leggendo il codice e lo stesso schema già collaudato
+  oggi per le altre scritture Ticket via service role.
+
+**⚠️ MIGRAZIONE DA APPLICARE (2026-09-10):** `supabase/migrations/0074_dismissione_disdetta.sql` —
+aggiunge `tickets.data_dismissione_disdetta` (date, nullable). Da incollare nell'SQL Editor di
+Supabase.

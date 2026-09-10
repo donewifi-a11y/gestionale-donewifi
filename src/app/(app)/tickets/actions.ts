@@ -8,6 +8,7 @@ import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { messaggioErroreRls } from "@/lib/errori-rls";
+import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -202,19 +203,24 @@ export async function creaTicket(
 // ★ ex cambiaRepartoTicketWeb() del vecchio gestionale — un Ticket
 // assegnato al reparto sbagliato in apertura si può correggere qui,
 // invece di doverlo ricreare.
+//
+// ★ FIX (2026-09-10, stessa causa/stesso fix di creaTicket() e delle altre
+// scritture Ticket in questo file — vedi il commento lì per il dettaglio
+// completo) — la scrittura passa dalla service role invece che dalla RLS
+// via PostgREST.
 export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso, repartoVecchio: AreaAccesso) {
-  const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
   if (repartoNuovo === repartoVecchio) return { errore: null };
 
-  const { error } = await supabase
+  const service = createServiceClient();
+  const { error } = await service
     .from("tickets")
     .update({ reparto: repartoNuovo, aggiornato_il: new Date().toISOString() })
     .eq("id", id);
   if (error) return { errore: error.message };
 
-  await supabase.from("storico").insert({
+  await service.from("storico").insert({
     origine: "ticket",
     riferimento_id: id,
     operazione: "Cambio Reparto",
@@ -222,6 +228,72 @@ export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso,
     valore_dopo: repartoNuovo,
     operatore_id: personaId,
   });
+
+  revalidatePath("/tickets");
+  return { errore: null };
+}
+
+/** ★ NUOVA (2026-09-10, richiesta esplicita: "problemi con i ticket di
+ * disdetta. una volta aperti dal reparto di fatturazione che li ha
+ * ricevuti, la stessa deve dare i tempi per la dismissione e una volta
+ * fatto deve essere inoltrato al reparto analisi di rete per procedere con
+ * la pianificazione del ritiro degli apparati") — un'unica azione invece
+ * di due passaggi separati da ricordarsi (fissare la data, POI cambiare
+ * reparto a mano dal selettore generico): Fatturazione fissa la data di
+ * dismissione, il Ticket passa da solo ad Analisi Rete, che viene
+ * notificata sui 3 canali con la data già in mano per pianificare il
+ * ritiro apparati (vedi anche l'intervento "Recupero Apparati" nella
+ * Scheda Lavorazione, 2026-09-10). Scrittura via service role, stesso
+ * principio delle altre funzioni di scrittura Ticket in questo file. */
+export async function fissaDataDismissioneDisdetta(ticketId: string, dataDismissione: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  if (!dataDismissione) return { errore: "Indica la data di dismissione." };
+
+  const service = createServiceClient();
+  const { data: ticket } = await service
+    .from("tickets")
+    .select("numero, cliente, sottocategoria, reparto")
+    .eq("id", ticketId)
+    .single();
+  if (!ticket) return { errore: "Ticket non trovato." };
+  if (ticket.sottocategoria !== "Disdetta") {
+    return { errore: "Questa azione è disponibile solo sui Ticket di Disdetta." };
+  }
+
+  const { error } = await service
+    .from("tickets")
+    .update({ data_dismissione_disdetta: dataDismissione, reparto: "Analisi Rete", aggiornato_il: new Date().toISOString() })
+    .eq("id", ticketId);
+  if (error) return { errore: error.message };
+
+  const dataLeggibile = new Date(dataDismissione).toLocaleDateString("it-IT");
+
+  await Promise.all([
+    service.from("storico").insert({
+      origine: "ticket",
+      riferimento_id: ticketId,
+      operazione: "Cambio Reparto",
+      valore_prima: ticket.reparto,
+      valore_dopo: "Analisi Rete",
+      operatore_id: persona.id,
+    }),
+    service.from("note_ticket").insert({
+      ticket_id: ticketId,
+      autore_id: persona.id,
+      testo: `Dismissione fissata per il ${dataLeggibile} — passato ad Analisi Rete per pianificare il ritiro degli apparati.`,
+    }),
+    notificaSuTuttiICanali({
+      reparto: "Analisi Rete",
+      telegramHtml: `📦 <b>Disdetta da pianificare — ritiro apparati</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}\nDismissione fissata per il ${dataLeggibile}.`,
+      chatTesto: `📦 Disdetta Ticket #${ticket.numero} (${ticket.cliente}) — dismissione fissata per il ${dataLeggibile}, pianifica il ritiro apparati.`,
+      emailTitolo: `Disdetta da pianificare — Ticket #${ticket.numero}`,
+      emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il Ticket di Disdetta <b>#${ticket.numero}</b> — ${ticket.cliente} — ha la dismissione fissata per il <b>${dataLeggibile}</b>: pianifica il ritiro degli apparati.</p>`,
+      emailCorpoTesto: `Il Ticket di Disdetta #${ticket.numero} (${ticket.cliente}) ha la dismissione fissata per il ${dataLeggibile} — pianifica il ritiro degli apparati.`,
+      emailLink: `https://gestione.donewifi.it/tickets?aperto=${ticketId}`,
+    }),
+  ]);
 
   revalidatePath("/tickets");
   return { errore: null };
