@@ -4220,6 +4220,22 @@ solo per un reparto senza casella propria o senza quella variabile configurata. 
   ecc.) o il prossimo giro del cron — verificato con lettura attenta del codice: le 3 variabili
   d'ambiente per reparto sono già configurate e verificate in produzione (voce 2026-08-10).
 
+✅ **Messaggio chiaro sull'accesso condiviso esteso a "chiudi Ticket"** (2026-09-10, bug reale
+segnalato: "ho il problema che l'utente antonietta non può aprire ticket" + "inoltre non è
+possibile chiudere i ticket da parte di fatturazione"). Diagnosticato contro produzione: l'account
+di Antonietta (unica persona del reparto Fatturazione) è corretto e attivo — stesso identico caso
+del fix già fatto il 2026-09-09 per la creazione Ticket (accesso condiviso/vecchio ancora
+autenticato su Supabase Auth mentre "Tu sei" mostrava lei come Persona attiva), solo che
+`completaTicketConRapportino()`/`aggiornaStatoTicket()` non avevano quella traduzione del messaggio
+Postgres grezzo: chi provava a chiudere un Ticket in quelle condizioni vedeva "new row violates row-
+level security policy..." invece di un'indicazione chiara. Nuovo `lib/errori-rls.ts` —
+`messaggioErroreRls()` — estrae la logica (già scritta una volta in `creaTicket()`) in una funzione
+condivisa, applicata ora anche a `completaTicketConRapportino()` e `aggiornaStatoTicket()`; logga
+sempre chi era davvero autenticato (`auth.uid()`) contro chi mostrava "Tu sei", utile se ricapita.
+Build/lint puliti. Non risolve da solo l'accesso condiviso stesso (serve login individuale reale)
+— se Antonietta ha già rifatto il login e il problema persiste, il prossimo messaggio mostrato dirà
+se è ancora lo stesso caso o qualcos'altro.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

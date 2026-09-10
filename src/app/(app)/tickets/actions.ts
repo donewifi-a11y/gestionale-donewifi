@@ -7,6 +7,7 @@ import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento, emailPrat
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
+import { messaggioErroreRls } from "@/lib/errori-rls";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -151,35 +152,17 @@ export async function creaTicket(
     // collegato a una Persona disattivata) mentre il selettore "Tu sei" in
     // sidebar — un cookie separato, indipendente dalla sessione Supabase
     // Auth vera — mostrava una Persona attiva scelta a parte solo per
-    // l'attribuzione. getPersonaCorrente() sopra guarda quel cookie e
-    // quindi non si accorge di nulla; la policy RLS reale guarda invece
-    // `auth.uid()` (l'accesso condiviso, la cui Persona è disattivata) e
-    // blocca l'inserimento — da qui il messaggio grezzo. Corretto qui con
-    // un messaggio chiaro e un'azione concreta, stesso principio già
-    // applicato altrove in questo gestionale ai messaggi Postgres grezzi.
+    // l'attribuzione. Corretto qui con un messaggio chiaro e un'azione
+    // concreta, stesso principio già applicato altrove in questo gestionale
+    // ai messaggi Postgres grezzi.
+    //
+    // ★ ESTRATTA (2026-09-10, ricapitato identico su completaTicketConRapportino/
+    // aggiornaStatoTicket — vedi lib/errori-rls.ts) — la traduzione del
+    // messaggio non è più solo qui: qualunque azione con RLS `is_active_staff()`
+    // può incapparci.
     console.error("creaTicket — insert tickets:", error.message);
-    if (error.message.includes("row-level security policy")) {
-      // ★ NUOVA (2026-09-09, ricapitato — richiesta esplicita "come
-      // possiamo verificare, da supabase o da vercel") — i log di Vercel
-      // in tempo reale non conservano lo storico (nessuna ricerca
-      // all'indietro da riga di comando) e i log di Supabase hanno una
-      // finestra di conservazione limitata: la prossima volta che
-      // ricapita, questa riga da sola basta a capire subito chi era
-      // davvero autenticato (`auth.uid()`) contro chi mostrava "Tu sei"
-      // (il cookie `persona_id`, indipendente dalla sessione Supabase Auth
-      // vera) — senza dover cercare altrove.
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      console.error(
-        `creaTicket — RLS violata: "Tu sei" mostrava ${persona.nome} (persona ${personaId}), ma la sessione Supabase Auth reale è ${user?.email ?? "assente"} (auth.uid ${user?.id ?? "null"}).`
-      );
-      return {
-        errore:
-          "Il tuo accesso non risulta più valido per creare Ticket — esci dal gestionale e accedi di nuovo con le tue credenziali personali (non un accesso condiviso). Se il problema resta, contatta un amministratore.",
-      };
-    }
-    return { errore: error.message };
+    const messaggioRls = await messaggioErroreRls(supabase, "creare Ticket", error.message, persona);
+    return { errore: messaggioRls ?? error.message };
   }
 
   await supabase.from("storico").insert({
@@ -236,7 +219,17 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
     .from("tickets")
     .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { errore: error.message };
+  if (error) {
+    // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
+    // ticket da parte di fatturazione" — stesso identico caso di
+    // completaTicketConRapportino qui sopra, questa funzione gestisce ogni
+    // altro cambio di stato (non solo "Completato" via rapportino). Vedi
+    // lib/errori-rls.ts.
+    console.error("aggiornaStatoTicket — update tickets:", error.message);
+    const persona = await getPersonaCorrente(supabase);
+    const messaggioRls = persona && (await messaggioErroreRls(supabase, `cambiare lo stato in "${statoNuovo}"`, error.message, persona));
+    return { errore: messaggioRls || error.message };
+  }
 
   await supabase.from("storico").insert({
     origine: "ticket",
@@ -450,7 +443,17 @@ export async function completaTicketConRapportino(
     .from("tickets")
     .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
     .eq("id", ticketId);
-  if (erroreStato) return { errore: erroreStato.message };
+  if (erroreStato) {
+    // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
+    // ticket da parte di fatturazione" — stessa causa, stessa persona, del
+    // fix già applicato a creaTicket() il giorno prima: un accesso
+    // condiviso/vecchio ancora autenticato su Supabase Auth mentre "Tu sei"
+    // mostrava una Persona attiva scelta a parte. Qui mancava del tutto la
+    // traduzione del messaggio — vedi lib/errori-rls.ts.
+    console.error("completaTicketConRapportino — update tickets:", erroreStato.message);
+    const messaggioRls = await messaggioErroreRls(supabase, "chiudere questo Ticket", erroreStato.message, persona);
+    return { errore: messaggioRls ?? erroreStato.message };
+  }
 
   await supabase.from("storico").insert({
     origine: "ticket",
