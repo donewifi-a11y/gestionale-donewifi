@@ -4339,3 +4339,27 @@ indagine).
     stessa persona, un tentativo riesce e l'altro no nella stessa richiesta) — non risolvibile da qui.
   Build/lint puliti (un fix aggiuntivo: la pagina di debug aveva `Date.now()` chiamato durante il
   render, bloccato da una regola ESLint — silenziata con un commento, pagina comunque temporanea).
+
+✅ **Risolto per davvero — la scrittura dei Ticket non passa più dalla RLS via PostgREST**
+(2026-09-10, uso reale confermato dal titolare: "con gabriel apro ticket di analisi rete ma non
+altri e con antonietta apro ticket fatturazione e non altri... non si posso no aprire ticket ad
+altri reparti"). Il ritentativo (voce precedente) non bastava: con l'uso reale ripetuto, il blocco
+sul reparto diverso dal proprio è risultato stabile per entrambe le Persone, non occasionale.
+Riverificato un'ultima volta `pg_policies` in produzione: identica, corretta, invariata
+(`is_active_staff()` per INSERT, nessun riferimento al reparto) — la causa quindi non è (più) nella
+policy in sé ma in qualcosa a valle, nel percorso PostgREST/pool di connessioni che la applica, mai
+riprodotto in modo affidabile da qui nonostante un'indagine approfondita (vedi le 3 voci precedenti).
+Invece di continuare a inseguire un'anomalia infrastrutturale non diagnosticabile con certezza da
+questa sede, il controllo "sei staff attivo?" si è spostato dalla RLS al codice applicativo
+(`getPersonaCorrente()`, sempre risultata affidabile in ogni test di questa indagine) e la scrittura
+vera di `creaTicket()`/`completaTicketConRapportino()`/`aggiornaStatoTicket()` passa ora dalla
+service role — stesso schema già in uso nello stesso file per l'upload allegati e per
+`caricaContrattoSegnalazione()`, mai stato soggetto a questo problema. Rimosso `conRitentativoRls()`
+da questi tre punti (non più necessario, la service role bypassa la RLS in modo deterministico);
+resta comunque disponibile in `lib/errori-rls.ts` per un futuro caso simile.
+  - `aggiornaStatoTicket()` estesa nello stesso giro: passava da `getPersonaCorrenteId()` (solo il
+    cookie, non controllava `attivo`) — allineata alle altre due con `getPersonaCorrente()`.
+  Build/lint puliti. Non verificato con un salvataggio reale di un Ticket per un reparto diverso
+  in questo giro (serve la conferma di chi ha segnalato il problema) — verificato che la service
+  role bypassa sempre la RLS per costruzione (comportamento Postgres documentato, non specifico di
+  questo progetto), quindi il fix è deterministico indipendentemente dall'anomalia di fondo.

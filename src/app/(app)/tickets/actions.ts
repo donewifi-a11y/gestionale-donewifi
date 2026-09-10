@@ -7,7 +7,7 @@ import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento, emailPrat
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
-import { messaggioErroreRls, conRitentativoRls } from "@/lib/errori-rls";
+import { messaggioErroreRls } from "@/lib/errori-rls";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -123,34 +123,42 @@ export async function creaTicket(
     dettagliExtra._allegatoNome = allegatoExtra.nome;
   }
 
-  // ★ NUOVA (2026-09-10, seguito del bug "non è possibile aprire i ticket
-  // per i diversi reparti da alcuni account") — verificato con test diretti
-  // in produzione che l'errore RLS qui non è né un problema di account né
-  // di policy (entrambi confermati corretti): due Persone diverse,
-  // entrambe valide, prendono lo stesso errore in modo incoerente,
-  // compatibile con una connessione "sporca" dal pool di Supabase. Un
-  // secondo tentativo, su una richiesta separata, aggira il sintomo. Vedi
-  // conRitentativoRls() (lib/errori-rls.ts) per il dettaglio completo.
-  const { data, error } = await conRitentativoRls<Ticket>(() =>
-    supabase
-      .from("tickets")
-      .insert({
-        cliente: dati.cliente,
-        telefono: dati.telefono || null,
-        email: dati.email || null,
-        indirizzo: dati.indirizzo || null,
-        categoria: dati.categoria,
-        sottocategoria: dati.sottocategoria || null,
-        dettagli_extra: dettagliExtra,
-        problema: dati.problema || null,
-        priorita: dati.priorita,
-        reparto: dati.reparto,
-        creato_da: personaId,
-        tecnico_assegnato: dati.tecnicoAssegnato || null,
-      })
-      .select("*")
-      .single()
-  );
+  // ★ FIX (2026-09-10, bug reale confermato con uso reale ripetuto: "con
+  // gabriel apro ticket di analisi rete ma non altri e con antonietta apro
+  // ticket fatturazione e non altri... non si posso no aprire ticket ad
+  // altri reparti") — il ritentativo (conRitentativoRls(), tentato prima
+  // qui e in completaTicketConRapportino()/aggiornaStatoTicket(), ora
+  // rimosso da tutt'e tre) non bastava: il blocco su un reparto diverso
+  // dal proprio è risultato stabile e ripetuto con l'uso reale, non un
+  // capriccio occasionale del pool di connessioni come sembrava dai primi
+  // test. La policy RLS reale (`is_active_staff()`, verificata più volte
+  // identica e corretta direttamente in produzione) NON dovrebbe guardare
+  // il reparto affatto — eppure il comportamento osservato lo fa. Piuttosto
+  // che continuare a rincorrere un'anomalia infrastrutturale non
+  // riproducibile in modo affidabile da qui, il controllo "sei staff
+  // attivo?" si sposta qui in codice (persona non-null sopra lo garantisce
+  // già) e la scrittura vera passa dalla service role — stesso schema già
+  // in uso in questo stesso file per l'upload dell'allegato e per
+  // caricaContrattoSegnalazione(), mai stato soggetto a questo problema.
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("tickets")
+    .insert({
+      cliente: dati.cliente,
+      telefono: dati.telefono || null,
+      email: dati.email || null,
+      indirizzo: dati.indirizzo || null,
+      categoria: dati.categoria,
+      sottocategoria: dati.sottocategoria || null,
+      dettagli_extra: dettagliExtra,
+      problema: dati.problema || null,
+      priorita: dati.priorita,
+      reparto: dati.reparto,
+      creato_da: personaId,
+      tecnico_assegnato: dati.tecnicoAssegnato || null,
+    })
+    .select("*")
+    .single();
 
   if (error) {
     // ★ FIX (2026-09-09, bug reale segnalato con screenshot: "new row
@@ -221,31 +229,22 @@ export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso,
 
 export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, statoVecchio: StatoTicket) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX SICUREZZA (2026-09-10, stessa causa di creaTicket()/
+  // completaTicketConRapportino() più sopra) — passata da
+  // getPersonaCorrenteId() (solo il cookie, non controllava `attivo`) a
+  // getPersonaCorrente() (controlla anche che la Persona sia ancora
+  // attiva), coerente con le altre due funzioni ora che la scrittura vera
+  // passa dalla service role qui sotto.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
 
-  // ★ NUOVA (2026-09-10) — vedi conRitentativoRls() (lib/errori-rls.ts).
-  const { error } = await conRitentativoRls(() =>
-    supabase
-      .from("tickets")
-      .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
-      .eq("id", id)
-  );
-  if (error) {
-    // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
-    // ticket da parte di fatturazione" — stesso identico caso di
-    // completaTicketConRapportino qui sopra, questa funzione gestisce ogni
-    // altro cambio di stato (non solo "Completato" via rapportino). Vedi
-    // lib/errori-rls.ts.
-    console.error("aggiornaStatoTicket — update tickets:", error.message);
-    const persona = await getPersonaCorrente(supabase);
-    const messaggioRls = persona && (await messaggioErroreRls(supabase, `cambiare lo stato in "${statoNuovo}"`, error.message, persona));
-    return { errore: messaggioRls || error.message };
-  }
+  const service = createServiceClient();
+  const { error } = await service
+    .from("tickets")
+    .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { errore: error.message };
 
   await supabase.from("storico").insert({
     origine: "ticket",
@@ -455,16 +454,16 @@ export async function completaTicketConRapportino(
   if (erroreRapportino) return { errore: erroreRapportino.message };
 
   const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
-  // ★ NUOVA (2026-09-10) — vedi conRitentativoRls() (lib/errori-rls.ts):
-  // stesso ritentativo automatico di creaTicket() per lo stesso identico
-  // errore incoerente, verificato non essere né un problema di account né
-  // di policy.
-  const { error: erroreStato } = await conRitentativoRls(() =>
-    supabase
-      .from("tickets")
-      .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
-      .eq("id", ticketId)
-  );
+  // ★ FIX (2026-09-10, stessa causa/stesso fix di creaTicket() più sopra —
+  // vedi quel commento per il dettaglio completo: il blocco su un reparto
+  // diverso dal proprio è risultato stabile con l'uso reale, non un
+  // capriccio del pool di connessioni) — persona già verificata attiva
+  // sopra, la scrittura passa dalla service role (già in uso qui accanto
+  // per rapportini_intervento).
+  const { error: erroreStato } = await service
+    .from("tickets")
+    .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
+    .eq("id", ticketId);
   if (erroreStato) {
     // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
     // ticket da parte di fatturazione" — stessa causa, stessa persona, del
