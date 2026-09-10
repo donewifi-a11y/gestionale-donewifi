@@ -87,12 +87,21 @@ const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attes
 // qui applicate a un <select> invece che a un Badge: il selettore di stato
 // del Ticket diventa un unico controllo colorato come lo stato corrente
 // invece di 4 pulsanti sempre visibili.
-const STILE_STATO_TICKET: Record<StatoTicket, string> = {
-  "Da gestire": "bg-muted text-muted-foreground border-transparent",
-  "In lavorazione": "bg-primary/10 text-primary border-primary/20",
-  "In attesa": "bg-warning/10 text-warning border-warning/20",
-  Completato: "bg-success/10 text-success border-success/20",
-  Annullato: "bg-muted text-muted-foreground border-transparent",
+// ★ NUOVA (2026-09-10, "si facciamo anche quello" — proposta B
+// dell'artifact "Il Ticket, Senza Tab", risposta a "troppi stati... da
+// tenere a mente") — colore del segmento "attivo" e del testo per la
+// versione a tracciato dello stato: si legge la POSIZIONE (quanti
+// segmenti pieni) invece di dover riconoscere la parola, il colore serve
+// solo a confermare cosa significa quel passo una volta letta la
+// posizione. Sostituisce STILE_STATO_TICKET (era per il <select> del
+// redesign precedente, non più in uso — qui serve un tono pieno per il
+// segmento, non una coppia bg tenue/testo).
+const COLORE_STATO_SEGMENTO: Record<StatoTicket, { seg: string; testo: string }> = {
+  "Da gestire": { seg: "bg-muted-foreground/50", testo: "text-muted-foreground" },
+  "In lavorazione": { seg: "bg-primary", testo: "text-primary" },
+  "In attesa": { seg: "bg-warning", testo: "text-warning" },
+  Completato: { seg: "bg-success", testo: "text-success" },
+  Annullato: { seg: "bg-muted-foreground/50", testo: "text-muted-foreground" },
 };
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
@@ -1285,24 +1294,43 @@ function DettaglioTicket({
         diventano un unico controllo compatto, colorato come lo stato
         attuale (stessa mappa di StatusBadge, mai una seconda scelta di
         colori da mantenere allineata). */}
+        {/* ★ RIDISEGNATA (2026-09-10, "si facciamo anche quello" —
+        proposta B dell'artifact "Il Ticket, Senza Tab") — lo stato era
+        una parola da riconoscere e ricollocare a memoria in un ordine di
+        4 possibili; qui diventa un tracciato a segmenti, letto come
+        POSIZIONE ("3° di 4 passi") invece che come nome da conoscere a
+        memoria — stesso valore esatto di prima (SEQUENZA_STATO non
+        cambia), stesso `cambiaStato()`, resta cliccabile un passo alla
+        volta come i pulsanti originali (prima del redesign a <select>). */}
         {ticket.stato === "Annullato" ? (
           <StatusBadge status="Annullato" className="w-fit" />
         ) : (
-          <div className="flex items-center gap-2">
-            <div className="relative w-fit">
-              <select
-                value={ticket.stato}
-                disabled={inCorsoStato}
-                onChange={(e) => cambiaStato(e.target.value as StatoTicket)}
-                className={`h-8 appearance-none rounded-full border py-0 pl-3 pr-7 text-xs font-bold disabled:opacity-60 ${STILE_STATO_TICKET[ticket.stato] ?? ""}`}
-              >
-                {SEQUENZA_STATO.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-0.5" role="group" aria-label="Stato del Ticket">
+                {SEQUENZA_STATO.map((s, i) => {
+                  const idxStato = SEQUENZA_STATO.indexOf(ticket.stato);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      title={s}
+                      aria-label={s}
+                      aria-current={s === ticket.stato ? "step" : undefined}
+                      disabled={inCorsoStato}
+                      onClick={() => cambiaStato(s)}
+                      className={`h-2 w-8 transition disabled:opacity-60 ${i === 0 ? "rounded-l-full" : ""} ${
+                        i === SEQUENZA_STATO.length - 1 ? "rounded-r-full" : ""
+                      } ${i < idxStato ? "bg-primary/70" : i === idxStato ? COLORE_STATO_SEGMENTO[s].seg : "bg-muted"}`}
+                    />
+                  );
+                })}
+              </div>
+              {inCorsoStato && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
             </div>
-            {inCorsoStato && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
+            <span className={`w-fit text-xs font-bold ${COLORE_STATO_SEGMENTO[ticket.stato].testo}`}>
+              {ticket.stato} — {SEQUENZA_STATO.indexOf(ticket.stato) + 1}° di {SEQUENZA_STATO.length} passi
+            </span>
           </div>
         )}
 

@@ -4081,6 +4081,16 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Nessun dato/logica toccata, solo presentazione. Proposta B (stato come tracciato a segmenti invece
   che parola) resta da fare, non richiesta in questo giro. Build/lint puliti.
 
+✅ Lo stato del Ticket, come tracciato invece che parola (2026-09-10, "si facciamo anche quello" —
+  proposta B dell'artifact "Il Ticket, Senza Tab", stessa richiesta "troppi stati... da tenere a
+  mente"). Il `<select>` colorato è diventato 4 segmenti connessi: quanti sono pieni si legge subito
+  ("3° di 4 passi"), senza dover riconoscere e ricollocare a memoria una delle 4 parole di stato.
+  Sotto il tracciato resta comunque il nome dello stato per esteso, colorato come prima — il
+  tracciato è la lettura veloce, la parola la conferma. Ogni segmento resta cliccabile (stesso
+  `cambiaStato()` di sempre, un passo alla volta) — nessun valore, nome o significato di stato
+  cambiato, solo la lettura. "Annullato" resta un badge a parte, fuori dai 4 passi, come prima.
+  Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
