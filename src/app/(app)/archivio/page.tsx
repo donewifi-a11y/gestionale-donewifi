@@ -2,6 +2,7 @@ import { Archive } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ArchivioBoard } from "@/components/archivio/archivio-board";
 import { getRapportiLavoro } from "@/app/(app)/rapporti-lavoro/actions";
+import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
 import type { Segnalazione, Ticket } from "@/lib/types";
 
 // ★ FIX — l'Archivio accumula per definizione TUTTI i ticket chiusi e
@@ -58,11 +59,18 @@ async function fetchSegnalazioniArchivio(supabase: Awaited<ReturnType<typeof cre
 export default async function ArchivioPage() {
   const supabase = await createClient();
 
-  const [tickets, segnalazioni, { schede, rapportini }] = await Promise.all([
+  const [tickets, segnalazioni, { schede, rapportini }, persona] = await Promise.all([
     fetchTicketArchivio(supabase),
     fetchSegnalazioniArchivio(supabase),
     getRapportiLavoro(),
+    getPersonaCorrente(supabase),
   ]);
+  // ★ NUOVA (2026-09-10, "avrei bisogno di poter cancellare o modificare
+  // le foto anche successivamente") — solo un amministratore vede i
+  // controlli di modifica delle foto in SchedaVista (il controllo vero è
+  // comunque server-side, vedi verificaAdminScheda in calendario/actions.ts
+  // — questo flag è solo per non mostrare pulsanti che fallirebbero).
+  const isAdmin = personaHaAccessoAdmin(persona);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -76,7 +84,7 @@ export default async function ArchivioPage() {
         </div>
       </div>
 
-      <ArchivioBoard tickets={tickets} segnalazioni={segnalazioni} schede={schede} rapportini={rapportini} />
+      <ArchivioBoard tickets={tickets} segnalazioni={segnalazioni} schede={schede} rapportini={rapportini} isAdmin={isAdmin} />
     </div>
   );
 }

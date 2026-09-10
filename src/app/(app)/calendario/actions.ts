@@ -942,3 +942,61 @@ export async function urlDocumentoScheda(percorso: string) {
 
   return urlFirmataDocumento(percorso);
 }
+
+/** ★ NUOVA (2026-09-10, richiesta esplicita: "avrei bisogno di poter
+ * cancellare o modificare le foto anche successivamente") — le foto di
+ * una Scheda erano fissate al momento del salvataggio, senza alcun modo
+ * di correggerle dopo (foto sfocata, soggetto sbagliato...) se non
+ * riaprendo il form e rifacendo tutta la Scheda da capo. Solo un
+ * amministratore — stesso principio di "Elimina Ticket": è una
+ * correzione su un documento già chiuso, non un'azione di normale
+ * lavorazione. */
+async function verificaAdminScheda(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona)) return "Solo un amministratore può modificare le foto di una Scheda già salvata.";
+  return null;
+}
+
+export async function eliminaFotoScheda(schedaId: string, percorso: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdminScheda(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  const service = createServiceClient();
+  const { data: scheda, error: erroreLettura } = await service.from("schede_lavoro").select("foto").eq("id", schedaId).maybeSingle();
+  if (erroreLettura || !scheda) return { errore: erroreLettura?.message || "Scheda non trovata." };
+
+  const fotoAggiornate = ((scheda.foto ?? []) as { nome: string; percorso: string }[]).filter((f) => f.percorso !== percorso);
+  const { error: erroreUpdate } = await service.from("schede_lavoro").update({ foto: fotoAggiornate }).eq("id", schedaId);
+  if (erroreUpdate) return { errore: erroreUpdate.message };
+
+  // ★ ripulisce anche lo storage — un errore qui non deve far fallire
+  // l'operazione (la foto è già sparita dalla Scheda, un file orfano nello
+  // storage non è visibile da nessuna parte, meglio di un errore fuorviante).
+  const { error: erroreStorage } = await service.storage.from("documenti").remove([percorso]);
+  if (erroreStorage) console.error("eliminaFotoScheda (storage):", erroreStorage.message);
+
+  revalidatePath("/tickets");
+  revalidatePath("/archivio");
+  return { errore: null };
+}
+
+/** Aggiunge una foto già caricata (percorso ottenuto da un signed upload
+ * URL, vedi api/schede/upload-foto-url) a una Scheda già salvata. */
+export async function aggiungiFotoScheda(schedaId: string, percorso: string, nome: string) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAdminScheda(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  const service = createServiceClient();
+  const { data: scheda, error: erroreLettura } = await service.from("schede_lavoro").select("foto").eq("id", schedaId).maybeSingle();
+  if (erroreLettura || !scheda) return { errore: erroreLettura?.message || "Scheda non trovata." };
+
+  const fotoAggiornate = [...((scheda.foto ?? []) as { nome: string; percorso: string }[]), { nome, percorso }];
+  const { error: erroreUpdate } = await service.from("schede_lavoro").update({ foto: fotoAggiornate }).eq("id", schedaId);
+  if (erroreUpdate) return { errore: erroreUpdate.message };
+
+  revalidatePath("/tickets");
+  revalidatePath("/archivio");
+  return { errore: null };
+}

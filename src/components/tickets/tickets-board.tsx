@@ -1640,7 +1640,7 @@ function DettaglioTicket({
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             Documenti{numeroDocumenti > 0 ? ` (${numeroDocumenti})` : ""}
           </div>
-        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} />}
+        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} modificabile={isAdmin} />}
         {ticket.stato === "Completato" && !scheda && rapportino && (
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
         )}

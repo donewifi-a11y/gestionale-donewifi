@@ -33,11 +33,13 @@ export function ArchivioBoard({
   segnalazioni,
   schede,
   rapportini,
+  isAdmin,
 }: {
   tickets: Ticket[];
   segnalazioni: Segnalazione[];
   schede: RigaScheda[];
   rapportini: RigaRapportino[];
+  isAdmin: boolean;
 }) {
   const [vista, setVista] = useState<VistaArchivio>("ticket");
   const [ricerca, setRicerca] = useState("");
@@ -86,7 +88,7 @@ export function ArchivioBoard({
       </div>
 
       {vista === "lavori" ? (
-        <RapportiLavoroBoard schede={schede} rapportini={rapportini} />
+        <RapportiLavoroBoard schede={schede} rapportini={rapportini} isAdmin={isAdmin} />
       ) : (
         <>
       <div className="mb-4 flex flex-wrap items-center gap-2">

@@ -51,7 +51,7 @@ interface RigaLavorazione {
  * gestionale, righe espandibili con la stessa vista di sola lettura già
  * usata nel Ticket (SchedaVista/RapportinoVista) — nessun componente
  * nuovo per il dettaglio, solo un nuovo posto da cui raggiungerlo. */
-export function RapportiLavoroBoard({ schede, rapportini }: { schede: RigaScheda[]; rapportini: RigaRapportino[] }) {
+export function RapportiLavoroBoard({ schede, rapportini, isAdmin }: { schede: RigaScheda[]; rapportini: RigaRapportino[]; isAdmin: boolean }) {
   const [vista, setVista] = useState<Vista>("installazioni");
   const [ricerca, setRicerca] = useState("");
   const [aperta, setAperta] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export function RapportiLavoroBoard({ schede, rapportini }: { schede: RigaScheda
                   </button>
                   {espansa && (
                     <div className="border-t bg-muted/40 px-3 py-3">
-                      <SchedaVista scheda={s} />
+                      <SchedaVista scheda={s} modificabile={isAdmin} />
                     </div>
                   )}
                 </div>
@@ -183,7 +183,7 @@ export function RapportiLavoroBoard({ schede, rapportini }: { schede: RigaScheda
                 {espansa && (
                   <div className="border-t bg-muted/40 px-3 py-3">
                     {r.fonte === "scheda" && r.scheda ? (
-                      <SchedaVista scheda={r.scheda} />
+                      <SchedaVista scheda={r.scheda} modificabile={isAdmin} />
                     ) : r.rapportino ? (
                       <RapportinoVista rapportino={r.rapportino} importoFatturato={r.rapportino.ticket?.importoFatturato} />
                     ) : null}

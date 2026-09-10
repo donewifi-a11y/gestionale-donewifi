@@ -4141,6 +4141,32 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   una scheda vera con metodo "otp_admin"). Nessuna migrazione necessaria — solo lettura più
   accurata di dati già esistenti. Build/lint puliti.
 
+✅ La Scheda di Lavoro, ripensata + foto modificabili dopo il salvataggio (2026-09-10, "ok va bene"
+  sull'artifact "La Scheda, Ripensata" + "avrei bisogno di poter cancellare o modificare le foto
+  anche successivamente"). `SchedaVista` (mostrata nel Ticket completato, in Archivio → Schede e
+  Rapportini, in stampa) passa da un unico elenco di ~15 etichette in fila a gruppi per argomento —
+  Impianto, Rete e collaudo, Materiali & pagamento, Quando — ognuno visibile solo se ha davvero un
+  dato da mostrare (una Lavorazione tecnica senza cablaggio/GPS non mostra riquadri vuoti). L'esito
+  ("Installazione certificata con successo", o uno dei 4 di `ESITI_INTERVENTO` per una Lavorazione)
+  ora è un badge colorato in testa, stesso principio dello stato del Ticket — un giudizio, non una
+  decorazione. Nessun dato tolto o aggiunto, solo riorganizzato.
+  - **Foto modificabili dopo il salvataggio** (nuova funzione, non solo grafica): prima erano
+    fissate al momento del salvataggio, senza modo di correggerle dopo (foto sfocata, soggetto
+    sbagliato) se non rifacendo tutta la Scheda. Ora, solo per un amministratore (`modificabile`,
+    controllo reale server-side in `verificaAdminScheda`), ogni foto ha un pulsante di eliminazione
+    e c'è un "Aggiungi foto" che carica direttamente allo storage (nuova
+    `api/schede/upload-foto-url`, stesso schema signed-upload-URL ormai consolidato — mai un file
+    nel corpo di una Server Action). Nuove `eliminaFotoScheda()`/`aggiungiFotoScheda()`
+    (calendario/actions.ts): leggono/scrivono l'array `foto` della scheda, la prima ripulisce anche
+    il file dallo storage.
+  - `isAdmin` propagato fin dentro `RapportiLavoroBoard`/`ArchivioBoard` (mancava del tutto,
+    aggiunto ora) perché anche lì si possa modificare le foto, non solo dal Ticket.
+  Build/lint puliti. La risoluzione del nome amministratore in "Autorizzazione" (fix precedente in
+  questa stessa giornata) verificata con una query reale contro produzione; il roundtrip
+  elimina/aggiungi foto non è stato testato contro un record reale per non rischiare di alterare la
+  documentazione di un lavoro già chiuso — verificato con build/lint e lettura attenta del codice,
+  stesso pattern (signed URL, service role, map-join) già provato altrove in questo progetto.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
