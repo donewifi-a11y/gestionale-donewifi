@@ -101,10 +101,10 @@ export async function GET(request: NextRequest) {
   // ★ NUOVA (2026-08) — richiesta esplicita: riepilogo via email ogni
   // mattina (vedi vercel.json, orario spostato alle 9 apposta per questo)
   // delle Segnalazioni ancora "Da Contattare" — non prese in carico da
-  // nessuno — verso attivazioni@donewifi.it. A differenza degli avvisi
-  // sopra (Telegram, al reparto) qui l'indirizzo è fisso ed è sempre
-  // un'email, come richiesto esplicitamente; nessuna soglia di giorni: è
-  // un riepilogo giornaliero, non un allarme per un singolo caso vecchio.
+  // nessuno. A differenza degli avvisi sopra (Telegram, al reparto) qui
+  // l'indirizzo è fisso ed è sempre un'email, come richiesto esplicitamente;
+  // nessuna soglia di giorni: è un riepilogo giornaliero, non un allarme per
+  // un singolo caso vecchio.
   const { data: nonPreseInCarico, error: erroreNonPrese } = await supabase
     .from("segnalazioni")
     .select("*")
@@ -113,21 +113,6 @@ export async function GET(request: NextRequest) {
   if (erroreNonPrese) return NextResponse.json({ errore: erroreNonPrese.message }, { status: 500 });
 
   const segnalazioniNonPrese = (nonPreseInCarico as Segnalazione[]) ?? [];
-  if (segnalazioniNonPrese.length > 0) {
-    const righeHtml = segnalazioniNonPrese
-      .map((s) => `<li>#${s.numero} — ${s.nome} (${s.comune}) — arrivata il ${new Date(s.data).toLocaleDateString("it-IT")}</li>`)
-      .join("");
-    const righeTesto = segnalazioniNonPrese
-      .map((s) => `- #${s.numero} — ${s.nome} (${s.comune}) — arrivata il ${new Date(s.data).toLocaleDateString("it-IT")}`)
-      .join("\n");
-    const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
-      `${segnalazioniNonPrese.length} Segnalazioni non ancora prese in carico`,
-      `<ul style="font-size:14px;color:#141414;line-height:1.7;padding-left:20px;margin:0 0 12px;">${righeHtml}</ul>`,
-      righeTesto,
-      "https://gestione.donewifi.it/segnalazioni"
-    );
-    await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
-  }
 
   // ★ NUOVA (2026-08) — richiesta esplicita: riepilogo mattutino separato da
   // quello sopra — non "chi non è stato ancora contattato" ma "cosa ci hanno
@@ -136,7 +121,7 @@ export async function GET(request: NextRequest) {
   // richieste_clienti, popolata sia da api/richiesta-dati che da
   // api/richiesta-cliente). Le notifiche immediate esistono già per ogni
   // singolo arrivo; questa è in più, un colpo d'occhio di tutto quello
-  // successo durante la notte/il giorno prima, verso attivazioni@donewifi.it.
+  // successo durante la notte/il giorno prima.
   const soglia24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: praticheRecenti, error: erroreRecenti } = await supabase
     .from("richieste_clienti")
@@ -146,6 +131,33 @@ export async function GET(request: NextRequest) {
   if (erroreRecenti) return NextResponse.json({ errore: erroreRecenti.message }, { status: 500 });
 
   const documentiArrivati = (praticheRecenti as RichiestaCliente[]) ?? [];
+
+  // ★ FIX (2026-09-10, richiesta esplicita: "vorrei ridurre il numero di
+  // comunicazioni su attivazione@donewifi.it. la mail è diventata caotica")
+  // — i due riepiloghi sopra arrivavano come due email separate nella
+  // stessa esecuzione di questo cron, stesso orario, stessa casella: due
+  // notifiche per un'unica finestra di tempo. Ora un solo invio con una
+  // sezione per ciascuno, solo se c'è davvero qualcosa da segnalare in
+  // almeno uno dei due (nessuna email vuota nei giorni tranquilli).
+  const sezioniHtml: string[] = [];
+  const sezioniTesto: string[] = [];
+  const partiOggetto: string[] = [];
+
+  if (segnalazioniNonPrese.length > 0) {
+    const righeHtml = segnalazioniNonPrese
+      .map((s) => `<li>#${s.numero} — ${s.nome} (${s.comune}) — arrivata il ${new Date(s.data).toLocaleDateString("it-IT")}</li>`)
+      .join("");
+    const righeTesto = segnalazioniNonPrese
+      .map((s) => `- #${s.numero} — ${s.nome} (${s.comune}) — arrivata il ${new Date(s.data).toLocaleDateString("it-IT")}`)
+      .join("\n");
+    sezioniHtml.push(
+      `<p style="font-size:15px;font-weight:700;color:#141414;margin:0 0 6px;">${segnalazioniNonPrese.length} Segnalazioni non ancora prese in carico</p>` +
+        `<ul style="font-size:14px;color:#141414;line-height:1.7;padding-left:20px;margin:0 0 12px;">${righeHtml}</ul>`
+    );
+    sezioniTesto.push(`${segnalazioniNonPrese.length} Segnalazioni non ancora prese in carico:\n${righeTesto}`);
+    partiOggetto.push(`${segnalazioniNonPrese.length} da contattare`);
+  }
+
   if (documentiArrivati.length > 0) {
     const righeHtml = documentiArrivati
       .map((r) => `<li><b>${r.tipo_richiesta}</b> — ${r.cliente ?? "—"} (${new Date(r.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})</li>`)
@@ -153,11 +165,20 @@ export async function GET(request: NextRequest) {
     const righeTesto = documentiArrivati
       .map((r) => `- ${r.tipo_richiesta} — ${r.cliente ?? "—"} (${new Date(r.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`)
       .join("\n");
+    sezioniHtml.push(
+      `<p style="font-size:15px;font-weight:700;color:#141414;margin:0 0 6px;">${documentiArrivati.length} documenti/pratiche arrivati nelle ultime 24 ore</p>` +
+        `<ul style="font-size:14px;color:#141414;line-height:1.7;padding-left:20px;margin:0 0 12px;">${righeHtml}</ul>`
+    );
+    sezioniTesto.push(`${documentiArrivati.length} documenti/pratiche arrivati nelle ultime 24 ore:\n${righeTesto}`);
+    partiOggetto.push(`${documentiArrivati.length} documenti ricevuti`);
+  }
+
+  if (sezioniHtml.length > 0) {
     const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(
-      `${documentiArrivati.length} documenti/pratiche arrivati nelle ultime 24 ore`,
-      `<ul style="font-size:14px;color:#141414;line-height:1.7;padding-left:20px;margin:0 0 12px;">${righeHtml}</ul>`,
-      righeTesto,
-      "https://gestione.donewifi.it/richieste-clienti"
+      `Riepilogo giornaliero — ${partiOggetto.join(" · ")}`,
+      sezioniHtml.join(""),
+      sezioniTesto.join("\n\n"),
+      "https://gestione.donewifi.it/segnalazioni"
     );
     await inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
   }

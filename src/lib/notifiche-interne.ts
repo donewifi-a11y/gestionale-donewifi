@@ -28,11 +28,33 @@ export interface NotificaInterna {
   emailLink: string;
 }
 
-/** Manda lo stesso evento sui 3 canali (Telegram + Chat interna + Email
- * verso attivazioni@donewifi.it) — nessuno dei tre blocca gli altri né il
- * chiamante: ogni funzione sottostante già non lancia mai un errore
- * (stesso principio ovunque nel gestionale, una notifica mancata non deve
- * mai bloccare il flusso principale). */
+// ★ FIX (2026-09-10, richiesta esplicita: "vorrei ridurre il numero di
+// comunicazioni su attivazione@donewifi.it. la mail è diventata caotica") —
+// prima OGNI evento di OGNI reparto finiva sempre e solo in quell'unica
+// casella, a differenza di Telegram e Chat interna qui sopra, già smistati
+// per reparto. Stesse caselle Aruba già configurate (e già lette via IMAP,
+// vedi lib/imap.ts CASELLE_REPARTI_IMAP — lo staff le controlla comunque)
+// invece di inventare indirizzi nuovi da configurare. "attivazioni@" resta
+// solo per i reparti senza una casella propria in CASELLA_EMAIL_REPARTI
+// ("Tutto"/"Admin") o se la variabile d'ambiente non è configurata — non
+// sparisce del tutto, resta il ripiego sicuro.
+const CASELLA_EMAIL_REPARTI: Partial<Record<AreaAccesso, string>> = {
+  "Analisi Rete": "SMTP_USER_ANALISI_RETE",
+  Commerciale: "SMTP_USER_COMMERCIALE",
+  Fatturazione: "SMTP_USER_FATTURAZIONE",
+};
+
+function destinatarioNotificaInterna(reparto: AreaAccesso): string {
+  const envVar = CASELLA_EMAIL_REPARTI[reparto];
+  return (envVar && process.env[envVar]) || "attivazioni@donewifi.it";
+}
+
+/** Manda lo stesso evento sui 3 canali (Telegram + Chat interna + Email —
+ * ognuno al reparto competente, vedi destinatarioNotificaInterna() sopra) —
+ * nessuno dei tre blocca gli altri né il chiamante: ogni funzione
+ * sottostante già non lancia mai un errore (stesso principio ovunque nel
+ * gestionale, una notifica mancata non deve mai bloccare il flusso
+ * principale). */
 export async function notificaSuTuttiICanali(n: NotificaInterna): Promise<void> {
   const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(n.emailTitolo, n.emailCorpoHtml, n.emailCorpoTesto, n.emailLink);
   // ★ FIX (2026-09-02, "di nuovo il problema" — "Errore imprevisto durante
@@ -49,6 +71,6 @@ export async function notificaSuTuttiICanali(n: NotificaInterna): Promise<void> 
   await Promise.all([
     inviaNotificaTelegram(n.reparto, n.telegramHtml),
     inviaMessaggioChatSistema(n.reparto, n.chatTesto),
-    inviaEmail({ a: "attivazioni@donewifi.it", oggetto, corpoHtml, corpoTesto, reparto: n.reparto }),
+    inviaEmail({ a: destinatarioNotificaInterna(n.reparto), oggetto, corpoHtml, corpoTesto, reparto: n.reparto }),
   ]);
 }

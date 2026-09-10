@@ -4200,6 +4200,26 @@ generico). Non verificato contro un salvataggio reale in produzione — solo let
 codice e degli stessi pattern (signed URL, service role, reconciliazione MAC) già in uso altrove in
 questo progetto.
 
+✅ **Smistate per reparto le email interne, prima tutte su attivazioni@donewifi.it** (2026-09-10,
+"vorrei ridurre il numero di comunicazioni su attivazione@donewifi.it. la mail è diventata
+caotica"). `notificaSuTuttiICanali()` (`lib/notifiche-interne.ts`) mandava Telegram e Chat interna
+già smistati per reparto, ma l'email sempre e solo verso `attivazioni@donewifi.it` — ogni evento di
+ogni reparto (scorta bassa, preventivi, Subentro, Schede confermate, nuove Segnalazioni, Ticket dal
+Portale, ecc.) finiva nella stessa casella. Nuova `destinatarioNotificaInterna()`: usa le caselle
+Aruba già configurate per reparto (`SMTP_USER_ANALISI_RETE`/`SMTP_USER_COMMERCIALE`/
+`SMTP_USER_FATTURAZIONE` — già verificate e già lette via IMAP per le risposte, vedi voce
+2026-08-10 sopra) invece di inventare indirizzi nuovi; `attivazioni@donewifi.it` resta il ripiego
+solo per un reparto senza casella propria o senza quella variabile configurata. Le email dirette
+(Richiesta Dati, Richiesta Cliente) restano invariate, come da richiesta esplicita.
+  - **Unito in uno solo il doppio riepilogo giornaliero del cron `promemoria-ticket`**: "Segnalazioni
+    non prese in carico" e "documenti/pratiche arrivati nelle ultime 24 ore" arrivavano come due
+    email separate nella stessa esecuzione, stesso orario, stessa casella. Ora un solo invio con una
+    sezione per ciascuno, inviato solo se almeno uno dei due ha davvero qualcosa da segnalare
+    (nessuna email vuota nei giorni tranquilli).
+  Build/lint puliti. Non verificabile senza attendere un evento reale (Preventivo, Segnalazione,
+  ecc.) o il prossimo giro del cron — verificato con lettura attenta del codice: le 3 variabili
+  d'ambiente per reparto sono già configurate e verificate in produzione (voce 2026-08-10).
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
