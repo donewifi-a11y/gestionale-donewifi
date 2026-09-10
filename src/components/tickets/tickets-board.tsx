@@ -1622,23 +1622,35 @@ function DettaglioTicket({
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
         )}
 
+        {/* ★ FIX (2026-09-10, "correggi tutto" — punto 3 dell'artifact
+        "Ordine Definitivo per i Ticket") — su un Ticket nato da una
+        Segnalazione con contratto già firmato, questo pulsante compariva
+        da solo in cima alla tab, senza un'intestazione — l'unico blocco
+        così in tutta l'interfaccia (ogni altra sezione qui sotto ne ha
+        una, icona colorata + etichetta). Aggiunta per coerenza. */}
         {ticket.contratto_pdf_url && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-fit"
-            onClick={async () => {
-              const risultato = await urlContratto(ticket.contratto_pdf_url!);
-              if (risultato.errore || !risultato.url) {
-                toast(risultato.errore || "Errore imprevisto.");
-                return;
-              }
-              window.open(risultato.url, "_blank", "noopener,noreferrer");
-            }}
-          >
-            <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Vedi contratto
-          </Button>
+          <div>
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
+              Contratto
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              onClick={async () => {
+                const risultato = await urlContratto(ticket.contratto_pdf_url!);
+                if (risultato.errore || !risultato.url) {
+                  toast(risultato.errore || "Errore imprevisto.");
+                  return;
+                }
+                window.open(risultato.url, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Vedi contratto
+            </Button>
+          </div>
         )}
 
         {/* ★ FIX (2026-09-09, "problema cliccando documenti" — pagina che
@@ -1753,38 +1765,65 @@ function DettaglioTicket({
         menu offriva solo "Disdetta contratto", un'opzione senza senso su
         una pratica che sta ancora avviando il trasferimento, avanzo
         visibile di quando Subentro passava di qui. */}
+        {/* ★ FIX (2026-09-10, "correggi tutto" — punto 2 dell'artifact
+        "Ordine Definitivo per i Ticket") — questo menu era pensato per
+        scegliere fra più pratiche; da quando Trasferimento/Cambio IBAN/
+        Cambio Anagrafica/Subentro sono usciti da qui (ognuno ha il
+        proprio posto), PRATICHE_INVIABILI contiene solo "Disdetta
+        contratto" — un menu a tendina più un secondo passaggio per
+        un'unica scelta. Con una sola pratica disponibile un pulsante
+        diretto basta, stesso pattern di "Avvia Subentro"; il menu
+        ricompare da solo se in futuro le pratiche selezionabili
+        tornassero più di una. */}
         {ticket.sottocategoria !== "Subentro" && (
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
             Invia una pratica al cliente
           </div>
-          <p className="mb-2 text-[11px] text-muted-foreground">
-            Manda al cliente un link a un modulo pubblico da compilare (es. cambio IBAN, trasloco) — i dati inviati compaiono poi qui, nella tab Documenti.
-          </p>
-          <select
-            value={praticaScelta}
-            onChange={(e) => setPraticaScelta(e.target.value)}
-            className="h-9 w-full rounded-md border bg-background px-3 text-xs"
-          >
-            <option value="">Scegli una pratica...</option>
-            {PRATICHE_INVIABILI.map((p) => (
-              <option key={p.slug} value={p.slug}>
-                {p.titolo}
-                {PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] === p.slug ? " (consigliata)" : ""}
-              </option>
-            ))}
-          </select>
-          {praticaScelta && (
-            <div className="mt-2.5">
-              <InvioLinkCliente
-                url={linkPratica}
-                telefono={ticket.telefono}
-                email={ticket.email}
-                messaggio={messaggioPratica}
-                onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
-              />
-            </div>
+          {PRATICHE_INVIABILI.length > 1 ? (
+            <>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Manda al cliente un link a un modulo pubblico da compilare (es. cambio IBAN, trasloco) — i dati inviati compaiono poi qui, nella tab Documenti.
+              </p>
+              <select
+                value={praticaScelta}
+                onChange={(e) => setPraticaScelta(e.target.value)}
+                className="h-9 w-full rounded-md border bg-background px-3 text-xs"
+              >
+                <option value="">Scegli una pratica...</option>
+                {PRATICHE_INVIABILI.map((p) => (
+                  <option key={p.slug} value={p.slug}>
+                    {p.titolo}
+                    {PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] === p.slug ? " (consigliata)" : ""}
+                  </option>
+                ))}
+              </select>
+              {praticaScelta && (
+                <div className="mt-2.5">
+                  <InvioLinkCliente
+                    url={linkPratica}
+                    telefono={ticket.telefono}
+                    email={ticket.email}
+                    messaggio={messaggioPratica}
+                    onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
+                  />
+                </div>
+              )}
+            </>
+          ) : !praticaScelta ? (
+            <Button size="sm" variant="outline" onClick={() => setPraticaScelta(PRATICHE_INVIABILI[0].slug)} className="min-h-9 w-full">
+              <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Invia richiesta di disdetta
+            </Button>
+          ) : (
+            <InvioLinkCliente
+              url={linkPratica}
+              telefono={ticket.telefono}
+              email={ticket.email}
+              messaggio={messaggioPratica}
+              onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
+            />
           )}
         </div>
         )}
@@ -2188,10 +2227,17 @@ function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; d
     window.open(risultato.url, "_blank", "noopener,noreferrer");
   }
 
+  /* ★ FIX (2026-09-10, "correggi tutto" — punto 1 dell'artifact "Ordine
+  Definitivo per i Ticket") — riquadro dentro riquadro: questo componente
+  è usato SOLO dentro il disclosure "Altri dettagli", che disegna già la
+  propria cornice quando è aperto (vedi tickets-board.tsx). Una seconda
+  cornice identica attorno a questi campi era lo stesso identico bug già
+  trovato e corretto nella sezione Subentro (lì era InvioLinkCliente
+  dentro un altro riquadro). Restano solo testo ed etichette. */
   return (
-    <div className="rounded-lg border bg-muted/40 p-3">
+    <div>
       <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        Dettagli — {sottocategoria}
+        {sottocategoria}
       </div>
       <div className="flex flex-col gap-1.5 text-xs">
         {Object.entries(dettagli)

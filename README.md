@@ -4053,6 +4053,25 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   Ticket con sottocategoria "Subentro" (resta per ogni altro Ticket). "Intervento risolto da
   remoto?", generico e indipendente, resta visibile anche per Subentro. Build/lint puliti.
 
+✅ Ordine definitivo per i Ticket, applicati i 3 fix dell'audit (2026-09-10, "correghgi tutto" dopo
+  l'artifact "Ordine Definitivo per i Ticket" — audit reale su 42 Ticket in produzione). Stessi due
+  difetti sistemici già corretti nella sezione Subentro, trovati ANCHE fuori da lì:
+  - **Riquadro dentro riquadro in "Altri dettagli"**: `DettagliExtra` (i campi extra di una
+    sottocategoria, es. Voip — 3 Ticket reali) disegnava la propria cornice dentro quella già
+    disegnata dal disclosure che lo contiene. Tolta la cornice interna, stesso principio del fix già
+    fatto per `InvioLinkCliente` nel Subentro.
+  - **Un menu a tendina per una sola scelta**: "Invia una pratica al cliente" offriva solo "Disdetta
+    contratto" (le altre 4 pratiche sono uscite da qui una alla volta nei mesi scorsi, per finire
+    ognuna nel proprio posto). Con una sola pratica disponibile ora c'è un pulsante diretto "Invia
+    richiesta di disdetta", stesso pattern di "Avvia Subentro" — il menu ricompare da solo se le
+    pratiche selezionabili tornassero più di una (nessuna riga di logica del vero invio toccata).
+  - **"Vedi contratto" senza intestazione**: sui 3 Ticket nati da una Segnalazione con contratto
+    firmato, era l'unico blocco della tab Documenti senza un'etichetta di sezione (icona colorata +
+    testo, come ogni altro blocco). Aggiunta.
+  Il quarto punto dell'audit (dare a Trasferimento/Cambio IBAN/Cambio Anagrafica un accesso rapido
+  dal Ticket, come Subentro) resta aperto: non è un difetto da correggere ma una scelta di prodotto,
+  lasciata così com'è finché non viene richiesta esplicitamente. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo
