@@ -19,6 +19,25 @@ export default async function DebugAccessoPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ★ decodifica il JWT della sessione reale (solo il "payload", nessuna
+  // firma/segreto) per vedere se porta davvero role/aud "authenticated" —
+  // senza questo, PostgREST tratterebbe la richiesta come "anon"
+  // indipendentemente da chi sia realmente autenticato.
+  const { data: sessioneData } = await supabase.auth.getSession();
+  let jwtPayload: Record<string, unknown> | null = null;
+  let erroreJwt: string | null = null;
+  try {
+    const token = sessioneData.session?.access_token;
+    if (token) {
+      const parte = token.split(".")[1];
+      jwtPayload = JSON.parse(Buffer.from(parte, "base64").toString("utf8"));
+    } else {
+      erroreJwt = "Nessun access_token nella sessione.";
+    }
+  } catch (err) {
+    erroreJwt = err instanceof Error ? err.message : "Errore imprevisto nella decodifica.";
+  }
+
   const personaCookieId = await getPersonaCorrenteId();
   const persona = await getPersonaCorrente(supabase);
 
@@ -57,6 +76,20 @@ export default async function DebugAccessoPage() {
       <div className="rounded-lg border p-4">
         <h2 className="mb-2 font-semibold">3. Test reale — INSERT in tickets, reparto=&quot;Analisi Rete&quot;</h2>
         <p className="font-mono text-sm">{esitoInsertTest}</p>
+      </div>
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-2 font-semibold">4. Token della sessione (payload JWT, decodificato)</h2>
+        {erroreJwt ? (
+          <p className="font-mono text-sm text-red-600">{erroreJwt}</p>
+        ) : (
+          <>
+            <p>role: <b>{String(jwtPayload?.role ?? "—")}</b></p>
+            <p>aud: <b>{String(jwtPayload?.aud ?? "—")}</b></p>
+            <p>sub: <code>{String(jwtPayload?.sub ?? "—")}</code></p>
+            <p>exp: <b>{jwtPayload?.exp ? new Date(Number(jwtPayload.exp) * 1000).toISOString() : "—"}</b> (scaduto? {jwtPayload?.exp && Number(jwtPayload.exp) * 1000 < Date.now() ? "SÌ" : "no"})</p>
+            <p>iat: <b>{jwtPayload?.iat ? new Date(Number(jwtPayload.iat) * 1000).toISOString() : "—"}</b></p>
+          </>
+        )}
       </div>
     </div>
   );
