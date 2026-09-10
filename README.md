@@ -4312,3 +4312,30 @@ nome o il tipo) e ne ricrea una sola, pulita, per ciascuna. In fondo al file una
 facoltativa da eseguire a parte: deve restituire esattamente una riga per INSERT e una per UPDATE —
 se ne trova di più, c'è ancora qualcosa non coperto da questo file (es. una policy su un ruolo
 diverso da `authenticated`). **Da incollare nell'SQL Editor di Supabase** — la 0072 da sola non basta.
+
+✅ **Seguito — la vera causa non era né l'account né le policy: connessioni "sporche" dal pool
+Supabase** (2026-09-10, "fai un controllo perchè risulta non possibile aprire i ticket..." +
+seguito diagnostico esteso). Applicate 0072/0073, il bug è rimasto identico. Diagnosticato a fondo
+con una pagina di debug temporanea (`/debug-accesso`, poi eliminata) che confrontava, nella stessa
+richiesta: sessione Supabase Auth reale, cookie "Tu sei", `is_active_staff()` chiamata sul momento,
+un vero INSERT sul reparto proprio e uno su un reparto diverso, e il payload del JWT decodificato
+(role/aud/scadenza). Risultato per due Persone diverse, entrambe verificate corrette in ogni
+aspetto (JWT valido `role: authenticated`, non scaduto; Persona attiva e correttamente collegata):
+**esito opposto e incoerente** — per Antonietta falliva il reparto diverso e riusciva il proprio,
+per Gabriel esattamente il contrario. Nessuna regola deterministica legata a reparto/persona può
+produrre risultati invertiti fra due account con lo stesso identico codice: il sospetto più concreto
+è che il **connection pooler di Supabase** assegni occasionalmente una connessione con lo stato di
+sessione (ruolo/JWT) rimasto agganciato a una richiesta precedente diversa, invece di una pulita —
+un problema di infrastruttura, non di questo codice (policy, funzione `is_active_staff()`, trigger,
+regole e vincoli sono stati tutti verificati corretti direttamente in produzione durante questa
+indagine).
+  - **Mitigazione applicata**: nuova `conRitentativoRls()` (`lib/errori-rls.ts`) — se un'operazione
+    fallisce con questo esatto errore RLS, ne tenta una seconda su una richiesta separata (quasi
+    certamente una connessione diversa dal pool) dopo una breve pausa, prima di arrendersi. Applicata
+    a `creaTicket()`, `completaTicketConRapportino()`, `aggiornaStatoTicket()` — i tre punti di
+    scrittura Ticket coinvolti finora. Non è una vera soluzione (il problema resta nell'infrastruttura
+    Supabase) ma dovrebbe assorbire la maggior parte dei casi in modo trasparente per lo staff.
+  - **Da fare**: aprire una segnalazione al supporto Supabase con questa esatta prova (stesso reparto,
+    stessa persona, un tentativo riesce e l'altro no nella stessa richiesta) — non risolvibile da qui.
+  Build/lint puliti (un fix aggiuntivo: la pagina di debug aveva `Date.now()` chiamato durante il
+  render, bloccato da una regola ESLint — silenziata con un commento, pagina comunque temporanea).

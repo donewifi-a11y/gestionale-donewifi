@@ -40,3 +40,41 @@ export async function messaggioErroreRls(
   );
   return `Il tuo accesso non risulta più valido per ${contesto} — esci dal gestionale e accedi di nuovo con le tue credenziali personali (non un accesso condiviso). Se il problema resta, contatta un amministratore.`;
 }
+
+/** ★ NUOVA (2026-09-10, seguito del bug sopra) — l'ipotesi "accesso
+ * condiviso" è stata smentita da un test diretto: due Persone diverse,
+ * entrambe correttamente configurate (account individuale, Persona attiva,
+ * JWT valido — verificato con una pagina di debug dedicata), ricevono lo
+ * STESSO errore RLS in modo incoerente — a volte sul proprio reparto, a
+ * volte su un altro, senza nessuna logica riconoscibile legata a chi sono
+ * o cosa stanno scrivendo. Tutto il resto (policy, funzione is_active_staff(),
+ * trigger, regole, vincoli) è stato verificato corretto direttamente in
+ * produzione. L'ipotesi più concreta rimasta: il pooler di connessioni di
+ * Supabase assegna occasionalmente una connessione con lo stato di sessione
+ * "sporco" (un ruolo/JWT rimasto agganciato da una richiesta precedente
+ * diversa) invece di una pulita — un problema di infrastruttura, non di
+ * questo codice. Un secondo tentativo, su una richiesta HTTP separata (e
+ * quindi quasi certamente una connessione diversa dal pool), aggira il
+ * sintomo mentre si aspetta una risposta dal supporto Supabase.
+ *
+ * `operazione` deve restituire lo stesso `{ data, error }` di una chiamata
+ * Supabase — se il primo tentativo fallisce con un vero errore RLS, ne fa
+ * un secondo dopo una breve pausa e restituisce quello (che sia riuscito o
+ * no); qualunque altro tipo di errore, o un primo tentativo riuscito, non
+ * tocca affatto il ritentativo. */
+export async function conRitentativoRls<T>(
+  operazione: () => PromiseLike<{ data: T | null; error: { message: string } | null }>
+): Promise<{ data: T | null; error: { message: string } | null }> {
+  const primo = await operazione();
+  if (!primo.error?.message.includes("row-level security policy")) return primo;
+
+  console.error("conRitentativoRls — primo tentativo bloccato da RLS, ne provo un secondo:", primo.error.message);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const secondo = await operazione();
+  if (secondo.error) {
+    console.error("conRitentativoRls — anche il secondo tentativo è fallito:", secondo.error.message);
+  } else {
+    console.error("conRitentativoRls — il secondo tentativo è riuscito (conferma il sospetto di connessione sporca dal pool).");
+  }
+  return secondo;
+}

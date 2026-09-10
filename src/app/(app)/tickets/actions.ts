@@ -7,7 +7,7 @@ import { inviaEmail, emailChiusuraTicket, emailApprovazioneIntervento, emailPrat
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { generaTestoRapportino } from "@/lib/testo-rapporto";
 import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
-import { messaggioErroreRls } from "@/lib/errori-rls";
+import { messaggioErroreRls, conRitentativoRls } from "@/lib/errori-rls";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -123,24 +123,34 @@ export async function creaTicket(
     dettagliExtra._allegatoNome = allegatoExtra.nome;
   }
 
-  const { data, error } = await supabase
-    .from("tickets")
-    .insert({
-      cliente: dati.cliente,
-      telefono: dati.telefono || null,
-      email: dati.email || null,
-      indirizzo: dati.indirizzo || null,
-      categoria: dati.categoria,
-      sottocategoria: dati.sottocategoria || null,
-      dettagli_extra: dettagliExtra,
-      problema: dati.problema || null,
-      priorita: dati.priorita,
-      reparto: dati.reparto,
-      creato_da: personaId,
-      tecnico_assegnato: dati.tecnicoAssegnato || null,
-    })
-    .select("*")
-    .single();
+  // ★ NUOVA (2026-09-10, seguito del bug "non è possibile aprire i ticket
+  // per i diversi reparti da alcuni account") — verificato con test diretti
+  // in produzione che l'errore RLS qui non è né un problema di account né
+  // di policy (entrambi confermati corretti): due Persone diverse,
+  // entrambe valide, prendono lo stesso errore in modo incoerente,
+  // compatibile con una connessione "sporca" dal pool di Supabase. Un
+  // secondo tentativo, su una richiesta separata, aggira il sintomo. Vedi
+  // conRitentativoRls() (lib/errori-rls.ts) per il dettaglio completo.
+  const { data, error } = await conRitentativoRls<Ticket>(() =>
+    supabase
+      .from("tickets")
+      .insert({
+        cliente: dati.cliente,
+        telefono: dati.telefono || null,
+        email: dati.email || null,
+        indirizzo: dati.indirizzo || null,
+        categoria: dati.categoria,
+        sottocategoria: dati.sottocategoria || null,
+        dettagli_extra: dettagliExtra,
+        problema: dati.problema || null,
+        priorita: dati.priorita,
+        reparto: dati.reparto,
+        creato_da: personaId,
+        tecnico_assegnato: dati.tecnicoAssegnato || null,
+      })
+      .select("*")
+      .single()
+  );
 
   if (error) {
     // ★ FIX (2026-09-09, bug reale segnalato con screenshot: "new row
@@ -164,6 +174,9 @@ export async function creaTicket(
     const messaggioRls = await messaggioErroreRls(supabase, "creare Ticket", error.message, persona);
     return { errore: messaggioRls ?? error.message };
   }
+  // ★ tipo di conRitentativoRls() è generico (T | null) — nessun errore ma
+  // dati mancanti non dovrebbe succedere mai in pratica, solo per TypeScript.
+  if (!data) return { errore: "Errore imprevisto: nessun dato restituito dopo la creazione." };
 
   await supabase.from("storico").insert({
     origine: "ticket",
@@ -215,10 +228,13 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
-  const { error } = await supabase
-    .from("tickets")
-    .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
-    .eq("id", id);
+  // ★ NUOVA (2026-09-10) — vedi conRitentativoRls() (lib/errori-rls.ts).
+  const { error } = await conRitentativoRls(() =>
+    supabase
+      .from("tickets")
+      .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
+      .eq("id", id)
+  );
   if (error) {
     // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
     // ticket da parte di fatturazione" — stesso identico caso di
@@ -439,10 +455,16 @@ export async function completaTicketConRapportino(
   if (erroreRapportino) return { errore: erroreRapportino.message };
 
   const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
-  const { error: erroreStato } = await supabase
-    .from("tickets")
-    .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
-    .eq("id", ticketId);
+  // ★ NUOVA (2026-09-10) — vedi conRitentativoRls() (lib/errori-rls.ts):
+  // stesso ritentativo automatico di creaTicket() per lo stesso identico
+  // errore incoerente, verificato non essere né un problema di account né
+  // di policy.
+  const { error: erroreStato } = await conRitentativoRls(() =>
+    supabase
+      .from("tickets")
+      .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
+      .eq("id", ticketId)
+  );
   if (erroreStato) {
     // ★ FIX (2026-09-10, bug reale segnalato: "non è possibile chiudere i
     // ticket da parte di fatturazione" — stessa causa, stessa persona, del

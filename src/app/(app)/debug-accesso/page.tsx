@@ -39,6 +39,9 @@ export default async function DebugAccessoPage() {
     erroreJwt = err instanceof Error ? err.message : "Errore imprevisto nella decodifica.";
   }
 
+  // eslint-disable-next-line react-hooks/purity -- pagina di debug temporanea, Date.now() qui è innocuo (server component, nessuno stato/hook coinvolto).
+  const scaduto = !!jwtPayload?.exp && Number(jwtPayload.exp) * 1000 < Date.now();
+
   const personaCookieId = await getPersonaCorrenteId();
   const persona = await getPersonaCorrente(supabase);
 
@@ -135,7 +138,7 @@ export default async function DebugAccessoPage() {
             <p>role: <b>{String(jwtPayload?.role ?? "—")}</b></p>
             <p>aud: <b>{String(jwtPayload?.aud ?? "—")}</b></p>
             <p>sub: <code>{String(jwtPayload?.sub ?? "—")}</code></p>
-            <p>exp: <b>{jwtPayload?.exp ? new Date(Number(jwtPayload.exp) * 1000).toISOString() : "—"}</b> (scaduto? {jwtPayload?.exp && Number(jwtPayload.exp) * 1000 < Date.now() ? "SÌ" : "no"})</p>
+            <p>exp: <b>{jwtPayload?.exp ? new Date(Number(jwtPayload.exp) * 1000).toISOString() : "—"}</b> (scaduto? {scaduto ? "SÌ" : "no"})</p>
             <p>iat: <b>{jwtPayload?.iat ? new Date(Number(jwtPayload.iat) * 1000).toISOString() : "—"}</b></p>
           </>
         )}
