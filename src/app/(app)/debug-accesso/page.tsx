@@ -9,7 +9,11 @@ import { getPersonaCorrente, getPersonaCorrenteId } from "@/lib/persona";
  * vedere l'errore reale senza passare da nessun altro livello. Da
  * eliminare non appena il bug è chiuso — non è pensata per restare nel
  * gestionale. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DebugAccessoPage() {
+  const oraServer = new Date().toISOString();
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,6 +43,7 @@ export default async function DebugAccessoPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-6">
       <h1 className="text-xl font-bold">Debug accesso — pagina temporanea</h1>
+      <p className="text-xs text-muted-foreground">Ora del server a questo caricamento: <b>{oraServer}</b> — se ricarichi e non cambia, la pagina è in cache.</p>
       <div className="rounded-lg border p-4">
         <h2 className="mb-2 font-semibold">1. Sessione Supabase Auth reale (auth.getUser())</h2>
         <p>Email: <b>{user?.email ?? "NESSUNA — non autenticato"}</b></p>
