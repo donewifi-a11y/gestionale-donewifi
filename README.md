@@ -4167,6 +4167,20 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   documentazione di un lavoro già chiuso — verificato con build/lint e lettura attenta del codice,
   stesso pattern (signed URL, service role, map-join) già provato altrove in questo progetto.
 
+✅ **FIX — Subentro e "Invia una pratica al cliente" comparivano su qualunque Ticket, installazioni
+comprese** (2026-09-10, "perchè figura il subentro per un cliente che deve essere installato...
+le schermate sono tutte uguali e non sono specifiche per il tipo di intervento da fare. se è una
+nuova installazione non deve essere un subentro e nessuna pratica" — screenshot reale di un Ticket
+Assistenza/"Pianificazione installazione" col popup Subentro comunque visibile). La sezione
+Subentro (`tickets-board.tsx`) non aveva mai avuto una condizione di visibilità — a differenza
+di "Invia una pratica al cliente" (Disdetta), che almeno escludeva i Ticket già di sottocategoria
+"Subentro" — e compariva identica su ogni categoria di Ticket. Entrambe le sezioni ora sono
+nascoste quando `ticket.categoria === "Assistenza"` (Internet assente, Pianificazione
+installazione, Ritiro Apparati): Subentro e Disdetta sono pratiche Commerciale/Amministrativa, mai
+applicabili a un cliente che deve ancora essere installato o a un intervento tecnico. Build/lint
+puliti; verificato leggendo `SOTTOCATEGORIE_TICKET`/`tipoServizioDaTicket` in `lib/types.ts` per
+confermare che "Pianificazione installazione" ricade sempre sotto categoria "Assistenza".
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

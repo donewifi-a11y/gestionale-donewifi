@@ -1744,7 +1744,19 @@ function DettaglioTicket({
         in un menu a tendina generico: lo stesso pulsante "Avvia
         Subentro" di NuovaPraticaClienteEsterno (scheda Cliente Esterno),
         qui applicato al Ticket già aperto invece di doverne creare uno
-        nuovo. */}
+        nuovo.
+
+        ★ FIX (2026-09-10, "perchè figura il subentro per un cliente che
+        deve essere installato... le schermate sono tutte uguali e non
+        sono specifiche per il tipo di intervento" — screenshot reale di
+        un Ticket Assistenza/Pianificazione installazione con la sezione
+        Subentro comunque visibile): questa sezione non aveva NESSUNA
+        condizione — compariva identica su ogni Ticket, installazioni
+        comprese, dove un subentro (trasferimento di un contratto
+        esistente a un nuovo titolare) non ha senso: il cliente non ha
+        ancora un contratto da trasferire. Subentro è una pratica
+        Commerciale/Amministrativa, mai un'Assistenza. */}
+        {ticket.categoria !== "Assistenza" && (
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={Repeat} categoria="documento" dimensione="sm" />
@@ -1778,6 +1790,7 @@ function DettaglioTicket({
             ticketCompletato={ticket.stato === "Completato"}
           />
         </div>
+        )}
 
         {/* ★ NASCOSTA per i Ticket di Subentro (2026-09-10, "non deve
         comparire invia una pratica al cliente è ancora un refuso del
@@ -1798,7 +1811,11 @@ function DettaglioTicket({
         diretto basta, stesso pattern di "Avvia Subentro"; il menu
         ricompare da solo se in futuro le pratiche selezionabili
         tornassero più di una. */}
-        {ticket.sottocategoria !== "Subentro" && (
+        {/* ★ FIX (2026-09-10, stessa richiesta della sezione Subentro sopra):
+        Disdetta contratto è una pratica Amministrativa — non ha senso su un
+        Ticket di Assistenza (es. Pianificazione installazione), dove il
+        cliente non ha nulla da disdire. */}
+        {ticket.categoria !== "Assistenza" && ticket.sottocategoria !== "Subentro" && (
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
