@@ -4044,6 +4044,15 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   stato torna indietro (es. il vecchio cliente rifiuta). Nessuna funzione toccata, solo visibilità
   condizionale. Build/lint puliti.
 
+✅ Tolto un refuso: "Invia una pratica al cliente" su un Ticket di Subentro (2026-09-10, "non deve
+  comparire... è ancora un refuso del passato" — stesso screenshot del popup reale). Da quando
+  Subentro ha la sua sezione dedicata con un flusso completo (contratto incluso), "subentro" non è
+  più in `PRATICHE_INVIABILI`/`PRATICA_PER_SOTTOCATEGORIA` — ma il menu generico "Invia una pratica
+  al cliente" restava comunque visibile sotto, offrendo solo "Disdetta contratto" come unica scelta:
+  un'opzione senza senso su una pratica che sta ancora avviando un trasferimento. Nascosta per i
+  Ticket con sottocategoria "Subentro" (resta per ogni altro Ticket). "Intervento risolto da
+  remoto?", generico e indipendente, resta visibile anche per Subentro. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

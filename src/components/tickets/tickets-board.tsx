@@ -1744,6 +1744,16 @@ function DettaglioTicket({
           />
         </div>
 
+        {/* ★ NASCOSTA per i Ticket di Subentro (2026-09-10, "non deve
+        comparire invia una pratica al cliente è ancora un refuso del
+        passato" — screenshot del popup reale) — da quando Subentro ha la
+        sua sezione dedicata sopra (con il proprio flusso completo,
+        contratto incluso), PRATICHE_INVIABILI/PRATICA_PER_SOTTOCATEGORIA
+        non contengono più "subentro": per un Ticket di Subentro questo
+        menu offriva solo "Disdetta contratto", un'opzione senza senso su
+        una pratica che sta ancora avviando il trasferimento, avanzo
+        visibile di quando Subentro passava di qui. */}
+        {ticket.sottocategoria !== "Subentro" && (
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
@@ -1776,21 +1786,22 @@ function DettaglioTicket({
               />
             </div>
           )}
-
-          {ticket.email && (
-            <div className="mt-3 border-t pt-3">
-              <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                Intervento risolto da remoto?
-                <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
-              </p>
-              <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
-                {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
-                {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
-              </Button>
-              {esitoApprovazione && <p className="mt-1.5 text-xs text-muted-foreground">{esitoApprovazione}</p>}
-            </div>
-          )}
         </div>
+        )}
+
+        {ticket.email && (
+          <div>
+            <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Intervento risolto da remoto?
+              <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
+            </p>
+            <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
+              {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
+              {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
+            </Button>
+            {esitoApprovazione && <p className="mt-1.5 text-xs text-muted-foreground">{esitoApprovazione}</p>}
+          </div>
+        )}
         </div>
         )}
 
