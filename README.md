@@ -4091,6 +4091,21 @@ anche `area.donewifi.it` a questo gestionale, una volta esauriti i link vecchi i
   cambiato, solo la lettura. "Annullato" resta un badge a parte, fuori dai 4 passi, come prima.
   Build/lint puliti.
 
+✅ Uniformità grafica nel popup Ticket (2026-09-10, "vedo diversi tipi di forme e non uniformità e
+  modernità" su uno screenshot del popup reale). Audit vero sulle classi Tailwind usate in tutto il
+  popup (`grep` sui raggi/spaziature reali, non a occhio) — due incongruenze concrete, non
+  un'impressione:
+  - **Raggi diversi per lo stesso ruolo**: i controlli (select, bottone di upload) erano un misto di
+    `rounded-md`/`rounded-lg`; i riquadri-contenitore (Contratto, Subentro, "pronta da completare",
+    "moduli ricevuti") erano un misto di `rounded-lg`/`rounded-xl`. Ora due livelli fissi: `rounded-lg`
+    per ogni controllo (stesso raggio di `Button`/`Input`), `rounded-xl` per ogni riquadro-contenitore
+    — 7 punti corretti, incluso il form di "Pianifica appuntamento" (era rimasto al vecchio `rounded-md`).
+  - **Altezze diverse nella stessa riga**: l'etichetta "Ricarica contratto" (36px) stava accanto ai
+    pulsanti di `PulsanteDocumento` — "Vedi contratto" + icona download (44px, componente condiviso
+    con richieste-clienti/segnalazioni) — nella stessa riga, due altezze. Allineata a 44px.
+  - Spaziatura interna della card "moduli ricevuti" allineata (`p-2.5` → `p-3`, come le altre card).
+  Nessun colore, dato o comportamento cambiato — solo raggi/altezze/spaziatura. Build/lint puliti.
+
 **⚠️ MIGRAZIONE APPLICATA (2026-09-09):** `supabase/migrations/0071_subentro_contratto.sql` —
 aggiunge `richieste_clienti.contratto_pdf_url`/`contratto_inviato_approvazione_il`/
 `contratto_approvato_nuovo_cliente_il` e il valore `'subentro_contratto'` al vincolo

@@ -1698,7 +1698,7 @@ function DettaglioTicket({
               {richieste
                 .filter((r) => r.tipo_richiesta !== "Subentro")
                 .map((r) => (
-                <div key={r.id} className="rounded-lg border bg-card p-2.5">
+                <div key={r.id} className="rounded-xl border bg-card p-3">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <span className="text-xs font-bold">{r.tipo_richiesta}</span>
                     <span className="text-[10px] text-muted-foreground">
@@ -1812,7 +1812,7 @@ function DettaglioTicket({
               <select
                 value={praticaScelta}
                 onChange={(e) => setPraticaScelta(e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-3 text-xs"
+                className="h-9 w-full rounded-lg border bg-background px-3 text-xs"
               >
                 <option value="">Scegli una pratica...</option>
                 {PRATICHE_INVIABILI.map((p) => (
@@ -1901,7 +1901,7 @@ function DettaglioTicket({
               onChange={(e) => setNotaTesto(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && inviaNota()}
               placeholder="Scrivi un aggiornamento su questo ticket..."
-              className="h-9 flex-1 rounded-md border bg-background px-3 text-xs"
+              className="h-9 flex-1 rounded-lg border bg-background px-3 text-xs"
             />
             <Button size="icon" className="h-11 w-11 shrink-0" disabled={inCorsoNota || !notaTesto.trim()} onClick={inviaNota} title="Invia nota" aria-label="Invia nota">
               {inCorsoNota ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.5} />}
@@ -1979,7 +1979,7 @@ function SubentroDoppioConsenso({
 }) {
   if (!praticaSubentro) {
     return (
-      <div className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+      <div className="flex flex-col gap-2 rounded-xl border bg-muted/40 p-3">
         <div>
           <Label htmlFor="nomeNuovoTitolare">Nome del nuovo titolare (facoltativo)</Label>
           <Input
@@ -2117,9 +2117,16 @@ function SubentroDoppioConsenso({
             testoNo=""
             testoAttesa={praticaSubentro.contratto_inviato_approvazione_il ? "In attesa di approvazione" : "Da caricare"}
           />
-          <div className="rounded-lg border bg-muted/40 p-3">
+          <div className="rounded-xl border bg-muted/40 p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs font-semibold transition hover:border-primary/40">
+              {/* ★ FIX (2026-09-10, "diversi tipi di forme e non
+              uniformità" — screenshot del popup reale) — questa etichetta
+              era alta 36px (min-h-9) accanto a PulsanteDocumento
+              ("Vedi contratto" + icona download) alto 44px (min-h-11):
+              stessa riga, due altezze diverse. Allineata alla stessa
+              altezza del componente condiviso invece di lasciarla al suo
+              valore di default. */}
+              <label className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border bg-background px-2.5 text-xs font-semibold transition hover:border-primary/40">
                 {inCorsoContrattoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />}
                 {praticaSubentro.contratto_pdf_url ? "Ricarica contratto" : "Carica contratto (PDF)"}
                 <input
@@ -2166,7 +2173,7 @@ function SubentroDoppioConsenso({
         nuovoClienteHaRisposto &&
         praticaSubentro.contratto_approvato_nuovo_cliente_il &&
         ticketCompletato && (
-          <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
+          <div className="flex flex-col gap-2 rounded-xl border border-success/30 bg-success/10 p-3">
             <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
               <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
               Pronta da completare — contratto approvato, installazione svolta.
@@ -2427,12 +2434,17 @@ export function PianificaAppuntamento({
         </div>
       )}
 
+      {/* ★ FIX (2026-09-10, "diversi tipi di forme e non uniformità" —
+      screenshot del popup reale) — questi campi erano rounded-md, un
+      raggio diverso da tutti i controlli del resto del popup (rounded-lg,
+      stesso di Assegnato a/Reparto/Button) — stesso valore in tutto il
+      form, nessun campo dimenticato al vecchio raggio. */}
       <form onSubmit={onSubmit} className="flex flex-col gap-2">
         <select
           name="tipo_servizio"
           value={tipoServizio}
           onChange={(e) => setTipoServizio(e.target.value as TipoServizioAppuntamento)}
-          className="h-8 rounded-md border bg-background px-2 text-xs"
+          className="h-8 rounded-lg border bg-background px-2 text-xs"
         >
           {TIPI_SERVIZIO_APPUNTAMENTO.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -2444,7 +2456,7 @@ export function PianificaAppuntamento({
             required
             value={tipoIntervento}
             onChange={(e) => setTipoIntervento(e.target.value)}
-            className="h-8 rounded-md border bg-background px-2 text-xs"
+            className="h-8 rounded-lg border bg-background px-2 text-xs"
           >
             <option value="">— Scegli il tipo di intervento —</option>
             {INTERVENTI_RAPIDI.map((i) => (
@@ -2458,19 +2470,19 @@ export function PianificaAppuntamento({
           value={comune}
           onChange={(e) => setComune(e.target.value)}
           placeholder="Comune (facoltativo)"
-          className="h-8 rounded-md border bg-background px-2 text-xs"
+          className="h-8 rounded-lg border bg-background px-2 text-xs"
         />
         <div className="grid grid-cols-3 gap-2">
-          <input type="date" name="data" required className="h-8 rounded-md border bg-background px-2 text-xs" />
-          <input type="time" name="ora" required className="h-8 rounded-md border bg-background px-2 text-xs" />
-          <select name="durata" defaultValue="60" className="h-8 rounded-md border bg-background px-2 text-xs">
+          <input type="date" name="data" required className="h-8 rounded-lg border bg-background px-2 text-xs" />
+          <input type="time" name="ora" required className="h-8 rounded-lg border bg-background px-2 text-xs" />
+          <select name="durata" defaultValue="60" className="h-8 rounded-lg border bg-background px-2 text-xs">
             <option value="30">30 min</option>
             <option value="60">1 ora</option>
             <option value="90">1h30</option>
             <option value="120">2 ore</option>
           </select>
         </div>
-        <select name="tecnico" defaultValue={tecnicoIniziale ?? ticket.tecnico_assegnato ?? ""} className="h-8 rounded-md border bg-background px-2 text-xs">
+        <select name="tecnico" defaultValue={tecnicoIniziale ?? ticket.tecnico_assegnato ?? ""} className="h-8 rounded-lg border bg-background px-2 text-xs">
           <option value="">Nessun tecnico</option>
           {persone.map((p) => (
             <option key={p.id} value={p.id}>{p.nome}</option>
