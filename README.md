@@ -4297,3 +4297,18 @@ altrimenti lo vedrebbe ma non potrebbe operarci. **Da incollare nell'SQL Editor 
 possibile** — finché non applicata, chi ha un reparto diverso da quello del Ticket (o un
 amministratore con `reparti` vuoto ma che, per qualche altro motivo, non passasse il bypass) resta
 bloccato in scrittura.
+
+**🔴 MIGRAZIONE DA APPLICARE — URGENTE, SEGUITO (2026-09-10):**
+`supabase/migrations/0073_fix_drift_policy_insert_tickets_robusto.sql` — applicata la 0072, l'UPDATE
+si comporta correttamente (riverificato con un nuovo test reale), ma l'**INSERT resta bloccato**
+identico a prima per un Ticket di reparto diverso dal proprio. Spiegazione più probabile: 0072
+elimina la policy di INSERT con un nome preciso (`"staff attivo scrive tickets"`); se il drift
+storico ha aggiunto una **seconda** policy di INSERT sotto un nome diverso — specie se
+**RESTRICTIVE** (si combina in AND con tutte le altre, non in OR: basta una permissiva corretta più
+una restrittiva col controllo di reparto per bloccare comunque tutto) — 0072 l'ha lasciata intatta
+perché il nome non combaciava. Questa migrazione non indovina il nome: elimina **dinamicamente**
+ogni policy di INSERT e di UPDATE esistente su `tickets` (query su `pg_policies`, qualunque sia il
+nome o il tipo) e ne ricrea una sola, pulita, per ciascuna. In fondo al file una query di verifica
+facoltativa da eseguire a parte: deve restituire esattamente una riga per INSERT e una per UPDATE —
+se ne trova di più, c'è ancora qualcosa non coperto da questo file (es. una policy su un ruolo
+diverso da `authenticated`). **Da incollare nell'SQL Editor di Supabase** — la 0072 da sola non basta.
