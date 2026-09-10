@@ -4363,3 +4363,15 @@ resta comunque disponibile in `lib/errori-rls.ts` per un futuro caso simile.
   in questo giro (serve la conferma di chi ha segnalato il problema) — verificato che la service
   role bypassa sempre la RLS per costruzione (comportamento Postgres documentato, non specifico di
   questo progetto), quindi il fix è deterministico indipendentemente dall'anomalia di fondo.
+
+**✅ CONFERMATO RISOLTO (2026-09-10, "funziona ora")** — Gabriel e Antonietta hanno riprovato con
+l'app reale, in produzione, a creare un Ticket per un reparto diverso dal proprio: funziona.
+Rimossa la pagina di debug temporanea `/debug-accesso` (non serve più). Chiude una giornata di
+indagine su tre bug che si sono rivelati concatenati: (1) il messaggio Postgres grezzo su
+creaTicket(), (2) lo stesso su completaTicketConRapportino()/aggiornaStatoTicket(), (3) il vero
+buco di sicurezza nel selettore "Tu sei" (chiuso, resta corretto), (4) questa anomalia infrastrutturale
+sulla scrittura via RLS/PostgREST, aggirata spostando il controllo permessi in codice e la scrittura
+sulla service role. La segnalazione al supporto Supabase (voce precedente) resta comunque valida da
+aprire, per capire la causa reale lato loro — non è più urgente ora che l'app funziona, ma capire
+se altre tabelle con lo stesso schema RLS (`is_active_staff()`) possano incapparci in futuro
+resterebbe utile saperlo.
