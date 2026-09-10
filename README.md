@@ -4375,3 +4375,20 @@ sulla service role. La segnalazione al supporto Supabase (voce precedente) resta
 aprire, per capire la causa reale lato loro — non è più urgente ora che l'app funziona, ma capire
 se altre tabelle con lo stesso schema RLS (`is_active_staff()`) possano incapparci in futuro
 resterebbe utile saperlo.
+
+✅ **Eliminazione definitiva di una Persona, per l'amministratore** (2026-09-10, "ora vorrei la
+possibilità, come amministratore di disattivare e/o cancellare gli utenti attivi"). Disattivare
+esisteva già (`aggiornaPersona()` con "Persona attiva"); nuova `eliminaPersona()`
+(`persone/actions.ts`) per la cancellazione vera. Impossibile se la Persona ha già Ticket, Schede,
+rapportini o altro storico collegato (vincolo di chiave esterna, `code 23503`) — intenzionale: si
+perderebbe la tracciabilità di chi ha fatto cosa, mai un "SET NULL" silenzioso. In quel caso — il
+caso comune, per chiunque abbia lavorato davvero — un messaggio chiaro invita a disattivare invece,
+al posto dell'errore Postgres grezzo sul vincolo. Se l'eliminazione riesce, elimina anche il login
+Supabase Auth collegato (se c'era), per non lasciare un accesso "fantasma" come quelli trovati e
+disattivati in mattinata (`fornitori@donewifi.it`/`donewifi@gmail.com`). Non si può eliminare il
+proprio stesso account (pulsante nascosto per la propria riga). Nuovo pulsante "Elimina
+definitivamente" in fondo al pannello di modifica Persona, zona separata dal form principale con
+conferma esplicita — stesso trattamento delle altre azioni distruttive del gestionale (es. "Elimina
+Ticket"). Build/lint puliti; verificato con un test reale contro produzione (persone/ticket usa e
+getta, ripuliti subito dopo): eliminazione senza vincoli riuscita, eliminazione con un Ticket
+collegato correttamente bloccata con `code 23503`.

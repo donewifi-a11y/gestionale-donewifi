@@ -128,6 +128,57 @@ export async function aggiornaPersona(
   return { errore: null };
 }
 
+/** ★ NUOVA — richiesta esplicita: "vorrei la possibilità, come amministratore,
+ * di disattivare e/o cancellare gli utenti attivi". Disattivare esiste già
+ * (aggiornaPersona con `attivo: false`, sopra) — qui la cancellazione vera
+ * e propria, definitiva.
+ *
+ * Impossibile se la Persona ha già Ticket/Schede/rapportini/altro storico
+ * collegato: i riferimenti restano intenzionalmente (chi ha creato o
+ * chiuso un Ticket in passato deve restare rintracciabile), non si passa a
+ * un "SET NULL" silenzioso che cancellerebbe quella tracciabilità. In quel
+ * caso — il caso comune, per chiunque abbia lavorato davvero — l'unica
+ * strada resta disattivare: l'errore lo dice esplicitamente invece di un
+ * messaggio Postgres grezzo sul vincolo di chiave esterna (stesso principio
+ * già in uso altrove in questo gestionale per i messaggi tecnici). */
+export async function eliminaPersona(id: string) {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return { errore: erroreAccesso };
+
+  const supabase = await createClient();
+  const personaCorrente = await getPersonaCorrente(supabase);
+  if (personaCorrente?.id === id) return { errore: "Non puoi eliminare il tuo stesso accesso." };
+
+  const service = createServiceClient();
+  const { data: persona } = await service.from("persone").select("nome, auth_user_id").eq("id", id).single();
+  if (!persona) return { errore: "Persona non trovata." };
+
+  const { error } = await service.from("persone").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        errore: `${persona.nome} ha già Ticket, Schede o altre attività collegate — non può essere eliminata definitivamente (si perderebbe lo storico di chi ha fatto cosa). Disattivala invece, dal campo "Persona attiva" qui sopra.`,
+      };
+    }
+    return { errore: error.message };
+  }
+
+  // ★ elimina anche il login Supabase Auth collegato, se c'era — altrimenti
+  // resterebbe un accesso "fantasma" non collegato a nessuna Persona, come
+  // trovato e disattivato per fornitori@donewifi.it/donewifi@gmail.com in
+  // una sessione precedente (vedi README, 2026-09-10). Non bloccante: la
+  // Persona è già stata eliminata con successo sopra.
+  if (persona.auth_user_id) {
+    const { error: erroreAuth } = await service.auth.admin.deleteUser(persona.auth_user_id);
+    if (erroreAuth) {
+      console.error("eliminaPersona — persona eliminata ma l'accesso Supabase Auth non è stato rimosso:", erroreAuth.message);
+    }
+  }
+
+  revalidatePath("/persone");
+  return { errore: null };
+}
+
 function generaPasswordProvvisoria(): string {
   const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   let risultato = "";

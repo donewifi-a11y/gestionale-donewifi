@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase, Loader2, Copy, Check } from "lucide-react";
+import { Plus, AlertTriangle, Lock, KeyRound, ShieldAlert, RefreshCw, Clock, Briefcase, Loader2, Copy, Check, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import {
   creaPersona,
   aggiornaPersona,
+  eliminaPersona,
   reimpostaPasswordPersona,
   getAttivitaPersona,
   getCaricoPersona,
@@ -175,7 +176,7 @@ export function PersoneBoard({
 
       <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
         <DialogContent>
-          {modifica && <FormModificaPersona persona={modifica} onFatto={() => setModifica(null)} />}
+          {modifica && <FormModificaPersona persona={modifica} currentUserId={currentUserId} onFatto={() => setModifica(null)} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -293,10 +294,11 @@ function FormNuovaPersona({ onFatto }: { onFatto: () => void }) {
   );
 }
 
-function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: () => void }) {
+function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Persona; currentUserId: string; onFatto: () => void }) {
   const router = useRouter();
   const toast = useToast();
   const [inCorso, startTransizione] = useTransition();
+  const [inCorsoEliminazione, startEliminazione] = useTransition();
   const [errore, setErrore] = useState("");
   const [reset, setReset] = useState<{ inCorso: boolean; password: string | null; errore: string | null; avviso?: string | null }>({
     inCorso: false,
@@ -305,6 +307,7 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
   });
   const [attivita, setAttivita] = useState<AttivitaPersona[]>([]);
   const [carico, setCarico] = useState<CaricoPersona | null>(null);
+  const eSeStesso = persona.id === currentUserId;
 
   useEffect(() => {
     getAttivitaPersona(persona.id).then(setAttivita);
@@ -315,6 +318,21 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
     setReset({ inCorso: true, password: null, errore: null });
     const risultato = await reimpostaPasswordPersona(persona.id);
     setReset({ inCorso: false, password: risultato.password, errore: risultato.errore, avviso: risultato.avviso });
+  }
+
+  function onElimina() {
+    if (!confirm(`Eliminare definitivamente ${persona.nome}? Non si può annullare. Se ha già Ticket o attività collegate, non sarà possibile — disattivala invece.`)) return;
+    setErrore("");
+    startEliminazione(async () => {
+      const risultato = await eliminaPersona(persona.id);
+      if (risultato.errore) {
+        setErrore(risultato.errore);
+        return;
+      }
+      toast(`${persona.nome} eliminata.`, "successo");
+      router.refresh();
+      onFatto();
+    });
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -434,6 +452,31 @@ function FormModificaPersona({ persona, onFatto }: { persona: Persona; onFatto: 
           </div>
         )}
       </div>
+
+      {/* ★ NUOVA — richiesta esplicita: "vorrei la possibilità, come
+      amministratore, di disattivare e/o cancellare gli utenti attivi" —
+      disattivare esiste già sopra (checkbox "Persona attiva"), qui la
+      cancellazione vera e propria. Zona separata, in fondo, stesso
+      trattamento delle altre azioni distruttive del gestionale (es.
+      "Elimina Ticket"): fuori dal form principale, pulsante proprio,
+      conferma esplicita. Non mostrata per il proprio account. */}
+      {!eSeStesso && (
+        <div className="border-t pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-9 w-full border-critical/30 text-critical hover:bg-critical/10"
+            onClick={onElimina}
+            disabled={inCorsoEliminazione}
+          >
+            {inCorsoEliminazione ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
+            {inCorsoEliminazione ? "Eliminazione in corso…" : "Elimina definitivamente"}
+          </Button>
+          <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
+            Impossibile se ha già Ticket o altre attività collegate — usa &quot;Persona attiva&quot; sopra per disattivarla invece.
+          </p>
+        </div>
+      )}
     </>
   );
 }
