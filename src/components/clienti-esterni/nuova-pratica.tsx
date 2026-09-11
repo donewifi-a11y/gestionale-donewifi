@@ -108,6 +108,22 @@ export function NuovaPraticaClienteEsterno({
 
   const messaggio = slugGenerico ? messaggioWhatsappPratica(nome, RICHIESTE_CLIENTE_CONFIG[slugGenerico].titolo, link) : "";
 
+  // ★ NUOVA (2026-09-11, bug reale segnalato: "dall'area del cliente non
+  // riesco a mandare la mail per far fare la disdetta") — InvioLinkCliente
+  // era già pensato apposta anche per la Disdetta ("estratto qui per essere
+  // riusabile anche da Richieste Clienti e Disdetta", vedi il suo stesso
+  // commento in condivisi/invio-link.tsx) ma non era mai stato collegato
+  // qui: si poteva solo "segnare ricevuta" o aprire il link da soli, mai
+  // mandarlo al cliente. Il link punta alla pagina di sole istruzioni
+  // (/disdetta) — non sostituisce la comunicazione ufficiale scritta
+  // (raccomandata/PEC), la informa solo su come farla, esattamente come le
+  // altre 3 pratiche informano il cliente del modulo da compilare.
+  const linkDisdetta = useMemo(() => {
+    if (scelta !== "disdetta" || typeof window === "undefined") return "";
+    return `${window.location.origin}/disdetta`;
+  }, [scelta]);
+  const messaggioDisdetta = linkDisdetta ? messaggioWhatsappPratica(nome, "Disdetta contratto", linkDisdetta) : "";
+
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-md">
       <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
@@ -165,12 +181,22 @@ export function NuovaPraticaClienteEsterno({
         </div>
       )}
 
-      {/* ★ Disdetta, a differenza delle altre non ha un modulo pubblico (la
-      normativa richiede una comunicazione scritta tracciabile — vedi
-      /disdetta, resta di sole istruzioni, invariata). Questo pulsante non
-      la sostituisce: serve solo a tracciarla qui insieme alle altre. */}
+      {/* ★ Disdetta, a differenza delle altre non ha un modulo pubblico da
+      compilare (la normativa richiede una comunicazione scritta
+      tracciabile — vedi /disdetta, resta di sole istruzioni, invariata) —
+      ma può comunque essere INVIATA al cliente (WhatsApp/Email) come le
+      altre, così sa subito come procedere invece di doverlo scoprire da
+      solo o via telefono. "Segna disdetta ricevuta" resta separato: non
+      sostituisce la comunicazione ufficiale, serve solo a tracciarla qui. */}
       {scelta === "disdetta" && (
         <div className="mt-3 flex flex-col items-stretch gap-2 rounded-xl border bg-muted/40 p-3">
+          <InvioLinkCliente
+            url={linkDisdetta}
+            telefono={telefono}
+            email={email}
+            messaggio={messaggioDisdetta}
+            onInviaEmail={() => inviaEmailPraticaClienteEsterno(clienteId, "Disdetta contratto", linkDisdetta, "Fatturazione")}
+          />
           <button
             type="button"
             onClick={segnaDisdetta}

@@ -4414,6 +4414,24 @@ l'apparato e il MAC effettivamente ritirati quando arriva il giorno.
   applicare prima la migrazione) — verificato leggendo il codice e lo stesso schema già collaudato
   oggi per le altre scritture Ticket via service role.
 
-**⚠️ MIGRAZIONE DA APPLICARE (2026-09-10):** `supabase/migrations/0074_dismissione_disdetta.sql` —
-aggiunge `tickets.data_dismissione_disdetta` (date, nullable). Da incollare nell'SQL Editor di
-Supabase.
+**⚠️ MIGRAZIONE APPLICATA (2026-09-10):** `supabase/migrations/0074_dismissione_disdetta.sql` —
+aggiunge `tickets.data_dismissione_disdetta` (date, nullable). Applicata con qualche intoppo: il
+primo tentativo aveva perso il carattere iniziale nel copia-incolla ("lter table..."), e serviva
+anche un `notify pgrst, 'reload schema'` perché PostgREST vedesse subito la colonna nuova (stesso
+principio già incontrato nell'indagine di stamattina sulle policy Ticket) — confermata applicata
+rileggendo `information_schema.columns`.
+
+✅ **Invio al cliente della pratica di Disdetta, dalla scheda Cliente Esterno** (2026-09-11, "dall'area
+del cliente non riesco a mandare la mail per far fare la disdetta"). `InvioLinkCliente` era già
+pensato apposta anche per la Disdetta fin dalla sua estrazione ("estratto qui per essere riusabile
+anche da Richieste Clienti e Disdetta", commento in `condivisi/invio-link.tsx`) ma non era mai stato
+collegato in "Nuova pratica" (scheda Cliente Esterno): si poteva solo "Segnare disdetta ricevuta" o
+aprire da soli il link `/disdetta` in un'altra scheda — mai mandarlo davvero al cliente via
+WhatsApp/Email, a differenza delle altre 4 pratiche. Il link punta alla stessa pagina di sole
+istruzioni di sempre (raccomandata A/R o PEC) — non sostituisce la comunicazione ufficiale scritta,
+la mette solo in mano al cliente più in fretta di doverla dettare al telefono. Riusa
+`inviaEmailPraticaClienteEsterno()`/`messaggioWhatsappPratica()`, già collaudate per le altre 3
+pratiche con modulo pubblico — nessuna funzione nuova, solo il collegamento mancante. Build/lint
+puliti; non inviata una vera email a un cliente reale per verificarlo (evitare di disturbare un
+cliente vero per un test) — verificato leggendo il codice, stesso esatto schema già in uso e
+funzionante per Trasferimento/Cambio IBAN/Cambio Anagrafica nello stesso file.
