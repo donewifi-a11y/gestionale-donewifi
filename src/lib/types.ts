@@ -713,8 +713,18 @@ export interface SchedaLavoro {
    * salvaSchedaLavoro(). */
   importo_fatturato: number | null;
   /** ★ NUOVA — come il cliente ha pagato la posa. NULL sulle schede
-   * salvate prima di questo campo. */
-  metodo_pagamento_posa: "Contanti" | "POS" | "In Fattura" | null;
+   * salvate prima di questo campo.
+   * ★ ESTESO (2026-09-11, richiesta esplicita: "devi dare la possibilità
+   * negli interventi in loco di mettere il costo di intervento gratuito")
+   * — "Gratuito" copre il caso di un intervento (es. "Sopralluogo",
+   * "Intervento tecnico specializzato") svolto ma non fatturato al
+   * cliente (garanzia, errore nostro, cortesia) — distinto da "In
+   * Fattura" (comunque fatturato, solo non riscosso sul posto) e da
+   * "nessun materiale/servizio aggiunto" (che oggi risulta già a 0€ ma
+   * non lo dichiara esplicitamente). Vedi salvaSchedaLavoro()/
+   * salvaSchedaLavoroEsterno(), che azzerano importo_fatturato quando
+   * scelto, indipendentemente da cosa risulti nell'elenco materiali. */
+  metodo_pagamento_posa: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null;
   materiali: MaterialeUsato[];
   foto: { nome: string; percorso: string }[];
   /** ★ solo schede storiche (pre-firma via email): disegno del cliente

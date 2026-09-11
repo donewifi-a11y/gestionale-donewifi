@@ -18,7 +18,7 @@ interface BozzaInstallazione {
   supporto: string; posizione: string; metriCavo: string;
   bts: string; modelloCpe: string; mac: string; rssi: string;
   ping: string; download: string; upload: string;
-  materiali: MaterialeUsato[]; metodoPagamento: "Contanti" | "POS" | "In Fattura" | null; note: string;
+  materiali: MaterialeUsato[]; metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null; note: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaInstallazioneForm
@@ -306,9 +306,12 @@ export function SchedaInstallazioneDomande({
       domanda: "Come ha pagato la posa?",
       categoria: "pagamento",
       icona: <Euro className="h-6 w-6" strokeWidth={2.25} />,
+      // ★ NUOVA (2026-09-11, richiesta esplicita: "devi dare la possibilità
+      // negli interventi in loco di mettere il costo di intervento
+      // gratuito").
       contenuto: (
         <TileScelta
-          opzioni={["Contanti", "POS", "In Fattura"]}
+          opzioni={["Contanti", "POS", "In Fattura", "Gratuito"]}
           valore={metodoPagamento ?? ""}
           onChange={(v) => setMetodoPagamento(v as BozzaInstallazione["metodoPagamento"])}
         />

@@ -30,7 +30,7 @@ interface BozzaInstallazione {
   download: string;
   upload: string;
   materiali: MaterialeUsato[];
-  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null;
   note: string;
 }
 
@@ -320,19 +320,31 @@ export function SchedaInstallazioneForm({
           <div>
             <Label>Metodo di pagamento della posa</Label>
             <div className="mt-1.5 flex overflow-hidden rounded-lg border">
-              {(["Contanti", "POS", "In Fattura"] as const).map((m) => (
+              {(["Contanti", "POS", "In Fattura", "Gratuito"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMetodoPagamento(m)}
                   className={`flex-1 px-2 py-2.5 text-sm font-semibold transition ${
-                    metodoPagamento === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                    metodoPagamento === m
+                      ? m === "Gratuito"
+                        ? "bg-success text-success-foreground"
+                        : "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {m}
                 </button>
               ))}
             </div>
+            {/* ★ NUOVA (2026-09-11, richiesta esplicita: "devi dare la
+            possibilità negli interventi in loco di mettere il costo di
+            intervento gratuito"). */}
+            {metodoPagamento === "Gratuito" && (
+              <p className="mt-1.5 text-xs text-success">
+                Il cliente non pagherà nulla per questa installazione, anche se ci sono materiali/servizi in elenco sopra.
+              </p>
+            )}
           </div>
           <Campo label="Note tecniche aggiuntive">
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" />

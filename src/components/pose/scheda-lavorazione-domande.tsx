@@ -15,7 +15,7 @@ import type { MaterialeMagazzino, MaterialeUsato } from "@/lib/types";
 
 interface BozzaLavorazione {
   interventi: string[]; materiali: MaterialeUsato[]; esito: string;
-  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null; note: string;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null; note: string;
   // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati".
   apparatoRecuperato: string; macRecuperato: string;
 }
@@ -158,8 +158,12 @@ export function SchedaLavorazioneDomande({
       domanda: "Come ha pagato la posa?",
       categoria: "pagamento",
       icona: <Euro className="h-6 w-6" strokeWidth={2.25} />,
+      // ★ NUOVA (2026-09-11, richiesta esplicita: "devi dare la possibilità
+      // negli interventi in loco di mettere il costo di intervento
+      // gratuito") — "Gratuito" azzera l'importo anche se sopra sono stati
+      // aggiunti materiali/servizi a pagamento, vedi salvaSchedaLavoroEsterno().
       contenuto: (
-        <TileScelta opzioni={["Contanti", "POS", "In Fattura"]} valore={metodoPagamento ?? ""} onChange={(v) => setMetodoPagamento(v as BozzaLavorazione["metodoPagamento"])} />
+        <TileScelta opzioni={["Contanti", "POS", "In Fattura", "Gratuito"]} valore={metodoPagamento ?? ""} onChange={(v) => setMetodoPagamento(v as BozzaLavorazione["metodoPagamento"])} />
       ),
     },
     {

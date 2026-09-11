@@ -14,7 +14,7 @@ interface BozzaLavorazione {
   interventi: string[];
   materiali: MaterialeUsato[];
   esito: string;
-  metodoPagamento: "Contanti" | "POS" | "In Fattura" | null;
+  metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null;
   note: string;
   // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati", vedi
   // sotto.
@@ -201,19 +201,35 @@ export function SchedaLavorazioneForm({
           </div>
           <Label className="mt-3 block">Metodo di pagamento della posa</Label>
           <div className="mt-1.5 flex overflow-hidden rounded-lg border">
-            {(["Contanti", "POS", "In Fattura"] as const).map((m) => (
+            {(["Contanti", "POS", "In Fattura", "Gratuito"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMetodoPagamento(m)}
                 className={`flex-1 px-2 py-2.5 text-sm font-semibold transition ${
-                  metodoPagamento === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+                  metodoPagamento === m
+                    ? m === "Gratuito"
+                      ? "bg-success text-success-foreground"
+                      : "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
                 }`}
               >
                 {m}
               </button>
             ))}
           </div>
+          {/* ★ NUOVA (2026-09-11, richiesta esplicita: "devi dare la
+          possibilità negli interventi in loco di mettere il costo di
+          intervento gratuito") — chiarisce che "Gratuito" azzera il
+          totale anche se sopra sono stati aggiunti materiali/servizi a
+          pagamento (es. un "Intervento tecnico specializzato" fatto in
+          garanzia): l'elenco resta comunque utile per lo scarico di
+          magazzino, solo il cliente non paga. */}
+          {metodoPagamento === "Gratuito" && (
+            <p className="mt-1.5 text-xs text-success">
+              Il cliente non pagherà nulla per questo intervento, anche se ci sono materiali/servizi in elenco sopra.
+            </p>
+          )}
         </div>
       ),
     },

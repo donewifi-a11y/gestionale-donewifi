@@ -554,7 +554,10 @@ export async function salvaSchedaLavoroEsterno(
   // quindi il salvataggio era codice morto. Rimosso invece di lasciarlo:
   // `firma_tecnico_url` resta sempre null per le schede create da pose.
 
-  const importo = dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
+  // ★ NUOVA (2026-09-11) — stesso fix gemello di salvaSchedaLavoro()
+  // (calendario/actions.ts): "Gratuito" azzera sempre l'importo, vedi lì
+  // per il commento completo.
+  const importo = dati.metodoPagamentoPosa === "Gratuito" ? 0 : dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
   const { data: schedaCreata, error: erroreScheda } = await service
     .from("schede_lavoro")

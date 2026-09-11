@@ -343,8 +343,9 @@ export interface DatiSchedaLavoro {
   note: string;
   /** ★ NUOVA (2026-08) — niente più campo scritto a mano: l'importo si
    * calcola da solo lato server come somma di `materiali` (vedi
-   * salvaSchedaLavoro). */
-  metodoPagamentoPosa: "Contanti" | "POS" | "In Fattura" | null;
+   * salvaSchedaLavoro) — eccetto "Gratuito" (2026-09-11), che lo azzera
+   * sempre indipendentemente da cosa c'è in `materiali`. */
+  metodoPagamentoPosa: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null;
   materiali: MaterialeUsato[];
   firmaCliente: FirmaClienteApprovata;
   firmaTecnicoDataUrl?: string;
@@ -488,7 +489,16 @@ export async function salvaSchedaLavoro(
   // d'uso hanno prezzo_unitario 0 e contribuiscono da sole per 0, non
   // serve escluderle a parte. Ricalcolato qui (non ricevuto dal client)
   // per la stessa ragione di firmaCliente sopra: unica fonte di verità.
-  const importo = dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
+  //
+  // ★ ESTESO (2026-09-11, richiesta esplicita: "devi dare la possibilità
+  // negli interventi in loco di mettere il costo di intervento gratuito")
+  // — "Gratuito" azzera SEMPRE l'importo fatturato, anche se il tecnico ha
+  // aggiunto materiali/servizi a pagamento (es. "Intervento tecnico
+  // specializzato" normalmente 100€, stavolta in garanzia): l'elenco resta
+  // intatto per lo scarico di magazzino/inventario, solo il cliente non
+  // paga. Senza questo, scegliere "Gratuito" con righe già in elenco non
+  // avrebbe cambiato nulla nell'importo.
+  const importo = dati.metodoPagamentoPosa === "Gratuito" ? 0 : dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
   const { data: schedaCreata, error: erroreScheda } = await service
     .from("schede_lavoro")

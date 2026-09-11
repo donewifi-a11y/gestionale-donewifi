@@ -82,6 +82,16 @@ function testoMetodoPagamento(metodo: string): string {
   }
 }
 
+/** ★ NUOVA (2026-09-11, richiesta esplicita: "devi dare la possibilità
+ * negli interventi in loco di mettere il costo di intervento gratuito") —
+ * "Gratuito" non si può infilare nelle frasi esistenti ("il pagamento
+ * della posa è avvenuto {X}"): è l'opposto, un pagamento che non c'è —
+ * "pagamento della posa gratuito" sarebbe italiano rotto. Frase dedicata
+ * al posto di testoMetodoPagamento() ovunque il metodo sia "Gratuito". */
+function fraseMetodoPagamentoGratuito(): string {
+  return "l'intervento è stato gratuito, nessun pagamento della posa";
+}
+
 /** Rapportino di chiusura Ticket (assistenza generica, non legato a un appuntamento). */
 export function generaTestoRapportino(r: Pick<RapportinoIntervento, "esito" | "lavori_svolti" | "materiali">): string {
   const frasi: string[] = [frase(r.esito)];
@@ -164,10 +174,21 @@ export function generaTestoScheda(
     // non vale la pena due frasi separate per uno ciascuno.
     {
       const partiMateriali = materiali ? `Tra i materiali impiegati figurano ${materiali}` : "";
-      const partiPagamento = s.metodo_pagamento_posa ? `la posa verrà pagata ${testoMetodoPagamento(s.metodo_pagamento_posa)}` : "";
+      const partiPagamento = !s.metodo_pagamento_posa
+        ? ""
+        : s.metodo_pagamento_posa === "Gratuito"
+          ? fraseMetodoPagamentoGratuito()
+          : `la posa verrà pagata ${testoMetodoPagamento(s.metodo_pagamento_posa)}`;
       if (partiMateriali && partiPagamento) frasi.push(frase(`${partiMateriali}; ${partiPagamento}`));
       else if (partiMateriali) frasi.push(frase(partiMateriali));
-      else if (partiPagamento) frasi.push(frase(`Il pagamento della posa è previsto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`));
+      else if (partiPagamento)
+        frasi.push(
+          frase(
+            s.metodo_pagamento_posa === "Gratuito"
+              ? fraseMetodoPagamentoGratuito()
+              : `Il pagamento della posa è previsto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`
+          )
+        );
     }
 
     if (s.note) frasi.push(frase(s.note));
@@ -189,10 +210,21 @@ export function generaTestoScheda(
 
   {
     const partiMateriali = materiali ? `Materiali/consumi impiegati: ${materiali}` : "";
-    const partiPagamento = s.metodo_pagamento_posa ? `pagamento della posa ${testoMetodoPagamento(s.metodo_pagamento_posa)}` : "";
+    const partiPagamento = !s.metodo_pagamento_posa
+      ? ""
+      : s.metodo_pagamento_posa === "Gratuito"
+        ? fraseMetodoPagamentoGratuito()
+        : `pagamento della posa ${testoMetodoPagamento(s.metodo_pagamento_posa)}`;
     if (partiMateriali && partiPagamento) frasi.push(frase(`${partiMateriali}; ${partiPagamento}`));
     else if (partiMateriali) frasi.push(frase(partiMateriali));
-    else if (partiPagamento) frasi.push(frase(`Il pagamento della posa è avvenuto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`));
+    else if (partiPagamento)
+      frasi.push(
+        frase(
+          s.metodo_pagamento_posa === "Gratuito"
+            ? fraseMetodoPagamentoGratuito()
+            : `Il pagamento della posa è avvenuto ${testoMetodoPagamento(s.metodo_pagamento_posa!)}`
+        )
+      );
   }
 
   if (s.note) frasi.push(frase(s.note));

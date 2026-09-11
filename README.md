@@ -4435,3 +4435,29 @@ pratiche con modulo pubblico — nessuna funzione nuova, solo il collegamento ma
 puliti; non inviata una vera email a un cliente reale per verificarlo (evitare di disturbare un
 cliente vero per un test) — verificato leggendo il codice, stesso esatto schema già in uso e
 funzionante per Trasferimento/Cambio IBAN/Cambio Anagrafica nello stesso file.
+
+✅ **"Gratuito" come metodo di pagamento della posa, negli interventi in loco** (2026-09-11, "devi
+dare la possibilità negli interventi in loco di mettere il costo di intervento gratuito"). Prima le
+uniche opzioni erano Contanti/POS/In Fattura — un intervento senza costo per il cliente (garanzia,
+errore nostro, cortesia) si otteneva solo non aggiungendo nessun materiale/servizio, ambiguo tra
+"gratuito apposta" e "il tecnico si è dimenticato di registrarlo", e comunque impossibile se si
+voleva comunque tracciare cosa è stato usato (es. un "Intervento tecnico specializzato" da 100€ fatto
+gratis) perché il prezzo di ogni riga non è modificabile a mano. Nuovo pulsante "Gratuito" (verde,
+per distinguerlo visivamente dagli altri tre) accanto a Contanti/POS/In Fattura in **tutti e 4** i
+punti dove compare questa scelta: Scheda Lavorazione e Scheda Installazione (interne), e le loro
+gemelle su pose.donewifi.it. Quando scelto, `salvaSchedaLavoro()`/`salvaSchedaLavoroEsterno()`
+azzerano sempre `importo_fatturato`, indipendentemente da cosa risulta nell'elenco materiali/servizi
+— che resta comunque intatto per lo scarico di magazzino. Aggiornato anche `testo-rapporto.ts`
+(email di chiusura al cliente): "Gratuito" non si può infilare nelle frasi esistenti ("il pagamento
+della posa è avvenuto {X}" — sarebbe "avvenuto gratuito", italiano rotto), nuova
+`fraseMetodoPagamentoGratuito()` con una frase propria ("l'intervento è stato gratuito, nessun
+pagamento della posa"), usata al posto delle altre in tutti e 4 i punti dove il testo si compone
+(Nuova installazione/Lavorazione tecnica, con o senza materiali elencati). Nuovo vincolo CHECK sul
+database (`schede_lavoro_metodo_pagamento_posa_check`, migrazione `0075_metodo_pagamento_gratuito.sql`,
+**da applicare**) — senza aggiornarlo, il salvataggio con "Gratuito" sarebbe stato respinto dal
+database. Build/lint puliti; non verificato con un salvataggio reale in questo giro (serve applicare
+prima la migrazione).
+
+**⚠️ MIGRAZIONE DA APPLICARE (2026-09-11):** `supabase/migrations/0075_metodo_pagamento_gratuito.sql`
+— aggiunge `'Gratuito'` al vincolo CHECK di `schede_lavoro.metodo_pagamento_posa`. Da incollare
+nell'SQL Editor di Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
