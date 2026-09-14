@@ -559,6 +559,23 @@ export async function salvaSchedaLavoroEsterno(
   // per il commento completo.
   const importo = dati.metodoPagamentoPosa === "Gratuito" ? 0 : dati.materiali.reduce((s, m) => s + m.prezzo_unitario * m.quantita, 0);
 
+  // ★ FIX (2026-09-14, controllo "a prova di scemo" punto per punto) —
+  // questa Server Action è anche il bersaglio della coda offline
+  // (coda-invio-pose.ts): se il salvataggio riesce sul server ma la
+  // risposta non arriva più al telefono (proprio lo scenario per cui la
+  // coda esiste — "la linea è cascata proprio ora"), la voce resta in coda
+  // e viene reinviata al prossimo giro, creando una seconda Scheda per lo
+  // stesso appuntamento con doppio scarico di magazzino e doppio importo
+  // fatturato. Un appuntamento ha sempre al massimo una Scheda: se ne
+  // esiste già una la si tratta come un invio già riuscito invece di
+  // duplicarla.
+  const { data: schedaEsistente } = await service
+    .from("schede_lavoro")
+    .select("id")
+    .eq("appuntamento_id", appuntamentoId)
+    .maybeSingle();
+  if (schedaEsistente) return { errore: null };
+
   const { data: schedaCreata, error: erroreScheda } = await service
     .from("schede_lavoro")
     .insert({

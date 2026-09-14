@@ -4531,3 +4531,14 @@ correzione non era mai stata riportata sulla variante "Archivio" (tariffe non pi
 sottoscrivibili), che continuava a fallire in silenzio — nessun toast, nessun refresh, un
 clic apparentemente senza effetto. Stesso toast di errore/successo aggiunto qui. Build/lint
 puliti.
+
+✅ **Scheda di Lavoro duplicata dalla coda offline di pose.donewifi.it** (2026-09-14, stesso
+controllo "a prova di scemo"). `salvaSchedaLavoroEsterno()` è anche il bersaglio della coda
+offline (coda-invio-pose.ts) che reinvia da sola una scheda quando torna la rete: se il
+salvataggio riesce sul server ma la risposta non arriva più al telefono — proprio lo scenario
+per cui la coda esiste ("la linea è cascata proprio ora") — la voce restava in coda e veniva
+reinviata al giro successivo, creando una seconda Scheda per lo stesso appuntamento con doppio
+scarico di magazzino e doppio importo fatturato. Un appuntamento ha sempre al massimo una
+Scheda (verificato sui dati reali: 8 schede, zero appuntamenti con più di una) — ora, se ne
+esiste già una, l'invio viene trattato come già riuscito invece di duplicarla. Build/lint
+puliti.
