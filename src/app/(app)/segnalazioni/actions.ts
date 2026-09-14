@@ -665,11 +665,30 @@ async function eseguiTrasmissione(
  * invece di un fetch pesante — usata solo quando la Segnalazione è già
  * "Trasmessa", non per ogni riga della bacheca.
  */
-export async function getTicketPerSegnalazione(segnalazioneId: string): Promise<{ id: string; numero: number; stato: string } | null> {
+export async function getTicketPerSegnalazione(
+  segnalazioneId: string
+): Promise<{ id: string; numero: number; stato: string; appuntamentoDataOra: string | null } | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("tickets").select("id, numero, stato").eq("segnalazione_id", segnalazioneId).maybeSingle();
   if (error) console.error("getTicketPerSegnalazione:", error.message);
-  return data ?? null;
+  if (!data) return null;
+
+  // ★ NUOVA (2026-09-14, richiesta esplicita: "quando viene pianificato un
+  // nuovo contratto nella sezione della segnalazione va aggiornato non in
+  // attesa di installazione ma pianificato il e metti la data") — appena
+  // esiste un appuntamento "Programmato" per questo Ticket, lo stato deve
+  // dirlo con la data invece del generico "in attesa di installazione",
+  // che restava identico anche dopo aver già fissato un giorno preciso.
+  const { data: appuntamento } = await supabase
+    .from("appuntamenti")
+    .select("data_ora")
+    .eq("ticket_id", data.id)
+    .eq("stato", "Programmato")
+    .order("data_ora", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return { ...data, appuntamentoDataOra: appuntamento?.data_ora ?? null };
 }
 
 export async function trasmettiPerInstallazione(

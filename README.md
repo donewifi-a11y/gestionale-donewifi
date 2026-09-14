@@ -4490,3 +4490,18 @@ visibile da qualunque pagina del gestionale senza dover aprire nulla — scende 
 pratica avanza (contratto inviato), niente da "spuntare" a mano. Build/lint puliti; verificato con
 una query reale contro produzione (conteggio corretto: 0 in questo momento, nessuna Segnalazione
 bloccata in quello stato).
+
+✅ **Segnalazione "Trasmessa" con appuntamento già fissato: dice la data, non più il generico "in
+attesa di installazione"** (2026-09-14, "quando viene pianificato un nuovo contratto nella sezione
+della segnalazione va aggiornato non in attesa di installazione ma pianificato il e metti la
+data"). Sia la card nella bacheca sia il popup di dettaglio mostravano lo stesso testo fisso
+("📅 Approvato — in attesa di installazione" / "Cliente ha approvato — vai al Ticket") anche dopo
+che Analisi Rete aveva già fissato un appuntamento preciso per l'installazione — nessuna
+distinzione tra "ancora da pianificare" e "già pianificato per il [giorno]". `getTicketPerSegnalazione()`
+(popup) e `fetchTicketPerSegnalazione()` (bacheca, `segnalazioni/page.tsx`) ora portano anche la
+data del primo appuntamento "Programmato" collegato al Ticket; se c'è, il testo diventa "📅
+Pianificato il [data]" (bacheca) / "Pianificato il [data e ora] — vai al Ticket" (popup) invece del
+generico messaggio di attesa. Build/lint puliti; verificato con una query reale contro produzione:
+delle 3 Segnalazioni "Trasmesse" esistenti, 2 (Paolo Ghirotti, Filippo Thomasset) hanno già un
+appuntamento fissato e ora mostreranno la data corretta, la terza (Gabriella Bolognesi, nessun
+appuntamento ancora) resta sul messaggio generico di attesa, come deve essere.

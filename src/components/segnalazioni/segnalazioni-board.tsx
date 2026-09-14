@@ -156,7 +156,10 @@ export function SegnalazioniBoard({
   // ★ NUOVA (2026-09) — vedi commento in page.tsx: stato del Ticket
   // collegato, per mostrare sulla card stessa (non solo nel popup) se il
   // cliente ha approvato/è in attesa di installazione/è già installato.
-  ticketPerSegnalazione: Record<string, { id: string; numero: number; stato: string }>;
+  // ★ ESTESA (2026-09-14) — anche la data del primo appuntamento
+  // "Programmato", per dire "Pianificato il..." invece del generico "in
+  // attesa di installazione" una volta fissato un giorno preciso.
+  ticketPerSegnalazione: Record<string, { id: string; numero: number; stato: string; appuntamentoDataOra: string | null }>;
   currentPersonaId: string;
   isAdmin: boolean;
 }) {
@@ -353,6 +356,15 @@ export function SegnalazioniBoard({
               const ticket = ticketPerSegnalazione[s.id];
               if (ticket?.stato === "Completato") {
                 segnale = { testo: `✓ Installato — vedi rapporto (Ticket #${ticket.numero})`, tono: "successo" };
+              } else if (ticket?.appuntamentoDataOra) {
+                // ★ NUOVA (2026-09-14, richiesta esplicita: "quando viene
+                // pianificato un nuovo contratto... va aggiornato non in
+                // attesa di installazione ma pianificato il e metti la
+                // data") — appena c'è un appuntamento fissato, lo dice con
+                // la data invece del generico "in attesa" che restava
+                // identico anche a installazione già fissata.
+                const dataAppuntamento = new Date(ticket.appuntamentoDataOra).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                segnale = { testo: `📅 Pianificato il ${dataAppuntamento} (Ticket #${ticket.numero})`, tono: "info" };
               } else if (ticket) {
                 segnale = { testo: `📅 Approvato — in attesa di installazione (Ticket #${ticket.numero})`, tono: "info" };
               }
@@ -547,7 +559,7 @@ function DettaglioSegnalazione({
   // solo visibile qui) — il Ticket nato da "Trasmetti" (vedi
   // eseguiTrasmissione, tickets.segnalazione_id), letto solo quando serve
   // (la Segnalazione è già "Trasmessa"), non per ogni riga della bacheca.
-  const [ticketCollegato, setTicketCollegato] = useState<{ id: string; numero: number; stato: string } | null>(null);
+  const [ticketCollegato, setTicketCollegato] = useState<{ id: string; numero: number; stato: string; appuntamentoDataOra: string | null } | null>(null);
   useEffect(() => {
     if (segnalazione.stato !== "Trasmessa") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resetta lo stato derivato quando si esce da "Trasmessa" (es. riapertura di un'altra Segnalazione), non derivabile durante il render.
@@ -881,6 +893,15 @@ function DettaglioSegnalazione({
       statoInfo = "Pratica trasmessa — l'installazione è in carico ad Analisi Rete.";
     } else if (ticketCollegato.stato === "Completato") {
       azione = { testo: `Installato — vedi il rapporto (Ticket #${ticketCollegato.numero})`, icona: FileText, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
+    } else if (ticketCollegato.appuntamentoDataOra) {
+      // ★ NUOVA (2026-09-14, richiesta esplicita: "quando viene pianificato
+      // un nuovo contratto nella sezione della segnalazione va aggiornato
+      // non in attesa di installazione ma pianificato il e metti la
+      // data") — appena c'è un appuntamento fissato, lo dice con la data
+      // invece del generico "Cliente ha approvato" che restava identico
+      // anche a installazione già pianificata.
+      const dataAppuntamento = new Date(ticketCollegato.appuntamentoDataOra).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      azione = { testo: `Pianificato il ${dataAppuntamento} — vai al Ticket #${ticketCollegato.numero}`, icona: CalendarClock, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
     } else {
       azione = { testo: `Cliente ha approvato — vai al Ticket #${ticketCollegato.numero}`, icona: ArrowRight, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
     }

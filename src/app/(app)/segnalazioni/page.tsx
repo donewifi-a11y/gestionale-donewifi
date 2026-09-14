@@ -50,14 +50,43 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
 // Trasmessa, ma la card della colonna "Trasmessa" restava muta (bisognava
 // aprire ogni pratica per saperlo). Un fetch in blocco qui, sullo stesso
 // modello dei ticket bulk-fetch di /tickets, evita un round-trip per card.
+// ★ ESTESA (2026-09-14, richiesta esplicita: "quando viene pianificato un
+// nuovo contratto nella sezione della segnalazione va aggiornato non in
+// attesa di installazione ma pianificato il e metti la data") — porta
+// anche la data del primo appuntamento "Programmato" per ogni Ticket,
+// stesso identico dato aggiunto a getTicketPerSegnalazione() (usata dal
+// popup di dettaglio) — qui per la card nella bacheca, un solo giro extra
+// invece di uno per riga.
 async function fetchTicketPerSegnalazione(
   supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<Record<string, { id: string; numero: number; stato: string }>> {
+): Promise<Record<string, { id: string; numero: number; stato: string; appuntamentoDataOra: string | null }>> {
   const { data } = await supabase.from("tickets").select("id, numero, stato, segnalazione_id").not("segnalazione_id", "is", null);
-  const mappa: Record<string, { id: string; numero: number; stato: string }> = {};
+  const mappa: Record<string, { id: string; numero: number; stato: string; appuntamentoDataOra: string | null }> = {};
+  const ticketIds: string[] = [];
   for (const t of data ?? []) {
-    if (t.segnalazione_id) mappa[t.segnalazione_id] = { id: t.id, numero: t.numero, stato: t.stato };
+    if (t.segnalazione_id) {
+      mappa[t.segnalazione_id] = { id: t.id, numero: t.numero, stato: t.stato, appuntamentoDataOra: null };
+      ticketIds.push(t.id);
+    }
   }
+
+  if (ticketIds.length > 0) {
+    const { data: appuntamenti } = await supabase
+      .from("appuntamenti")
+      .select("ticket_id, data_ora")
+      .eq("stato", "Programmato")
+      .in("ticket_id", ticketIds)
+      .order("data_ora", { ascending: true });
+    const dataPerTicket = new Map<string, string>();
+    for (const a of appuntamenti ?? []) {
+      if (a.ticket_id && !dataPerTicket.has(a.ticket_id)) dataPerTicket.set(a.ticket_id, a.data_ora);
+    }
+    for (const segnalazioneId of Object.keys(mappa)) {
+      const dataOra = dataPerTicket.get(mappa[segnalazioneId].id);
+      if (dataOra) mappa[segnalazioneId].appuntamentoDataOra = dataOra;
+    }
+  }
+
   return mappa;
 }
 
