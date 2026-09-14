@@ -842,7 +842,18 @@ function DettaglioSegnalazione({
     azione = { testo: "Avvia Gestione Cliente", icona: ArrowRight, onClick: () => cambiaStato("Gestione Cliente"), disabilitato: inCorsoStato };
   } else if (segnalazione.stato === "Gestione Cliente") {
     if (!richiesta) {
-      statoInfo = "In attesa che il cliente compili il modulo dati — usa WhatsApp/Email/Copia link qui sopra per sollecitarlo.";
+      // ★ FIX (2026-09-14, bug reale segnalato: "oggi quando ho aperto la
+      // segnalazione non mi ha indicato che era stata fatta la pratica" —
+      // verificato su un caso reale, Gabriella Bolognesi: richiesta dati
+      // inviata la mattina stessa, `documenti_richiesti_at` valorizzato,
+      // ma questo popup mostrava sempre lo stesso testo generico "in
+      // attesa che il cliente compili" senza mai confermare che l'invio
+      // fosse davvero avvenuto — a differenza della card nella bacheca
+      // (badge "📤 Richiesta dati inviata", vedi sopra), che quella
+      // conferma la mostra già. Stessa informazione, qui nel popup.
+      statoInfo = segnalazione.documenti_richiesti_at
+        ? `Richiesta dati inviata il ${new Date(segnalazione.documenti_richiesti_at).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} — in attesa che il cliente compili il modulo. Usa WhatsApp/Email/Copia link qui sopra per sollecitarlo.`
+        : "In attesa che il cliente compili il modulo dati — usa WhatsApp/Email/Copia link qui sopra per sollecitarlo.";
     } else if (!contrattoUrl) {
       statoInfo = "Dati ricevuti. Carica il contratto firmato nella tab Documenti per continuare.";
     } else if (!segnalazione.contratto_approvato_cliente_il && !segnalazione.contratto_inviato_approvazione_il) {

@@ -4461,3 +4461,16 @@ prima la migrazione).
 **⚠️ MIGRAZIONE DA APPLICARE (2026-09-11):** `supabase/migrations/0075_metodo_pagamento_gratuito.sql`
 — aggiunge `'Gratuito'` al vincolo CHECK di `schede_lavoro.metodo_pagamento_posa`. Da incollare
 nell'SQL Editor di Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
+
+✅ **Il popup Segnalazione ora conferma quando la Richiesta Dati è stata inviata** (2026-09-14, bug
+reale: "oggi quando ho aperto la segnalazione non mi ha indicato che era stata fatta la pratica").
+Verificato su un caso reale in produzione (Gabriella Bolognesi, Segnalazione #32): richiesta dati
+inviata la mattina stessa (`documenti_richiesti_at` valorizzato), cliente non ancora aveva
+compilato nulla (corretto, nessun dato davvero arrivato) — ma il popup di dettaglio mostrava sempre
+lo stesso identico testo generico "In attesa che il cliente compili il modulo dati", **senza mai
+confermare che l'invio fosse davvero avvenuto**. La card nella bacheca aveva già questa conferma
+(badge "📤 Richiesta dati inviata — in attesa del cliente", da una richiesta precedente) — il popup
+no, restava indietro. Ora, se `documenti_richiesti_at` è valorizzato, il testo lo dice esplicitamente
+con data e ora dell'invio, prima di invitare a sollecitare il cliente. Build/lint puliti; verificato
+leggendo i dati reali della Segnalazione #32 in produzione (nessun salvataggio nuovo necessario per
+questo fix, solo lettura di un campo già esistente).
