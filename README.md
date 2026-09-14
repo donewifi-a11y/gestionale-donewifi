@@ -4512,3 +4512,14 @@ un traguardo raggiunto (data fissata), non solo un'informazione neutra. Il pulsa
 dettaglio non aveva mai avuto una variante di colore (sempre rosso, il colore di ogni altra azione):
 nuovo campo facoltativo `colore` sul tipo `Azione`, usato solo per questo caso — ogni altro pulsante
 (Ho contattato il cliente, Trasmetti, Installato, ecc.) resta rosso come sempre. Build/lint puliti.
+
+✅ **Elenco "Slot già occupati" anche nel Nuovo Appuntamento del Calendario principale**
+(2026-09-14, controllo generale "a prova di scemo": "Fai un controllo completo del gestionale
+che sia a prova di scemo su tutto il gestionale" → "non ho punti precisi, facciamo un controllo
+totale punto per punto"). Il popup "Pianifica Appuntamento" aperto da dentro un Ticket mostra da
+tempo l'elenco degli slot dei prossimi 14 giorni per evitare doppie prenotazioni sullo stesso
+tecnico/orario — ma il dialogo "Nuovo Appuntamento" del Calendario principale (il punto
+d'ingresso usato più spesso, il cui popup copre l'agenda sottostante) non lo aveva mai avuto:
+rischio concreto di doppia prenotazione. Aggiunto lo stesso elenco, raggruppato per giorno con
+orario e tecnico, sia al form di creazione sia al form di modifica di un appuntamento esistente
+(escludendo l'appuntamento stesso dall'elenco). Build/lint puliti.

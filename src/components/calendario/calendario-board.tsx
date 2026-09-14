@@ -21,6 +21,8 @@ import {
   creaNotaCalendario,
   completaNotaCalendario,
   eliminaNotaCalendario,
+  getSlotOccupatiProssimi,
+  type SlotOccupato,
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
@@ -842,6 +844,18 @@ function FormNuovoAppuntamento({
   const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [ticketId, setTicketId] = useState(ticketIniziale || "");
+  // ★ NUOVA (2026-09-14, "controllo completo... a prova di scemo su tutto
+  // il gestionale") — questo popup (aperto da "Nuovo Appuntamento" nel
+  // Calendario, il modo più usato per fissare un appuntamento) copre
+  // l'agenda dietro di sé senza mostrare cosa è già occupato: chi
+  // pianifica poteva finire per doppiare un tecnico sullo stesso orario
+  // senza accorgersene. Lo stesso identico elenco esisteva già, ma solo
+  // nel pannello "Pianifica appuntamento" dentro il Ticket (PianificaAppuntamento,
+  // tickets-board.tsx) — qui, il punto più usato, mancava.
+  const [slot, setSlot] = useState<SlotOccupato[]>([]);
+  useEffect(() => {
+    getSlotOccupatiProssimi().then(setSlot);
+  }, []);
   // ★ FIX (2026-08-28, bug reale segnalato: "stai trattando le nuove
   // installazioni come interventi in loco") — "Tipo di servizio" restava
   // sempre fisso su "Lavorazione tecnica", anche scegliendo un Ticket di
@@ -944,12 +958,39 @@ function FormNuovoAppuntamento({
     });
   }
 
+  // ★ vedi il commento su `slot` più sopra — stesso raggruppamento per
+  // giorno già usato nel pannello gemello dentro il Ticket.
+  const slotPerGiorno = slot.reduce<Record<string, SlotOccupato[]>>((acc, s) => {
+    const giorno = s.data_ora.slice(0, 10);
+    (acc[giorno] ??= []).push(s);
+    return acc;
+  }, {});
+
   return (
     <>
       <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
         <DialogTitle>Nuovo Appuntamento</DialogTitle>
         <DialogDescription>Programma un’installazione o una visita.</DialogDescription>
       </DialogHeader>
+      {Object.keys(slotPerGiorno).length > 0 && (
+        <div className="mt-3 max-h-28 overflow-y-auto rounded-lg bg-muted/50 p-2 text-xs">
+          <p className="mb-1 font-semibold text-muted-foreground">Slot già occupati (prossimi 14 giorni)</p>
+          {Object.entries(slotPerGiorno).map(([giorno, items]) => (
+            <div key={giorno} className="mb-1">
+              <span className="font-semibold">
+                {new Date(`${giorno}T00:00:00`).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}:
+              </span>{" "}
+              {items
+                .map((s) => {
+                  const tecnico = persone.find((p) => p.id === s.tecnico_id)?.nome;
+                  const ora = new Date(s.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                  return `${ora}${tecnico ? ` (${tecnico})` : ""}`;
+                })
+                .join(", ")}
+            </div>
+          ))}
+        </div>
+      )}
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div>
           <Label htmlFor="ticket">Ticket collegato (facoltativo)</Label>
@@ -1093,6 +1134,15 @@ function FormModificaAppuntamento({
   const oraDefault = dataOra.toTimeString().slice(0, 5);
   const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? null;
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(appuntamento.tipo_servizio);
+  // ★ NUOVA (2026-09-14, "controllo completo... a prova di scemo") — stesso
+  // motivo del gemello in FormNuovoAppuntamento più sopra: si sta comunque
+  // scegliendo/cambiando data, ora e tecnico qui, con l'agenda coperta dal
+  // popup. Esclude l'appuntamento stesso dall'elenco (altrimenti
+  // risulterebbe "occupato" da sé stesso).
+  const [slotModifica, setSlotModifica] = useState<SlotOccupato[]>([]);
+  useEffect(() => {
+    getSlotOccupatiProssimi().then((s) => setSlotModifica(s.filter((x) => x.id !== appuntamento.id)));
+  }, [appuntamento.id]);
   const [tecnicoId, setTecnicoId] = useState(appuntamento.tecnico_id ?? "");
   // ★ NUOVA — richiesta esplicita "a prova di scemo": il Titolo è generato
   // in automatico quando l'appuntamento nasce da un Ticket (categoria +
@@ -1161,6 +1211,34 @@ function FormModificaAppuntamento({
         <DialogTitle>Modifica Appuntamento</DialogTitle>
         <DialogDescription>Cambia data, ora, tecnico o dettagli.</DialogDescription>
       </DialogHeader>
+      {(() => {
+        const perGiornoModifica = slotModifica.reduce<Record<string, SlotOccupato[]>>((acc, s) => {
+          const giorno = s.data_ora.slice(0, 10);
+          (acc[giorno] ??= []).push(s);
+          return acc;
+        }, {});
+        return (
+          Object.keys(perGiornoModifica).length > 0 && (
+            <div className="mt-3 max-h-28 overflow-y-auto rounded-lg bg-muted/50 p-2 text-xs">
+              <p className="mb-1 font-semibold text-muted-foreground">Slot già occupati (prossimi 14 giorni)</p>
+              {Object.entries(perGiornoModifica).map(([giorno, items]) => (
+                <div key={giorno} className="mb-1">
+                  <span className="font-semibold">
+                    {new Date(`${giorno}T00:00:00`).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}:
+                  </span>{" "}
+                  {items
+                    .map((s) => {
+                      const tecnico = persone.find((p) => p.id === s.tecnico_id)?.nome;
+                      const ora = new Date(s.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                      return `${ora}${tecnico ? ` (${tecnico})` : ""}`;
+                    })
+                    .join(", ")}
+                </div>
+              ))}
+            </div>
+          )
+        );
+      })()}
       {/* ★ richiesta esplicita: la Scheda di Installazione/Lavorazione era
        * apribile solo da Vista Tecnico (dal tecnico assegnato, il giorno
        * stesso dell'appuntamento) — ora anche da qui, per chi pianifica/
