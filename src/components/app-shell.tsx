@@ -10,6 +10,7 @@ import { NotificheChat } from "@/components/chat/notifiche-chat";
 import { ChatUiProvider } from "@/components/chat/chat-ui-context";
 import { TodoWidget } from "@/components/todo/todo-widget";
 import { TodoDataProvider, useTodoData } from "@/components/todo/todo-data-context";
+import { SegnalazioniDatiProvider, useSegnalazioniDati } from "@/components/segnalazioni/segnalazioni-dati-context";
 import { ToastProvider } from "@/components/ui/toast";
 import type { AreaAccesso, Persona } from "@/lib/types";
 
@@ -45,15 +46,17 @@ export function AppShell({
       <OnlineProvider personaCorrenteId={personaCorrenteId}>
         <ChatDataProvider personaCorrenteId={personaCorrenteId}>
           <TodoDataProvider personaCorrenteId={personaCorrenteId}>
-            <AppShellCorpo
-              email={email}
-              persone={persone}
-              personaCorrenteId={personaCorrenteId}
-              personaAmministratore={personaAmministratore}
-              personaReparti={personaReparti}
-            >
-              {children}
-            </AppShellCorpo>
+            <SegnalazioniDatiProvider personaCorrenteId={personaCorrenteId}>
+              <AppShellCorpo
+                email={email}
+                persone={persone}
+                personaCorrenteId={personaCorrenteId}
+                personaAmministratore={personaAmministratore}
+                personaReparti={personaReparti}
+              >
+                {children}
+              </AppShellCorpo>
+            </SegnalazioniDatiProvider>
           </TodoDataProvider>
         </ChatDataProvider>
       </OnlineProvider>
@@ -78,6 +81,7 @@ function AppShellCorpo({
 }) {
   const [strumentoAperto, setStrumentoAperto] = useState<"chat" | "todo" | null>(null);
   const { nonLettiTotali } = useChatData();
+  const { conteggio: nuoviDatiSegnalazioni } = useSegnalazioniDati();
   const { todo } = useTodoData();
   const todoDaFare = (todo ?? []).filter((t) => !t.fatto).length;
   // ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 4: suono diverso
@@ -100,6 +104,7 @@ function AppShellCorpo({
           personaCorrenteId={personaCorrenteId}
           personaAmministratore={personaAmministratore}
           personaReparti={personaReparti}
+          nuoviDatiSegnalazioni={nuoviDatiSegnalazioni}
           onApriChat={() => setStrumentoAperto((s) => (s === "chat" ? null : "chat"))}
           onApriTodo={() => setStrumentoAperto((s) => (s === "todo" ? null : "todo"))}
           nonLettiChat={nonLettiTotali}

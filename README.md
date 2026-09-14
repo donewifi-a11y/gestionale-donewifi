@@ -4474,3 +4474,19 @@ no, restava indietro. Ora, se `documenti_richiesti_at` è valorizzato, il testo 
 con data e ora dell'invio, prima di invitare a sollecitare il cliente. Build/lint puliti; verificato
 leggendo i dati reali della Segnalazione #32 in produzione (nessun salvataggio nuovo necessario per
 questo fix, solo lettura di un campo già esistente).
+
+✅ **Badge in sidebar per la documentazione arrivata dal cliente, mai visto se non si apre
+Segnalazioni** (2026-09-14, "devi migliorare la segnalazione di quando arriva la documentazione,
+perché passa inosservata"). Le 3 notifiche esistenti quando un cliente invia i dati (Telegram al
+reparto Commerciale, Chat interna, email — `api/richiesta-dati/route.ts`) restano tutte fuori dal
+gestionale: se nessuno le controlla per un po', l'unico segnale rimasto era il badge pulsante
+"✓ Dati ricevuti" dentro la bacheca Segnalazioni stessa — invisibile finché non la si apre apposta.
+Nuovo `contaSegnalazioniDatiRicevutiInAttesa()` (`segnalazioni/actions.ts`, stessa condizione esatta
+del badge pulsante: "Gestione Cliente", dati ricevuti, contratto non ancora inviato/approvato) +
+nuovo `SegnalazioniDatiProvider` (`segnalazioni-dati-context.tsx`, stesso identico schema di
+`ChatDataProvider`: un Realtime su `segnalazioni`/`richieste_clienti`, montato una volta in
+`app-shell.tsx`) alimentano un contatore rosso sulla voce di menu **"Nuovi Clienti"** in sidebar,
+visibile da qualunque pagina del gestionale senza dover aprire nulla — scende da solo quando la
+pratica avanza (contratto inviato), niente da "spuntare" a mano. Build/lint puliti; verificato con
+una query reale contro produzione (conteggio corretto: 0 in questo momento, nessuna Segnalazione
+bloccata in quello stato).

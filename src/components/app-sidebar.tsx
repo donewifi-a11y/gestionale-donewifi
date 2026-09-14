@@ -75,6 +75,7 @@ export function AppSidebar({
   onApriTodo,
   nonLettiChat = 0,
   todoDaFare = 0,
+  nuoviDatiSegnalazioni = 0,
 }: {
   email: string;
   persone: Persona[];
@@ -85,6 +86,12 @@ export function AppSidebar({
   onApriTodo?: () => void;
   nonLettiChat?: number;
   todoDaFare?: number;
+  /** ★ NUOVA (2026-09-14, richiesta esplicita: "devi migliorare la
+   * segnalazione di quando arriva la documentazione, perché passa
+   * inosservata") — Segnalazioni con dati/documenti arrivati dal cliente,
+   * ancora senza seguito (contratto non ancora inviato/approvato) — badge
+   * sulla voce "Nuovi Clienti", vedi sotto. */
+  nuoviDatiSegnalazioni?: number;
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
@@ -368,6 +375,21 @@ export function AppSidebar({
                         >
                           <IconaVoce className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
                           <span className="truncate">{voce.etichetta}</span>
+                          {/* ★ NUOVA (2026-09-14, richiesta esplicita: "devi
+                          migliorare la segnalazione di quando arriva la
+                          documentazione, perché passa inosservata") — le 3
+                          notifiche esistenti (Telegram/Chat/email) restano
+                          fuori dal gestionale; questo badge invece è
+                          visibile da qualunque pagina, senza dover aprire
+                          Segnalazioni per accorgersene. Stesso principio del
+                          badge "non letti" della Chat qui sotto, senza
+                          l'animazione (qui non serve la stessa urgenza al
+                          secondo di un messaggio in arrivo). */}
+                          {voce.href === "/segnalazioni" && nuoviDatiSegnalazioni > 0 && (
+                            <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                              {nuoviDatiSegnalazioni}
+                            </span>
+                          )}
                         </Link>
                         {voce.separatoreDopo && (
                           <div className="my-1.5 flex items-center gap-1.5 px-1.5">

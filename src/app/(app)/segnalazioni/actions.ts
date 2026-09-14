@@ -727,3 +727,34 @@ export async function trasmettiPerInstallazioneAutomatico(segnalazioneId: string
     console.error("trasmettiPerInstallazioneAutomatico:", errore);
   }
 }
+
+/** ★ NUOVA (2026-09-14, richiesta esplicita: "devi migliorare la
+ * segnalazione di quando arriva la documentazione, perché passa
+ * inosservata") — le 3 notifiche esistenti (Telegram/Chat/email, vedi
+ * api/richiesta-dati/route.ts) restano fuori dal gestionale: se nessuno
+ * le controlla per un po', l'unico segnale RIMANE il badge "✓ Dati
+ * ricevuti" dentro la bacheca Segnalazioni stessa — invisibile finché non
+ * la si apre apposta. Questo conteggio alimenta un badge sulla voce di
+ * menu "Nuovi Clienti" in sidebar (vedi SegnalazioniDatiProvider),
+ * visibile da qualunque pagina del gestionale senza dover aprire nulla.
+ *
+ * Stessa identica condizione del badge pulsante nella bacheca
+ * (segnalazioni-board.tsx): "Gestione Cliente", dati arrivati, non ancora
+ * successo nient'altro di più avanzato (contratto inviato/approvato) — una
+ * volta che la pratica avanza, il conteggio scende da solo, niente da
+ * "spuntare" a mano. */
+export async function contaSegnalazioniDatiRicevutiInAttesa(): Promise<number> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return 0;
+
+  const { count } = await supabase
+    .from("segnalazioni")
+    .select("*", { count: "exact", head: true })
+    .eq("stato", "Gestione Cliente")
+    .not("dati_ricevuti_at", "is", null)
+    .is("contratto_inviato_approvazione_il", null)
+    .is("contratto_approvato_cliente_il", null);
+
+  return count ?? 0;
+}
