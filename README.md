@@ -4523,3 +4523,11 @@ d'ingresso usato più spesso, il cui popup copre l'agenda sottostante) non lo av
 rischio concreto di doppia prenotazione. Aggiunto lo stesso elenco, raggruppato per giorno con
 orario e tecnico, sia al form di creazione sia al form di modifica di un appuntamento esistente
 (escludendo l'appuntamento stesso dall'elenco). Build/lint puliti.
+
+✅ **Tariffe → "Non più sottoscrivibili": un errore non dava più alcun riscontro** (2026-09-14,
+stesso controllo "a prova di scemo"). Il bug era già stato trovato e corretto nella bacheca
+Tariffe principale il 2026-08-31 ("le 3 funzioni sotto non davano MAI un riscontro"), ma la
+correzione non era mai stata riportata sulla variante "Archivio" (tariffe non più
+sottoscrivibili), che continuava a fallire in silenzio — nessun toast, nessun refresh, un
+clic apparentemente senza effetto. Stesso toast di errore/successo aggiunto qui. Build/lint
+puliti.
