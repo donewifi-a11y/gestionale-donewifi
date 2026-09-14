@@ -4505,3 +4505,10 @@ generico messaggio di attesa. Build/lint puliti; verificato con una query reale 
 delle 3 Segnalazioni "Trasmesse" esistenti, 2 (Paolo Ghirotti, Filippo Thomasset) hanno già un
 appuntamento fissato e ora mostreranno la data corretta, la terza (Gabriella Bolognesi, nessun
 appuntamento ancora) resta sul messaggio generico di attesa, come deve essere.
+
+✅ **"Pianificato il..." in verde** (2026-09-14, seguito diretto: "e metti in verde quando
+pianificato"). Il badge sulla card in bacheca passa da `tono: "info"` (blu) a `"successo"` (verde) —
+un traguardo raggiunto (data fissata), non solo un'informazione neutra. Il pulsante nel popup di
+dettaglio non aveva mai avuto una variante di colore (sempre rosso, il colore di ogni altra azione):
+nuovo campo facoltativo `colore` sul tipo `Azione`, usato solo per questo caso — ogni altro pulsante
+(Ho contattato il cliente, Trasmetti, Installato, ecc.) resta rosso come sempre. Build/lint puliti.

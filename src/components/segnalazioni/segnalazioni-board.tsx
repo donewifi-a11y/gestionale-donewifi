@@ -363,8 +363,12 @@ export function SegnalazioniBoard({
                 // data") — appena c'è un appuntamento fissato, lo dice con
                 // la data invece del generico "in attesa" che restava
                 // identico anche a installazione già fissata.
+                // ★ richiesta esplicita "e metti in verde quando
+                // pianificato" — "successo" invece di "info": è un
+                // traguardo raggiunto (data fissata), non solo
+                // un'informazione neutra.
                 const dataAppuntamento = new Date(ticket.appuntamentoDataOra).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
-                segnale = { testo: `📅 Pianificato il ${dataAppuntamento} (Ticket #${ticket.numero})`, tono: "info" };
+                segnale = { testo: `📅 Pianificato il ${dataAppuntamento} (Ticket #${ticket.numero})`, tono: "successo" };
               } else if (ticket) {
                 segnale = { testo: `📅 Approvato — in attesa di installazione (Ticket #${ticket.numero})`, tono: "info" };
               }
@@ -845,7 +849,12 @@ function DettaglioSegnalazione({
   // `azione`, calcolato qui in un posto solo, mostrato in una barra fissa
   // in fondo al popup (sempre nello stesso punto): se non c'è nulla da
   // cliccare, `statoInfo` spiega perché invece di lasciare la barra vuota.
-  type Azione = { testo: string; icona: typeof PhoneCall; onClick: () => void; disabilitato: boolean };
+  // ★ ESTESO (2026-09-14, richiesta esplicita "e metti in verde quando
+  // pianificato") — `colore` facoltativo: di default il pulsante resta
+  // rosso (il colore di sempre, per ogni azione esistente), "successo" solo
+  // per "Pianificato il...", un traguardo raggiunto invece di un'azione da
+  // ancora fare.
+  type Azione = { testo: string; icona: typeof PhoneCall; onClick: () => void; disabilitato: boolean; colore?: "successo" };
   let azione: Azione | null = null;
   let statoInfo: string | null = null;
   if (segnalazione.stato === "Da Contattare") {
@@ -901,7 +910,7 @@ function DettaglioSegnalazione({
       // invece del generico "Cliente ha approvato" che restava identico
       // anche a installazione già pianificata.
       const dataAppuntamento = new Date(ticketCollegato.appuntamentoDataOra).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-      azione = { testo: `Pianificato il ${dataAppuntamento} — vai al Ticket #${ticketCollegato.numero}`, icona: CalendarClock, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
+      azione = { testo: `Pianificato il ${dataAppuntamento} — vai al Ticket #${ticketCollegato.numero}`, icona: CalendarClock, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false, colore: "successo" };
     } else {
       azione = { testo: `Cliente ha approvato — vai al Ticket #${ticketCollegato.numero}`, icona: ArrowRight, onClick: () => router.push(`/tickets?aperto=${ticketCollegato.id}`), disabilitato: false };
     }
@@ -1494,7 +1503,11 @@ function DettaglioSegnalazione({
               type="button"
               onClick={azione.onClick}
               disabled={azione.disabilitato}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#CF000A] px-4 text-sm font-bold text-white shadow-lg shadow-[#CF000A]/25 transition hover:bg-[#A30008] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#E8555F] dark:shadow-[#E8555F]/20 dark:hover:bg-[#c94750]"
+              className={
+                azione.colore === "successo"
+                  ? "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-sm font-bold text-success-foreground shadow-lg shadow-success/25 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  : "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#CF000A] px-4 text-sm font-bold text-white shadow-lg shadow-[#CF000A]/25 transition hover:bg-[#A30008] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#E8555F] dark:shadow-[#E8555F]/20 dark:hover:bg-[#c94750]"
+              }
             >
               {azione.disabilitato ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <azione.icona className="h-4 w-4" strokeWidth={2.25} />}
               {azione.disabilitato ? "Invio in corso…" : azione.testo}
