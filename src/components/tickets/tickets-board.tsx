@@ -608,7 +608,12 @@ export function TicketsBoard({
                       </span>
                       <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
                     </div>
-                    <div className="flex flex-col gap-1.5">
+                    {/* ★ gap-2 invece di gap-1.5 (2026-09-15, "alleggerire il
+                    colpo visivo") — un po' più di respiro tra le card, ora
+                    che i segnali sono chip strette invece di righe intere:
+                    prima la densità serviva a compensare le righe lunghe,
+                    ora affollerebbe solo lo spazio senza motivo. */}
+                    <div className="flex flex-col gap-2">
                       {gruppo.ticket.map((t) => {
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
                         const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
@@ -626,21 +631,31 @@ export function TicketsBoard({
                         // assegnare, e la conferma del cliente che un
                         // intervento risolto da remoto funziona davvero.
                         const altriTicketStessoCliente = (ticketRipetutiPerTelefono.get(normalizzaTelefono(t.telefono)) ?? []).filter((n) => n !== t.numero);
+                        // ★ REDESIGN (2026-09-15, richiesta esplicita: "voglio
+                        // anche alleggerire il colpo visivo perché così è
+                        // caotico e mi viene ansia a guardare" — proposta con
+                        // artifact "Bacheca Ticket, Ridisegnata", principio
+                        // "un solo colore per il vero allarme") — niente più
+                        // emoji nel testo del segnale (un 🔴/⚠️/⏳ colorato è
+                        // già un secondo modo di dire "attenzione", oltre al
+                        // colore del chip che lo mostra): il colore/forma del
+                        // chip basta da solo, il testo resta neutro anche
+                        // quando `critico` è vero.
                         let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
                         if (t.priorita === "Urgente") {
-                          segnale = { testo: "🔴 Urgente", critico: true };
+                          segnale = { testo: "Urgente", critico: true };
                         } else if (altriTicketStessoCliente.length > 0) {
                           // ★ NUOVA — vedi ticketRipetutiPerTelefono sopra:
                           // un cliente tornato più volte per Assistenza,
                           // segnale di insoddisfazione più concreto di un
                           // ticket semplicemente "fermo da giorni".
-                          segnale = { testo: `⚠️ Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, critico: false };
+                          segnale = { testo: `Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, critico: false };
                         } else if (t.confermato_cliente_il && entroOreDa(t.confermato_cliente_il, 48)) {
                           segnale = { testo: "✓ Cliente ha confermato l'intervento", critico: false, pulsante: true };
                         } else if (!t.tecnico_assegnato && !t.tecnico_esterno_id && entroOreDa(t.data_creazione, 2)) {
                           segnale = { testo: "🆕 Nuovo — non ancora preso in carico", critico: false, pulsante: true };
                         } else if (t.stato === "Da gestire" && giorni >= 5) {
-                          segnale = { testo: `⏳ Ferma da ${giorni}g`, critico: giorni >= 10 };
+                          segnale = { testo: `Ferma da ${giorni}g`, critico: giorni >= 10 };
                         }
                         const colore = coloreReparto(t.reparto);
                         return (
@@ -650,7 +665,7 @@ export function TicketsBoard({
                             tabIndex={0}
                             onClick={() => setAperto(t)}
                             onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                            className="group relative flex cursor-pointer items-start gap-1.5 rounded-lg border bg-card p-2 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
+                            className="group relative flex cursor-pointer items-start gap-1.5 rounded-lg border bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
                           >
                             {/* ★ NUOVA — checkbox di selezione (proposta ③,
                             azioni bulk): elemento vero del flex, non
@@ -683,64 +698,74 @@ export function TicketsBoard({
                               piccola etichetta discreta sotto il nome, non
                               come titolo di sezione. */}
                               {t.sottocategoria && <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>}
-                              {segnale && segnale.pulsante ? (
-                                <div className="mt-1">
-                                  <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                              {/* ★ REDESIGN (2026-09-15, richiesta esplicita:
+                              "voglio anche alleggerire il colpo visivo perché
+                              così è caotico e mi viene ansia a guardare" —
+                              proposta con artifact "Bacheca Ticket,
+                              Ridisegnata") — segnale e pianificazione erano
+                              due righe colorate a piena larghezza, impilate,
+                              ciascuna col suo font-semibold acceso: due
+                              allarmi identici per peso visivo anche quando
+                              uno solo dei due era davvero urgente. Ora sono
+                              due chip piccole sulla stessa riga (si
+                              accostano invece di impilarsi, non allungano
+                              più la card) — pillola tenue (sfondo /10,
+                              nessun grassetto) per tutto tranne il vero
+                              allarme (`critico`), che resta l'unico a tinta
+                              piena in tutta la colonna. */}
+                              {(segnale || appuntamentoPerTicket.has(t.id)) && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                  {segnale &&
+                                    (segnale.pulsante ? (
+                                      <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                                    ) : (
+                                      <span
+                                        className={`inline-flex max-w-full items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                          segnale.critico ? "bg-critical text-critical-foreground" : "bg-warning/10 text-warning"
+                                        }`}
+                                      >
+                                        <span className="truncate">{segnale.testo}</span>
+                                      </span>
+                                    ))}
+                                  {/* ★ NUOVA (2026-09-04, richiesta esplicita:
+                                  "devo vedere dai ticket quando sono
+                                  pianificati e devo avere l'etichetta che lo
+                                  dice") — prima l'unico modo di saperlo era
+                                  aprire il Ticket (DettaglioTicket lo scopre
+                                  con un fetch a parte). Un fatto, non un
+                                  avviso: chip neutra a riposo.
+                                  ★ ESTESA (2026-09-04) — data passata e
+                                  nessun altro segnale già acceso sulla card =
+                                  chip d'avviso invece che neutra, stesso
+                                  principio di "Ferma da Ng": un appuntamento
+                                  pianificato per ieri e mai aggiornato è a
+                                  tutti gli effetti un problema da
+                                  controllare — ma solo se non c'è già
+                                  qualcos'altro a chiedere attenzione qui. */}
+                                  {appuntamentoPerTicket.has(t.id) &&
+                                    (() => {
+                                      const app = appuntamentoPerTicket.get(t.id)!;
+                                      const passato = new Date(app.data_ora) < new Date();
+                                      const evidenziato = passato && !segnale;
+                                      return (
+                                        <span
+                                          className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                            evidenziato ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
+                                          }`}
+                                        >
+                                          <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+                                          {passato ? "Scaduto — " : "Pianificato — "}
+                                          {new Date(app.data_ora).toLocaleString("it-IT", {
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}
+                                        </span>
+                                      );
+                                    })()}
                                 </div>
-                              ) : (
-                                segnale && (
-                                  <div className={`mt-1 pl-3 text-xs font-semibold ${segnale.critico ? "text-critical" : "text-warning"}`}>{segnale.testo}</div>
-                                )
                               )}
-                              {/* ★ NUOVA (2026-09-04, richiesta esplicita:
-                              "devo vedere dai ticket quando sono pianificati
-                              e devo avere l'etichetta che lo dice") — prima
-                              l'unico modo di saperlo era aprire il Ticket
-                              (DettaglioTicket lo scopre con un fetch a
-                              parte). Etichetta sempre visibile, non un
-                              segnale d'allarme come gli altri sopra — un
-                              fatto, non un avviso.
-                              ★ ESTESA (2026-09-04, richiesta esplicita:
-                              "puoi correggere e metterli su quelli già
-                              pianificati" — dato reale trovato controllando
-                              questa modifica: alcuni appuntamenti restano
-                              "Programmato" con data ormai passata, mai
-                              segnati completati/annullati) — data passata =
-                              colore d'avviso invece del grigio neutro,
-                              stesso principio di "Ferma da Ng" sopra: un
-                              appuntamento pianificato per ieri e mai
-                              aggiornato è a tutti gli effetti un problema
-                              da controllare, non un fatto qualunque. */}
-                              {appuntamentoPerTicket.has(t.id) && (() => {
-                                const app = appuntamentoPerTicket.get(t.id)!;
-                                const passato = new Date(app.data_ora) < new Date();
-                                // ★ REDESIGN (2026-09), giro 3 — richiesta
-                                // esplicita "è troppo caotico, non ci capisco
-                                // più nulla" su card con "Cliente tornato" +
-                                // "Pianificato (scaduto)" impilati, due righe
-                                // colorate ad allarme una sopra l'altra.
-                                // Stesso principio già in uso in Segnalazioni:
-                                // un solo segnale acceso per card. Se c'è già
-                                // un `segnale` sopra, questa riga resta un
-                                // fatto neutro (grigio) — la data è comunque
-                                // sempre visibile, non sparisce nulla, solo
-                                // non compete più per l'attenzione. Senza
-                                // altri segnali, uno scaduto resta comunque
-                                // in giallo/arancio: è l'unica cosa da notare.
-                                const evidenziato = passato && !segnale;
-                                return (
-                                  <div className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${evidenziato ? "text-warning" : "text-muted-foreground"}`}>
-                                    <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
-                                    {passato ? "Pianificato (scaduto) — " : "Pianificato — "}
-                                    {new Date(app.data_ora).toLocaleString("it-IT", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </div>
-                                );
-                              })()}
                             </div>
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,

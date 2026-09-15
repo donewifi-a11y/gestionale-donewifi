@@ -12,6 +12,8 @@ import { TodoWidget } from "@/components/todo/todo-widget";
 import { TodoDataProvider, useTodoData } from "@/components/todo/todo-data-context";
 import { SegnalazioniDatiProvider, useSegnalazioniDati } from "@/components/segnalazioni/segnalazioni-dati-context";
 import { ToastProvider } from "@/components/ui/toast";
+import { usePersistedState } from "@/lib/use-persisted-state";
+import { MessageCircle, PanelRightClose } from "lucide-react";
 import type { AreaAccesso, Persona } from "@/lib/types";
 
 /** ★ NUOVA — la sidebar da sola non basta più a contenere lo stato di "chat
@@ -80,6 +82,16 @@ function AppShellCorpo({
   children: React.ReactNode;
 }) {
   const [strumentoAperto, setStrumentoAperto] = useState<"chat" | "todo" | null>(null);
+  // ★ NUOVA (2026-09-15, richiesta esplicita: "voglio anche alleggerire il
+  // colpo visivo perché così è caotico e mi viene ansia a guardare" —
+  // proposta con artifact "Bacheca Ticket, Ridisegnata", principio "un
+  // pannello fisso compete sempre con il contenuto principale") — la rail
+  // Chat occupava sempre 300px anche a conversazione ferma da giorni.
+  // Richiudibile a striscia sottile (stesso principio della sidebar app di
+  // Zendesk): un pallino segna i non letti anche da chiusa, così restare
+  // chiusa non nasconde un messaggio nuovo. Ricordato per browser, non per
+  // sessione — chi la chiude una volta la vuole chiusa anche il giorno dopo.
+  const [railChat, aggiornaRailChat] = usePersistedState("rail-chat-compressa", { compressa: false });
   const { nonLettiTotali } = useChatData();
   const { conteggio: nuoviDatiSegnalazioni } = useSegnalazioniDati();
   const { todo } = useTodoData();
@@ -110,17 +122,54 @@ function AppShellCorpo({
           nonLettiChat={nonLettiTotali}
           todoDaFare={todoDaFare}
         />
-        <main className="flex-1 bg-background p-5 [background-image:radial-gradient(900px_500px_at_100%_-10%,color-mix(in_oklch,var(--primary),transparent_85%),transparent_60%),radial-gradient(700px_420px_at_-5%_100%,color-mix(in_oklch,var(--success),transparent_92%),transparent_55%)] md:ml-72 md:p-8 xl:mr-[300px]">
+        <main
+          className={`flex-1 bg-background p-5 [background-image:radial-gradient(900px_500px_at_100%_-10%,color-mix(in_oklch,var(--primary),transparent_85%),transparent_60%),radial-gradient(700px_420px_at_-5%_100%,color-mix(in_oklch,var(--success),transparent_92%),transparent_55%)] md:ml-72 md:p-8 ${
+            railChat.compressa ? "xl:mr-12" : "xl:mr-[300px]"
+          }`}
+        >
           {children}
         </main>
         {/* ★ NUOVA — rail Comunicazioni fissa, sempre in vista su schermi
         ≥ xl (non solo in home): scelta esplicita dell'utente ("facciamo
         la B") per non dover tornare a Mondo Ticket per accorgersi di un
         messaggio. Sotto xl resta il pop-up di sempre (pulsante sidebar +
-        la striscia "Comunicazioni" in home). */}
+        la striscia "Comunicazioni" in home).
+        ★ ESTESA (2026-09-15) — richiudibile a striscia da 48px, vedi
+        `railChat` sopra: il pallino resta visibile anche chiusa, il resto
+        del pannello no. */}
         {personaCorrenteId && (
-          <aside className="fixed top-0 right-0 z-30 hidden h-screen w-[300px] flex-col border-l bg-card p-3 xl:flex print:hidden">
-            <ChatPanel personaCorrenteId={personaCorrenteId} variant="rail" />
+          <aside
+            className={`fixed top-0 right-0 z-30 hidden h-screen flex-col border-l bg-card print:hidden xl:flex ${
+              railChat.compressa ? "w-12 items-center p-2 pt-3" : "w-[300px] p-3"
+            }`}
+          >
+            {railChat.compressa ? (
+              <button
+                type="button"
+                onClick={() => aggiornaRailChat({ compressa: false })}
+                title="Apri la Chat"
+                aria-label={`Apri la Chat${nonLettiTotali > 0 ? ` — ${nonLettiTotali} non letti` : ""}`}
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <MessageCircle className="h-4 w-4" strokeWidth={2.25} />
+                {nonLettiTotali > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-primary" />
+                )}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => aggiornaRailChat({ compressa: true })}
+                  title="Comprimi la Chat"
+                  aria-label="Comprimi la Chat"
+                  className="mb-1.5 flex h-6 w-6 shrink-0 items-center justify-center self-end rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  <PanelRightClose className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </button>
+                <ChatPanel personaCorrenteId={personaCorrenteId} variant="rail" />
+              </>
+            )}
           </aside>
         )}
         <ChatWidget personaCorrenteId={personaCorrenteId} aperto={strumentoAperto === "chat"} onChiudi={() => setStrumentoAperto(null)} />

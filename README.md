@@ -4542,3 +4542,24 @@ scarico di magazzino e doppio importo fatturato. Un appuntamento ha sempre al ma
 Scheda (verificato sui dati reali: 8 schede, zero appuntamenti con più di una) — ora, se ne
 esiste già una, l'invio viene trattato come già riuscito invece di duplicarla. Build/lint
 puliti.
+
+✅ **Bacheca Ticket ridisegnata — alleggerito il colpo visivo** (2026-09-15, richiesta
+esplicita dopo uno screenshot: "hai visto quanto è caotico... fai delle analisi nel web tra i
+migliori gestionali e trova delle soluzioni con artifact", seguita da "vorrei anche
+alleggerire il colpo visivo perché così è caotico e mi viene ansia a guardare"). Ricerca su
+Linear/Zendesk/Jitbit/GitLab e proposta con artifact ("Bacheca Ticket, Ridisegnata"), poi
+implementata:
+- "Urgente"/"Cliente tornato"/"Ferma da Ng"/"Pianificato (scaduto)" erano righe di testo a
+  piena larghezza, in grassetto, tutte più o meno nello stesso arancione — due segnali sulla
+  stessa card si impilavano uno sopra l'altro, allungandola e rompendo l'allineamento della
+  colonna. Ora sono chip piccole e tenue (sfondo /10, senza grassetto) sulla stessa riga; resta
+  a tinta piena solo il vero allarme (priorità Urgente, o "ferma da 10+ giorni") — un solo
+  colore acceso per card al massimo, invece di un muro di arancione/rosso su tutta la colonna.
+- Tolte le emoji davanti ai segnali (🔴/⚠️/⏳): il colore del chip bastava già da solo a dire
+  "attenzione", l'emoji lo ripeteva una seconda volta.
+- Più respiro tra le card (gap-2 invece di gap-1.5, padding leggermente maggiore) — la densità
+  serviva a compensare le righe di testo lunghe, che ora non ci sono più.
+- La rail Chat fissa (300px, sempre in vista su schermi larghi) è ora richiudibile a una
+  striscia di 48px con un'icona — un pallino segna i non letti anche da chiusa, il resto del
+  pannello no. Ricordato per browser (localStorage), non per sessione.
+Build/lint puliti.
