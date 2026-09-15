@@ -4572,3 +4572,13 @@ Il campo `critico` booleano è diventato `tono` a tre valori (critico/avviso/neu
 che è davvero urgente ora prende un colore, "Cliente tornato" diventa un chip grigio neutro
 come "Pianificato" — un colore acceso in meno sulla bacheca, applicando fino in fondo il
 principio "un solo colore per il vero allarme" dell'artifact. Build/lint puliti.
+
+✅ **Sottocategoria non più ripetuta su ogni card dello stesso gruppo** (2026-09-15, seguito
+diretto: "fatico ancora, troppe scritte e troppi nomi assieme"). Le card sono raggruppate per
+categoria (es. "Amministrativa"), ma la sottocategoria (es. "Disdetta") veniva scritta di
+nuovo, identica, su ogni singola card sotto — 5 Ticket di Disdetta di fila = la stessa parola
+ripetuta 5 volte. Quando tutte le card di un gruppo condividono la stessa sottocategoria, ora
+si dice una volta sola nell'intestazione del gruppo ("AMMINISTRATIVA · Disdetta") e sparisce
+dalle singole righe; resta per-card solo quando il gruppo mischia sottocategorie diverse (es.
+"Assistenza": Internet assente/lento, Intervento in loco...), dove serve davvero a
+distinguerle. Build/lint puliti.

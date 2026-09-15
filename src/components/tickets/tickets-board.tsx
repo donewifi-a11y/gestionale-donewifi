@@ -179,7 +179,15 @@ function iniziali(persona: Persona) {
 // dentro): raggruppare per sola categoria dimezza le sezioni; la
 // sottocategoria non sparisce, torna a essere una piccola etichetta sulla
 // card stessa (vedi il render più sotto) invece di generare una sezione a sé.
-function raggruppaPerCategoria(items: Ticket[]): { chiave: string; ticket: Ticket[] }[] {
+// ★ AFFINATA (2026-09-15, seguito diretto — screenshot del redesign:
+// "fatico ancora, troppe scritte e troppi nomi assieme") — quando tutte
+// le card di un gruppo condividono la stessa sottocategoria (es. 5 Ticket
+// "Disdetta" di fila sotto "AMMINISTRATIVA"), scriverla identica su ogni
+// riga è la stessa parola ripetuta N volte senza motivo. `sottocategoriaComune`
+// la porta una volta sola nell'intestazione del gruppo; il render toglie
+// la riga per-card solo in quel caso (resta per-card quando il gruppo
+// mischia sottocategorie diverse, dove serve davvero a distinguerle).
+function raggruppaPerCategoria(items: Ticket[]): { chiave: string; sottocategoriaComune: string | null; ticket: Ticket[] }[] {
   const gruppi: { chiave: string; ticket: Ticket[] }[] = [];
   const indice = new Map<string, number>();
   for (const t of items) {
@@ -190,7 +198,11 @@ function raggruppaPerCategoria(items: Ticket[]): { chiave: string; ticket: Ticke
     }
     gruppi[indice.get(chiave)!].ticket.push(t);
   }
-  return gruppi;
+  return gruppi.map((g) => {
+    const prime = g.ticket[0]?.sottocategoria ?? null;
+    const comune = prime && g.ticket.every((t) => t.sottocategoria === prime) ? prime : null;
+    return { ...g, sottocategoriaComune: comune };
+  });
 }
 
 function giorniAperta(data: string) {
@@ -600,11 +612,23 @@ export function TicketsBoard({
                     dato che prima non c'era da nessuna parte: quanti Ticket
                     sono fermi allo stesso identico passaggio. */}
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <span
-                        className={`min-w-0 truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${coloreG.sfondo} ${coloreG.testo}`}
-                        title={gruppo.chiave}
-                      >
-                        {gruppo.chiave}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={`min-w-0 shrink-0 truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${coloreG.sfondo} ${coloreG.testo}`}
+                          title={gruppo.chiave}
+                        >
+                          {gruppo.chiave}
+                        </span>
+                        {/* ★ NUOVA — vedi sottocategoriaComune in
+                        raggruppaPerCategoria(): quando tutte le card qui
+                        sotto condividono la stessa sottocategoria, si dice
+                        una volta sola qui invece che ripeterla identica su
+                        ogni riga. */}
+                        {gruppo.sottocategoriaComune && (
+                          <span className="min-w-0 truncate text-[10px] font-semibold text-muted-foreground" title={gruppo.sottocategoriaComune}>
+                            · {gruppo.sottocategoriaComune}
+                          </span>
+                        )}
                       </span>
                       <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
                     </div>
@@ -708,7 +732,12 @@ export function TicketsBoard({
                               raggruppaPerCategoria sopra): torna qui, come
                               piccola etichetta discreta sotto il nome, non
                               come titolo di sezione. */}
-                              {t.sottocategoria && <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>}
+                              {/* ★ AFFINATA (2026-09-15) — non ripetuta se
+                              già detta una volta sola nell'intestazione del
+                              gruppo (vedi sottocategoriaComune sopra). */}
+                              {t.sottocategoria && !gruppo.sottocategoriaComune && (
+                                <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
+                              )}
                               {/* ★ REDESIGN (2026-09-15, richiesta esplicita:
                               "voglio anche alleggerire il colpo visivo perché
                               così è caotico e mi viene ansia a guardare" —
