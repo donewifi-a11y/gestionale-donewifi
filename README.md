@@ -4563,3 +4563,12 @@ implementata:
   striscia di 48px con un'icona — un pallino segna i non letti anche da chiusa, il resto del
   pannello no. Ricordato per browser (localStorage), non per sessione.
 Build/lint puliti.
+
+✅ **Affinato ulteriormente — "Cliente tornato" non è più arancione come "Scaduto"** (2026-09-15,
+seguito diretto dopo uno screenshot del risultato: "così?"). Restava un residuo dello stesso
+problema di partenza: "Cliente tornato" (un segnale da notare, non un'urgenza A TEMPO) aveva
+lo stesso arancione tenue di "Scaduto"/"Ferma da Ng" (urgenze vere, che peggiorano col tempo).
+Il campo `critico` booleano è diventato `tono` a tre valori (critico/avviso/neutro): solo ciò
+che è davvero urgente ora prende un colore, "Cliente tornato" diventa un chip grigio neutro
+come "Pianificato" — un colore acceso in meno sulla bacheca, applicando fino in fondo il
+principio "un solo colore per il vero allarme" dell'artifact. Build/lint puliti.

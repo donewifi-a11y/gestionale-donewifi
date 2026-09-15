@@ -641,21 +641,32 @@ export function TicketsBoard({
                         // colore del chip che lo mostra): il colore/forma del
                         // chip basta da solo, il testo resta neutro anche
                         // quando `critico` è vero.
-                        let segnale: { testo: string; critico: boolean; pulsante?: boolean } | null = null;
+                        // ★ AFFINATA (2026-09-15, seguito diretto — screenshot
+                        // dopo il redesign: "così?" — "Cliente tornato"
+                        // restava arancione come "Scaduto", pur non essendo
+                        // un'urgenza A TEMPO ma solo un segnale da notare)
+                        // — `tono` sostituisce `critico`: solo ciò che è
+                        // davvero urgente ORA prende un colore (arancio
+                        // "avviso", rosso pieno solo per l'urgenza vera);
+                        // "Cliente tornato" diventa un fatto neutro come
+                        // "Pianificato", non un allarme — lo stesso principio
+                        // dell'artifact ("un solo colore per il vero
+                        // allarme"), applicato fino in fondo.
+                        let segnale: { testo: string; tono: "critico" | "avviso" | "neutro"; pulsante?: boolean } | null = null;
                         if (t.priorita === "Urgente") {
-                          segnale = { testo: "Urgente", critico: true };
+                          segnale = { testo: "Urgente", tono: "critico" };
                         } else if (altriTicketStessoCliente.length > 0) {
                           // ★ NUOVA — vedi ticketRipetutiPerTelefono sopra:
                           // un cliente tornato più volte per Assistenza,
                           // segnale di insoddisfazione più concreto di un
                           // ticket semplicemente "fermo da giorni".
-                          segnale = { testo: `Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, critico: false };
+                          segnale = { testo: `Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, tono: "neutro" };
                         } else if (t.confermato_cliente_il && entroOreDa(t.confermato_cliente_il, 48)) {
-                          segnale = { testo: "✓ Cliente ha confermato l'intervento", critico: false, pulsante: true };
+                          segnale = { testo: "✓ Cliente ha confermato l'intervento", tono: "neutro", pulsante: true };
                         } else if (!t.tecnico_assegnato && !t.tecnico_esterno_id && entroOreDa(t.data_creazione, 2)) {
-                          segnale = { testo: "🆕 Nuovo — non ancora preso in carico", critico: false, pulsante: true };
+                          segnale = { testo: "🆕 Nuovo — non ancora preso in carico", tono: "neutro", pulsante: true };
                         } else if (t.stato === "Da gestire" && giorni >= 5) {
-                          segnale = { testo: `Ferma da ${giorni}g`, critico: giorni >= 10 };
+                          segnale = { testo: `Ferma da ${giorni}g`, tono: giorni >= 10 ? "critico" : "avviso" };
                         }
                         const colore = coloreReparto(t.reparto);
                         return (
@@ -721,7 +732,11 @@ export function TicketsBoard({
                                     ) : (
                                       <span
                                         className={`inline-flex max-w-full items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                                          segnale.critico ? "bg-critical text-critical-foreground" : "bg-warning/10 text-warning"
+                                          segnale.tono === "critico"
+                                            ? "bg-critical text-critical-foreground"
+                                            : segnale.tono === "avviso"
+                                              ? "bg-warning/10 text-warning"
+                                              : "bg-muted text-muted-foreground"
                                         }`}
                                       >
                                         <span className="truncate">{segnale.testo}</span>
