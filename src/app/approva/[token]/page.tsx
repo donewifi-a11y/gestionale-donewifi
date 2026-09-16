@@ -11,7 +11,15 @@ import type { RigaPreventivo } from "@/lib/types";
 // 0050, mai valorizzate insieme), quindi ciascun embed è sempre un
 // oggetto singolo o null, mai un array.
 interface RigaTokenApprovazione {
-  origine: "intervento" | "contratto" | "preventivo" | "firma_scheda" | "firma_rapportino" | "subentro_vecchio_cliente" | "subentro_contratto";
+  origine:
+    | "intervento"
+    | "contratto"
+    | "preventivo"
+    | "firma_scheda"
+    | "firma_rapportino"
+    | "subentro_vecchio_cliente"
+    | "subentro_contratto"
+    | "trasferimento_contratto";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
   preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
@@ -61,6 +69,11 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   // "subentro" sopra (sola conferma della cessione, vecchio cliente),
   // qui il riferimento ha anche un PDF da leggere, come "contratto".
   const subentroContratto = dati?.origine === "subentro_contratto" ? dati.richieste_clienti : undefined;
+  // ★ NUOVA (2026-09-16, "dobbiamo uniformare, troppi passaggi diversi
+  // nelle procedure") — settimo caso, il contratto di una pratica di
+  // Trasferimento: stesso principio di "subentroContratto" sopra, un solo
+  // cliente da avvisare (nessuna distinzione vecchio/nuovo titolare qui).
+  const trasferimentoContratto = dati?.origine === "trasferimento_contratto" ? dati.richieste_clienti : undefined;
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -69,13 +82,17 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   } else if (subentroContratto?.contratto_pdf_url) {
     const risultato = await urlFirmataDocumento(subentroContratto.contratto_pdf_url);
     urlContratto = risultato.url;
+  } else if (trasferimentoContratto?.contratto_pdf_url) {
+    const risultato = await urlFirmataDocumento(trasferimentoContratto.contratto_pdf_url);
+    urlContratto = risultato.url;
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-card p-8 text-center shadow-2xl">
         <img src="/brand/logo-completo.png" alt="Done Wifi" className="mb-1 h-14 w-14" />
-        {!dati || (!ticket && !segnalazione && !preventivo && !firmaScheda && !firmaRapportino && !subentro && !subentroContratto) ? (
+        {!dati ||
+        (!ticket && !segnalazione && !preventivo && !firmaScheda && !firmaRapportino && !subentro && !subentroContratto && !trasferimentoContratto) ? (
           <>
             <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
             <p className="font-heading text-lg font-bold">Link non valido</p>
@@ -132,6 +149,26 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
               </a>
             )}
             <ConfermaBottone token={token} tipo="subentro_contratto" />
+          </>
+        ) : trasferimentoContratto ? (
+          <>
+            <h1 className="font-heading text-lg font-bold">Approva il tuo contratto</h1>
+            <p className="text-sm text-muted-foreground">
+              {trasferimentoContratto.cliente ?? "Gentile cliente"}, prima di completare il trasferimento della tua linea leggi il
+              contratto aggiornato e approvalo.
+            </p>
+            {urlContratto && (
+              <a
+                href={urlContratto}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                <FileText className="h-4 w-4" strokeWidth={2.25} />
+                Leggi il contratto (PDF)
+              </a>
+            )}
+            <ConfermaBottone token={token} tipo="trasferimento_contratto" />
           </>
         ) : ticket ? (
           <>

@@ -277,6 +277,45 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         emailLink: "https://gestione.donewifi.it/richieste-clienti",
       });
     }
+  } else if (riga.origine === "trasferimento_contratto" && riga.richiesta_cliente_id) {
+    // ★ NUOVA (2026-09-16, "dobbiamo uniformare, troppi passaggi diversi
+    // nelle procedure" — stesso sistema di "subentro_contratto" sopra,
+    // applicato a Trasferimento) — a differenza del Subentro, qui
+    // l'approvazione del cliente PORTA DIRETTAMENTE la pratica a
+    // "Lavorata": non c'è una seconda condizione da aspettare (nessun
+    // Ticket sempre presente da completare) — il contratto approvato è
+    // l'intero traguardo di questa pratica, non solo un passo intermedio.
+    const adesso = new Date().toISOString();
+    const { data: richiesta, error } = await supabase
+      .from("richieste_clienti")
+      .update({ contratto_approvato_cliente_il: adesso, stato: "Lavorata" })
+      .eq("id", riga.richiesta_cliente_id)
+      .select("cliente")
+      .single();
+    if (error) {
+      console.error("api/approva — update richieste_clienti (trasferimento contratto):", error.message);
+      return NextResponse.json({ errore: "Errore imprevisto — riprova o contatta Done Wifi." }, { status: 500 });
+    }
+
+    await supabase.from("storico").insert({
+      origine: "richiesta_cliente",
+      riferimento_id: riga.richiesta_cliente_id,
+      operazione: "Trasferimento — contratto approvato dal cliente, pratica completata",
+      valore_dopo: `Approvato via link email il ${adesso}`,
+    });
+
+    if (richiesta) {
+      const reparto = REPARTO_PER_TIPO_RICHIESTA.Trasferimento;
+      await notificaSuTuttiICanali({
+        reparto,
+        telegramHtml: `✅ <b>Trasferimento completato</b>\n\nIl cliente${richiesta.cliente ? ` (${richiesta.cliente})` : ""} ha approvato il contratto — pratica chiusa in automatico.`,
+        chatTesto: `✅ Trasferimento completato — contratto approvato da${richiesta.cliente ? ` ${richiesta.cliente}` : " parte del cliente"}.`,
+        emailTitolo: "Trasferimento completato",
+        emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il cliente${richiesta.cliente ? ` <b>${richiesta.cliente}</b>` : ""} ha approvato il contratto di Trasferimento — la pratica è stata chiusa in automatico.</p>`,
+        emailCorpoTesto: `Il cliente${richiesta.cliente ? ` ${richiesta.cliente}` : ""} ha approvato il contratto di Trasferimento — la pratica è stata chiusa in automatico.`,
+        emailLink: "https://gestione.donewifi.it/richieste-clienti",
+      });
+    }
   } else if (riga.ticket_id) {
     const { data: ticket, error } = await supabase
       .from("tickets")

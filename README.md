@@ -4654,3 +4654,40 @@ su un cambiamento fatto da sé stesso (lo sa già). Date/ore nei messaggi format
 esplicitamente in `Europe/Rome` — generate lato server (Vercel gira in UTC), senza fuso
 esplicito un appuntamento delle 15:00 sarebbe finito scritto con l'ora sbagliata. Build/lint
 puliti.
+
+✅ **Audit "Gestione Cliente": trovato perché "i passaggi non si convertono", Trasferimento
+uniformato al sistema di Subentro/installazione** (2026-09-16, richiesta esplicita: "dobbiamo
+migliorare la gestione dei clienti per trasferimenti e tutte le pratiche. perché non si
+convertono i passaggi. fai audit completo"). Trovato un caso reale in produzione: il
+Trasferimento di "Feiza" (inviato il 15/09, con data preferita del trasferimento fisico il
+18/09 — ancora nel futuro) risultava già "Lavorata": lo stato per Trasferimento era un semplice
+pulsante manuale, senza nessuna verifica che il cambiamento fosse davvero avvenuto — lo stesso
+problema già trovato e risolto per Subentro ("poteva segnalarla Lavorata senza che nessuno
+avesse davvero confermato"), mai esteso agli altri tipi di pratica.
+
+Chiarito con l'utente ("dobbiamo uniformare... convertire una volta fatto il contratto nello
+stesso sistema dell'installazione", solo per Trasferimento, PDF sempre obbligatorio): stesso
+identico meccanismo già in uso per Subentro/Nuovi Clienti — contratto caricato → inviato al
+cliente → approvato dal cliente (link a token, come tutte le altre approvazioni del
+gestionale) → **la pratica diventa "Lavorata" da sola**, non più con un clic manuale ("Lavorata"
+è stata tolta dalle scelte manuali per Trasferimento sia in UI sia lato server, che la rifiuta
+comunque a prescindere da cosa mandi il client). Nuove `caricaContrattoTrasferimento()`/
+`inviaEmailApprovazioneContrattoTrasferimento()` (richieste-clienti/actions.ts), nuovo ramo
+`trasferimento_contratto` per `token_approvazione`/`/approva/[token]`, nuova
+`emailApprovazioneContrattoTrasferimento()` (email.ts). A differenza di Subentro, un
+Trasferimento spesso non ha un Ticket collegato (verificato sui 3 casi reali in produzione:
+solo 1 su 3 ne aveva uno) — email/reparto per l'invio si ricavano da qualunque fonte
+disponibile (dati del modulo, Ticket, o scheda Cliente Esterno) invece di richiedere sempre lo
+stesso riferimento. Cambio IBAN/Cambio Anagrafica restano invariati (per esplicita scelta
+dell'utente: solo Trasferimento ha la conseguenza fisica seria che giustifica il gate). Build/
+lint puliti; non ancora verificato con un invio reale (serve applicare prima la migrazione).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0077_contratto_trasferimento.sql` —
+aggiunge `contratto_approvato_cliente_il` a `richieste_clienti` ed estende il vincolo CHECK di
+`token_approvazione.origine` con `'trasferimento_contratto'`. Da incollare nell'SQL Editor di
+Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
+
+⚠️ **Nota separata, dato reale non ancora corretto**: la pratica di Trasferimento di "Feiza"
+(id `a3431b2a-...`) resta segnata "Lavorata" nonostante il contratto non sia mai stato
+caricato/approvato con questo nuovo sistema — non l'ho toccata perché modifica un dato di
+lavoro reale: dimmi se vuoi che la riporti a "Da Lavorare" per farla passare dal nuovo flusso.

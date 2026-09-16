@@ -384,6 +384,13 @@ export interface RichiestaCliente {
   contratto_pdf_url?: string | null;
   contratto_inviato_approvazione_il?: string | null;
   contratto_approvato_nuovo_cliente_il?: string | null;
+  /** ★ NUOVA (2026-09-16, migrazione 0077) — solo per tipo_richiesta
+   * "Trasferimento": stesso meccanismo del contratto di Subentro sopra
+   * (`contratto_pdf_url`/`contratto_inviato_approvazione_il`, riusati),
+   * ma approvato dall'unico cliente coinvolto — non c'è una distinzione
+   * vecchio/nuovo titolare qui. L'approvazione converte la pratica in
+   * "Lavorata" da sola (vedi api/approva/[token]/route.ts). */
+  contratto_approvato_cliente_il?: string | null;
 }
 
 export interface Tariffa {

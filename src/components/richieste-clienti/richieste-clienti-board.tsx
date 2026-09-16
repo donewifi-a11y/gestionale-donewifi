@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock, Check } from "lucide-react";
+import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock, Check, Send, Upload } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
@@ -18,7 +18,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { aggiornaStatoRichiestaCliente, eliminaRichiestaCliente, urlDocumentoRichiesta, completaSubentro } from "@/app/(app)/richieste-clienti/actions";
+import {
+  aggiornaStatoRichiestaCliente,
+  eliminaRichiestaCliente,
+  urlDocumentoRichiesta,
+  completaSubentro,
+  caricaContrattoTrasferimento,
+  inviaEmailApprovazioneContrattoTrasferimento,
+} from "@/app/(app)/richieste-clienti/actions";
+import { createClient } from "@/lib/supabase/client";
 import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
@@ -312,6 +320,59 @@ function DettaglioRichiesta({
     });
   }
 
+  // ★ NUOVA (2026-09-16, "dobbiamo uniformare, troppi passaggi diversi
+  // nelle procedure" — audit su "perché non si convertono i passaggi") —
+  // stesso schema di caricaContrattoSubentroClick/inviaContrattoSubentroClick
+  // in tickets-board.tsx: presigned upload URL, mai un File dentro il
+  // corpo di una Server Action. Solo per tipo_richiesta "Trasferimento" —
+  // vedi caricaContrattoTrasferimento()/inviaEmailApprovazioneContrattoTrasferimento().
+  const [inCorsoContratto, startContratto] = useTransition();
+  const [inCorsoInvioContratto, startInvioContratto] = useTransition();
+  const fileContrattoRef = useRef<HTMLInputElement>(null);
+
+  function caricaContrattoClick(file: File | null) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast("Il contratto deve essere un file PDF.");
+      return;
+    }
+    startContratto(async () => {
+      try {
+        const rispostaUrl = await fetch("/api/richieste-clienti/upload-contratto-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ praticaId: richiesta.id, nomeFile: file.name }),
+        });
+        const risultatoUrl = await rispostaUrl.json();
+        if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
+
+        const supabase = createClient();
+        const { error: erroreUpload } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+        if (erroreUpload) throw new Error(erroreUpload.message);
+
+        const risultato = await caricaContrattoTrasferimento(richiesta.id, risultatoUrl.percorso, file.name);
+        if (risultato.errore) throw new Error(risultato.errore);
+
+        onCambiata({ ...richiesta, contratto_pdf_url: risultatoUrl.percorso, contratto_inviato_approvazione_il: null, contratto_approvato_cliente_il: null });
+        toast("Contratto caricato.", "successo");
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Errore imprevisto durante il caricamento.");
+      }
+    });
+  }
+
+  function inviaContrattoClick() {
+    startInvioContratto(async () => {
+      const risultato = await inviaEmailApprovazioneContrattoTrasferimento(richiesta.id, window.location.origin);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      onCambiata({ ...richiesta, contratto_inviato_approvazione_il: new Date().toISOString() });
+      toast("Contratto inviato per approvazione al cliente.", "successo");
+    });
+  }
+
   // ★ NUOVA — solo un amministratore la vede (pulsante non renderizzato
   // affatto per gli altri, controllo comunque ripetuto lato server in
   // eliminaRichiestaCliente()): cancellazione vera, pensata per moduli di
@@ -343,7 +404,13 @@ function DettaglioRichiesta({
       </DialogHeader>
       <div className="flex min-w-0 flex-col gap-4 text-sm">
         <div className="flex flex-wrap gap-1.5">
-          {STATI.map((s) => (
+          {/* ★ NUOVA (2026-09-16, "dobbiamo uniformare... niente più
+          pulsante manuale" per Trasferimento) — "Lavorata" sparisce dalle
+          scelte manuali: ci si arriva solo quando il cliente approva il
+          contratto (vedi sotto), non con un clic — stesso principio già
+          in uso per Subentro (completaSubentro), qui applicato togliendo
+          la scelta invece di rifiutarla lato server. */}
+          {(richiesta.tipo_richiesta === "Trasferimento" ? STATI.filter((s) => s !== "Lavorata") : STATI).map((s) => (
             <button
               key={s}
               disabled={inCorso}
@@ -386,6 +453,67 @@ function DettaglioRichiesta({
               {inCorsoCompletamento ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
               {inCorsoCompletamento ? "Chiusura in corso…" : "Trasferimento completato"}
             </button>
+          </div>
+        )}
+
+        {/* ★ NUOVA (2026-09-16, "dobbiamo uniformare, troppi passaggi
+        diversi nelle procedure") — stesso identico schema del contratto
+        di Subentro (carica → invia → approvato dal cliente), ma per
+        Trasferimento: qui, non solo dal Ticket, perché un Trasferimento
+        spesso non ne ha uno (vedi i casi reali trovati in produzione). */}
+        {richiesta.tipo_richiesta === "Trasferimento" && richiesta.stato !== "Lavorata" && (
+          <div className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Contratto aggiornato</p>
+            {richiesta.contratto_approvato_cliente_il ? (
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
+                <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+                Approvato dal cliente il {new Date(richiesta.contratto_approvato_cliente_il).toLocaleString("it-IT")}
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileContrattoRef.current?.click()}
+                    disabled={inCorsoContratto}
+                    className="flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                  >
+                    {inCorsoContratto ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Upload className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                    {richiesta.contratto_pdf_url ? "Sostituisci PDF" : "Carica contratto (PDF)"}
+                  </button>
+                  <input
+                    ref={fileContrattoRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => caricaContrattoClick(e.target.files?.[0] ?? null)}
+                  />
+                  {richiesta.contratto_pdf_url && (
+                    <PulsanteDocumento percorso={richiesta.contratto_pdf_url} nome="Contratto.pdf" etichetta="Vedi il PDF caricato" onOttieniUrl={urlDocumentoRichiesta} />
+                  )}
+                </div>
+                {richiesta.contratto_pdf_url && (
+                  <button
+                    type="button"
+                    onClick={inviaContrattoClick}
+                    disabled={inCorsoInvioContratto}
+                    className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+                  >
+                    {inCorsoInvioContratto ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
+                    {inCorsoInvioContratto
+                      ? "Invio in corso…"
+                      : richiesta.contratto_inviato_approvazione_il
+                        ? "Reinvia per approvazione"
+                        : "Invia per approvazione al cliente"}
+                  </button>
+                )}
+                {richiesta.contratto_inviato_approvazione_il && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Inviato il {new Date(richiesta.contratto_inviato_approvazione_il).toLocaleString("it-IT")} — in attesa di approvazione.
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
 
