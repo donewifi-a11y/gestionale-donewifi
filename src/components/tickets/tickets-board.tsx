@@ -930,6 +930,13 @@ export function TicketsBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
+                  // ★ FIX (2026-09-16, bug reale segnalato: "quando si
+                  // chiudono i ticket non escono popup di conferma") —
+                  // il salvataggio riusciva e il popup si chiudeva, ma
+                  // nessun toast confermava che il Ticket fosse stato
+                  // davvero completato — stesso standard di successo già
+                  // in uso ovunque altro nel gestionale, mancante qui.
+                  toast(aperto ? `Ticket #${aperto.numero} completato.` : "Ticket completato.", "successo");
                   setSchedaAperta(null);
                   setAperto(null);
                   router.refresh();
@@ -941,6 +948,7 @@ export function TicketsBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
+                  toast(aperto ? `Ticket #${aperto.numero} completato.` : "Ticket completato.", "successo");
                   setSchedaAperta(null);
                   setAperto(null);
                   router.refresh();
@@ -1439,6 +1447,12 @@ function DettaglioTicket({
             statoVecchio={ticket.stato}
             onAnnulla={() => setMostraRapportinoForm(false)}
             onSalvato={() => {
+              // ★ FIX (2026-09-16, bug reale segnalato: "quando si chiudono
+              // i ticket non escono popup di conferma") — stesso bug del
+              // gemello in TicketsBoard (Scheda di Installazione/
+              // Lavorazione): il rapportino si salvava, il popup si
+              // chiudeva, ma nessun toast confermava la chiusura.
+              toast(`Ticket #${ticket.numero} completato.`, "successo");
               setMostraRapportinoForm(false);
               onCambiato({ ...ticket, stato: "Completato" });
               router.refresh();

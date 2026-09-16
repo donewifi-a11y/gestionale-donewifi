@@ -710,6 +710,11 @@ export function VistaTecnicoBoard({
                   statoVecchio={ticketRapportino.stato}
                   onAnnulla={() => setTicketRapportino(null)}
                   onSalvato={() => {
+                    // ★ FIX (2026-09-16, bug reale segnalato: "quando si
+                    // chiudono i ticket non escono popup di conferma") —
+                    // stesso bug dei gemelli in tickets-board.tsx e
+                    // calendario-board.tsx.
+                    toast(`Ticket #${ticketRapportino.numero} completato.`, "successo");
                     setTicketRapportino(null);
                     router.refresh();
                   }}
@@ -736,6 +741,7 @@ export function VistaTecnicoBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setAppuntamentoScheda(null)}
                 onSalvato={() => {
+                  toast("Scheda salvata, Ticket completato.", "successo");
                   setAppuntamentoScheda(null);
                   router.refresh();
                 }}
@@ -746,6 +752,7 @@ export function VistaTecnicoBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setAppuntamentoScheda(null)}
                 onSalvato={() => {
+                  toast("Scheda salvata, Ticket completato.", "successo");
                   setAppuntamentoScheda(null);
                   router.refresh();
                 }}

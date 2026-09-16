@@ -344,6 +344,12 @@ export function CalendarioBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
+                  // ★ FIX (2026-09-16, bug reale segnalato: "quando si
+                  // chiudono i ticket non escono popup di conferma") —
+                  // stesso bug del gemello in tickets-board.tsx: la Scheda
+                  // si salvava, il popup si chiudeva, ma nessun toast
+                  // confermava il completamento.
+                  toast("Scheda salvata, Ticket completato.", "successo");
                   setSchedaAperta(null);
                   setModifica(null);
                   router.refresh();
@@ -355,6 +361,7 @@ export function CalendarioBoard({
                 catalogoMateriali={catalogoMateriali}
                 onAnnulla={() => setSchedaAperta(null)}
                 onSalvato={() => {
+                  toast("Scheda salvata, Ticket completato.", "successo");
                   setSchedaAperta(null);
                   setModifica(null);
                   router.refresh();

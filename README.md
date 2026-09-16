@@ -4601,3 +4601,13 @@ intervento, come installazione e quale antenna mettere"). Due bug distinti, stes
   Ticket, e nella descrizione dell'evento Google Calendario insieme a Ticket/telefono/tecnico
   (già presenti lì da prima). Verificato lo schema di `antenne_inventario` su dati reali.
   Build/lint puliti.
+
+✅ **Nessun popup di conferma quando si chiude un Ticket** (2026-09-16, bug reale: "quando si
+chiudono i ticket non escono popup di conferma"). Chiudere un Ticket (rapportino di chiusura, o
+Scheda di Installazione/Lavorazione tecnica) salvava tutto correttamente e chiudeva il popup —
+ma nessun toast confermava che il Ticket fosse stato davvero completato, l'unico segnale era il
+popup che scompariva, facile da scambiare per un errore silenzioso. Mancava in **tutti e 7** i
+punti da cui si può chiudere un Ticket: `RapportinoForm` (Dettaglio Ticket e Vista Tecnico) e
+`SchedaInstallazioneForm`/`SchedaLavorazioneForm` (Ticket, Calendario, Vista Tecnico) — stesso
+standard di conferma già in uso ovunque altro nel gestionale, mancante solo qui. Build/lint
+puliti.
