@@ -475,7 +475,17 @@ export interface DatiSchedaLavoro {
    * sempre indipendentemente da cosa c'è in `materiali`. */
   metodoPagamentoPosa: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null;
   materiali: MaterialeUsato[];
-  firmaCliente: FirmaClienteApprovata;
+  /** ★ ESTESA (2026-09-16, richiesta esplicita: "per le chiusure dei
+   * ticket non è necessario otp del cliente o amministratore. si può
+   * fare ma non obbligatorio. obbligatorio per nuove installazioni e
+   * trasferimenti") — non più sempre richiesta: vedi il controllo in
+   * salvaSchedaLavoro()/salvaSchedaLavoroEsterno(), obbligatoria solo per
+   * `tipo === "Nuova installazione"` (che include già il Trasferimento —
+   * vedi ContestoClienteTicket/SelettoreMateriali, "il trasferimento si
+   * procede come nuova installazione"). Per una Lavorazione tecnica resta
+   * possibile ma facoltativa: il tecnico può ancora farla confermare, non
+   * è più un requisito per salvare. */
+  firmaCliente: FirmaClienteApprovata | null;
   firmaTecnicoDataUrl?: string;
   // solo "Nuova installazione" — modelloCpe/mac servono anche a "Lavorazione
   // tecnica" quando interventiEseguiti include "Recupero Apparati" (vedi
@@ -594,17 +604,28 @@ export async function salvaSchedaLavoro(
   // resta sempre vuota per questo metodo, vedi FirmaClienteApprovata):
   // serve invece `adminId` valorizzato, e la verifica vale anche qui, non
   // solo per "otp_email".
-  if (!dati.firmaCliente?.metodo) {
+  // ★ RIVISTO (2026-09-16, richiesta esplicita: "per le chiusure dei
+  // ticket non è necessario otp del cliente o amministratore. si può
+  // fare ma non obbligatorio. obbligatorio per nuove installazioni e
+  // trasferimenti") — obbligatoria solo per "Nuova installazione" (che
+  // include già il Trasferimento, vedi il commento su
+  // ContestoClienteTicket più sotto). Per una Lavorazione tecnica resta
+  // solo facoltativa: se il tecnico la fa comunque, la coerenza dei campi
+  // (email/adminId/verificatoIl) si controlla comunque, a prescindere dal
+  // tipo — solo la sua PRESENZA non è più imposta.
+  if (tipo === "Nuova installazione" && !dati.firmaCliente?.metodo) {
     return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
   }
-  if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
-    return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
-  }
-  if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
-    return { errore: "Manca l'amministratore che ha autorizzato." };
-  }
-  if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice non risulta verificato." };
+  if (dati.firmaCliente?.metodo) {
+    if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
+      return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
+    }
+    if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
+      return { errore: "Manca l'amministratore che ha autorizzato." };
+    }
+    if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
+      return { errore: "Il codice non risulta verificato." };
+    }
   }
 
   const firmaTecnico = await salvaFirma(dati.firmaTecnicoDataUrl, "firma-tecnico");
@@ -641,10 +662,10 @@ export async function salvaSchedaLavoro(
       materiali: dati.materiali,
       foto,
       firma_cliente_url: null,
-      firma_cliente_metodo: dati.firmaCliente.metodo,
-      firma_cliente_email: dati.firmaCliente.email || null,
-      firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
-      firma_cliente_admin_id: dati.firmaCliente.adminId ?? null,
+      firma_cliente_metodo: dati.firmaCliente?.metodo ?? null,
+      firma_cliente_email: dati.firmaCliente?.email || null,
+      firma_cliente_verificato_il: dati.firmaCliente?.verificatoIl ?? null,
+      firma_cliente_admin_id: dati.firmaCliente?.adminId ?? null,
       firma_tecnico_url: firmaTecnico.percorso,
       supporto: dati.supporto || null,
       posizione: dati.posizione || null,

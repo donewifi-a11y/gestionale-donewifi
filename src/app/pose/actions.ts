@@ -535,17 +535,24 @@ export async function salvaSchedaLavoroEsterno(
   // stessa estensione di salvaSchedaLavoro() (calendario/actions.ts), vedi
   // lì per il commento completo: "otp_admin" non ha un'email cliente da
   // controllare, serve invece adminId.
-  if (!dati.firmaCliente?.metodo) {
+  // ★ RIVISTO (2026-09-16, stesso gemello di salvaSchedaLavoro() — vedi lì
+  // per il commento completo: "per le chiusure dei ticket non è
+  // necessario otp del cliente o amministratore... obbligatorio per
+  // nuove installazioni e trasferimenti") — obbligatoria solo per "Nuova
+  // installazione" (include già il Trasferimento).
+  if (tipo === "Nuova installazione" && !dati.firmaCliente?.metodo) {
     return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
   }
-  if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
-    return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
-  }
-  if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
-    return { errore: "Manca l'amministratore che ha autorizzato." };
-  }
-  if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
-    return { errore: "Il codice non risulta verificato." };
+  if (dati.firmaCliente?.metodo) {
+    if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
+      return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };
+    }
+    if (dati.firmaCliente.metodo === "otp_admin" && !dati.firmaCliente.adminId) {
+      return { errore: "Manca l'amministratore che ha autorizzato." };
+    }
+    if ((dati.firmaCliente.metodo === "otp_email" || dati.firmaCliente.metodo === "otp_admin") && !dati.firmaCliente.verificatoIl) {
+      return { errore: "Il codice non risulta verificato." };
+    }
   }
 
   // ★ FIX (2026-08-26, "controllo d'oro") — la firma del tecnico non viene
@@ -589,10 +596,10 @@ export async function salvaSchedaLavoroEsterno(
       materiali: dati.materiali,
       foto,
       firma_cliente_url: null,
-      firma_cliente_metodo: dati.firmaCliente.metodo,
-      firma_cliente_email: dati.firmaCliente.email || null,
-      firma_cliente_verificato_il: dati.firmaCliente.verificatoIl,
-      firma_cliente_admin_id: dati.firmaCliente.adminId ?? null,
+      firma_cliente_metodo: dati.firmaCliente?.metodo ?? null,
+      firma_cliente_email: dati.firmaCliente?.email || null,
+      firma_cliente_verificato_il: dati.firmaCliente?.verificatoIl ?? null,
+      firma_cliente_admin_id: dati.firmaCliente?.adminId ?? null,
       firma_tecnico_url: null,
       supporto: dati.supporto || null,
       posizione: dati.posizione || null,

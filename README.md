@@ -4687,7 +4687,28 @@ aggiunge `contratto_approvato_cliente_il` a `richieste_clienti` ed estende il vi
 `token_approvazione.origine` con `'trasferimento_contratto'`. Da incollare nell'SQL Editor di
 Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
 
-⚠️ **Nota separata, dato reale non ancora corretto**: la pratica di Trasferimento di "Feiza"
-(id `a3431b2a-...`) resta segnata "Lavorata" nonostante il contratto non sia mai stato
-caricato/approvato con questo nuovo sistema — non l'ho toccata perché modifica un dato di
-lavoro reale: dimmi se vuoi che la riporti a "Da Lavorare" per farla passare dal nuovo flusso.
+✅ **Corretta anche la nota sopra** (2026-09-16, "procedi") — la pratica di Trasferimento di
+"Feiza" è tornata a "Da Lavorare" (verificato in produzione, prima/dopo mostrati): passerà ora
+dal nuovo flusso contratto → approvazione cliente.
+
+✅ **OTP/autorizzazione cliente non più obbligatoria per una Lavorazione tecnica** (2026-09-16,
+richiesta esplicita: "per le chiusure dei ticket non è necessario otp del cliente o
+amministratore. si può fare ma non obbligatorio. obbligatorio per nuove installazioni e
+trasferimenti"). La conferma del cliente (codice via email, link di approvazione, o
+autorizzazione admin) era finora sempre obbligatoria per salvare una Scheda, sia di
+Installazione sia di Lavorazione tecnica — troppo rigido per un intervento tecnico "semplice"
+(Cambio CPE, Riavvio Apparati, Sostituzione Cavo...), dove il rapportino di chiusura via
+`RapportinoForm` non l'ha mai richiesta.
+
+Verificato che il Trasferimento (l'altra pratica per cui deve restare obbligatoria) segue già,
+per costruzione, lo stesso `tipo_servizio` "Nuova installazione" di una vera nuova installazione
+(categoria Ticket "Commerciale" → sempre "Nuova installazione", vedi `tipoServizioDaTicket()` —
+confermato anche sul Ticket reale #43, categoria Commerciale/sottocategoria Trasferimento):
+bastava quindi condizionare l'obbligo su `tipo === "Nuova installazione"`, nessuna nuova
+distinzione da inventare. La conferma resta **possibile ma facoltativa** per una Lavorazione
+tecnica — se il tecnico la fa comunque, la coerenza dei campi (email/codice verificato) si
+controlla comunque, solo la sua presenza non è più richiesta. Toccati
+`salvaSchedaLavoro()`/`salvaSchedaLavoroEsterno()` (server), `scheda-lavorazione-form.tsx` e
+`pose/scheda-lavorazione-domande.tsx` (client) — `scheda-installazione-form.tsx` e la sua
+gemella pose restano invariate (Nuova installazione + Trasferimento, sempre obbligatoria).
+Build/lint puliti.

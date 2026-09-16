@@ -83,10 +83,9 @@ export function SchedaLavorazioneForm({
 
   async function invia() {
     setErroreInvio("");
-    if (!firmaCliente) {
-      setErroreInvio("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
-      return;
-    }
+    // ★ RIVISTA (2026-09-16) — vedi il commento sul passo "Firma
+    // (facoltativa)" sopra: non blocca più il salvataggio per una
+    // Lavorazione tecnica, `firmaCliente` resta `null` se non compilata.
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato su pose: "fermo su
     // salvataggio" — vedi il commento gemello in
@@ -262,11 +261,21 @@ export function SchedaLavorazioneForm({
       ),
     },
     {
-      titolo: "Firma",
-      valida: () => (firmaCliente ? null : "Conferma la firma del cliente (codice email o link di approvazione) prima di proseguire."),
+      // ★ RIVISTA (2026-09-16, richiesta esplicita: "per le chiusure dei
+      // ticket non è necessario otp del cliente o amministratore. si può
+      // fare ma non obbligatorio. obbligatorio per nuove installazioni e
+      // trasferimenti") — per una Lavorazione tecnica non blocca più il
+      // passo (niente `valida`, come già per gli altri campi facoltativi):
+      // il tecnico può ancora farla confermare, non è più un requisito.
+      // Resta obbligatoria per SchedaInstallazioneForm (Nuova
+      // installazione — include già il Trasferimento).
+      titolo: "Firma (facoltativa)",
       contenuto: (
         <div>
           <Label>Firma / accettazione cliente</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Facoltativa per gli interventi tecnici — puoi farla confermare comunque, ma non è richiesta per salvare.
+          </p>
           <div className="mt-1.5">
             <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />
           </div>

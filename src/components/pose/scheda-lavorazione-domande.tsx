@@ -67,7 +67,7 @@ export function SchedaLavorazioneDomande({
   async function invia() {
     setErroreInvio("");
     const dati = {
-      esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente: firmaCliente!, interventiEseguiti: interventi,
+      esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente, interventiEseguiti: interventi,
       // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" è selezionato.
       modelloCpe: recuperoApparati ? apparatoRecuperato : undefined,
       mac: recuperoApparati ? macRecuperato : undefined,
@@ -181,11 +181,17 @@ export function SchedaLavorazioneDomande({
       contenuto: <AreaGrande placeholder="Scrivi qui..." value={note} onChange={(e) => setNote(e.target.value)} />,
     },
     {
-      domanda: "Il cliente conferma l'intervento?",
+      // ★ RIVISTA (2026-09-16, richiesta esplicita: "per le chiusure dei
+      // ticket non è necessario otp del cliente o amministratore. si può
+      // fare ma non obbligatorio. obbligatorio per nuove installazioni e
+      // trasferimenti") — niente più `valida`: per una Lavorazione
+      // tecnica il tecnico può ancora farla confermare, ma non è più un
+      // requisito per proseguire. Resta obbligatoria per la Scheda di
+      // Installazione (Nuova installazione — include già il Trasferimento).
+      domanda: "Il cliente conferma l'intervento? (facoltativo)",
       categoria: "firma",
       icona: <FileSignature className="h-6 w-6" strokeWidth={2.25} />,
-      aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
-      valida: () => (firmaCliente ? null : "Conferma la firma del cliente prima di continuare."),
+      aiuto: "Facoltativo per gli interventi tecnici. Se vuoi farlo comunque: un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
       contenuto: <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />,
     },
   ];
