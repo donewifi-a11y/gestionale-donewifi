@@ -480,6 +480,20 @@ export interface ClienteEsterno {
   attivo: boolean;
   profilo_internet: string | null;
   aggiornato_il: string;
+  /** ★ NUOVA (2026-09-16, migrazione 0076, richiesta esplicita: "far
+   * inserire se una fattura è insoluta") — flag manuale, indipendente
+   * dagli insoluti calcolati sulle fatture sincronizzate da Aruba (vedi
+   * getFattureCliente/insoluti in clienti-esterni/[id]/page.tsx): copre i
+   * casi che l'automatismo non intercetta. */
+  fattura_insoluta_manuale: boolean;
+  fattura_insoluta_dal: string | null;
+  fattura_insoluta_nota: string | null;
+  /** ★ NUOVA (2026-09-16, migrazione 0076, richiesta esplicita: "far
+   * indicare se un cliente va rallentato") — solo stato/tracciamento,
+   * nessuna azione automatica sull'apparato. */
+  rallentato: boolean;
+  rallentato_dal: string | null;
+  rallentato_motivo: string | null;
 }
 
 export interface FatturaEsterna {

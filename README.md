@@ -4611,3 +4611,22 @@ punti da cui si può chiudere un Ticket: `RapportinoForm` (Dettaglio Ticket e Vi
 `SchedaInstallazioneForm`/`SchedaLavorazioneForm` (Ticket, Calendario, Vista Tecnico) — stesso
 standard di conferma già in uso ovunque altro nel gestionale, mancante solo qui. Build/lint
 puliti.
+
+✅ **Scheda Cliente Esterno: "Fattura insoluta" e "Cliente rallentato", due status manuali**
+(2026-09-16, richiesta esplicita: "metterei all'interno della scheda cliente la possibilità di
+far inserire se una fattura è insoluta e far indicare se un cliente va rallentato e mettere
+status rallentato"). Due nuovi flag su `clienti_esterni` (migrazione `0076_stato_cliente_
+insoluto_rallentato.sql`), indipendenti dagli insoluti già calcolati sulle fatture sincronizzate
+da Aruba — coprono i casi che l'automatismo non intercetta (fattura appena emessa, cliente
+Buy&Go senza fatture "vere" abbinate) e un giudizio interno ("va rallentato") che Aruba non ha
+modo di sapere. Chiarito con l'utente: un semplice interruttore con data + nota/motivo
+facoltativi (non un vero inserimento di importo/scadenza), e "Rallentato" resta solo uno
+status visibile — impostarlo non tocca alcun apparato di rete né manda notifiche, è chi guarda
+il gestionale a decidere cosa farne. Nuovo componente `StatoCliente` nella barra laterale della
+scheda cliente, più un badge discreto nell'elenco Anagrafica Clienti quando uno dei due è
+attivo. Build/lint puliti.
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0076_stato_cliente_insoluto_rallentato.sql`
+— aggiunge `fattura_insoluta_manuale`/`fattura_insoluta_dal`/`fattura_insoluta_nota` e
+`rallentato`/`rallentato_dal`/`rallentato_motivo` a `clienti_esterni`. Da incollare nell'SQL
+Editor di Supabase (include già la `notify pgrst, 'reload schema'` in fondo).

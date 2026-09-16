@@ -211,6 +211,16 @@ export function ClientiEsterniBoard({
                 )}
               </div>
             </div>
+            {/* ★ NUOVA (2026-09-16, migrazione 0076) — stessi due flag
+            manuali impostabili dalla scheda cliente (vedi StatoCliente),
+            visibili già qui in elenco per non dover aprire ogni scheda per
+            saperlo. */}
+            {c.fattura_insoluta_manuale && (
+              <span className="hidden shrink-0 rounded-full bg-critical/10 px-2.5 py-1 text-xs font-semibold text-critical sm:inline">Insoluta</span>
+            )}
+            {c.rallentato && (
+              <span className="hidden shrink-0 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning sm:inline">Rallentato</span>
+            )}
             {c.attivo ? (
               <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Attivo</span>
             ) : (

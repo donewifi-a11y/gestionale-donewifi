@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno, getContrattiPrecedenti } from "../actions";
 import { InstallazioniCliente } from "@/components/clienti-esterni/installazioni-cliente";
 import { NuovaPraticaClienteEsterno } from "@/components/clienti-esterni/nuova-pratica";
+import { StatoCliente } from "@/components/clienti-esterni/stato-cliente";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
@@ -123,6 +124,16 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
               </div>
             </div>
           </div>
+
+          <StatoCliente
+            clienteId={c.id}
+            fatturaInsoluta={c.fattura_insoluta_manuale}
+            fatturaInsolutaDal={c.fattura_insoluta_dal}
+            fatturaInsolutaNota={c.fattura_insoluta_nota}
+            rallentato={c.rallentato}
+            rallentatoDal={c.rallentato_dal}
+            rallentatoMotivo={c.rallentato_motivo}
+          />
 
           <NuovaPraticaClienteEsterno
             clienteId={c.id}

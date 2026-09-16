@@ -656,6 +656,61 @@ export async function segnaDisdettaRicevuta(clienteEsternoId: number) {
   return { errore: null };
 }
 
+// ★ NUOVA (2026-09-16, migrazione 0076, richiesta esplicita: "far inserire
+// se una fattura è insoluta") — flag manuale, indipendente dagli insoluti
+// calcolati sulle fatture sincronizzate da Aruba (vedi getFattureCliente()
+// e "insoluti" in clienti-esterni/[id]/page.tsx): copre i casi che
+// l'automatismo non intercetta (fattura appena emessa, non ancora
+// sincronizzata, o un cliente Buy&Go senza fatture "vere" abbinate).
+export async function impostaFatturaInsolutaManuale(clienteEsternoId: number, insoluta: boolean, nota: string | null) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("clienti_esterni")
+    .update({
+      fattura_insoluta_manuale: insoluta,
+      fattura_insoluta_dal: insoluta ? new Date().toISOString().slice(0, 10) : null,
+      fattura_insoluta_nota: insoluta ? (nota?.trim() || null) : null,
+    })
+    .eq("id", clienteEsternoId);
+  if (error) return { errore: error.message };
+
+  revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
+  revalidatePath("/clienti-esterni");
+  revalidatePath("/clienti");
+  return { errore: null };
+}
+
+// ★ NUOVA (2026-09-16, migrazione 0076, richiesta esplicita: "far indicare
+// se un cliente va rallentato e mettere status rallentato") — solo stato/
+// tracciamento interno: impostarlo non tocca alcun apparato di rete, è chi
+// guarda il gestionale a decidere cosa farne (vedi la scelta esplicita
+// dell'utente: "solo uno status visibile", senza notifica automatica).
+export async function impostaRallentato(clienteEsternoId: number, rallentato: boolean, motivo: string | null) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("clienti_esterni")
+    .update({
+      rallentato,
+      rallentato_dal: rallentato ? new Date().toISOString().slice(0, 10) : null,
+      rallentato_motivo: rallentato ? (motivo?.trim() || null) : null,
+    })
+    .eq("id", clienteEsternoId);
+  if (error) return { errore: error.message };
+
+  revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
+  revalidatePath("/clienti-esterni");
+  revalidatePath("/clienti");
+  return { errore: null };
+}
+
 // ★ NUOVA (2026-09, richiesta esplicita da screenshot: "manca la pratica di
 // subentro" — il menu "Nuova pratica" della scheda Cliente Esterno offre
 // Trasferimento/Cambio IBAN/Cambio Anagrafica ma non Subentro, perché il
