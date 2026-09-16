@@ -4624,9 +4624,9 @@ facoltativi (non un vero inserimento di importo/scadenza), e "Rallentato" resta 
 status visibile — impostarlo non tocca alcun apparato di rete né manda notifiche, è chi guarda
 il gestionale a decidere cosa farne. Nuovo componente `StatoCliente` nella barra laterale della
 scheda cliente, più un badge discreto nell'elenco Anagrafica Clienti quando uno dei due è
-attivo. Build/lint puliti.
+attivo. Migrazione applicata e verificata (scrittura/lettura di prova su una riga reale,
+ripristinata subito dopo). Build/lint puliti.
 
-**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0076_stato_cliente_insoluto_rallentato.sql`
-— aggiunge `fattura_insoluta_manuale`/`fattura_insoluta_dal`/`fattura_insoluta_nota` e
-`rallentato`/`rallentato_dal`/`rallentato_motivo` a `clienti_esterni`. Da incollare nell'SQL
-Editor di Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
+**✅ MIGRAZIONE APPLICATA (2026-09-16):** `supabase/migrations/0076_stato_cliente_insoluto_
+rallentato.sql` — aggiunge `fattura_insoluta_manuale`/`fattura_insoluta_dal`/
+`fattura_insoluta_nota` e `rallentato`/`rallentato_dal`/`rallentato_motivo` a `clienti_esterni`.
