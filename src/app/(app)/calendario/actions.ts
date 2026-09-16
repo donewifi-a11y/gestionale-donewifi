@@ -110,6 +110,44 @@ async function descrizioneEventoGoogle(
   return righe.length > 0 ? righe.join("\n") : null;
 }
 
+// ★ NUOVA (2026-09-16, "controllo d'oro su notifiche calendario e
+// appuntamenti") — data/ora formattate esplicitamente in "Europe/Rome":
+// generate lato server (Vercel gira in UTC di default), senza fuso
+// esplicito un appuntamento delle 15:00 finirebbe scritto "16:00" o
+// "14:00" a seconda dell'ora legale — stesso bug di fuso orario già
+// incontrato altrove in questo progetto con date generate sul server.
+function formattaDataOraBreve(iso: string): string {
+  return new Date(iso).toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Rome",
+  });
+}
+
+/**
+ * ★ NUOVA (2026-09-16, bug reale trovato col "controllo d'oro su notifiche
+ * calendario e appuntamenti") — creare, riassegnare, spostare o annullare
+ * un appuntamento non avvisava MAI il tecnico assegnato: l'unico segnale
+ * era l'evento sul calendario Google condiviso (nessun invito personale,
+ * un solo calendario per tutti — vedi google-calendar.ts, nessun campo
+ * `attendees`) o aprire il gestionale e accorgersene da soli. Un tecnico
+ * poteva ritrovarsi un appuntamento nuovo, spostato o tolto senza saperlo
+ * finché non controllava. Stesso canale già in uso per gli altri
+ * promemoria diretti a una singola Persona (vedi richiediOtpAmministratore
+ * sopra e il cron promemoria-lavorazioni) — un messaggio nella Chat
+ * interna dal Sistema, non un nuovo canale da aggiungere.
+ */
+// ★ `autoreId` — chi ha appena fatto la modifica: se coincide col tecnico
+// da avvisare (si è riassegnato/spostato/annullato l'appuntamento da solo)
+// non serve dirglielo, lo sa già per definizione — un messaggio in più
+// senza informazione nuova.
+async function notificaTecnicoAppuntamento(tecnicoId: string | null, testo: string, autoreId?: string | null) {
+  if (!tecnicoId || tecnicoId === autoreId) return;
+  await inviaMessaggioChatSistemaDiretto(tecnicoId, testo);
+}
+
 export async function creaAppuntamento(dati: {
   titolo: string;
   indirizzo: string;
@@ -154,6 +192,12 @@ export async function creaAppuntamento(dati: {
   });
   if (error) return { errore: error.message };
 
+  await notificaTecnicoAppuntamento(
+    dati.tecnicoId || null,
+    `📅 Ti è stato assegnato un nuovo appuntamento: "${dati.titolo}" — ${formattaDataOraBreve(dati.dataOra)}.`,
+    personaId
+  );
+
   revalidatePath("/calendario");
   return { errore: null };
 }
@@ -178,8 +222,13 @@ export async function modificaAppuntamento(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
+  const personaId = await getPersonaCorrenteId();
 
-  const { data: esistente } = await supabase.from("appuntamenti").select("google_event_id, ticket_id").eq("id", id).single();
+  const { data: esistente } = await supabase
+    .from("appuntamenti")
+    .select("google_event_id, ticket_id, tecnico_id, data_ora")
+    .eq("id", id)
+    .single();
 
   const { error } = await supabase
     .from("appuntamenti")
@@ -205,15 +254,42 @@ export async function modificaAppuntamento(
     });
   }
 
+  // ★ NUOVA (2026-09-16, "controllo d'oro su notifiche calendario e
+  // appuntamenti") — vedi notificaTecnicoAppuntamento() sopra: chi viene
+  // riassegnato o vede spostato il "suo" appuntamento lo sa subito invece
+  // di scoprirlo scorrendo il calendario. Due casi distinti, mai insieme:
+  // un tecnico non può essere "riassegnato e anche spostato" nella stessa
+  // notifica senza confondere quale dei due fatti conta di più.
+  const nuovoTecnicoId = dati.tecnicoId || null;
+  if (esistente && nuovoTecnicoId !== esistente.tecnico_id) {
+    if (nuovoTecnicoId) {
+      await notificaTecnicoAppuntamento(
+        nuovoTecnicoId,
+        `📅 Ti è stato assegnato un appuntamento: "${dati.titolo}" — ${formattaDataOraBreve(dati.dataOra)}.`,
+        personaId
+      );
+    }
+    if (esistente.tecnico_id) {
+      await notificaTecnicoAppuntamento(esistente.tecnico_id, `↩️ Non sei più assegnato all'appuntamento "${dati.titolo}" (riassegnato).`, personaId);
+    }
+  } else if (esistente && nuovoTecnicoId && esistente.data_ora !== dati.dataOra) {
+    await notificaTecnicoAppuntamento(
+      nuovoTecnicoId,
+      `🔄 Il tuo appuntamento "${dati.titolo}" è stato spostato: ${formattaDataOraBreve(esistente.data_ora)} → ${formattaDataOraBreve(dati.dataOra)}.`,
+      personaId
+    );
+  }
+
   revalidatePath("/calendario");
   return { errore: null };
 }
 
 export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamento) {
   const supabase = await createClient();
+  const personaId = await getPersonaCorrenteId();
   const { data: appuntamento } = await supabase
     .from("appuntamenti")
-    .select("google_event_id, titolo")
+    .select("google_event_id, titolo, tecnico_id, data_ora")
     .eq("id", id)
     .single();
 
@@ -226,6 +302,18 @@ export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamen
     } else if (stato === "Completato") {
       await aggiornaEventoCalendario(appuntamento.google_event_id, { summary: `✅ ${appuntamento.titolo}` });
     }
+  }
+
+  // ★ NUOVA (2026-09-16, "controllo d'oro su notifiche calendario e
+  // appuntamenti") — vedi notificaTecnicoAppuntamento() sopra: un
+  // appuntamento annullato senza avvisare chi era assegnato rischiava di
+  // presentarsi comunque sul posto per un intervento non più previsto.
+  if (appuntamento && stato === "Annullato") {
+    await notificaTecnicoAppuntamento(
+      appuntamento.tecnico_id,
+      `❌ Appuntamento annullato: "${appuntamento.titolo}" — ${formattaDataOraBreve(appuntamento.data_ora)}.`,
+      personaId
+    );
   }
 
   revalidatePath("/calendario");
@@ -270,7 +358,7 @@ export async function eliminaAppuntamento(id: string): Promise<{ errore: string 
 
   const { data: appuntamento } = await service
     .from("appuntamenti")
-    .select("titolo, google_event_id")
+    .select("titolo, google_event_id, tecnico_id, data_ora")
     .eq("id", id)
     .maybeSingle();
   if (!appuntamento) return { errore: "Appuntamento non trovato." };
@@ -289,6 +377,16 @@ export async function eliminaAppuntamento(id: string): Promise<{ errore: string 
   if (appuntamento.google_event_id) {
     await aggiornaEventoCalendario(appuntamento.google_event_id, { status: "cancelled" });
   }
+
+  // ★ NUOVA (2026-09-16, "controllo d'oro su notifiche calendario e
+  // appuntamenti") — vedi notificaTecnicoAppuntamento() sopra: stessa
+  // ragione di cambiaStatoAppuntamento("Annullato") — chi era assegnato
+  // non deve scoprire da solo che l'appuntamento è sparito.
+  await notificaTecnicoAppuntamento(
+    appuntamento.tecnico_id,
+    `🗑️ Appuntamento eliminato: "${appuntamento.titolo}" — ${formattaDataOraBreve(appuntamento.data_ora)}.`,
+    persona.id
+  );
 
   await service.from("storico").insert({
     origine: "appuntamento",

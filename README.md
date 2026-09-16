@@ -4638,3 +4638,19 @@ rallentare" erano un link di testo grigio senza bordo né sfondo — accanto ai 
 passandoci sopra per caso col mouse. Diventano pulsanti veri, a tutta larghezza, col colore
 del tono (rosso per l'insoluta, arancio per il rallentamento) invece del solito grigio neutro
 — stesso peso visivo del resto della scheda. Build/lint puliti.
+
+✅ **"Controllo d'oro" su notifiche Calendario/Appuntamenti — trovato e corretto un vuoto reale**
+(2026-09-16, richiesta esplicita: "mi fai un controllo d'oro su le notifiche a calendario e
+appuntamenti?"). Creare, riassegnare, spostare, annullare o eliminare un appuntamento non
+avvisava **mai** il tecnico assegnato: l'unico segnale esistente era l'evento sul calendario
+Google condiviso (un solo calendario per tutti, nessun invito personale — vedi google-
+calendar.ts, nessun campo `attendees`) — un tecnico poteva ritrovarsi un appuntamento nuovo,
+spostato o tolto senza saperlo finché non controllava da solo. Aggiunta una notifica in Chat
+interna (stesso canale già in uso per gli altri promemoria diretti a una Persona, es.
+`richiediOtpAmministratore`/cron `promemoria-lavorazioni` — nessun canale nuovo) in tutti e 4 i
+casi: nuova assegnazione, riassegnazione (avvisati sia il nuovo sia il vecchio tecnico),
+spostamento di data/ora, annullamento/eliminazione. Chi fa la modifica non riceve una notifica
+su un cambiamento fatto da sé stesso (lo sa già). Date/ore nei messaggi formattate
+esplicitamente in `Europe/Rome` — generate lato server (Vercel gira in UTC), senza fuso
+esplicito un appuntamento delle 15:00 sarebbe finito scritto con l'ora sbagliata. Build/lint
+puliti.
