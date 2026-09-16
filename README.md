@@ -4712,3 +4712,20 @@ controlla comunque, solo la sua presenza non è più richiesta. Toccati
 `pose/scheda-lavorazione-domande.tsx` (client) — `scheda-installazione-form.tsx` e la sua
 gemella pose restano invariate (Nuova installazione + Trasferimento, sempre obbligatoria).
 Build/lint puliti.
+
+✅ **Vista Tecnico: un Ticket non assegnato era invisibile a tutti, non solo "difficile da
+chiudere"** (2026-09-16, bug reale segnalato: "mi verifichi perché i ticket non possono essere
+chiusi dall'operatore, tipo anna gaggiolo"). Vista Tecnico interrogava solo `tecnico_assegnato
+= tua persona`: un Ticket ancora senza nessuno assegnato (es. #176, Anna Gaggiolo) non compariva
+lì per NESSUN operatore — non un permesso mancante o un errore silenzioso, la query stessa lo
+escludeva. Il pulsante "non c'era" letteralmente perché il Ticket stesso non c'era. Verificato
+sui dati reali quanto fosse esteso: **28 Ticket non assegnati nel solo reparto Analisi Rete**,
+non un caso isolato.
+
+Proposta con artifact ("Chiudi Ticket, da Vista Tecnico"), poi implementata: nuova sezione "Non
+assegnati nel tuo reparto" (nuova query in `vista-tecnico/page.tsx` — stesso reparto della
+persona, o tutti se admin) con un pulsante **"Chiudi Ticket"** che fa in un solo gesto quello che
+prima erano due passi separati (assegnare da `/tickets`, poi tornare qui per chiudere): assegna
+il Ticket alla persona corrente e apre subito lo stesso `RapportinoForm` già in uso per gli
+altri — nessun nuovo modulo, nessuna doppia schermata. Build/lint puliti; verificato che la
+nuova query trova davvero i 28 Ticket reali del reparto Analisi Rete.

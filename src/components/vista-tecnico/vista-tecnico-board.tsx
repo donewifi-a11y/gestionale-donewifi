@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
-import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket } from "@/app/(app)/tickets/actions";
+import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket, assegnaTicket } from "@/app/(app)/tickets/actions";
 import { createClient } from "@/lib/supabase/client";
 import { eliminaAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
@@ -351,6 +351,7 @@ const COLORE_PRIORITA: Record<string, string> = {
 export function VistaTecnicoBoard({
   appuntamenti,
   tickets,
+  ticketsNonAssegnati,
   completatiOggi,
   catalogoMateriali,
   personaId,
@@ -359,6 +360,13 @@ export function VistaTecnicoBoard({
 }: {
   appuntamenti: Appuntamento[];
   tickets: Ticket[];
+  /** ★ NUOVA (2026-09-16, bug reale segnalato: "perché i ticket non
+   * possono essere chiusi dall'operatore, tipo anna gaggiolo") — questa
+   * pagina mostrava SOLO i Ticket già assegnati alla persona corrente:
+   * un Ticket ancora senza nessuno assegnato (frequente per uno appena
+   * arrivato) restava invisibile qui, per chiunque — non un permesso
+   * mancante, la query stessa lo escludeva. Vedi "Chiudi Ticket" sotto. */
+  ticketsNonAssegnati: Ticket[];
   completatiOggi: Ticket[];
   catalogoMateriali: MaterialeMagazzino[];
   personaId: string | null;
@@ -383,7 +391,29 @@ export function VistaTecnicoBoard({
   const [appuntamentoScheda, setAppuntamentoScheda] = useState<Appuntamento | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const [notaInCorso, setNotaInCorso] = useState<string | null>(null);
+  const [assegnazioneInCorso, setAssegnazioneInCorso] = useState<string | null>(null);
   const toast = useToast();
+
+  // ★ NUOVA (2026-09-16, bug reale segnalato: "perché i ticket non possono
+  // essere chiudersi dall'operatore, tipo anna gaggiolo" — vedi il
+  // commento su `ticketsNonAssegnati` sopra) — un solo gesto invece di
+  // due: assegna il Ticket alla persona corrente E apre subito lo stesso
+  // RapportinoForm già in uso per gli altri, niente passo "prendi in
+  // carico" separato da fare prima.
+  function chiudiTicketNonAssegnato(t: Ticket) {
+    if (!personaId) return;
+    setAssegnazioneInCorso(t.id);
+    startAvanza(async () => {
+      const risultato = await assegnaTicket(t.id, personaId);
+      setAssegnazioneInCorso(null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      setTicketRapportino({ ...t, tecnico_assegnato: personaId });
+      router.refresh();
+    });
+  }
 
   function inviaNota(ticketId: string) {
     const testo = (note[ticketId] || "").trim();
@@ -677,6 +707,61 @@ export function VistaTecnicoBoard({
           })}
         </div>
       </section>
+
+      {/* ★ NUOVA (2026-09-16) — vedi il commento su `ticketsNonAssegnati`
+      più sopra: separata da "I miei" invece di mescolata, così un Ticket
+      non ancora tuo si nota subito come diverso (bordo/badge rossi) — non
+      un altro dei "miei" tra gli altri. */}
+      {ticketsNonAssegnati.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-critical">
+            <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Non assegnati nel tuo reparto ({ticketsNonAssegnati.length})
+          </h2>
+          <div className="flex flex-col gap-3">
+            {ticketsNonAssegnati.map((t) => (
+              <div key={t.id} className="rounded-2xl border border-critical/30 bg-critical/5 p-4 shadow-md">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-lg font-semibold">{t.cliente}</span>
+                  <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span>
+                </div>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className="border-critical/20 bg-critical/10 text-critical">
+                    Non assegnato
+                  </Badge>
+                  <Badge variant="outline">{t.stato}</Badge>
+                </div>
+                {t.problema && <p className="mb-3 text-sm text-muted-foreground">{t.problema}</p>}
+                {t.indirizzo && (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(t.indirizzo)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
+                    {t.indirizzo}
+                  </a>
+                )}
+                <button
+                  onClick={() => chiudiTicketNonAssegnato(t)}
+                  disabled={assegnazioneInCorso === t.id}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-critical py-3 text-sm font-bold text-critical-foreground shadow-md disabled:opacity-70"
+                >
+                  {assegnazioneInCorso === t.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" strokeWidth={2.5} />
+                      Chiudi Ticket
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {completatiOggi.length > 0 && (
         <section>

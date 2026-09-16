@@ -15,7 +15,30 @@ export default async function VistaTecnicoPage() {
   const oraFine = new Date();
   oraFine.setHours(23, 59, 59, 999);
 
-  const [{ data: appuntamenti }, { data: tickets }, { data: completatiOggi }, { data: materiali }, { data: persone }] = await Promise.all([
+  // ★ NUOVA (2026-09-16, bug reale segnalato: "perché i ticket non
+  // possono essere chiusi dall'operatore, tipo anna gaggiolo") — questa
+  // pagina interrogava solo "tecnico_assegnato = tua persona": un Ticket
+  // ancora senza nessuno assegnato (frequente per uno appena arrivato)
+  // era invisibile qui, per chiunque — non un permesso mancante, la query
+  // stessa lo escludeva. Nuova query "non assegnati nel mio reparto",
+  // accanto a "i miei" — vedi "Chiudi Ticket" in vista-tecnico-board.tsx.
+  const repartiPersona = persona?.reparti ?? [];
+  // ★ un admin vede tutti i reparti (stesso principio di personaVedeReparto()
+  // in lib/persona.ts); chiunque altro solo i propri — un placeholder
+  // impossibile invece di un `.in()` con array vuoto (comportamento non
+  // garantito) per chi non ha ancora nessun reparto assegnato.
+  const repartiFiltro = isAdmin ? null : repartiPersona.length > 0 ? repartiPersona : ["__nessuno__"];
+
+  let queryNonAssegnati = supabase
+    .from("tickets")
+    .select("*")
+    .is("tecnico_assegnato", null)
+    .is("tecnico_esterno_id", null)
+    .not("stato", "in", "(Completato,Annullato)")
+    .order("data_creazione", { ascending: false });
+  if (repartiFiltro) queryNonAssegnati = queryNonAssegnati.in("reparto", repartiFiltro);
+
+  const [{ data: appuntamenti }, { data: tickets }, { data: ticketsNonAssegnati }, { data: completatiOggi }, { data: materiali }, { data: persone }] = await Promise.all([
     // ★ FIX (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
     // le installazioni da fare rapporto di lavoro quando non completate",
     // estesa qui dopo aver trovato lo stesso problema anche lato interno —
@@ -40,6 +63,7 @@ export default async function VistaTecnicoPage() {
       .eq("tecnico_assegnato", personaId ?? "")
       .not("stato", "in", "(Completato,Annullato)")
       .order("data_creazione", { ascending: false }),
+    queryNonAssegnati,
     supabase
       .from("tickets")
       .select("*")
@@ -73,6 +97,7 @@ export default async function VistaTecnicoPage() {
         <VistaTecnicoBoard
           appuntamenti={(appuntamenti as Appuntamento[]) ?? []}
           tickets={(tickets as Ticket[]) ?? []}
+          ticketsNonAssegnati={(ticketsNonAssegnati as Ticket[]) ?? []}
           completatiOggi={(completatiOggi as Ticket[]) ?? []}
           catalogoMateriali={(materiali as MaterialeMagazzino[]) ?? []}
           personaId={personaId}
