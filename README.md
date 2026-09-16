@@ -4454,13 +4454,13 @@ della posa è avvenuto {X}" — sarebbe "avvenuto gratuito", italiano rotto), nu
 pagamento della posa"), usata al posto delle altre in tutti e 4 i punti dove il testo si compone
 (Nuova installazione/Lavorazione tecnica, con o senza materiali elencati). Nuovo vincolo CHECK sul
 database (`schede_lavoro_metodo_pagamento_posa_check`, migrazione `0075_metodo_pagamento_gratuito.sql`,
-**da applicare**) — senza aggiornarlo, il salvataggio con "Gratuito" sarebbe stato respinto dal
-database. Build/lint puliti; non verificato con un salvataggio reale in questo giro (serve applicare
-prima la migrazione).
+✅ applicata il 2026-09-16) — senza aggiornarlo, il salvataggio con "Gratuito" veniva respinto dal
+database (bug reale confermato in produzione: "new row for relation 'schede_lavoro' violates
+check constraint 'schede_lavoro_metodo_pagamento_posa_check'" su un vero Rapporto Intervento in
+Loco). Migrazione applicata, build/lint puliti.
 
-**⚠️ MIGRAZIONE DA APPLICARE (2026-09-11):** `supabase/migrations/0075_metodo_pagamento_gratuito.sql`
-— aggiunge `'Gratuito'` al vincolo CHECK di `schede_lavoro.metodo_pagamento_posa`. Da incollare
-nell'SQL Editor di Supabase (include già la `notify pgrst, 'reload schema'` in fondo).
+**✅ MIGRAZIONE APPLICATA (2026-09-16):** `supabase/migrations/0075_metodo_pagamento_gratuito.sql`
+— aggiunge `'Gratuito'` al vincolo CHECK di `schede_lavoro.metodo_pagamento_posa`.
 
 ✅ **Il popup Segnalazione ora conferma quando la Richiesta Dati è stata inviata** (2026-09-14, bug
 reale: "oggi quando ho aperto la segnalazione non mi ha indicato che era stata fatta la pratica").
