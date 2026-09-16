@@ -22,6 +22,7 @@ import {
   completaNotaCalendario,
   eliminaNotaCalendario,
   getSlotOccupatiProssimi,
+  getAntenneRiservatePerTicket,
   type SlotOccupato,
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
@@ -916,6 +917,20 @@ function FormNuovoAppuntamento({
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
 
+  // ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo: "quale
+  // antenna mettere") — vedi getAntenneRiservatePerTicket(): se Analisi
+  // Rete ha già riservato un'antenna per questo Ticket, lo si vede subito
+  // qui invece di doverlo scoprire aprendo Materiali → Antenne a parte.
+  const [antenneRiservate, setAntenneRiservate] = useState<{ tipologia: string; mac: string }[]>([]);
+  useEffect(() => {
+    if (!ticketId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- azzera un residuo del ticket precedente quando si torna a "nessun ticket selezionato", non derivabile durante il render.
+      setAntenneRiservate([]);
+      return;
+    }
+    getAntenneRiservatePerTicket(ticketId).then(setAntenneRiservate);
+  }, [ticketId]);
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
@@ -1038,6 +1053,11 @@ function FormNuovoAppuntamento({
               className="mt-1 bg-background"
             />
           </div>
+          {antenneRiservate.length > 0 && (
+            <p className="mt-1.5 text-xs font-semibold text-primary">
+              📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
+            </p>
+          )}
         </SezioneForm>
 
         <SezioneForm icona={MapPin} titolo="Luogo" categoria="luogo">
@@ -1143,6 +1163,13 @@ function FormModificaAppuntamento({
   useEffect(() => {
     getSlotOccupatiProssimi().then((s) => setSlotModifica(s.filter((x) => x.id !== appuntamento.id)));
   }, [appuntamento.id]);
+  // ★ NUOVA (2026-09-16, bug reale segnalato: "quale antenna mettere") —
+  // vedi il gemello in FormNuovoAppuntamento e getAntenneRiservatePerTicket().
+  const [antenneRiservate, setAntenneRiservate] = useState<{ tipologia: string; mac: string }[]>([]);
+  useEffect(() => {
+    if (!appuntamento.ticket_id) return;
+    getAntenneRiservatePerTicket(appuntamento.ticket_id).then(setAntenneRiservate);
+  }, [appuntamento.ticket_id]);
   const [tecnicoId, setTecnicoId] = useState(appuntamento.tecnico_id ?? "");
   // ★ NUOVA — richiesta esplicita "a prova di scemo": il Titolo è generato
   // in automatico quando l'appuntamento nasce da un Ticket (categoria +
@@ -1307,6 +1334,11 @@ function FormModificaAppuntamento({
             />
             {!titoloSbloccato && (
               <p className="mt-1 text-[11px] text-muted-foreground">Generato in automatico — tocca &quot;Modifica&quot; solo se serve davvero cambiarlo.</p>
+            )}
+            {antenneRiservate.length > 0 && (
+              <p className="mt-1.5 text-xs font-semibold text-primary">
+                📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
+              </p>
             )}
           </div>
         </SezioneForm>

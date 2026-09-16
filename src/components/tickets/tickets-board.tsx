@@ -34,7 +34,7 @@ import {
   inviaEmailApprovazioneContrattoSubentro,
 } from "@/app/(app)/richieste-clienti/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
-import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
+import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, getAntenneRiservatePerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
 import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
@@ -2501,6 +2501,14 @@ export function PianificaAppuntamento({
     if (aperto) getSlotOccupatiProssimi().then(setSlot);
   }, [aperto]);
 
+  // ★ NUOVA (2026-09-16, bug reale segnalato: "quale antenna mettere") —
+  // stesso gemello dei form in calendario-board.tsx, vedi
+  // getAntenneRiservatePerTicket().
+  const [antenneRiservate, setAntenneRiservate] = useState<{ tipologia: string; mac: string }[]>([]);
+  useEffect(() => {
+    if (aperto) getAntenneRiservatePerTicket(ticket.id).then(setAntenneRiservate);
+  }, [aperto, ticket.id]);
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
@@ -2590,6 +2598,12 @@ export function PianificaAppuntamento({
             </div>
           ))}
         </div>
+      )}
+
+      {antenneRiservate.length > 0 && (
+        <p className="mb-3 text-xs font-semibold text-primary">
+          📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
+        </p>
       )}
 
       {/* ★ FIX (2026-09-10, "diversi tipi di forme e non uniformità" —

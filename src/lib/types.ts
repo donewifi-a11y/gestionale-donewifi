@@ -239,8 +239,19 @@ export function tipoServizioDaTicket(categoria: string, sottocategoria: string |
  * comune è facoltativo (nessun ticket selezionato, o indirizzo senza
  * comune riconoscibile): quando manca, il titolo resta come prima.
  */
+/**
+ * ★ FIX (2026-09-16, bug reale segnalato: "alcune volte non c'è scritto
+ * intervento, come installazione") — l'assunzione di prima ("una Nuova
+ * installazione lo dice già da sé nel tipo di servizio", vedi sopra) era
+ * vera solo dentro il gestionale, dove il tipo di servizio si vede
+ * altrove nel pannello. Su Google Calendar (aperto da telefono, fuori dal
+ * gestionale — lo stesso scenario già notato in descrizioneEventoGoogle)
+ * il titolo era l'UNICA cosa visibile, e per una Nuova installazione
+ * restava "Comune — Cliente": nessuna parola diceva che lì bisognava
+ * installare. Ora il prefisso c'è sempre, per entrambi i tipi di servizio.
+ */
 export function titoloAppuntamento(tipoServizio: TipoServizioAppuntamento, tipoIntervento: string, comune: string, cliente: string): string {
-  const prefisso = tipoServizio === "Lavorazione tecnica" ? tipoIntervento : "";
+  const prefisso = tipoServizio === "Lavorazione tecnica" ? tipoIntervento : "Installazione";
   return [prefisso, comune, cliente].filter(Boolean).join(" — ");
 }
 

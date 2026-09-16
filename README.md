@@ -4582,3 +4582,22 @@ si dice una volta sola nell'intestazione del gruppo ("AMMINISTRATIVA · Disdetta
 dalle singole righe; resta per-card solo quando il gruppo mischia sottocategorie diverse (es.
 "Assistenza": Internet assente/lento, Intervento in loco...), dove serve davvero a
 distinguerle. Build/lint puliti.
+
+✅ **Titoli degli appuntamenti: "Installazione" non spariva più, antenna riservata ora visibile**
+(2026-09-16, "Rivediamo bene i titoli dei calendari, perché alcune volte non c'è scritto
+intervento, come installazione e quale antenna mettere"). Due bug distinti, stesso sintomo
+("il titolo non dice cosa fare"):
+- `titoloAppuntamento()` metteva il tipo di intervento nel titolo solo per una Lavorazione
+  tecnica (es. "Cambio CPE — Aosta — Mario Rossi") — per una Nuova installazione il prefisso
+  restava vuoto per scelta ("lo dice già il tipo di servizio", vero solo dentro il gestionale):
+  su Google Calendar, aperto spesso da telefono fuori dal gestionale, il titolo era l'UNICA
+  cosa visibile e diceva solo "Aosta — Mario Rossi", nessuna parola su cosa fare sul posto.
+  Il prefisso "Installazione" c'è ora sempre.
+- Analisi Rete può riservare in anticipo un'antenna dell'inventario per un Ticket (Materiali →
+  Antenne, stato "Prenotata"), ma quel dato non arrivava mai fino all'appuntamento che porta
+  il tecnico sul posto — bisognava saperlo a memoria o controllare altrove. Nuova
+  `getAntenneRiservatePerTicket()`: l'antenna riservata (tipologia + MAC) compare ora nel
+  form Nuovo/Modifica Appuntamento del Calendario, nel pannello "Pianifica appuntamento" del
+  Ticket, e nella descrizione dell'evento Google Calendario insieme a Ticket/telefono/tecnico
+  (già presenti lì da prima). Verificato lo schema di `antenne_inventario` su dati reali.
+  Build/lint puliti.

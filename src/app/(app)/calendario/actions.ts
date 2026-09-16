@@ -22,6 +22,22 @@ export interface SlotOccupato {
   tecnico_id: string | null;
 }
 
+/** ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo
+ * dell'appuntamento: "quale antenna mettere") — Analisi Rete può
+ * riservare in anticipo un'antenna dell'inventario per un Ticket (vedi
+ * prenotaAntennaInventario() in materiali/actions.ts): finora quel dato
+ * viveva solo in Materiali → Antenne, mai nel pannello dell'appuntamento
+ * che porta il tecnico sul posto. Usata dal form Nuovo/Modifica
+ * Appuntamento (calendario-board.tsx) quando c'è un Ticket collegato —
+ * stessa informazione ora aggiunta anche alla descrizione dell'evento
+ * Google (vedi descrizioneEventoGoogle sotto). */
+export async function getAntenneRiservatePerTicket(ticketId: string): Promise<{ tipologia: string; mac: string }[]> {
+  if (!ticketId) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.from("antenne_inventario").select("tipologia, mac").eq("ticket_id", ticketId).eq("stato", "Prenotata");
+  return data ?? [];
+}
+
 /** ★ NUOVA — slot già occupati nei prossimi 14 giorni, per pianificare un
  * appuntamento dalla lavorazione del Ticket senza dover prima aprire il
  * Calendario per controllare la disponibilità del tecnico. */
@@ -70,6 +86,20 @@ async function descrizioneEventoGoogle(
       righe.push(`Ticket #${ticket.numero} — ${ticket.cliente}`);
       if (ticket.telefono) righe.push(`Tel: ${ticket.telefono}`);
     }
+    // ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo: "quale
+    // antenna mettere") — Analisi Rete può riservare in anticipo
+    // un'antenna dell'inventario per questo Ticket (vedi
+    // prenotaAntennaInventario() in materiali/actions.ts, stato
+    // "Prenotata"): finora quell'informazione restava visibile solo in
+    // Materiali → Antenne, mai nell'appuntamento che porta sul posto —
+    // il tecnico doveva ricordarsela a memoria o andare a controllare
+    // altrove prima di partire.
+    const { data: antenne } = await supabase
+      .from("antenne_inventario")
+      .select("tipologia, mac")
+      .eq("ticket_id", dati.ticketId)
+      .eq("stato", "Prenotata");
+    for (const a of antenne ?? []) righe.push(`Antenna riservata: ${a.tipologia} (${a.mac})`);
   }
   if (dati.tecnicoId) {
     const { data: tecnico } = await supabase.from("persone").select("nome").eq("id", dati.tecnicoId).maybeSingle();
