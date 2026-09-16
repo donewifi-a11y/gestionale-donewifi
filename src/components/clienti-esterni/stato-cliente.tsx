@@ -186,13 +186,19 @@ function RigaStato({
     );
   }
 
+  // ★ FIX (2026-09-16, "migliora visibilità stato cliente") — lo stato
+  // "spento" era un link di testo grigio senza bordo né sfondo: accanto ai
+  // badge pieni "Insoluta" nella tabella Fatture, spariva quasi del tutto
+  // — si notava solo passandoci sopra per caso, non a colpo d'occhio come
+  // il resto della scheda. Ora è un pulsante vero, a tutta larghezza, col
+  // colore del tono (rosso/arancio) invece del solito grigio neutro.
   return (
     <button
       type="button"
       onClick={() => setInserimentoAperto(true)}
-      className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+      className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition hover:brightness-95 ${sfondoTono} ${coloreTono}`}
     >
-      <Icona className="h-3.5 w-3.5" strokeWidth={2.25} />
+      <Icona className="h-4 w-4 shrink-0" strokeWidth={2.5} />
       {etichettaSpenta}
     </button>
   );

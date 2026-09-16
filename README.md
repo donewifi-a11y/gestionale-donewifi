@@ -4630,3 +4630,11 @@ ripristinata subito dopo). Build/lint puliti.
 **✅ MIGRAZIONE APPLICATA (2026-09-16):** `supabase/migrations/0076_stato_cliente_insoluto_
 rallentato.sql` — aggiunge `fattura_insoluta_manuale`/`fattura_insoluta_dal`/
 `fattura_insoluta_nota` e `rallentato`/`rallentato_dal`/`rallentato_motivo` a `clienti_esterni`.
+
+✅ **"Stato cliente" poco visibile — corretto** (2026-09-16, seguito diretto con screenshot:
+"migliora visibilità stato cliente"). I due pulsanti "Segna come insoluta"/"Segna da
+rallentare" erano un link di testo grigio senza bordo né sfondo — accanto ai badge pieni
+"Insoluta" nella tabella Fatture appena sopra, sparivano quasi del tutto, si notavano solo
+passandoci sopra per caso col mouse. Diventano pulsanti veri, a tutta larghezza, col colore
+del tono (rosso per l'insoluta, arancio per il rallentamento) invece del solito grigio neutro
+— stesso peso visivo del resto della scheda. Build/lint puliti.
