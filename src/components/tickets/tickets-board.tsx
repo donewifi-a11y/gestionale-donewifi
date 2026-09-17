@@ -729,21 +729,31 @@ export function TicketsBoard({
                             sottile e l'ultimo aggiornamento... sposta tutti gli
                             altri dettagli (indirizzi, ID lunghi, reparti
                             secondari) all'interno di un tooltip") — reparto
-                            (già solo un pallino colorato), sottocategoria e
-                            indirizzo non compaiono più come testo sulla card:
-                            un unico `title` nativo del browser li raccoglie,
-                            visibile passando il mouse (stesso principio già
-                            in uso per il pallino reparto, solo esteso a tutta
-                            la card invece che al solo pallino). */}
+                            (già solo un pallino colorato) e indirizzo non
+                            compaiono più come testo sulla card: un unico
+                            `title` nativo del browser li raccoglie, visibile
+                            passando il mouse.
+                            ★ FIX (2026-09-17, seguito diretto — screenshot:
+                            "senza titoli non si capisce nulla") — la
+                            sottocategoria (il vero motivo del Ticket: Disdetta,
+                            Trasferimento, ecc.) era finita anche lei nel solo
+                            tooltip: troppo, senza di lei una card a riposo
+                            (senza segnale acceso) non diceva più nulla di cosa
+                            fosse il Ticket. Torna visibile sotto il nome, come
+                            prima del redesign — resta invece nel tooltip tutto
+                            ciò che è davvero secondario (reparto, indirizzo). */}
                             <div
                               className="min-w-0 flex-1"
-                              title={[t.reparto, t.sottocategoria, t.indirizzo].filter(Boolean).join(" · ")}
+                              title={[t.reparto, t.indirizzo].filter(Boolean).join(" · ")}
                             >
                               <div className="flex items-baseline gap-1.5">
                                 {colore && <span aria-hidden className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
                                 <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
                                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                               </div>
+                              {t.sottocategoria && !gruppo.sottocategoriaComune && (
+                                <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
+                              )}
                               {/* ★ un'unica etichetta di stato (mai più due
                               impilate: prima il segnale operativo, se non
                               c'è la pianificazione dell'appuntamento — non
@@ -1997,7 +2007,10 @@ function DettaglioTicket({
               )}
             </>
           ) : !praticaScelta ? (
-            <Button size="sm" variant="outline" onClick={() => setPraticaScelta(PRATICHE_INVIABILI[0].slug)} className="min-h-9 w-full">
+            // ★ FIX (2026-09-17, "i pulsanti li farei più colorati") —
+            // stessa azione vera di "Invia email di approvazione" qui sopra,
+            // stesso trattamento.
+            <Button variant="default" onClick={() => setPraticaScelta(PRATICHE_INVIABILI[0].slug)} className="min-h-9 w-full">
               <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
               Invia richiesta di disdetta
             </Button>
@@ -2019,7 +2032,13 @@ function DettaglioTicket({
               Intervento risolto da remoto?
               <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
             </p>
-            <Button size="sm" variant="outline" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
+            {/* ★ FIX (2026-09-17, richiesta esplicita dopo uno screenshot:
+            "i pulsanti li farei più colorati") — era `variant="outline"`
+            come un pulsante qualunque, indistinguibile da un'azione
+            secondaria: è invece un'azione vera (manda al cliente il link di
+            conferma), merita lo stesso risalto del colore primario già
+            usato per "Pianifica appuntamento" quando è l'azione principale. */}
+            <Button variant="default" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
               {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
               {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
             </Button>

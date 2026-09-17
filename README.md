@@ -4991,3 +4991,20 @@ un monitor normale da ufficio (1920px → 56% sarebbe 1075px, ma il limite lo fe
 cioè il 37.5% — esattamente quanto visibile nello screenshot). Alzato il limite a 1100px:
 ora il 56% si vede per davvero sugli schermi comuni, resta comunque un tetto per non avere un
 pannello enorme su un monitor ultra-wide. Build/lint puliti.
+
+✅ **Correzioni dopo due screenshot: pulsanti più colorati, sottocategoria di nuovo visibile
+sulle card Ticket** (2026-09-17, "prima schermata i pulsanti li farei più colorati / seconda
+schermata senza titoli non si capisce nulla"):
+
+- **Pulsanti**: "Invia email di approvazione" e "Invia richiesta di disdetta" nel dettaglio
+  Ticket erano `variant="outline"` (bianchi/neutri) come un pulsante qualunque — sono invece
+  azioni vere (mandano al cliente un link a cui deve rispondere), ora con lo stesso colore
+  primario già usato per "Pianifica appuntamento" quando è l'azione principale.
+- **Card Ticket**: il redesign "solo nome/stato/ultimo aggiornamento" di poco fa aveva spostato
+  anche la sottocategoria (il vero motivo del Ticket — Disdetta, Trasferimento, ecc.) nel
+  tooltip a comparsa: troppo, una card senza segnale acceso non diceva più nulla di cosa fosse
+  il Ticket ("senza titoli non si capisce nulla" — confermato che si riferiva proprio a questo).
+  La sottocategoria torna visibile sotto il nome, come prima del redesign; restano nel tooltip
+  solo reparto e indirizzo, quelli davvero secondari.
+
+Build/lint puliti.
