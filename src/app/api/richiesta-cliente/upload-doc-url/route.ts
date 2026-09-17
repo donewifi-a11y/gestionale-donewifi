@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /** ★ NUOVA (2026-09-17, "controllo d'oro" — continuazione, bug reale
  * trovato per confronto con la rotta gemella già corretta) — stesso
@@ -20,7 +21,9 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const percorso = `richieste-cliente/${Date.now()}-${nomeFile}`;
+  // ★ FIX (2026-09-17, code review approfondita) — mancava, vedi il commento
+  // in lib/nome-file-sicuro.ts.
+  const percorso = `richieste-cliente/${Date.now()}-${nomeFileSicuro(nomeFile)}`;
   const { data, error } = await supabase.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
     console.error("api/richiesta-cliente/upload-doc-url:", error?.message);

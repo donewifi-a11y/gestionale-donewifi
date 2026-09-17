@@ -208,9 +208,19 @@ export async function creaTicket(
 // scritture Ticket in questo file — vedi il commento lì per il dettaglio
 // completo) — la scrittura passa dalla service role invece che dalla RLS
 // via PostgREST.
+//
+// ★ FIX (2026-09-17, code review approfondita) — usava ancora
+// getPersonaCorrenteId() (solo il cookie, non controlla che la Persona sia
+// ancora "attiva") nonostante scriva già tramite service role qui sotto:
+// stesso identico problema già corretto in aggiornaStatoTicket() poco più
+// sotto in questo file, ma dimenticato qui. Un dipendente disattivato con
+// un cookie di sessione ancora valido poteva quindi continuare a spostare
+// Ticket tra reparti.
 export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso, repartoVecchio: AreaAccesso) {
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const personaId = persona.id;
   if (repartoNuovo === repartoVecchio) return { errore: null };
 
   const service = createServiceClient();
@@ -331,23 +341,58 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
   return { errore: null };
 }
 
+// ★ FIX (2026-09-17, code review approfondita) — a differenza di ogni altra
+// scrittura Ticket in questo file (cambiaRepartoTicket, aggiornaStatoTicket,
+// creaTicket...), qui mancava sia il controllo di chi sta chiamando sia la
+// voce di storico: un cambio di assegnazione tecnico non lasciava traccia
+// di chi l'avesse fatto e quando, a differenza di ogni altra modifica sul
+// Ticket — un vero buco nell'audit trail più che un bypass di sicurezza
+// (la RLS della tabella tickets resta comunque attiva su questa scrittura,
+// a differenza delle funzioni che passano da service role).
 export async function assegnaTicket(id: string, personaId: string | null) {
   const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+
   // ★ `tecnico_assegnato` (interno) e `tecnico_esterno_id` (pose.donewifi.it,
   // migrazione 0061) sono alternativi: assegnare a uno staff interno azzera
   // sempre un eventuale tecnico esterno già assegnato, mai entrambi insieme.
   const { error } = await supabase.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }).eq("id", id);
   if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "ticket",
+    riferimento_id: id,
+    operazione: "Assegnazione Tecnico",
+    valore_dopo: personaId,
+    operatore_id: persona.id,
+  });
+
   revalidatePath("/tickets");
   return { errore: null };
 }
 
 /** ★ NUOVA (2026-08-26) — gemella di assegnaTicket() ma per un tecnico
- * esterno (sistema pose.donewifi.it) — vedi il commento lì sopra. */
+ * esterno (sistema pose.donewifi.it) — vedi il commento lì sopra.
+ *
+ * ★ FIX (2026-09-17, code review approfondita) — stesso identico buco di
+ * audit trail di assegnaTicket() qui sopra, corretto allo stesso modo. */
 export async function assegnaTicketTecnicoEsterno(id: string, tecnicoEsternoId: string | null) {
   const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+
   const { error } = await supabase.from("tickets").update({ tecnico_esterno_id: tecnicoEsternoId, tecnico_assegnato: null }).eq("id", id);
   if (error) return { errore: error.message };
+
+  await supabase.from("storico").insert({
+    origine: "ticket",
+    riferimento_id: id,
+    operazione: "Assegnazione Tecnico Esterno",
+    valore_dopo: tecnicoEsternoId,
+    operatore_id: persona.id,
+  });
+
   revalidatePath("/tickets");
   return { errore: null };
 }

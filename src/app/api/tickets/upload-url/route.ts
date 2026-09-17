@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente } from "@/lib/persona";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /**
  * ★ NUOVA (2026-09, audit generale "senza dimenticare neanche una parte")
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!persona) return NextResponse.json({ errore: "Non autenticato." }, { status: 401 });
 
   const service = createServiceClient();
-  const nomeSicuro = nomeFile.normalize("NFKD").replace(/[^\w.-]+/g, "_");
+  const nomeSicuro = nomeFileSicuro(nomeFile);
   const percorso = `ticket-extra/${Date.now()}-${nomeSicuro}`;
   const { data, error } = await service.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {

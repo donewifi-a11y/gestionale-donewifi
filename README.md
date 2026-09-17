@@ -4805,3 +4805,55 @@ i percorsi già caricati (`documentiCaricati`, JSON) — il vecchio ciclo di upl
 richiesta resta solo come ripiego per compatibilità, mai più il percorso normale. Cambio
 IBAN/Anagrafica/Trasferimento (nessun allegato) restano del tutto invariati. Build/lint puliti;
 verificata la generazione reale di un signed upload URL sullo storage di produzione.
+✅ **Code review approfondita di tutto il progetto** (2026-09-17, richiesta esplicita: "Fai una
+code review approfondita di tutto il progetto. Analizza l'intera codebase alla ricerca di bug,
+potenziali falle di sicurezza, edge case non gestiti, problemi di performance e inconsistente
+gestione degli errori"). Dispatchata la skill dedicata `code-review` (10 agenti paralleli,
+sforzo `xhigh`, tutta la cartella `src/`), poi verificati personalmente sul codice reale i
+risultati più critici prima di applicare correzioni. Trovati e corretti:
+
+- **`ipRichiesta()` (`lib/rate-limit-portale.ts`) leggeva il PRIMO indirizzo di
+  `X-Forwarded-For`** invece dell'ultimo — un bug reale nel codice scritto in questa stessa
+  sessione (2026-09-17, rate limit di `trova-cliente`/`verifica-stato`): Vercel AGGIUNGE il vero
+  IP del chiamante in fondo alla lista, non lo sostituisce, quindi un client poteva scrivere un
+  `X-Forwarded-For` falso in testa e far leggere all'app un IP diverso ad ogni tentativo,
+  azzerando di fatto il limite appena introdotto. Ora legge l'ultimo valore.
+- **`/api/pose` mancava da `ROTTE_PUBBLICHE`** (`proxy.ts`) — unico tra i moduli pubblici a non
+  avere il gemello `/api/...` accanto al prefisso pagina (`/portale`+`/api/portale`,
+  `/richiesta-cliente`+`/api/richiesta-cliente`, ecc.): un tecnico esterno che raggiungesse una
+  pagina pose da un host diverso da pose.donewifi.it vedeva le pagine funzionare ma ogni
+  chiamata a un'API pose (es. upload foto scheda) rimandata a `/login`.
+- **`cambiaRepartoTicket()` usava ancora `getPersonaCorrenteId()`** (solo il cookie, non
+  ricontrolla che la Persona sia ancora `attiva`) nonostante scriva già tramite service role —
+  stesso identico bug già corretto in `aggiornaStatoTicket()` nello stesso file, dimenticato qui:
+  un dipendente disattivato con un cookie di sessione ancora valido poteva continuare a spostare
+  Ticket tra reparti.
+- **`assegnaTicket()`/`assegnaTicketTecnicoEsterno()` non avevano né un controllo di chi
+  chiama né una voce di storico** — uniche scritture sul Ticket in tutto il file senza audit
+  trail: un cambio di tecnico assegnato non lasciava traccia di chi l'avesse fatto e quando.
+- **Sanificazione del nome file mancante in 5 rotte di upload su 7** (`richiesta-dati`,
+  `richiesta-cliente/upload-doc-url`, `richieste-clienti/upload-contratto-url`,
+  `schede/upload-foto-url`, `pose/upload-scheda`) — solo `chat/upload-url` e `tickets/upload-url`
+  applicavano `normalize("NFKD").replace(/[^\w.-]+/g, "_")`: un nome con spazi o accenti (es.
+  "Carta d'identità.jpg", comunissimo su un documento reale) poteva far fallire l'upload firmato.
+  Estratta la funzione in `lib/nome-file-sicuro.ts`, condivisa da tutte e 7 le rotte invece di
+  restare duplicata (o dimenticata).
+- **`verificaRichiestaCron()` (`lib/cron.ts`) confrontava il secret con `!==`** invece di un
+  confronto a tempo costante, incoerente con lo standard già in uso in `tecnico-esterno.ts`
+  (`verificaFirma()`, `timingSafeEqual`) — ora allineato allo stesso schema.
+- **3 rotte pubbliche e mutanti senza alcun limite di tentativi**: `api/portale/apri-ticket`,
+  `api/richiesta-cliente`, `api/richiesta-dati` — protette solo da un honeypot lato client
+  (inefficace contro uno script scritto apposta per la rotta), a differenza delle rotte di
+  ricerca (`trova-cliente`/`verifica-stato`) già protette in una correzione precedente della
+  stessa giornata. Aggiunto lo stesso `creaLimitatoreTentativi()` già condiviso.
+- **`api/portale/trova-cliente` interpolava il codice fiscale/partita IVA non sanificato in un
+  filtro `.or()` di PostgREST** — il solo `.trim().toUpperCase()` rende improbabile in pratica
+  un'iniezione riuscita (nomi di colonna/operatore sono case-sensitive, le colonne reali sono
+  minuscole), ma un CF/PIVA legittimo non contiene mai virgole o punti: filtrato ora ai soli
+  caratteri alfanumerici come indurimento alla radice, non per affidamento su un effetto
+  collaterale del maiuscolo.
+
+Build/lint puliti dopo ogni correzione. Restano da valutare, a priorità più bassa (edge case di
+fuso orario UTC/Italia su alcuni confronti "oggi", alcune pagine che caricano dati in sequenza
+invece che in parallelo, piccole duplicazioni di codice non pericolose) — segnalati ma non
+ancora corretti in questo giro, in attesa di indicazioni sulla priorità.

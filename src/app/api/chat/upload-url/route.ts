@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrenteId } from "@/lib/persona";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /**
  * ★ NUOVA (2026-09-04, bug reale trovato controllando "come possiamo
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   const service = createServiceClient();
   // ★ Supabase Storage rifiuta spazi/accenti nella chiave — il nome
   // originale resta comunque quello mostrato in chat (allegato_nome).
-  const nomeSicuro = nomeFile.normalize("NFKD").replace(/[^\w.-]+/g, "_");
+  const nomeSicuro = nomeFileSicuro(nomeFile);
   const percorso = `chat/${conversazioneId}/${Date.now()}-${nomeSicuro}`;
   const { data, error } = await service.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {

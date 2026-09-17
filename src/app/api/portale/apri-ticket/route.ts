@@ -2,6 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { REPARTO_PER_CATEGORIA_TICKET, type AreaAccesso } from "@/lib/types";
+import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
+
+// ★ FIX (2026-09-17, code review approfondita) — unica rotta pubblica e
+// mutante del Portale (apre un vero Ticket in scrittura, con notifiche su
+// 3 canali) senza alcun limite di tentativi: l'honeypot "trappola" ferma
+// solo un bot ingenuo, non uno script scritto apposta per questa rotta,
+// che poteva aprire Ticket falsi in sequenza a costo di spam interno.
+const troppiTentativi = creaLimitatoreTentativi(10, 5 * 60 * 1000);
 
 // ★ ex "Apri un Ticket" del Portale pubblico (Portale.html) — un cliente
 // apre direttamente un Ticket senza chiamare, senza login. Il reparto si
@@ -12,6 +20,11 @@ import { REPARTO_PER_CATEGORIA_TICKET, type AreaAccesso } from "@/lib/types";
 const REPARTO_PER_CATEGORIA: Record<string, AreaAccesso> = REPARTO_PER_CATEGORIA_TICKET;
 
 export async function POST(request: NextRequest) {
+  const ip = ipRichiesta(request);
+  if (troppiTentativi(ip)) {
+    return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
+  }
+
   // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — un corpo
   // non-JSON (bot, richiesta rilanciata con l'header sbagliato, scanner
   // automatico) faceva fallire `.json()` con un'eccezione non gestita:

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /**
  * ★ NUOVA (2026-09-10, richiesta esplicita: "avrei bisogno di poter
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   // ★ stesso percorso "schede/<appuntamentoId>/..." già usato da
   // caricaFotoScheda() — una foto aggiunta dopo finisce nella stessa
   // cartella di quelle originali, non in un posto a parte.
-  const percorso = `schede/${appuntamentoId}/${Date.now()}-${nomeFile}`;
+  const percorso = `schede/${appuntamentoId}/${Date.now()}-${nomeFileSicuro(nomeFile)}`;
   const { data, error } = await service.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
     console.error("api/schede/upload-foto-url:", error?.message);

@@ -4,6 +4,12 @@ import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
+import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
+
+// ★ FIX (2026-09-17, code review approfondita) — stesso identico buco delle
+// altre rotte pubbliche mutanti (apri-ticket, richiesta-dati): protetta
+// solo dall'honeypot "sito_web", nessun limite di tentativi.
+const troppiTentativi = creaLimitatoreTentativi(10, 5 * 60 * 1000);
 
 const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro", "sito_web", "documentiCaricati"]);
 const CAMPI_FILE: Record<string, string> = {
@@ -19,6 +25,11 @@ const CAMPI_FILE: Record<string, string> = {
 // invece di uno per tipo: tutto ciò che non è un campo di controllo o un
 // allegato noto finisce in "dettagli".
 export async function POST(request: NextRequest) {
+  const ip = ipRichiesta(request);
+  if (troppiTentativi(ip)) {
+    return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
+  }
+
   // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — un corpo
   // non-multipart (bot, richiesta rilanciata con l'header sbagliato)
   // faceva fallire `.formData()` con un'eccezione non gestita: 500 invece

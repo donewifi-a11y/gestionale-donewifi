@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /** ★ FIX — i 4 allegati (documento + tessera sanitaria) caricati insieme
  * superavano il limite di ~4.5MB del corpo delle funzioni Vercel quando
@@ -19,7 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const percorso = `${segnalazioneId}/${Date.now()}-${nomeFile}`;
+  // ★ FIX (2026-09-17, code review approfondita) — mancava rispetto alle
+  // rotte gemelle chat/tickets: un nome con spazi/accenti (es. "Carta
+  // d'identità.jpg", comunissimo qui) poteva far fallire l'upload.
+  const percorso = `${segnalazioneId}/${Date.now()}-${nomeFileSicuro(nomeFile)}`;
   const { data, error } = await supabase.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
     // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio grezzo di

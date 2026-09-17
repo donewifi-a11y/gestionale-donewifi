@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { chiUsaPose } from "@/app/pose/actions";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /** ★ NUOVA (2026-09-02, bug reale: "Errore imprevisto durante il
  * salvataggio" su pose, Nuova installazione — causa reale: le foto da
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const percorso = `schede/${cartella}/${Date.now()}-${nomeFile}`;
+  const percorso = `schede/${cartella}/${Date.now()}-${nomeFileSicuro(nomeFile)}`;
   const { data, error } = await supabase.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
     console.error("api/pose/upload-scheda:", error?.message);

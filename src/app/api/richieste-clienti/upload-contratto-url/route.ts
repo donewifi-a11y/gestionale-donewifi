@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente } from "@/lib/persona";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 /**
  * ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" — vedi
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!persona) return NextResponse.json({ errore: "Non autenticato." }, { status: 401 });
 
   const service = createServiceClient();
-  const percorso = `contratti/subentro-${praticaId}-${Date.now()}-${nomeFile}`;
+  const percorso = `contratti/subentro-${praticaId}-${Date.now()}-${nomeFileSicuro(nomeFile)}`;
   const { data, error } = await service.storage.from("documenti").createSignedUploadUrl(percorso);
   if (error || !data) {
     console.error("api/richieste-clienti/upload-contratto-url:", error?.message);

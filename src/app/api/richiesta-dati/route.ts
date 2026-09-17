@@ -4,6 +4,14 @@ import { inviaNotificaTelegram } from "@/lib/telegram";
 import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
+import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
+
+// ★ FIX (2026-09-17, code review approfondita) — rotta pubblica e mutante
+// (scrive richieste_clienti + segnalazioni) senza alcun limite di
+// tentativi, protetta solo dall'honeypot "sito_web" (inefficace contro uno
+// script scritto apposta). Limite più permissivo delle rotte di ricerca
+// (qui il chiamante deve già conoscere un vero segnalazioneId esistente).
+const troppiTentativi = creaLimitatoreTentativi(10, 5 * 60 * 1000);
 
 const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloInternet", "consenso", "documenti"]);
 
@@ -18,6 +26,11 @@ const CAMPI_RISERVATI = new Set(["segnalazioneId", "tipologiaCliente", "profiloI
 // per non superare il limite di corpo delle funzioni Vercel; qui arriva solo
 // il loro percorso già caricato dentro `documenti`.
 export async function POST(request: NextRequest) {
+  const ip = ipRichiesta(request);
+  if (troppiTentativi(ip)) {
+    return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
+  }
+
   // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
   // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
   // api/portale/apri-ticket/route.ts.

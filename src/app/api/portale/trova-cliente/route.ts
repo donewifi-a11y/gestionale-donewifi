@@ -30,7 +30,15 @@ export async function POST(request: NextRequest) {
   // apri-ticket/route.ts.
   const { telefono, codiceFiscale } = await request.json().catch(() => ({}) as Record<string, unknown>);
   const tel = String(telefono || "").replace(/\D/g, "").slice(-9);
-  const cf = String(codiceFiscale || "").trim().toUpperCase();
+  // ★ FIX (2026-09-17, code review approfondita) — `cf` finisce interpolato
+  // direttamente dentro la stringa di filtro di `.or()` qui sotto: il solo
+  // `.toUpperCase()` rende improbabile in pratica un'iniezione riuscita
+  // (nomi di colonna/operatore PostgREST sono case-sensitive e le colonne
+  // reali sono minuscole), ma un CF/PIVA legittimo non contiene mai virgole
+  // o punti — filtrarlo ai soli caratteri alfanumerici chiude comunque la
+  // classe di bug alla radice invece di fare affidamento su un effetto
+  // collaterale del maiuscolo.
+  const cf = String(codiceFiscale || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (tel.length < 6 || !cf) {
     return NextResponse.json({ errore: "Inserisci un numero di telefono e un codice fiscale/partita IVA validi." }, { status: 400 });
   }

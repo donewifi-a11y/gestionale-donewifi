@@ -37,6 +37,17 @@ const ROTTE_PUBBLICHE = [
   // Auth di staff, la propria autenticazione (account fisso email+password,
   // vedi lib/tecnico-esterno.ts) è gestita dentro le pagine stesse.
   "/pose",
+  // ★ FIX (2026-09-17, code review approfondita) — mancava, a differenza di
+  // ogni altro modulo pubblico qui sopra (tutti hanno sia il prefisso
+  // pagina sia il gemello "/api/..."): un tecnico esterno (senza sessione
+  // Supabase Auth, vedi lib/tecnico-esterno.ts) che raggiunge una pagina
+  // pose da un host diverso da pose.donewifi.it (es. un anteprima Vercel,
+  // o gestione.donewifi.it per lo staff interno che usa pose con le
+  // proprie credenziali) vedeva le PAGINE funzionare ma ogni fetch a
+  // un'API pose (es. /api/pose/upload-scheda) rimandata a /login — lo
+  // stesso genere di bug di prefisso già costato un'ora di debug altrove
+  // in questo file (vedi il commento su DOMINI_POSE più sotto).
+  "/api/pose",
 ];
 
 // ★ sottodominio pubblico per i clienti (apertura Ticket / verifica stato):

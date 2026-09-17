@@ -27,7 +27,19 @@ export function creaLimitatoreTentativi(massimoTentativi: number, finestraMs: nu
   };
 }
 
-/** IP del chiamante da una NextRequest — stesso identico modo di ricavarlo già in uso in verifica-stato. */
+/** IP del chiamante da una NextRequest.
+ *
+ * ★ FIX (2026-09-17, code review approfondita — bug reale nel mio stesso
+ * codice di questa sessione) — prendevo il PRIMO indirizzo di
+ * X-Forwarded-For, ma è il client stesso a poter impostare questo header
+ * in partenza; Vercel non lo sostituisce, lo APPEND in coda con il vero IP
+ * di chi si è connesso. Un chiamante poteva quindi mandare
+ * "1.2.3.4, 5.6.7.8, ..." e far leggere sempre un IP falso diverso ad ogni
+ * tentativo, azzerando di fatto il rate limit appena introdotto. L'ultimo
+ * valore della lista è invece quello scritto dall'edge di Vercel, non
+ * falsificabile dal client.
+ */
 export function ipRichiesta(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "sconosciuto";
+  const valori = request.headers.get("x-forwarded-for")?.split(",") ?? [];
+  return valori[valori.length - 1]?.trim() || "sconosciuto";
 }
