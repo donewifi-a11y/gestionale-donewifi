@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { creaStaff, aggiornaStaff } from "@/app/(app)/utenti/actions";
 import type { StaffCompleto } from "@/app/(app)/utenti/page";
@@ -78,11 +79,14 @@ export function UtentiBoard({ staff, currentUserId }: { staff: StaffCompleto[]; 
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <DialogContent>
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio/modifica aperti
+      cliccando una riga della lista) — da Dialog a Drawer. */}
+      <Drawer open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DrawerContent>
           {modifica && <FormModificaUtente utente={modifica} onFatto={() => setModifica(null)} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

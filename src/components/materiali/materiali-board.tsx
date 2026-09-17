@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/materiali/actions";
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
@@ -186,11 +187,14 @@ export function MaterialiBoard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <DialogContent>
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio aperti cliccando
+      una riga della lista) — da Dialog a Drawer. */}
+      <Drawer open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DrawerContent>
           {modifica && <FormMateriale materiale={modifica} categorieEsistenti={categorieEsistenti} onFatto={() => setModifica(null)} isAdmin={isAdmin} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

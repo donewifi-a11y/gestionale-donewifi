@@ -42,6 +42,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
@@ -460,13 +461,20 @@ export function SegnalazioniBoard({
       </div>
 
       {/* ★ NUOVO — da pannello laterale stretto (~370px, dove i dati veri
-       * finivano troncati) a dialog centrale largo (~700px): con dati reali
-       * (CF, IBAN, indirizzi, nomi file lunghi) serviva spazio vero, non un
-       * layout più furbo nello stesso spazio stretto. A tab (Anagrafica /
-       * Piano e pagamento / Documenti) invece di tutto impilato, per non
-       * trasformare la maggior larghezza in uno scroll verticale infinito. */}
-      <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
-        <DialogContent className="sm:max-w-2xl">
+       * finivano troncati) a dialog centrale largo (~700px), poi a un Drawer
+       * laterale largo (vedi sotto): con dati reali (CF, IBAN, indirizzi,
+       * nomi file lunghi) serviva spazio vero, non un layout più furbo nello
+       * stesso spazio stretto. A tab (Anagrafica / Piano e pagamento /
+       * Documenti) invece di tutto impilato, per non trasformare la
+       * maggior larghezza in uno scroll verticale infinito.
+       * ★ REDESIGN (2026-09-17, richiesta esplicita: "la modale di Gabriella
+       * Bolognesi... interrompe il flusso di lavoro... un Drawer laterale a
+       * scorrimento da destra... lasciando intravedere lo sfondo della
+       * Kanban") — da Dialog centrale a Drawer, stesso principio del vecchio
+       * Sheet ma abbastanza largo (56% dello schermo) da restare leggibile
+       * con questi stessi dati reali. */}
+      <Drawer open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
+        <DrawerContent>
           {aperta && (
             <TooltipProvider>
               <DettaglioSegnalazione
@@ -479,8 +487,8 @@ export function SegnalazioniBoard({
               />
             </TooltipProvider>
           )}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

@@ -12,12 +12,11 @@ import { CONFIG_STATO_TRACCIA, type StatoTraccia } from "@/lib/stato-traccia";
 import type { CategoriaIcona } from "@/lib/colore-icone";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
   aggiornaStatoRichiestaCliente,
   eliminaRichiestaCliente,
@@ -231,9 +230,12 @@ export function RichiesteClientiBoard({
 
       {/* ★ FIX (2026-08, controllo d'oro) — ultimo popup a pannello laterale
       (Sheet) rimasto in Richieste Clienti, uniformato al popup centrale
-      (Dialog) come il resto del gestionale. */}
-      <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
-        <DialogContent>
+      (Dialog) come il resto del gestionale.
+      ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale invece del
+      Dialog centrale per i popup di dettaglio, "lasciando intravedere lo
+      sfondo della Kanban") — da Dialog a Drawer. */}
+      <Drawer open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
+        <DrawerContent>
           {aperta && (
             <DettaglioRichiesta
               richiesta={aperta}
@@ -243,8 +245,8 @@ export function RichiesteClientiBoard({
               statoTicketPerId={statoTicketPerId}
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

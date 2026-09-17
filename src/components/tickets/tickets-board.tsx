@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -870,18 +871,25 @@ export function TicketsBoard({
 
       {/* ★ FIX — richiesta esplicita: il pannello laterale (Sheet) era
       illeggibile — troppo stretto per la quantità di dati reali di un
-      Ticket. Passato a Dialog centrale, stessa larghezza e trattamento
-      già usati per Segnalazioni. */}
+      Ticket. Passato a Dialog centrale, poi a un Drawer laterale largo
+      (vedi sotto), stessa larghezza e trattamento già usati per Segnalazioni.
+      ★ REDESIGN (2026-09-17, richiesta esplicita: "l'apertura al centro
+      dello schermo interrompe il flusso di lavoro... un Drawer laterale a
+      scorrimento da destra... lasciando intravedere lo sfondo della
+      Kanban") — da Dialog centrale a Drawer (components/ui/drawer.tsx):
+      stessa idea del vecchio Sheet, ma largo abbastanza da restare leggibile
+      con i dati reali di un Ticket (56% dello schermo, non stretto come lo
+      Sheet originale). */}
       {/* ★ FIX — segnalato dall'utente: con la Scheda di lavoro aperta sopra
-      (vedi Dialog subito sotto), questo dialog restava comunque "aperto"
-      dietro — il suo velo scuro a piena pagina finiva sopra anche la X di
-      questo, spenta/non cliccabile finché non si chiudeva prima la Scheda.
-      `!schedaAperta` lo tiene semplicemente nascosto (non chiuso: `aperto`
-      resta valorizzato) finché la Scheda è sopra — ricompare da solo se la
-      Scheda viene annullata, si chiude per davvero solo al salvataggio
-      riuscito (vedi onSalvato più sotto, che azzera anche `aperto`). */}
-      <Dialog open={!!aperto && !schedaAperta} onOpenChange={(v) => !v && setAperto(null)}>
-        <DialogContent className="sm:max-w-2xl">
+      (vedi Dialog subito sotto), questo pannello restava comunque "aperto"
+      dietro — il suo velo finiva sopra anche la X di questo, spenta/non
+      cliccabile finché non si chiudeva prima la Scheda. `!schedaAperta` lo
+      tiene semplicemente nascosto (non chiuso: `aperto` resta valorizzato)
+      finché la Scheda è sopra — ricompare da solo se la Scheda viene
+      annullata, si chiude per davvero solo al salvataggio riuscito (vedi
+      onSalvato più sotto, che azzera anche `aperto`). */}
+      <Drawer open={!!aperto && !schedaAperta} onOpenChange={(v) => !v && setAperto(null)}>
+        <DrawerContent>
           {aperto && (
             <DettaglioTicket
               key={aperto.id}
@@ -895,8 +903,8 @@ export function TicketsBoard({
               onEliminato={() => setAperto(null)}
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
 
       {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
       dettaglio Ticket: "visuale centrale" richiesta esplicitamente,

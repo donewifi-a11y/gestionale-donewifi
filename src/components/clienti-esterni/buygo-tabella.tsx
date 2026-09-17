@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Search, Zap, ChevronRight, Wallet } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteBuyGo } from "@/app/(app)/clienti-esterni/actions";
@@ -85,9 +86,12 @@ export function BuyGoTabella({ clienti }: { clienti: ClienteBuyGo[] }) {
         ))}
       </div>
 
-      <Dialog open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
-        <DialogContent>{aperto && <DettaglioBuyGo cliente={aperto} />}</DialogContent>
-      </Dialog>
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
+        <DrawerContent>{aperto && <DettaglioBuyGo cliente={aperto} />}</DrawerContent>
+      </Drawer>
     </div>
   );
 }

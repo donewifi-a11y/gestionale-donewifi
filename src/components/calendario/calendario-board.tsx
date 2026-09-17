@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { CategoriaIcona } from "@/lib/colore-icone";
 import {
@@ -317,8 +318,12 @@ export function CalendarioBoard({
       chiudeva prima la Scheda. `!schedaAperta` lo nasconde (non lo
       chiude: `modifica` resta valorizzato) finché la Scheda è sopra —
       ricompare da solo se la Scheda viene annullata. */}
-      <Dialog open={!!modifica && !schedaAperta} onOpenChange={(v) => !v && setModifica(null)}>
-        <DialogContent className="sm:max-w-lg">
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio, "lasciando
+      intravedere lo sfondo" — qui il calendario dietro) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!modifica && !schedaAperta} onOpenChange={(v) => !v && setModifica(null)}>
+        <DrawerContent>
           {modifica && (
             <FormModificaAppuntamento
               appuntamento={modifica}
@@ -329,8 +334,8 @@ export function CalendarioBoard({
               onFatto={() => setModifica(null)}
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
 
       {/* ★ NUOVA — Dialog centrale per la Scheda di lavoro, separato dal
       Dialog di modifica (vedi sopra): stesso identico trattamento di Vista

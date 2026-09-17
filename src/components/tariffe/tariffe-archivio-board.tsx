@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Archive } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { impostaSottoscrivibileTariffa, impostaPubblicaTariffa, duplicaTariffa } from "@/app/(app)/tariffe/actions";
@@ -68,11 +68,14 @@ export function TariffeArchivioBoard({ tariffe, isAdmin }: { tariffe: Tariffa[];
         </div>
       )}
 
-      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <DialogContent>
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DrawerContent>
           {modifica && <FormTariffa tariffa={modifica} isAdmin={isAdmin} onFatto={() => setModifica(null)} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
   creaTariffa,
   aggiornaTariffa,
@@ -121,11 +122,14 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
-        <DialogContent>
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!modifica} onOpenChange={(v) => !v && setModifica(null)}>
+        <DrawerContent>
           {modifica && <FormTariffa tariffa={modifica} isAdmin={isAdmin} onFatto={() => setModifica(null)} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
 
       <div className="mt-10 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -187,11 +191,11 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
-        <DialogContent>
+      <Drawer open={!!modificaPromo} onOpenChange={(v) => !v && setModificaPromo(null)}>
+        <DrawerContent>
           {modificaPromo && <FormPromozione tariffe={tariffe} promozione={modificaPromo} isAdmin={isAdmin} onFatto={() => setModificaPromo(null)} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
 
       <div className="mt-10 border-t pt-6 text-center">
         <Link

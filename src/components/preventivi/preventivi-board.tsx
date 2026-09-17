@@ -6,7 +6,8 @@ import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2, Phone, Mail }
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
@@ -150,11 +151,14 @@ export function PreventiviBoard({
         </div>
       )}
 
-      <Dialog open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
-        <DialogContent className="sm:max-w-lg">
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!aperto} onOpenChange={(v) => !v && setAperto(null)}>
+        <DrawerContent>
           {aperto && <DettaglioPreventivo key={aperto.id} preventivo={aperto} isAdmin={isAdmin} onChiudi={() => setAperto(null)} />}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

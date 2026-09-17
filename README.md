@@ -4943,3 +4943,30 @@ bacheche Ticket e Segnalazioni:
   TypeScript `Ticket`/`Segnalazione` (già scritta nel database ad ogni cambiamento, mai
   dichiarata prima perché nessuna card la mostrava). Verificato sui dati reali di produzione
   che la colonna non è mai `null` su nessuna delle due tabelle. Build/lint puliti.
+
+✅ **Drawer laterale al posto del Dialog centrale per tutti i popup di dettaglio** (2026-09-17,
+richiesta esplicita: "l'apertura al centro dello schermo interrompe il flusso di lavoro...
+Sostituisci le modali a centro pagina con un Drawer laterale a scorrimento da destra (che
+copra circa il 50-60% dello schermo anziché tutto), lasciando intravedere lo sfondo della
+Kanban"). Il gestionale era già passato da pannelli laterali (Sheet) a modali centrali (Dialog)
+ovunque per uniformità, qualche settimana fa — la richiesta di oggi inverte quella scelta con lo
+stesso principio di coerenza, chiesto esplicitamente "ovunque nel gestionale":
+
+- Nuovo `components/ui/drawer.tsx` — stesso primitive Radix di `components/ui/dialog.tsx`
+  (stessa gestione di focus/Escape/portale, stesso blocco del click fuori per non perdere dati
+  inseriti per sbaglio), overlay più trasparente (`bg-black/5` contro il `bg-black/10` del
+  Dialog: la Kanban dietro deve restare leggibile, non solo intuibile) e contenuto ancorato a
+  destra con animazione di scorrimento, largo il 56% dello schermo su desktop (quasi pieno
+  sotto i 640px, dove il 56% sarebbe troppo stretto per leggere).
+- Convertiti da Dialog a Drawer tutti i popup che mostrano il DETTAGLIO di un record aperto
+  cliccando una riga/card in una lista già visibile (Ticket, Segnalazione — il caso "Gabriella
+  Bolognesi" citato nella richiesta —, Richieste Clienti, Preventivi, Lavorazioni, Appuntamento
+  in Calendario, Persona, Utente, Materiale, Tariffa/Promozione, Cliente Buy&Go).
+- **Lasciati invariati (Dialog centrale)** i popup di azione/creazione rapida che non
+  interrompono la navigazione di una lista già aperta: creazione di un nuovo record (Nuovo
+  Ticket, Nuova Persona, Nuovo Utente, ecc.), conferme, OTP, e i wizard a più passi (Scheda di
+  Installazione/Lavorazione) — un pannello laterale largo non avrebbe senso per un piccolo
+  form o un flusso guidato che l'utente deve comunque completare prima di continuare.
+
+Build/lint puliti. Non ho un browser da controllare in questo ambiente: la verifica visiva del
+drawer aperto sulle bacheche reali resta da fare a schermo.

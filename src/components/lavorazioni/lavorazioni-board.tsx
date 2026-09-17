@@ -6,6 +6,7 @@ import { Plus, Wifi, Building2, Trash2, Loader2, Check, ClipboardList } from "lu
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { creaLavorazione, cambiaStatoLavorazione, eliminaLavorazione } from "@/app/(app)/lavorazioni/actions";
@@ -134,8 +135,11 @@ export function LavorazioniBoard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
-        <DialogContent className="sm:max-w-md">
+      {/* ★ REDESIGN (2026-09-17, richiesta esplicita: Drawer laterale
+      invece del Dialog centrale per i popup di dettaglio) — da Dialog a
+      Drawer. */}
+      <Drawer open={!!aperta} onOpenChange={(v) => !v && setAperta(null)}>
+        <DrawerContent>
           {aperta && (
             <DettaglioLavorazione
               lavorazione={aperta}
@@ -145,8 +149,8 @@ export function LavorazioniBoard({
               onEliminata={() => setAperta(null)}
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
