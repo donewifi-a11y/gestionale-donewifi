@@ -72,11 +72,35 @@ export async function chiUsaPose(): Promise<Operatore | null> {
   return getOperatorePose(supabase);
 }
 
+// ★ NUOVA (2026-09-17, "controllo d'oro" completo, priorità 3) — questo è
+// l'unico dei due login di pose (l'altro, loginStaffPose, passa da
+// Supabase Auth) a non avere ALCUN limite di tentativi: una password
+// sbagliata su un nome utente breve e prevedibile poteva essere riprovata
+// all'infinito. Blocco per nome utente (non per IP: un ufficio con più
+// tecnici dietro lo stesso NAT si bloccherebbe a vicenda), non per email —
+// stesso principio "conta i falliti, blocca temporaneamente" comune ad
+// ogni sistema di login, mai implementato finora in questo progetto
+// perché l'altro login si appoggia a Supabase Auth (che lo applica già a
+// livello di piattaforma).
+const MASSIMO_TENTATIVI_FALLITI = 5;
+const DURATA_BLOCCO_MINUTI = 15;
+
 export async function loginTecnicoEsterno(username: string, password: string): Promise<{ errore: string | null }> {
-  const usernamePulito = username.trim();
+  const usernamePulito = username.trim().toLowerCase();
   if (!usernamePulito || !password) return { errore: "Inserisci nome utente e password." };
 
   const service = createServiceClient();
+
+  const { data: statoBlocco } = await service
+    .from("tentativi_login_tecnico")
+    .select("tentativi_falliti, bloccato_fino_il")
+    .eq("username", usernamePulito)
+    .maybeSingle();
+  if (statoBlocco?.bloccato_fino_il && new Date(statoBlocco.bloccato_fino_il) > new Date()) {
+    const minutiRimasti = Math.ceil((new Date(statoBlocco.bloccato_fino_il).getTime() - Date.now()) / 60000);
+    return { errore: `Troppi tentativi falliti — riprova tra ${minutiRimasti} minut${minutiRimasti === 1 ? "o" : "i"}.` };
+  }
+
   const { data: id, error } = await service.rpc("verifica_login_tecnico_esterno", {
     p_username: usernamePulito,
     p_password: password,
@@ -88,7 +112,24 @@ export async function loginTecnicoEsterno(username: string, password: string): P
     console.error("loginTecnicoEsterno — RPC verifica_login_tecnico_esterno:", error.message);
     return { errore: "Errore di accesso — riprova." };
   }
-  if (!id) return { errore: "Nome utente o password errati." };
+
+  if (!id) {
+    const tentativiFalliti = (statoBlocco?.tentativi_falliti ?? 0) + 1;
+    await service.from("tentativi_login_tecnico").upsert({
+      username: usernamePulito,
+      tentativi_falliti: tentativiFalliti,
+      ultimo_tentativo_il: new Date().toISOString(),
+      bloccato_fino_il: tentativiFalliti >= MASSIMO_TENTATIVI_FALLITI ? new Date(Date.now() + DURATA_BLOCCO_MINUTI * 60 * 1000).toISOString() : null,
+    });
+    if (tentativiFalliti >= MASSIMO_TENTATIVI_FALLITI) {
+      return { errore: `Troppi tentativi falliti — riprova tra ${DURATA_BLOCCO_MINUTI} minuti.` };
+    }
+    return { errore: "Nome utente o password errati." };
+  }
+
+  // ★ login riuscito — azzera lo storico di tentativi falliti per questo
+  // nome utente, non deve restare a metà strada verso un blocco futuro.
+  await service.from("tentativi_login_tecnico").delete().eq("username", usernamePulito);
 
   await impostaCookieTecnicoEsterno(id);
   return { errore: null };

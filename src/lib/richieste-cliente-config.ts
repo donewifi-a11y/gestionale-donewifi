@@ -43,6 +43,15 @@ export const RICHIESTE_CLIENTE_CONFIG = {
 export type SlugRichiestaCliente = keyof typeof RICHIESTE_CLIENTE_CONFIG;
 export const SLUG_RICHIESTE_CLIENTE = Object.keys(RICHIESTE_CLIENTE_CONFIG) as SlugRichiestaCliente[];
 
+// ★ NUOVA (2026-09-17, "controllo d'oro" completo, priorità 2: "stesso
+// gate a contratto anche per Cambio IBAN/Cambio Anagrafica") — le 3
+// pratiche che seguono il sistema contratto→approvazione→chiusura
+// automatica, invece del solo Trasferimento. Vive qui (non in
+// richieste-clienti/actions.ts, un file "use server") perché un file
+// "use server" può esportare solo funzioni async — una costante come
+// questa lo farebbe fallire in build, non solo a runtime.
+export const PRATICHE_CON_GATE_CONTRATTO = ["Trasferimento", "Cambio IBAN", "Cambio Anagrafica"] as const;
+
 // ★ NUOVA (2026-08-31, richiesta esplicita dopo la revisione dei testi email:
 // "ma questo è il testo della mail?" — l'utente ha notato che il messaggio
 // WhatsApp/copia-link ("Ciao Nasso, per la tua pratica di trasferimento con

@@ -4729,3 +4729,45 @@ prima erano due passi separati (assegnare da `/tickets`, poi tornare qui per chi
 il Ticket alla persona corrente e apre subito lo stesso `RapportinoForm` già in uso per gli
 altri — nessun nuovo modulo, nessuna doppia schermata. Build/lint puliti; verificato che la
 nuova query trova davvero i 28 Ticket reali del reparto Analisi Rete.
+
+✅ **"Controllo d'oro" totale (report completo) — le 3 priorità trovate, tutte corrette**
+(2026-09-17, richiesta esplicita: "rifacciamo un controllo d'oro... revisione totale del
+gestionale senza saltare neanche un settore" → "procediamo su tutti e tre"). Revisione dei 15
+settori del gestionale (report pubblicato come artifact), con 3 punti deboli nuovi trovati e
+ora tutti corretti:
+
+1. **Promemoria "contratto in attesa" esteso a Subentro/Trasferimento** — il cron
+   `promemoria-approvazione-contratto` guardava solo le Segnalazioni; un contratto di Subentro
+   o Trasferimento inviato per approvazione poteva restare "in attesa" per sempre senza che
+   nessuno se ne accorgesse. Nuova colonna `ultimo_promemoria_approvazione_il` su
+   `richieste_clienti` (stesso principio già in uso su `segnalazioni`, migrazione 0046), stesso
+   cron ora interroga anche questa tabella.
+2. **Stesso gate a contratto anche per Cambio IBAN e Cambio Anagrafica** — uniformate al
+   sistema già introdotto per il Trasferimento (contratto → invio → approvazione cliente →
+   chiusura automatica), invece di restare con 3 pulsanti manuali senza alcuna verifica reale.
+   `caricaContrattoTrasferimento()`/`inviaEmailApprovazioneContrattoTrasferimento()`/
+   `emailApprovazioneContrattoTrasferimento()` generalizzate in
+   `caricaContrattoPratica()`/`inviaEmailApprovazioneContrattoPratica()`/
+   `emailApprovazioneContrattoPratica()` (nuova costante condivisa
+   `PRATICHE_CON_GATE_CONTRATTO` in `lib/richieste-cliente-config.ts` — non nel file "use
+   server" delle azioni, che può esportare solo funzioni async). Il reparto per l'invio si
+   ricava ora dal tipo di pratica (Trasferimento→Commerciale, Cambio IBAN/Anagrafica→
+   Fatturazione) invece di essere fisso.
+3. **Limite di tentativi sul login dei tecnici esterni (pose.donewifi.it)** — l'unico dei due
+   login di questo progetto a non passare da Supabase Auth (che applica già un limite a livello
+   di piattaforma): nessun blocco dopo N password sbagliate. Nuova tabella
+   `tentativi_login_tecnico` (per nome utente, non per IP — un ufficio con più tecnici dietro lo
+   stesso NAT non si blocca a vicenda): blocco di 15 minuti dopo 5 tentativi falliti, azzerato al
+   primo login riuscito.
+
+Build/lint puliti. Non ancora verificato con un uso reale: entrambe le migrazioni sotto vanno
+applicate prima.
+
+**⚠️ MIGRAZIONI DA APPLICARE:**
+- `supabase/migrations/0078_promemoria_contratto_pratiche.sql` — aggiunge
+  `ultimo_promemoria_approvazione_il` a `richieste_clienti`.
+- `supabase/migrations/0079_limite_tentativi_login_tecnico.sql` — crea la tabella
+  `tentativi_login_tecnico`.
+
+Da incollare nell'SQL Editor di Supabase (includono già la `notify pgrst, 'reload schema';` in
+fondo dove serve).

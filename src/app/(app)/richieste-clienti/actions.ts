@@ -3,8 +3,8 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { urlFirmataDocumento } from "@/lib/documenti";
-import { inviaEmail, emailPraticaCliente, emailApprovazioneContrattoSubentro, emailApprovazioneContrattoTrasferimento } from "@/lib/email";
-import { CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
+import { inviaEmail, emailPraticaCliente, emailApprovazioneContrattoSubentro, emailApprovazioneContrattoPratica } from "@/lib/email";
+import { CHIAVE_BOZZA_CONTATTO_SUBENTRO, PRATICHE_CON_GATE_CONTRATTO } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import type { RichiestaCliente } from "@/lib/types";
@@ -45,16 +45,17 @@ export async function aggiornaStatoRichiestaCliente(id: string, nuovoStato: stri
   if (!user) return { errore: "Non autenticato." };
 
   // ★ FIX (2026-09-16, "dobbiamo uniformare... niente più pulsante
-  // manuale" per Trasferimento) — la UI toglie "Lavorata" dalle scelte
-  // manuali per questo tipo (vedi richieste-clienti-board.tsx), ma un
-  // controllo lato client da solo non basta: stesso principio già
-  // applicato a completaSubentro(), che verifica per davvero invece di
-  // fidarsi di un pulsante — qui il server rifiuta comunque la scrittura,
-  // a prescindere da cosa mandi il client.
+  // manuale" per Trasferimento; ESTESO 2026-09-17 a Cambio IBAN/Cambio
+  // Anagrafica) — la UI toglie "Lavorata" dalle scelte manuali per questi
+  // tipi (vedi richieste-clienti-board.tsx), ma un controllo lato client
+  // da solo non basta: stesso principio già applicato a completaSubentro(),
+  // che verifica per davvero invece di fidarsi di un pulsante — qui il
+  // server rifiuta comunque la scrittura, a prescindere da cosa mandi il
+  // client.
   if (nuovoStato === "Lavorata") {
     const { data: richiesta } = await supabase.from("richieste_clienti").select("tipo_richiesta").eq("id", id).maybeSingle();
-    if (richiesta?.tipo_richiesta === "Trasferimento") {
-      return { errore: "Il Trasferimento si chiude da solo quando il cliente approva il contratto — non con un clic manuale." };
+    if (richiesta && (PRATICHE_CON_GATE_CONTRATTO as readonly string[]).includes(richiesta.tipo_richiesta)) {
+      return { errore: `${richiesta.tipo_richiesta} si chiude da solo quando il cliente approva il contratto — non con un clic manuale.` };
     }
   }
 
@@ -225,14 +226,18 @@ export async function caricaContrattoSubentro(praticaId: string, percorso: strin
 // si fida di un pulsante). Stesso identico meccanismo qui: contratto
 // caricato → inviato → approvato dal cliente, e SOLO l'approvazione (vedi
 // api/approva/[token]/route.ts) porta la pratica a "Lavorata" — non più
-// un pulsante manuale per il Trasferimento.
-export async function caricaContrattoTrasferimento(praticaId: string, percorso: string, nomeFile: string) {
+// un pulsante manuale.
+// ★ ESTESA (2026-09-17, "controllo d'oro" completo, priorità 2) — non più
+// specifica al Trasferimento: vedi PRATICHE_CON_GATE_CONTRATTO sopra.
+export async function caricaContrattoPratica(praticaId: string, percorso: string, nomeFile: string) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato." };
 
   const { data: esistente } = await supabase.from("richieste_clienti").select("tipo_richiesta").eq("id", praticaId).maybeSingle();
-  if (!esistente || esistente.tipo_richiesta !== "Trasferimento") return { errore: "Pratica non trovata." };
+  if (!esistente || !(PRATICHE_CON_GATE_CONTRATTO as readonly string[]).includes(esistente.tipo_richiesta)) {
+    return { errore: "Pratica non trovata." };
+  }
 
   const service = createServiceClient();
   const { error } = await service
@@ -244,7 +249,7 @@ export async function caricaContrattoTrasferimento(praticaId: string, percorso: 
   await service.from("storico").insert({
     origine: "richiesta_cliente",
     riferimento_id: praticaId,
-    operazione: "Contratto di Trasferimento caricato",
+    operazione: `Contratto di ${esistente.tipo_richiesta} caricato`,
     valore_dopo: nomeFile,
     operatore_id: persona.id,
   });
@@ -254,12 +259,17 @@ export async function caricaContrattoTrasferimento(praticaId: string, percorso: 
 }
 
 // ★ NUOVA — gemella di inviaEmailApprovazioneContrattoSubentro() sotto, ma
-// per Trasferimento: a differenza del Subentro non c'è sempre un Ticket
-// collegato (interviene solo quando serve spostare fisicamente
-// l'apparato — vedi i 3 casi reali trovati in produzione, solo uno dei
-// tre ne ha uno), quindi l'email/il reparto si ricavano da qualunque
-// fonte disponibile invece di richiedere sempre lo stesso Ticket.
-export async function inviaEmailApprovazioneContrattoTrasferimento(praticaId: string, origineUrl: string) {
+// per queste 3 pratiche: a differenza del Subentro non c'è sempre un
+// Ticket collegato (Trasferimento interviene solo quando serve spostare
+// fisicamente l'apparato — vedi i 3 casi reali trovati in produzione,
+// solo uno dei tre ne ha uno; Cambio IBAN/Anagrafica non ne hanno mai
+// bisogno), quindi l'email/il reparto si ricavano da qualunque fonte
+// disponibile invece di richiedere sempre lo stesso Ticket.
+// ★ ESTESA (2026-09-17, "controllo d'oro" completo, priorità 2) — non più
+// specifica al Trasferimento, il reparto ora si ricava dal tipo di
+// pratica (Trasferimento→Commerciale, Cambio IBAN/Anagrafica→
+// Fatturazione, vedi REPARTO_PER_TIPO_RICHIESTA) invece di essere fisso.
+export async function inviaEmailApprovazioneContrattoPratica(praticaId: string, origineUrl: string) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: "Non autenticato.", link: null };
@@ -269,7 +279,9 @@ export async function inviaEmailApprovazioneContrattoTrasferimento(praticaId: st
     .select("tipo_richiesta, cliente, dettagli, contratto_pdf_url, ticket_id, cliente_esterno_id")
     .eq("id", praticaId)
     .maybeSingle();
-  if (!pratica || pratica.tipo_richiesta !== "Trasferimento") return { errore: "Pratica non trovata.", link: null };
+  if (!pratica || !(PRATICHE_CON_GATE_CONTRATTO as readonly string[]).includes(pratica.tipo_richiesta)) {
+    return { errore: "Pratica non trovata.", link: null };
+  }
   if (!pratica.contratto_pdf_url) return { errore: "Carica prima il contratto.", link: null };
 
   let email: string | null = pratica.dettagli?.email || null;
@@ -294,15 +306,16 @@ export async function inviaEmailApprovazioneContrattoTrasferimento(praticaId: st
 
   const link = `${origineUrl}/approva/${creato.token}`;
   const nomeCliente = pratica.cliente || pratica.dettagli?.nome || "Cliente";
-  const { oggetto, corpoHtml, corpoTesto } = emailApprovazioneContrattoTrasferimento(nomeCliente, link);
-  const risultato = await inviaEmail({ a: email, oggetto, corpoHtml, corpoTesto, reparto: REPARTO_PER_TIPO_RICHIESTA.Trasferimento });
+  const tipoRichiesta = pratica.tipo_richiesta as keyof typeof REPARTO_PER_TIPO_RICHIESTA;
+  const { oggetto, corpoHtml, corpoTesto } = emailApprovazioneContrattoPratica(nomeCliente, pratica.tipo_richiesta, link);
+  const risultato = await inviaEmail({ a: email, oggetto, corpoHtml, corpoTesto, reparto: REPARTO_PER_TIPO_RICHIESTA[tipoRichiesta] });
   if (risultato.errore) return { errore: risultato.errore, link: null };
 
   await service.from("richieste_clienti").update({ contratto_inviato_approvazione_il: new Date().toISOString() }).eq("id", praticaId);
   await service.from("storico").insert({
     origine: "richiesta_cliente",
     riferimento_id: praticaId,
-    operazione: "Contratto di Trasferimento inviato per approvazione",
+    operazione: `Contratto di ${pratica.tipo_richiesta} inviato per approvazione`,
     valore_dopo: email,
     operatore_id: persona.id,
   });

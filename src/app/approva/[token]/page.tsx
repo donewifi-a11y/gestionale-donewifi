@@ -24,7 +24,7 @@ interface RigaTokenApprovazione {
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
   preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
   appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
-  richieste_clienti: { cliente: string | null; contratto_pdf_url: string | null; tickets: { numero: number; cliente: string } | null } | null;
+  richieste_clienti: { cliente: string | null; tipo_richiesta: string | null; contratto_pdf_url: string | null; tickets: { numero: number; cliente: string } | null } | null;
 }
 
 // ★ NUOVA — lo stesso link/token monouso usato per l'approvazione
@@ -51,7 +51,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select(
-      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, contratto_pdf_url, tickets(numero, cliente))"
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
     )
     .eq("token", token)
     .maybeSingle();
@@ -70,9 +70,13 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   // qui il riferimento ha anche un PDF da leggere, come "contratto".
   const subentroContratto = dati?.origine === "subentro_contratto" ? dati.richieste_clienti : undefined;
   // ★ NUOVA (2026-09-16, "dobbiamo uniformare, troppi passaggi diversi
-  // nelle procedure") — settimo caso, il contratto di una pratica di
-  // Trasferimento: stesso principio di "subentroContratto" sopra, un solo
-  // cliente da avvisare (nessuna distinzione vecchio/nuovo titolare qui).
+  // nelle procedure"; ESTESA 2026-09-17 a Cambio IBAN/Cambio Anagrafica,
+  // "controllo d'oro" priorità 2) — settimo caso, il contratto di una
+  // pratica di Trasferimento/Cambio IBAN/Cambio Anagrafica: stesso
+  // principio di "subentroContratto" sopra, un solo cliente da avvisare
+  // (nessuna distinzione vecchio/nuovo titolare qui). Il nome della
+  // variabile resta legato al primo caso implementato (Trasferimento) —
+  // `tipo_richiesta` dice di quale pratica si tratta davvero, vedi sotto.
   const trasferimentoContratto = dati?.origine === "trasferimento_contratto" ? dati.richieste_clienti : undefined;
 
   let urlContratto: string | null = null;
@@ -154,8 +158,13 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
           <>
             <h1 className="font-heading text-lg font-bold">Approva il tuo contratto</h1>
             <p className="text-sm text-muted-foreground">
-              {trasferimentoContratto.cliente ?? "Gentile cliente"}, prima di completare il trasferimento della tua linea leggi il
-              contratto aggiornato e approvalo.
+              {trasferimentoContratto.cliente ?? "Gentile cliente"}, prima di completare{" "}
+              {trasferimentoContratto.tipo_richiesta === "Cambio IBAN"
+                ? "il cambio IBAN"
+                : trasferimentoContratto.tipo_richiesta === "Cambio Anagrafica"
+                  ? "il cambio anagrafica"
+                  : "il trasferimento della tua linea"}{" "}
+              leggi il contratto aggiornato e approvalo.
             </p>
             {urlContratto && (
               <a

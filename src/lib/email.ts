@@ -236,34 +236,42 @@ ${FOOTER_AZIENDA_TESTO}`,
   };
 }
 
-// ★ NUOVA (2026-09-16, "uniformare... troppi passaggi diversi nelle
-// procedure" — stesso sistema di emailApprovazioneContrattoSubentro sopra,
-// applicato a Trasferimento) — a differenza del Subentro, un Trasferimento
-// non ha sempre un Ticket collegato (interviene solo quando serve
-// spostare fisicamente l'apparato): niente numero di riferimento nel
-// testo, resta valido in entrambi i casi.
-export function emailApprovazioneContrattoTrasferimento(cliente: string, link: string) {
+// ★ ESTESA (2026-09-17, "controllo d'oro" completo, priorità 2: "stesso
+// gate a contratto anche per Cambio IBAN/Cambio Anagrafica") — non più
+// specifica al Trasferimento: `emailApprovazioneContrattoPratica()`, una
+// frase per pratica (stesso principio di INTRO_PRATICA sopra, con lo
+// stesso fallback generico per un tipo futuro non ancora previsto qui).
+// Nessun numero di riferimento nel testo — a differenza del Subentro,
+// queste 3 pratiche non hanno sempre un Ticket collegato.
+const INTRO_APPROVAZIONE_CONTRATTO: Record<string, string> = {
+  Trasferimento: "abbiamo preparato il contratto aggiornato per il trasferimento della tua linea Done Wifi.",
+  "Cambio IBAN": "abbiamo preparato il contratto aggiornato con il nuovo IBAN per l'addebito delle fatture Done Wifi.",
+  "Cambio Anagrafica": "abbiamo preparato il contratto aggiornato con i tuoi nuovi dati sul contratto Done Wifi.",
+};
+
+export function emailApprovazioneContrattoPratica(cliente: string, titoloPratica: string, link: string) {
+  const intro = INTRO_APPROVAZIONE_CONTRATTO[titoloPratica] ?? `abbiamo preparato il contratto aggiornato per la tua pratica di ${titoloPratica.toLowerCase()} con Done Wifi.`;
   return {
-    oggetto: "Done Wifi — Il tuo contratto di trasferimento è pronto",
+    oggetto: `Done Wifi — Il tuo contratto di ${titoloPratica.toLowerCase()} è pronto`,
     corpoHtml: involucroEmail({
-      eyebrow: "Trasferimento",
+      eyebrow: titoloPratica,
       corpoHtml: `
         <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">Il tuo contratto è pronto</h1>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
-        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato il contratto aggiornato per il trasferimento della tua linea Done Wifi. Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">${intro} Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione.</p>
         ${bottoneEmail("Vedi e approva il contratto", link)}
-        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
+        <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Servizio Clienti Done Wifi</b></p>
       `,
-      footerExtra: "Hai ricevuto questa email perché hai richiesto un trasferimento su una linea Done Wifi.",
+      footerExtra: `Hai ricevuto questa email perché hai richiesto una pratica di ${titoloPratica.toLowerCase()} su una linea Done Wifi.`,
     }),
     corpoTesto: `Gentile ${cliente},
 
-abbiamo preparato il contratto aggiornato per il trasferimento della tua linea Done Wifi. Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione:
+${intro} Prima di procedere, ti chiediamo di leggerlo e confermarne l'approvazione:
 ${link}
 
 ${CONTATTACI_TESTO}
 
-Commerciale Done Wifi
+Servizio Clienti Done Wifi
 ${FOOTER_AZIENDA_TESTO}`,
   };
 }
