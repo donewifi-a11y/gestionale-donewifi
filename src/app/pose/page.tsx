@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getInterventiTecnicoEsterno } from "./actions";
 import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
 import { PrendiInCaricoButton } from "@/components/pose/prendi-in-carico-button";
+import { inizioGiornataItalia } from "@/lib/data-italia";
 
 // ★ NUOVA (2026-08-26) — dashboard di pose.donewifi.it: solo ciò che è
 // assegnato AL tecnico collegato, niente sidebar/mondi del gestionale
@@ -27,8 +28,10 @@ export default async function PosePage() {
   // Qui si dividono in due sezioni invece di lasciarli mescolati per data:
   // "In ritardo" salta all'occhio per primo, con un trattamento diverso
   // (rosso, sopra tutto) da "In programma" (i normali appuntamenti futuri).
-  const oggiInizio = new Date();
-  oggiInizio.setHours(0, 0, 0, 0);
+  // ★ FIX (2026-09-17, code review approfondita) — vedi lib/data-italia.ts:
+  // "oggi" calcolato nel fuso del processo (UTC su Vercel) invece che in
+  // quello del tecnico, sballato per 1-2 ore ogni notte.
+  const oggiInizio = inizioGiornataItalia();
   const appuntamentiInRitardo = appuntamenti.filter((a) => new Date(a.data_ora) < oggiInizio);
   const appuntamentiInProgramma = appuntamenti.filter((a) => new Date(a.data_ora) >= oggiInizio);
 

@@ -4857,3 +4857,39 @@ Build/lint puliti dopo ogni correzione. Restano da valutare, a priorità più ba
 fuso orario UTC/Italia su alcuni confronti "oggi", alcune pagine che caricano dati in sequenza
 invece che in parallelo, piccole duplicazioni di codice non pericolose) — segnalati ma non
 ancora corretti in questo giro, in attesa di indicazioni sulla priorità.
+
+✅ **Code review approfondita — correzioni Media priorità** (2026-09-17, continuazione di
+"Fai una code review approfondita di tutto il progetto...", "si procedi"). Corretti:
+
+- **Bug reale di fuso orario confermato su dati reali**: ogni confronto "oggi" lato server
+  (`new Date().setHours(0,0,0,0)`, `.toISOString().slice(0,10)`) usa il fuso del PROCESSO —
+  UTC su Vercel, nessuna variabile `TZ` impostata — non quello dello staff (Italia, UTC+1/+2):
+  per 1-2 ore ogni notte, subito dopo la mezzanotte italiana, il confronto usava ancora il
+  calendario UTC del giorno prima. Riprodotto con uno script (novembre CEST e gennaio CET,
+  entrambi i casi limite verificati) prima di scrivere la correzione. Nuovo helper condiviso
+  `lib/data-italia.ts` (`inizioGiornataItalia()`/`fineGiornataItalia()`/`dataItaliaStringa()`,
+  calcola l'istante UTC reale della mezzanotte italiana indipendentemente dal fuso del
+  processo), applicato alle pagine/azioni dove il confronto è genuinemente lato server: home
+  (`app/(app)/page.tsx`, "completati oggi"/"appuntamenti di oggi"/promemoria), Dashboard,
+  Vista Tecnico, pose (interventi in ritardo/in programma), Calendario (slot occupati nei
+  prossimi 14 giorni). Non toccati i componenti "use client" (Segnalazioni, Tariffe, Calendario
+  board) che girano nel browser dello staff, già in orario italiano — nessun bug lì.
+- **`getDatiAnagraficaAruba()` (Dashboard, Anagrafica Clienti) contava i "clienti attivi"
+  deduplicando per CF/PIVA** invece di usare `dedupClientiPerContratto()` — l'helper condiviso
+  costruito apposta ad agosto per questo esatto problema (ogni rinnovo/adeguamento contratto
+  scrive su Aruba una riga nuova con lo stesso CF ma `codice_gestionale` diverso). **Verificato
+  sui dati reali di produzione**: il vecchio metodo contava 2241 clienti attivi, quello corretto
+  (dedup per `codice_gestionale`, coerente con ogni altro punto del gestionale che conta "i
+  clienti") ne conta 2098 — 143 di differenza, la Dashboard mostrava un numero sbagliato.
+- **`getAmministratoriAttiviPerFirma()` non aveva alcun controllo di autenticazione** — una
+  Server Action resta comunque un endpoint raggiungibile da chi ne conosce l'id, anche senza
+  passare dalla UI: restituiva nome e cognome di tutti gli amministratori a chiunque.
+- **`verificaOtpAmministratore()` non verificava `adminId`** (fornito dal client: "quale
+  amministratore ti ha dato il codice") contro l'elenco reale degli amministratori attivi prima
+  di scriverlo nell'audit trail — un valore qualsiasi, anche non valido, poteva finire registrato
+  come "amministratore che ha autorizzato questa firma".
+
+Non ancora toccati (valutati a priorità più bassa, nessun bug attivo trovato): la coda offline
+di pose (client-side, un solo tecnico per dispositivo — rischio di concorrenza solo teorico),
+varie piccole duplicazioni di codice, pagine che caricano dati in sequenza invece che in
+parallelo. Build/lint puliti dopo ogni correzione.

@@ -8,6 +8,7 @@ import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { DashboardTabs, type TabDashboard } from "@/components/dashboard/dashboard-tabs";
 import { SezioneDashboardReparto } from "@/components/dashboard/sezione-reparto";
 import { coloreReparto, type AreaAccesso } from "@/lib/types";
+import { inizioGiornataItalia, fineGiornataItalia } from "@/lib/data-italia";
 
 // ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
 // nel Menu", confermata) — "Dashboard generale" + una Dashboard a parte per
@@ -101,10 +102,9 @@ export default async function DashboardPage({
   }
   const periodoAttivo = params.da ? "custom" : (params.periodo ?? "30");
 
-  const oggiInizio = new Date();
-  oggiInizio.setHours(0, 0, 0, 0);
-  const oggiFine = new Date();
-  oggiFine.setHours(23, 59, 59, 999);
+  // ★ FIX (2026-09-17, code review approfondita) — vedi lib/data-italia.ts.
+  const oggiInizio = inizioGiornataItalia();
+  const oggiFine = fineGiornataItalia();
   const settimanaFa = new Date();
   settimanaFa.setDate(settimanaFa.getDate() - 7);
 

@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { fetchTuttiClientiEsterni } from "@/lib/clienti-esterni";
+import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
 import type { AreaAccesso } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -303,19 +303,27 @@ export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAn
   // ★ un solo giro su clienti_esterni (paginato) per ricavare sia il
   // conteggio attivi unici sia la distribuzione profili, invece di due
   // scansioni separate dell'intera tabella.
-  const [clientiEsterni, fattureSeiMesi, insolute] = await Promise.all([
-    fetchTuttiClientiEsterni<{ id: number; codice_fiscale: string | null; partita_iva: string | null; attivo: boolean; profilo_internet: string | null }>(
+  const [clientiEsterniGrezzi, fattureSeiMesi, insolute] = await Promise.all([
+    fetchTuttiClientiEsterni<{ id: number; codice_gestionale: string | null; codice_fiscale: string | null; partita_iva: string | null; attivo: boolean; profilo_internet: string | null }>(
       supabase,
-      "id, codice_fiscale, partita_iva, attivo, profilo_internet"
+      "id, codice_gestionale, codice_fiscale, partita_iva, attivo, profilo_internet"
     ),
     fetchTutteLeFattureDa(seiMesiFa.toISOString().slice(0, 10)),
     fetchTutteLeInsolute(),
   ]);
-
-  const chiaviAttivi = new Set(
-    clientiEsterni.filter((c) => c.attivo).map((c) => c.codice_fiscale || c.partita_iva || `id:${c.id}`)
-  );
-  const clientiAttivi = chiaviAttivi.size;
+  // ★ FIX (2026-09-17, code review approfondita) — contava le righe uniche
+  // per CF/PIVA invece di deduplicare per `codice_gestionale` come ogni
+  // altro punto del gestionale che conta "i clienti" (vedi il commento
+  // completo su dedupClientiPerContratto() in lib/clienti-esterni.ts): ogni
+  // rinnovo/adeguamento contratto scrive una riga NUOVA su Aruba con lo
+  // stesso CF ma un `codice_gestionale` diverso, quindi contarle per CF le
+  // fondeva "per fortuna" nello stesso modo solo quando il CF combaciava —
+  // ma sballava (in entrambe le direzioni) ogni volta che più clienti reali
+  // condividono un CF/PIVA null o che lo stesso CF ha più installazioni
+  // legittime, dando alla Dashboard un numero diverso da quello reale
+  // mostrato in Clienti Esterni per gli stessi dati.
+  const clientiEsterni = dedupClientiPerContratto(clientiEsterniGrezzi);
+  const clientiAttivi = clientiEsterni.filter((c) => c.attivo).length;
 
   const mesi: { chiave: string; etichetta: string; totale: number }[] = [];
   const oggi = new Date();

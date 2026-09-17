@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin } from "@/lib/persona";
 import { VistaTecnicoBoard } from "@/components/vista-tecnico/vista-tecnico-board";
 import type { Appuntamento, MaterialeMagazzino, Persona, Ticket } from "@/lib/types";
+import { inizioGiornataItalia, fineGiornataItalia } from "@/lib/data-italia";
 
 export default async function VistaTecnicoPage() {
   const supabase = await createClient();
@@ -10,10 +11,11 @@ export default async function VistaTecnicoPage() {
   const persona = await getPersonaCorrente(supabase);
   const isAdmin = personaHaAccessoAdmin(persona);
 
-  const oraInizio = new Date();
-  oraInizio.setHours(0, 0, 0, 0);
-  const oraFine = new Date();
-  oraFine.setHours(23, 59, 59, 999);
+  // ★ FIX (2026-09-17, code review approfondita) — vedi lib/data-italia.ts:
+  // "oggi" calcolato nel fuso del processo (UTC su Vercel) invece che in
+  // quello dello staff, sballato per 1-2 ore ogni notte.
+  const oraInizio = inizioGiornataItalia();
+  const oraFine = fineGiornataItalia();
 
   // ★ NUOVA (2026-09-16, bug reale segnalato: "perché i ticket non
   // possono essere chiusi dall'operatore, tipo anna gaggiolo") — questa

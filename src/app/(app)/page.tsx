@@ -7,6 +7,7 @@ import { ComunicazioniTicker } from "@/components/chat/comunicazioni-ticker";
 import { TodoPanel } from "@/components/todo/todo-panel";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import type { AreaAccesso } from "@/lib/types";
+import { inizioGiornataItalia, fineGiornataItalia, dataItaliaStringa } from "@/lib/data-italia";
 
 const SLUG_REPARTO: Record<string, string> = {
   "Analisi Rete": "analisi-rete",
@@ -69,10 +70,15 @@ export default async function MondoTicketPage() {
   // fatturazione, Analisi Rete non li vede.
   const vedeNovitaClienti = isAdmin || repartiUtente.includes("Commerciale") || repartiUtente.includes("Fatturazione");
 
-  const oggiInizio = new Date();
-  oggiInizio.setHours(0, 0, 0, 0);
-  const oggiFine = new Date();
-  oggiFine.setHours(23, 59, 59, 999);
+  // ★ FIX (2026-09-17, code review approfondita) — `new Date().setHours(...)`
+  // calcola "oggi" nel fuso del PROCESSO (UTC su Vercel, nessun `TZ`
+  // impostato), non in quello dello staff (Italia): per 1-2 ore ogni notte,
+  // subito dopo la mezzanotte italiana, il confronto usava ancora il
+  // calendario UTC del giorno prima — "completati oggi"/"appuntamenti di
+  // oggi" risultavano vuoti o sbagliati in quella finestra. Vedi
+  // lib/data-italia.ts per il dettaglio completo.
+  const oggiInizio = inizioGiornataItalia();
+  const oggiFine = fineGiornataItalia();
   const soglia24h = new Date();
   soglia24h.setTime(soglia24h.getTime() - 24 * 60 * 60 * 1000);
 
@@ -126,7 +132,7 @@ export default async function MondoTicketPage() {
       .from("note_calendario")
       .select("id, testo, data_promemoria")
       .eq("completata", false)
-      .lte("data_promemoria", oggiFine.toISOString().slice(0, 10))
+      .lte("data_promemoria", dataItaliaStringa())
       .order("data_promemoria", { ascending: true }),
     vedeNovitaClienti
       ? supabase

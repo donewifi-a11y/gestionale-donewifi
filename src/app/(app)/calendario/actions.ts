@@ -13,6 +13,7 @@ import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntenn
 import { revalidatePath } from "next/cache";
 import { createHash, randomInt } from "crypto";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
+import { inizioGiornataItalia } from "@/lib/data-italia";
 
 export interface SlotOccupato {
   id: string;
@@ -43,8 +44,8 @@ export async function getAntenneRiservatePerTicket(ticketId: string): Promise<{ 
  * Calendario per controllare la disponibilità del tecnico. */
 export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
   const supabase = await createClient();
-  const oggi = new Date();
-  oggi.setHours(0, 0, 0, 0);
+  // ★ FIX (2026-09-17, code review approfondita) — vedi lib/data-italia.ts.
+  const oggi = inizioGiornataItalia();
   const tra14gg = new Date(oggi);
   tra14gg.setDate(tra14gg.getDate() + 14);
 
@@ -934,6 +935,15 @@ export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, emai
  * prop da ogni chiamante (stesso principio di getContattoPerFirmaCliente).
  */
 export async function getAmministratoriAttiviPerFirma(): Promise<{ id: string; nome: string }[]> {
+  // ★ FIX (2026-09-17, code review approfondita) — mancava del tutto un
+  // controllo di autenticazione, a differenza di ogni altra funzione in
+  // questo file: una Server Action resta comunque un endpoint HTTP
+  // raggiungibile da chi ne conosce l'id, anche senza passare dalla UI —
+  // restituiva nome e cognome di tutti gli amministratori a chiunque.
+  const supabase = await createClient();
+  const operatore = await getOperatoreCorrente(supabase);
+  if (!operatore) return [];
+
   const service = createServiceClient();
   const { data } = await service.from("persone").select("id, nome").eq("attivo", true).eq("amministratore", true).order("nome", { ascending: true });
   return data ?? [];
@@ -1009,6 +1019,15 @@ export async function verificaOtpAmministratore(rif: RiferimentoFirmaCliente, co
     await service.from("otp_admin_firma").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
     return { errore: "Codice errato.", verificatoIl: null };
   }
+
+  // ★ FIX (2026-09-17, code review approfondita) — `adminId` arriva dal
+  // client (chi ha selezionato "quale amministratore ti ha dato il
+  // codice") e finiva scritto in `admin_id` senza mai essere verificato
+  // contro l'elenco reale degli amministratori attivi: l'audit trail di chi
+  // ha autorizzato una firma poteva riportare un id qualsiasi, anche non
+  // valido, falsificando il registro di chi ha davvero dato l'autorizzazione.
+  const { data: adminValido } = await service.from("persone").select("id").eq("id", adminId).eq("attivo", true).eq("amministratore", true).maybeSingle();
+  if (!adminValido) return { errore: "Amministratore non valido.", verificatoIl: null };
 
   const adesso = new Date().toISOString();
   const { error } = await service.from("otp_admin_firma").update({ verificato_il: adesso, admin_id: adminId }).eq("id", riga.id);
