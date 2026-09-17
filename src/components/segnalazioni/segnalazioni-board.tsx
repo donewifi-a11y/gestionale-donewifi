@@ -381,45 +381,50 @@ export function SegnalazioniBoard({
             // di stato colorata molto sottile e l'ultimo aggiornamento...
             // sposta tutti gli altri dettagli (indirizzi... reparti
             // secondari) all'interno di un tooltip") — comune, tipologia
-            // cliente e telefono non sono più una riga sempre visibile:
-            // finiscono in un unico `title` nativo del browser, visibile
-            // passando il mouse sulla card.
-            const dettagliTooltip = [
-              s.comune,
-              s.tipologia_cliente ?? null,
-              s.tipologia_cliente ? null : s.telefono,
-            ]
-              .filter(Boolean)
-              .join(" · ");
+            // cliente e telefono non erano più una riga sempre visibile.
+            // ★ FIX (2026-09-17, richiesta esplicita: "uniforma la struttura
+            // delle card... coerente con i Ticket: mostra una riga
+            // secondaria leggera (es. Comune o Tipologia) direttamente
+            // nella card, evitando di nascondere informazioni essenziali
+            // dietro l'hover") — il Comune (sempre presente, mai vuoto per
+            // una Segnalazione) torna visibile come riga secondaria sotto
+            // il nome, stesso ruolo della sottocategoria sulla card Ticket.
+            // Restano nel tooltip solo tipologia cliente e telefono, quelli
+            // davvero secondari.
+            const dettagliTooltip = [s.tipologia_cliente, s.telefono].filter(Boolean).join(" · ");
             return (
-              <div
-                key={s.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setAperta(s)}
-                onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
-                title={dettagliTooltip}
-                className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
-              >
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate font-semibold">{s.nome}</span>
-                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
-                </div>
-                {/* ★ un'unica etichetta di stato (mai testo indirizzo/
-                telefono qui) più l'ultimo aggiornamento, sempre presente. */}
-                {(segnale || s.copertura !== "si") && (
-                  <div className="mb-1">
-                    {segnale ? (
-                      <SegnalePulsante testo={segnale.testo} tono={segnale.tono} pulsante={segnale.pulsante} />
-                    ) : (
-                      <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
-                        {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
-                      </Badge>
+              <Tooltip key={s.id}>
+                <TooltipTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setAperta(s)}
+                    onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
+                    className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-semibold">{s.nome}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
+                    </div>
+                    <div className="mb-1 truncate text-[11px] text-muted-foreground/80">{s.comune}</div>
+                    {/* ★ un'unica etichetta di stato (mai testo tipologia/
+                    telefono qui) più l'ultimo aggiornamento, sempre presente. */}
+                    {(segnale || s.copertura !== "si") && (
+                      <div className="mb-1">
+                        {segnale ? (
+                          <SegnalePulsante testo={segnale.testo} tono={segnale.tono} pulsante={segnale.pulsante} />
+                        ) : (
+                          <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
+                            {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
+                          </Badge>
+                        )}
+                      </div>
                     )}
+                    <div className="text-[10px] text-muted-foreground/60">agg. {tempoRelativo(s.aggiornato_il)}</div>
                   </div>
-                )}
-                <div className="text-[10px] text-muted-foreground/60">agg. {tempoRelativo(s.aggiornato_il)}</div>
-              </div>
+                </TooltipTrigger>
+                {dettagliTooltip && <TooltipContent side="top" align="start">{dettagliTooltip}</TooltipContent>}
+              </Tooltip>
             );
           }
 

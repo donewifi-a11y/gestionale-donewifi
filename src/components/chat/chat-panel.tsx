@@ -60,6 +60,18 @@ interface Thread {
   altraPersonaId: string | null;
 }
 
+/** ★ NUOVA (2026-09-17, richiesta esplicita: "quando la barra laterale
+ * viene chiusa e riaperta, l'ID della conversazione attiva deve essere
+ * preservato... per evitare il reset della vista") — la rail Chat
+ * (variant="rail", vedi app-shell.tsx) smonta del tutto `ChatPanel` quando
+ * viene compressa (nessuno spazio riservato, vedi il redesign del rail):
+ * `thread` è stato locale del componente, quindi riaprirla ripartiva
+ * sempre dalla lista conversazioni, buttando via la chat che si stava
+ * leggendo. Solo per la rail (non per il pop-up/il riquadro in home, dove
+ * questo comportamento non è stato chiesto): la conversazione aperta viene
+ * ricordata in sessionStorage e riaperta da sola al rimontaggio. */
+const CHIAVE_THREAD_RAIL = "chat-rail-thread-attivo";
+
 function anteprimaTesto(testo: string | null, allegatoNome: string | null): string {
   if (testo) return testo;
   if (allegatoNome) return `📎 ${allegatoNome}`;
@@ -213,6 +225,30 @@ export function ChatPanel({
       else sessionStorage.removeItem(`chat-bozza-${thread.conversazioneId}`);
     } catch {}
   }, [testo, thread]);
+
+  // ★ NUOVA (2026-09-17) — vedi CHIAVE_THREAD_RAIL sopra: ricorda quale
+  // conversazione è aperta (o che si è tornati alla lista, `thread` null)
+  // solo per la rail, così un collassa/riapri della barra non la perde.
+  useEffect(() => {
+    if (variant !== "rail") return;
+    try {
+      if (thread) sessionStorage.setItem(CHIAVE_THREAD_RAIL, JSON.stringify(thread));
+      else sessionStorage.removeItem(CHIAVE_THREAD_RAIL);
+    } catch {}
+  }, [thread, variant]);
+
+  // ★ NUOVA (2026-09-17) — al montaggio della rail (ogni volta che si
+  // riapre dopo essere stata compressa, visto che il componente viene
+  // smontato del tutto da chiusa) riapre da sola la conversazione
+  // ricordata sopra, invece di ripartire sempre dalla lista.
+  useEffect(() => {
+    if (variant !== "rail") return;
+    try {
+      const salvato = sessionStorage.getItem(CHIAVE_THREAD_RAIL);
+      if (salvato) apriThread(JSON.parse(salvato) as Thread);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montaggio, non ad ogni cambio di `apriThread`/`variant`.
+  }, []);
 
   useEffect(() => {
     const query = ricerca.trim();

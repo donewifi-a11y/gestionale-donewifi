@@ -5008,3 +5008,26 @@ schermata senza titoli non si capisce nulla"):
   solo reparto e indirizzo, quelli davvero secondari.
 
 Build/lint puliti.
+
+✅ **3 rifiniture di chiusura su Kanban/Drawer/Layout** (2026-09-17, richiesta esplicita a
+seguito del report di analisi delle modifiche UI/UX):
+
+1. **Tooltip nativo → componente `Tooltip` (Radix)** nelle card Ticket e Segnalazioni — al
+   posto dell'attributo HTML `title` (nessuno stile proprio, ritardo non configurabile,
+   invisibile su touch), ora usa `@/components/ui/tooltip` già in uso altrove nel gestionale
+   (stesso pattern `Tooltip`/`TooltipTrigger asChild`/`TooltipContent` di
+   `segnalazioni-board.tsx:1400` per il contratto).
+2. **Card Segnalazioni uniformata alla card Ticket**: il Comune (sempre presente, mai vuoto)
+   torna visibile come riga secondaria sotto il nome — stesso ruolo della sottocategoria sulla
+   card Ticket. Restano nel tooltip solo tipologia cliente e telefono, quelli davvero
+   secondari.
+3. **Rail Chat: la conversazione aperta sopravvive a un collassa/riapri della barra**.
+   `ChatPanel` (variant `"rail"`) viene smontato del tutto quando la barra è compressa (vedi il
+   redesign a 0px del 2026-09-17): `thread` era stato locale, quindi riaprirla ripartiva sempre
+   dalla lista conversazioni. Ora, solo per la rail, la conversazione aperta (o il fatto di
+   essere tornati alla lista) viene ricordata in `sessionStorage`
+   (`chat-rail-thread-attivo`) e riaperta da sola al rimontaggio — il pop-up e il riquadro in
+   home restano invariati, comportamento non richiesto lì.
+
+`npm run build` e `npm run lint` puliti (0 errori, solo gli 11 warning preesistenti su `<img>`
+non correlati).

@@ -12,6 +12,7 @@ import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -730,9 +731,7 @@ export function TicketsBoard({
                             altri dettagli (indirizzi, ID lunghi, reparti
                             secondari) all'interno di un tooltip") — reparto
                             (già solo un pallino colorato) e indirizzo non
-                            compaiono più come testo sulla card: un unico
-                            `title` nativo del browser li raccoglie, visibile
-                            passando il mouse.
+                            compaiono più come testo sulla card.
                             ★ FIX (2026-09-17, seguito diretto — screenshot:
                             "senza titoli non si capisce nulla") — la
                             sottocategoria (il vero motivo del Ticket: Disdetta,
@@ -741,19 +740,25 @@ export function TicketsBoard({
                             (senza segnale acceso) non diceva più nulla di cosa
                             fosse il Ticket. Torna visibile sotto il nome, come
                             prima del redesign — resta invece nel tooltip tutto
-                            ciò che è davvero secondario (reparto, indirizzo). */}
-                            <div
-                              className="min-w-0 flex-1"
-                              title={[t.reparto, t.indirizzo].filter(Boolean).join(" · ")}
-                            >
-                              <div className="flex items-baseline gap-1.5">
-                                {colore && <span aria-hidden className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
-                                <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
-                                <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
-                              </div>
-                              {t.sottocategoria && !gruppo.sottocategoriaComune && (
-                                <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
-                              )}
+                            ciò che è davvero secondario (reparto, indirizzo).
+                            ★ FIX (2026-09-17, richiesta esplicita: "sostituisci
+                            l'attributo HTML nativo title... con il componente
+                            tooltip Radix... in modo da avere un'anteprima
+                            coerente, pulita") — l'attributo `title` nativo del
+                            browser (nessuno stile, ritardo non configurabile,
+                            invisibile su touch) sostituito dal componente
+                            condiviso già in uso altrove nel gestionale. */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-baseline gap-1.5">
+                                    {colore && <span aria-hidden className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
+                                    <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
+                                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
+                                  </div>
+                                  {t.sottocategoria && !gruppo.sottocategoriaComune && (
+                                    <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
+                                  )}
                               {/* ★ un'unica etichetta di stato (mai più due
                               impilate: prima il segnale operativo, se non
                               c'è la pianificazione dell'appuntamento — non
@@ -803,7 +808,14 @@ export function TicketsBoard({
                                 )}
                                 <span className="shrink-0 text-muted-foreground/60">agg. {tempoRelativo(t.aggiornato_il)}</span>
                               </div>
-                            </div>
+                                </div>
+                              </TooltipTrigger>
+                              {(t.reparto || t.indirizzo) && (
+                                <TooltipContent side="top" align="start">
+                                  {[t.reparto, t.indirizzo].filter(Boolean).join(" · ")}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,
                             sostituito dalle azioni solo al passaggio del mouse —
