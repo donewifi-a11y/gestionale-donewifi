@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
 
 // ★ NUOVA (2026-08) — richiesta esplicita: punto d'ingresso per il cliente
 // che vuole avviare da solo una pratica (Trasferimento/Cambio IBAN/Cambio
@@ -9,7 +10,21 @@ import { createServiceClient } from "@/lib/supabase/server";
 // mai un caso ambiguo di più risultati da gestire). Rotta pubblica,
 // nessun login: restituisce solo il minimo indispensabile per la conferma
 // "sei tu?" (id + nome), mai l'anagrafica completa.
+//
+// ★ FIX (2026-09-17, "controllo d'oro" — continuazione) — a differenza
+// della rotta gemella verifica-stato/route.ts (stesso genere di ricerca
+// "due dati del cliente, nessun login"), questa non aveva alcun limite di
+// tentativi: un risultato qui rivela il NOME REALE di un cliente, un
+// rischio di correlazione dati più concreto di verificare lo stato di un
+// Ticket. Stessa protezione, ora condivisa in lib/rate-limit-portale.ts.
+const troppiTentativi = creaLimitatoreTentativi(8, 5 * 60 * 1000);
+
 export async function POST(request: NextRequest) {
+  const ip = ipRichiesta(request);
+  if (troppiTentativi(ip)) {
+    return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
+  }
+
   // ★ FIX (2026-08-27, trovato in un giro di test pre-lancio) — corpo
   // non-JSON → 500 invece di un errore pulito. Vedi lo stesso fix in
   // apri-ticket/route.ts.

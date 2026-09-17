@@ -4771,3 +4771,16 @@ applicate prima.
 
 Da incollare nell'SQL Editor di Supabase (includono già la `notify pgrst, 'reload schema';` in
 fondo dove serve).
+
+✅ **Continuazione del "controllo d'oro" — rotte pubbliche del Portale** (2026-09-17, "procedi
+con il controllo"). `api/portale/verifica-stato` aveva già un limite di tentativi per IP,
+motivato esplicitamente nel suo stesso commento ("cerca per numero ticket + telefono: senza
+limite, conoscendo il telefono si potrebbe iterare il numero"). La rotta gemella
+`api/portale/trova-cliente` — che cerca per telefono + codice fiscale/partita IVA e, se
+corrispondono, **rivela il nome reale del cliente** (un rischio di correlazione dati più
+concreto di verificare lo stato di un Ticket) — non aveva la stessa protezione, nonostante lo
+stesso identico schema di rischio. Estratta la logica in `lib/rate-limit-portale.ts`, condivisa
+da entrambe le rotte invece di restare duplicata (o, come qui, dimenticata) in una sola.
+Verificati anche `api/portale/apri-ticket` (honeypot già presente), `lib/imap.ts` (controllo
+email in arrivo, per UID non per flag "letto", non blocca le altre caselle se una fallisce) e
+`lib/notifiche-antenne.ts`: puliti. Build/lint puliti.
