@@ -68,6 +68,7 @@ import { usePersistedState } from "@/lib/use-persisted-state";
 import { createClient } from "@/lib/supabase/client";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 import { telefonoIntl } from "@/lib/telefono";
+import { tempoRelativo } from "@/lib/tempo-relativo";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
   { titolo: "Da Contattare", stato: "Da Contattare" },
@@ -374,6 +375,21 @@ export function SegnalazioniBoard({
                 segnale = { testo: `📅 Approvato — in attesa di installazione (Ticket #${ticket.numero})`, tono: "info" };
               }
             }
+            // ★ REDESIGN (2026-09-17, richiesta esplicita: "le card Kanban...
+            // mostrino esclusivamente Nome/Titolo in grassetto, un'etichetta
+            // di stato colorata molto sottile e l'ultimo aggiornamento...
+            // sposta tutti gli altri dettagli (indirizzi... reparti
+            // secondari) all'interno di un tooltip") — comune, tipologia
+            // cliente e telefono non sono più una riga sempre visibile:
+            // finiscono in un unico `title` nativo del browser, visibile
+            // passando il mouse sulla card.
+            const dettagliTooltip = [
+              s.comune,
+              s.tipologia_cliente ?? null,
+              s.tipologia_cliente ? null : s.telefono,
+            ]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <div
                 key={s.id}
@@ -381,25 +397,27 @@ export function SegnalazioniBoard({
                 tabIndex={0}
                 onClick={() => setAperta(s)}
                 onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
+                title={dettagliTooltip}
                 className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="font-semibold">{s.nome}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
+                  <span className="min-w-0 truncate font-semibold">{s.nome}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
                 </div>
-                <div className="mb-2 text-xs text-muted-foreground line-clamp-1">
-                  {s.comune}
-                  {s.tipologia_cliente ? ` · ${s.tipologia_cliente === "Azienda" ? "🏢 Azienda" : "👤 Privato"}` : ` · ${s.telefono}`}
-                </div>
-                {segnale ? (
-                  <SegnalePulsante testo={segnale.testo} tono={segnale.tono} pulsante={segnale.pulsante} />
-                ) : (
-                  s.copertura !== "si" && (
-                    <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
-                      {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
-                    </Badge>
-                  )
+                {/* ★ un'unica etichetta di stato (mai testo indirizzo/
+                telefono qui) più l'ultimo aggiornamento, sempre presente. */}
+                {(segnale || s.copertura !== "si") && (
+                  <div className="mb-1">
+                    {segnale ? (
+                      <SegnalePulsante testo={segnale.testo} tono={segnale.tono} pulsante={segnale.pulsante} />
+                    ) : (
+                      <Badge variant="outline" className={COLORE_COPERTURA[s.copertura]}>
+                        {s.copertura === "no" ? "Copertura no" : "Copertura da verificare"}
+                      </Badge>
+                    )}
+                  </div>
                 )}
+                <div className="text-[10px] text-muted-foreground/60">agg. {tempoRelativo(s.aggiornato_il)}</div>
               </div>
             );
           }

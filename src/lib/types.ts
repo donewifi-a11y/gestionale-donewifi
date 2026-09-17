@@ -94,6 +94,11 @@ export interface Ticket {
   id: string;
   numero: number;
   data_creazione: string;
+  /** ★ NUOVA (2026-09-17, "vista Kanban troppi testi assieme" — card
+   * ridisegnata a solo nome/stato/ultimo aggiornamento) — colonna già
+   * scritta ad ogni cambiamento reale del Ticket (vedi tickets/actions.ts),
+   * mai stata nel tipo TypeScript finché nessuna card la mostrava. */
+  aggiornato_il: string;
   cliente: string;
   telefono: string | null;
   email: string | null;
@@ -135,6 +140,8 @@ export interface Segnalazione {
   id: string;
   numero: number;
   data: string;
+  /** ★ NUOVA (2026-09-17) — vedi Ticket.aggiornato_il qui sopra, stesso motivo. */
+  aggiornato_il: string;
   nome: string;
   telefono: string;
   email: string | null;

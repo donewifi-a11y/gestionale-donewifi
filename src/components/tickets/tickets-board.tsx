@@ -8,6 +8,7 @@ import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, NotebookText
 import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
+import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -721,83 +722,62 @@ export function TicketsBoard({
                             >
                               <Check className="h-2.5 w-2.5" strokeWidth={3} />
                             </button>
-                            <div className="min-w-0 flex-1">
+                            {/* ★ REDESIGN (2026-09-17, richiesta esplicita: "le
+                            card Kanban... mostrino esclusivamente Nome/Titolo
+                            in grassetto, un'etichetta di stato colorata molto
+                            sottile e l'ultimo aggiornamento... sposta tutti gli
+                            altri dettagli (indirizzi, ID lunghi, reparti
+                            secondari) all'interno di un tooltip") — reparto
+                            (già solo un pallino colorato), sottocategoria e
+                            indirizzo non compaiono più come testo sulla card:
+                            un unico `title` nativo del browser li raccoglie,
+                            visibile passando il mouse (stesso principio già
+                            in uso per il pallino reparto, solo esteso a tutta
+                            la card invece che al solo pallino). */}
+                            <div
+                              className="min-w-0 flex-1"
+                              title={[t.reparto, t.sottocategoria, t.indirizzo].filter(Boolean).join(" · ")}
+                            >
                               <div className="flex items-baseline gap-1.5">
-                                {colore && <span title={t.reparto} className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
+                                {colore && <span aria-hidden className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${colore.fascia}`} />}
                                 <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
                                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                               </div>
-                              {/* ★ NUOVA (2026-09), giro 3 — la sottocategoria
-                              non ha più una sezione tutta sua (vedi
-                              raggruppaPerCategoria sopra): torna qui, come
-                              piccola etichetta discreta sotto il nome, non
-                              come titolo di sezione. */}
-                              {/* ★ AFFINATA (2026-09-15) — non ripetuta se
-                              già detta una volta sola nell'intestazione del
-                              gruppo (vedi sottocategoriaComune sopra). */}
-                              {t.sottocategoria && !gruppo.sottocategoriaComune && (
-                                <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
-                              )}
-                              {/* ★ REDESIGN (2026-09-15, richiesta esplicita:
-                              "voglio anche alleggerire il colpo visivo perché
-                              così è caotico e mi viene ansia a guardare" —
-                              proposta con artifact "Bacheca Ticket,
-                              Ridisegnata") — segnale e pianificazione erano
-                              due righe colorate a piena larghezza, impilate,
-                              ciascuna col suo font-semibold acceso: due
-                              allarmi identici per peso visivo anche quando
-                              uno solo dei due era davvero urgente. Ora sono
-                              due chip piccole sulla stessa riga (si
-                              accostano invece di impilarsi, non allungano
-                              più la card) — pillola tenue (sfondo /10,
-                              nessun grassetto) per tutto tranne il vero
-                              allarme (`critico`), che resta l'unico a tinta
-                              piena in tutta la colonna. */}
-                              {(segnale || appuntamentoPerTicket.has(t.id)) && (
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                  {segnale &&
-                                    (segnale.pulsante ? (
-                                      <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
-                                    ) : (
+                              {/* ★ un'unica etichetta di stato (mai più due
+                              impilate: prima il segnale operativo, se non
+                              c'è la pianificazione dell'appuntamento — non
+                              insieme) più l'ultimo aggiornamento, sempre
+                              presente, sulla stessa riga. */}
+                              <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                                {segnale ? (
+                                  segnale.pulsante ? (
+                                    <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                                  ) : (
+                                    <span
+                                      className={`inline-flex min-w-0 max-w-[65%] items-center rounded-full px-1.5 py-0.5 font-semibold ${
+                                        segnale.tono === "critico"
+                                          ? "bg-critical text-critical-foreground"
+                                          : segnale.tono === "avviso"
+                                            ? "bg-warning/10 text-warning"
+                                            : "bg-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      <span className="truncate">{segnale.testo}</span>
+                                    </span>
+                                  )
+                                ) : (
+                                  appuntamentoPerTicket.has(t.id) &&
+                                  (() => {
+                                    const app = appuntamentoPerTicket.get(t.id)!;
+                                    const passato = new Date(app.data_ora) < new Date();
+                                    return (
                                       <span
-                                        className={`inline-flex max-w-full items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                                          segnale.tono === "critico"
-                                            ? "bg-critical text-critical-foreground"
-                                            : segnale.tono === "avviso"
-                                              ? "bg-warning/10 text-warning"
-                                              : "bg-muted text-muted-foreground"
+                                        className={`inline-flex min-w-0 max-w-[65%] items-center gap-1 rounded-full px-1.5 py-0.5 font-semibold ${
+                                          passato ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
                                         }`}
                                       >
-                                        <span className="truncate">{segnale.testo}</span>
-                                      </span>
-                                    ))}
-                                  {/* ★ NUOVA (2026-09-04, richiesta esplicita:
-                                  "devo vedere dai ticket quando sono
-                                  pianificati e devo avere l'etichetta che lo
-                                  dice") — prima l'unico modo di saperlo era
-                                  aprire il Ticket (DettaglioTicket lo scopre
-                                  con un fetch a parte). Un fatto, non un
-                                  avviso: chip neutra a riposo.
-                                  ★ ESTESA (2026-09-04) — data passata e
-                                  nessun altro segnale già acceso sulla card =
-                                  chip d'avviso invece che neutra, stesso
-                                  principio di "Ferma da Ng": un appuntamento
-                                  pianificato per ieri e mai aggiornato è a
-                                  tutti gli effetti un problema da
-                                  controllare — ma solo se non c'è già
-                                  qualcos'altro a chiedere attenzione qui. */}
-                                  {appuntamentoPerTicket.has(t.id) &&
-                                    (() => {
-                                      const app = appuntamentoPerTicket.get(t.id)!;
-                                      const passato = new Date(app.data_ora) < new Date();
-                                      const evidenziato = passato && !segnale;
-                                      return (
-                                        <span
-                                          className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                                            evidenziato ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
-                                          }`}
-                                        >
-                                          <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+                                        <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
+                                        <span className="truncate">
                                           {passato ? "Scaduto — " : "Pianificato — "}
                                           {new Date(app.data_ora).toLocaleString("it-IT", {
                                             day: "2-digit",
@@ -806,10 +786,12 @@ export function TicketsBoard({
                                             minute: "2-digit",
                                           })}
                                         </span>
-                                      );
-                                    })()}
-                                </div>
-                              )}
+                                      </span>
+                                    );
+                                  })()
+                                )}
+                                <span className="shrink-0 text-muted-foreground/60">agg. {tempoRelativo(t.aggiornato_il)}</span>
+                              </div>
                             </div>
 
                             {/* ★ avatar (se già assegnato) visibile a riposo,

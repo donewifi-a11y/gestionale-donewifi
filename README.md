@@ -4919,3 +4919,27 @@ Non toccati (nessun bug attivo, solo un'osservazione teorica): la coda offline d
 pose.donewifi.it nel proxy (ogni rotta API già fa il proprio controllo di autenticazione al suo
 interno, indipendentemente dal proxy — ridondante aggiungerne un secondo qui). Build/lint
 puliti dopo ogni correzione.
+
+✅ **Card Kanban ridisegnate: solo nome, stato e ultimo aggiornamento** (2026-09-17, richiesta
+esplicita: "le card contengono troppi testi, tag e informazioni visibili tutte insieme,
+creando un effetto 'muro di testo'... mostrino esclusivamente: Nome/Titolo in grassetto,
+un'etichetta di stato colorata molto sottile e l'ultimo aggiornamento... sposta tutti gli altri
+dettagli (indirizzi, ID lunghi, reparti secondari) all'interno di un tooltip"). Applicato alle
+bacheche Ticket e Segnalazioni:
+
+- **Ticket**: la card ora mostra solo nome cliente (grassetto), un'unica etichetta di stato (il
+  segnale operativo più urgente — "Urgente"/"Ferma da Ng"/ecc. — oppure, se non c'è, la
+  pianificazione dell'appuntamento: mai più le due impilate insieme) e "agg. Xg fa"/"agg. Xh fa"
+  (nuovo, prima assente). Sottocategoria, reparto per esteso e indirizzo non sono più testo
+  sempre visibile: un unico tooltip nativo del browser sulla card li raccoglie, a comparsa solo
+  al passaggio del mouse. Il numero Ticket (#123, riferimento verbale quotidiano tra colleghi e
+  clienti, non un ID lungo) resta visibile.
+- **Segnalazioni**: stesso principio — comune, tipologia cliente e telefono (prima sempre in
+  chiaro sotto il nome) ora solo nel tooltip della card; resta visibile solo il segnale/stato
+  più urgente (o "Copertura no/da verificare" quando non c'è nient'altro da segnalare) più
+  "agg. Xg fa" (nuovo).
+- Nuovo helper condiviso `lib/tempo-relativo.ts` (`tempoRelativo()`: "ora"/"N min fa"/"Nh
+  fa"/"Ng fa"/data breve oltre i 7 giorni) e colonna `aggiornato_il` aggiunta ai tipi
+  TypeScript `Ticket`/`Segnalazione` (già scritta nel database ad ogni cambiamento, mai
+  dichiarata prima perché nessuna card la mostrava). Verificato sui dati reali di produzione
+  che la colonna non è mai `null` su nessuna delle due tabelle. Build/lint puliti.
