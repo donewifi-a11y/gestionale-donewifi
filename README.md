@@ -4982,3 +4982,12 @@ sparisce del tutto, la tabella/bacheca principale riprende tutta la larghezza, e
 un'iconcina flottante discreta in alto a destra della pagina (con lo stesso pallino "non letti"
 di prima) per riaprirla quando serve — stato ricordato per browser come già prima. Build/lint
 puliti.
+
+✅ **Fix reale confermato da screenshot: il Drawer laterale occupava solo ~38% invece del
+50-60% promesso** (2026-09-17, "dici che è cambiato tanto?" — screenshot della bacheca Ticket
+col drawer aperto, visibilmente più stretto del previsto). Causa: `max-w-[720px]` in
+`components/ui/drawer.tsx` tagliava il 56% richiesto ben prima che potesse valere qualcosa su
+un monitor normale da ufficio (1920px → 56% sarebbe 1075px, ma il limite lo fermava a 720px,
+cioè il 37.5% — esattamente quanto visibile nello screenshot). Alzato il limite a 1100px:
+ora il 56% si vede per davvero sugli schermi comuni, resta comunque un tetto per non avere un
+pannello enorme su un monitor ultra-wide. Build/lint puliti.

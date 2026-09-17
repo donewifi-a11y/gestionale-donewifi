@@ -83,7 +83,16 @@ function DrawerContent({
           // occupa quasi tutta la larghezza, come un Dialog vi farebbe
           // comunque. min/max-width tengono il pannello leggibile sia su
           // uno schermo piccolo sia su un monitor molto largo.
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col overflow-hidden bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/10 outline-none duration-200 sm:w-[56%] sm:min-w-[420px] sm:max-w-[720px] data-open:animate-in data-open:slide-in-from-right data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-right data-closed:fade-out-0",
+          //
+          // ★ FIX (2026-09-17, bug reale confermato da uno screenshot
+          // dell'utente: "dici che è cambiato tanto?" — il pannello
+          // occupava solo ~38% invece del 50-60% promesso) — max-w-[720px]
+          // era troppo basso: su un monitor da 1920px (comunissimo in
+          // ufficio) il 56% varrebbe 1075px, ma il limite lo tagliava a
+          // 720px (37.5%) ben prima. Alzato a 1100px, così il 56% si vede
+          // per davvero sugli schermi normali; resta comunque un limite
+          // per non avere un pannello enorme su un monitor ultra-wide.
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col overflow-hidden bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/10 outline-none duration-200 sm:w-[56%] sm:min-w-[420px] sm:max-w-[1100px] data-open:animate-in data-open:slide-in-from-right data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-right data-closed:fade-out-0",
           className
         )}
         {...props}
