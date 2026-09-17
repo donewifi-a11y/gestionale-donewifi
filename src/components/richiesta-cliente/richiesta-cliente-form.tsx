@@ -7,8 +7,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { validaCodiceFiscale, validaPartitaIva, validaIban } from "@/lib/validazione";
+import { createClient } from "@/lib/supabase/client";
+import { comprimiImmagine } from "@/lib/comprimi-immagine";
 import type { SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { RICHIESTE_CLIENTE_CONFIG } from "@/lib/richieste-cliente-config";
+
+const ETICHETTE_FILE_SUBENTRO: Record<string, string> = {
+  fronteDoc: "Fronte documento",
+  retroDoc: "Retro documento",
+  fronteTS: "Fronte tessera sanitaria",
+  retroTS: "Retro tessera sanitaria",
+};
+
+/** ★ NUOVA (2026-09-17, "controllo d'oro" — continuazione, bug reale) —
+ * stesso identico schema già in uso in richiesta-dati-form.tsx (vedi lì
+ * per il commento completo): i 4 allegati non passano più nel corpo di
+ * /api/richiesta-cliente, superavano facilmente il limite di ~4.5MB delle
+ * funzioni Vercel con foto vere da fotocamera. Comprime l'immagine, poi la
+ * carica dal browser direttamente allo storage con un signed upload URL. */
+async function caricaDocumentoSubentro(file: File, campo: string): Promise<{ nome: string; percorso: string; tipo: string }> {
+  const fileDaCaricare = await comprimiImmagine(file);
+
+  const rispostaUrl = await fetch("/api/richiesta-cliente/upload-doc-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nomeFile: fileDaCaricare.name }),
+  });
+  const risultatoUrl = await rispostaUrl.json();
+  if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || `Errore preparazione upload "${file.name}".`);
+
+  const supabase = createClient();
+  const { error } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, fileDaCaricare);
+  if (error) throw new Error(`Errore caricamento "${file.name}": ${error.message}`);
+
+  return { nome: file.name, percorso: risultatoUrl.percorso, tipo: ETICHETTE_FILE_SUBENTRO[campo] ?? campo };
+}
 
 function Consenso() {
   return (
@@ -315,6 +348,29 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
     dati.set("nomeCliente", tipologia === "privato" ? String(dati.get("nome") || "") : String(dati.get("ragioneSociale") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
     if (praticaId) dati.set("praticaId", praticaId);
+
+    // ★ FIX (2026-09-17, "controllo d'oro" — continuazione, bug reale) —
+    // i 4 allegati si caricano ora dal browser direttamente allo storage
+    // (vedi caricaDocumentoSubentro sopra), non più nel corpo di questa
+    // richiesta: tolti da `dati` (altrimenti finirebbero comunque nel
+    // FormData grezzo) e sostituiti dal solo percorso già caricato.
+    setInCorso(true);
+    try {
+      const campiFile = Object.keys(ETICHETTE_FILE_SUBENTRO);
+      const fileSelezionati: { campo: string; file: File }[] = [];
+      for (const campo of campiFile) {
+        const file = dati.get(campo);
+        if (file instanceof File && file.size > 0) fileSelezionati.push({ campo, file });
+        dati.delete(campo);
+      }
+      const documenti = await Promise.all(fileSelezionati.map(({ campo, file }) => caricaDocumentoSubentro(file, campo)));
+      dati.set("documentiCaricati", JSON.stringify(documenti));
+    } catch (err) {
+      setInCorso(false);
+      setErrore(err instanceof Error ? err.message : "Errore imprevisto durante il caricamento dei documenti.");
+      return;
+    }
+
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 

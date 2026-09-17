@@ -4784,3 +4784,24 @@ da entrambe le rotte invece di restare duplicata (o, come qui, dimenticata) in u
 Verificati anche `api/portale/apri-ticket` (honeypot già presente), `lib/imap.ts` (controllo
 email in arrivo, per UID non per flag "letto", non blocca le altre caselle se una fallisce) e
 `lib/notifiche-antenne.ts`: puliti. Build/lint puliti.
+
+✅ **Bug reale trovato per confronto tra rotte gemelle: i 4 allegati del modulo di Subentro
+superavano il limite di ~4.5MB delle funzioni Vercel** (2026-09-17, "controllo d'oro" —
+continuazione). Il modulo pubblico di Richiesta Dati era già stato corretto per questo esatto
+problema (foto vere da fotocamera nel corpo di una richiesta, invece che caricate dal browser
+direttamente allo storage — vedi `api/richiesta-dati/upload-url/route.ts`, commento
+esplicito: "superano facilmente il limite di ~4.5MB... rispondeva con una pagina di errore
+testuale invece di JSON"), ma **il modulo gemello di Subentro** (`api/richiesta-cliente`, usato
+anche per Cambio IBAN/Anagrafica/Trasferimento ma solo Subentro ha allegati: fronte/retro
+documento, fronte/retro tessera sanitaria) non era mai stato aggiornato allo stesso schema —
+stesso identico rischio, mai risolto lì. Un nuovo cliente che avesse provato a completare un
+Subentro fotografando i documenti con lo smartphone avrebbe probabilmente ricevuto un errore
+incomprensibile proprio all'ultimo passo.
+
+Corretto con lo stesso schema già in uso altrove: nuova `api/richiesta-cliente/upload-doc-url`
+(signed upload URL, pochi byte), i file si comprimono (`comprimiImmagine()`, già condivisa) e si
+caricano dal browser direttamente allo storage prima dell'invio, la rotta principale riceve solo
+i percorsi già caricati (`documentiCaricati`, JSON) — il vecchio ciclo di upload nel corpo della
+richiesta resta solo come ripiego per compatibilità, mai più il percorso normale. Cambio
+IBAN/Anagrafica/Trasferimento (nessun allegato) restano del tutto invariati. Build/lint puliti;
+verificata la generazione reale di un signed upload URL sullo storage di produzione.

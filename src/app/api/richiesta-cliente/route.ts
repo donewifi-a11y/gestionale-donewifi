@@ -5,7 +5,7 @@ import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 
-const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro", "sito_web"]);
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro", "sito_web", "documentiCaricati"]);
 const CAMPI_FILE: Record<string, string> = {
   fronteDoc: "Fronte documento",
   retroDoc: "Retro documento",
@@ -75,23 +75,44 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const documenti: { nome: string; percorso: string; tipo: string }[] = [];
-  for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
-    const file = dati.get(campo);
-    if (!(file instanceof File) || file.size === 0) continue;
-    const percorso = `richieste-cliente/${Date.now()}-${file.name}`;
-    const { error: erroreUpload } = await supabase.storage.from("documenti").upload(percorso, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (erroreUpload) {
-      // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio grezzo
-      // di Supabase Storage arrivava al cliente insieme al nome del file,
-      // ora resta nei log server; il nome del file al cliente resta utile
-      // (sa quale allegato ripetere), il dettaglio tecnico no.
-      console.error(`api/richiesta-cliente — upload "${file.name}":`, erroreUpload.message);
-      return NextResponse.json({ errore: `Errore imprevisto caricando "${file.name}" — riprova.` }, { status: 500 });
+  // ★ FIX (2026-09-17, "controllo d'oro" — continuazione, bug reale) — i
+  // 4 allegati del modulo di Subentro (fronte/retro documento, fronte/
+  // retro tessera sanitaria) non passano più nel corpo di questa rotta:
+  // superavano facilmente il limite di ~4.5MB delle funzioni Vercel con
+  // foto vere da fotocamera, stesso identico problema già risolto per
+  // Richiesta Dati (vedi api/richiesta-dati/upload-url/route.ts) ma mai
+  // esteso qui. Il file vero si carica ora dal browser direttamente allo
+  // storage (vedi richiesta-cliente-form.tsx/caricaDocumento()), questa
+  // rotta riceve solo il percorso già caricato in "documentiCaricati"
+  // (JSON). Il vecchio ciclo su CAMPI_FILE resta come ripiego per un
+  // client non ancora aggiornato — mai il percorso normale d'ora in poi.
+  let documenti: { nome: string; percorso: string; tipo: string }[] = [];
+  const documentiCaricatiRaw = String(dati.get("documentiCaricati") || "");
+  if (documentiCaricatiRaw) {
+    try {
+      const parsati = JSON.parse(documentiCaricatiRaw);
+      if (Array.isArray(parsati)) documenti = parsati;
+    } catch {
+      console.error("api/richiesta-cliente — documentiCaricati non è JSON valido.");
     }
-    documenti.push({ nome: file.name, percorso, tipo: etichetta });
+  } else {
+    for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
+      const file = dati.get(campo);
+      if (!(file instanceof File) || file.size === 0) continue;
+      const percorso = `richieste-cliente/${Date.now()}-${file.name}`;
+      const { error: erroreUpload } = await supabase.storage.from("documenti").upload(percorso, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+      if (erroreUpload) {
+        // ★ FIX (2026-08-31, controllo d'oro usabilità) — il messaggio grezzo
+        // di Supabase Storage arrivava al cliente insieme al nome del file,
+        // ora resta nei log server; il nome del file al cliente resta utile
+        // (sa quale allegato ripetere), il dettaglio tecnico no.
+        console.error(`api/richiesta-cliente — upload "${file.name}":`, erroreUpload.message);
+        return NextResponse.json({ errore: `Errore imprevisto caricando "${file.name}" — riprova.` }, { status: 500 });
+      }
+      documenti.push({ nome: file.name, percorso, tipo: etichetta });
+    }
   }
 
   const erroreScrittura = praticaId
