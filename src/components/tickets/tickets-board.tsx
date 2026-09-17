@@ -756,8 +756,24 @@ export function TicketsBoard({
                                     <span className="min-w-0 flex-1 truncate font-semibold">{t.cliente}</span>
                                     <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">#{t.numero}</span>
                                   </div>
-                                  {t.sottocategoria && !gruppo.sottocategoriaComune && (
-                                    <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria}</div>
+                                  {/* ★ FIX (2026-09-17, seguito diretto —
+                                  "mancano ancora dei dettagli" / "ad alcuni
+                                  non si vede ancora la descrizione") — prima
+                                  la sottocategoria spariva dalla card quando
+                                  coincideva con quella già scritta una volta
+                                  sola nell'header del gruppo
+                                  (`gruppo.sottocategoriaComune`): risultato,
+                                  alcune card la mostravano e altre no, a
+                                  seconda del gruppo in cui capitavano —
+                                  incoerente e, scorrendo la colonna, sembrava
+                                  proprio che mancasse. Ora sempre visibile
+                                  quando c'è; se il Ticket non ha nemmeno una
+                                  sottocategoria (Assistenza generica), il
+                                  problema descritto dal cliente fa da
+                                  descrizione di ripiego — meglio quello che
+                                  restare senza alcun testo sotto il nome. */}
+                                  {(t.sottocategoria || t.problema) && (
+                                    <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria || t.problema}</div>
                                   )}
                               {/* ★ un'unica etichetta di stato (mai più due
                               impilate: prima il segnale operativo, se non

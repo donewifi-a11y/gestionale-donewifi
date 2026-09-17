@@ -5031,3 +5031,12 @@ seguito del report di analisi delle modifiche UI/UX):
 
 `npm run build` e `npm run lint` puliti (0 errori, solo gli 11 warning preesistenti su `<img>`
 non correlati).
+
+✅ **Fix: la descrizione mancava su alcune card Ticket** (2026-09-17, seguito diretto: "mancano
+ancora dei dettagli" → "ad alcuni non si vede ancora la descrizione"). Causa: la sottocategoria
+spariva dalla card quando coincideva con quella già scritta una volta sola nell'header del
+gruppo (`gruppo.sottocategoriaComune`) — risultato, alcune card la mostravano e altre no a
+seconda del gruppo in cui capitavano, incoerente scorrendo la colonna. Ora sempre visibile
+quando presente; se il Ticket non ha nemmeno una sottocategoria (Assistenza generica), il
+problema descritto dal cliente fa da descrizione di ripiego, invece di lasciare la card senza
+alcun testo sotto il nome. Build/lint puliti (0 errori).
