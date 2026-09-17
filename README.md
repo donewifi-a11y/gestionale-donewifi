@@ -4970,3 +4970,15 @@ stesso principio di coerenza, chiesto esplicitamente "ovunque nel gestionale":
 
 Build/lint puliti. Non ho un browser da controllare in questo ambiente: la verifica visiva del
 drawer aperto sulle bacheche reali resta da fare a schermo.
+
+✅ **Barra Chat/Reparti a destra: collasso completo (0px), non più una striscia da 48px sempre
+presente** (2026-09-17, richiesta esplicita: "la barra di destra occupa spazio prezioso e
+distrae... rendila collassabile tramite un'icona discreta in alto a destra... espandendo al
+massimo lo spazio per la tabella"). La barra fissa a destra (Chat con le sue conversazioni
+dirette e i "Gruppi reparto") era già stata resa richiudibile il 2026-09-15, ma "chiusa"
+voleva dire una striscia sottile da 48px sempre presente — ancora spazio riservato in
+permanenza, ancora un elemento fisso a distrarre. Ora chiusa vuol dire davvero 0px: il pannello
+sparisce del tutto, la tabella/bacheca principale riprende tutta la larghezza, e resta solo
+un'iconcina flottante discreta in alto a destra della pagina (con lo stesso pallino "non letti"
+di prima) per riaprirla quando serve — stato ricordato per browser come già prima. Build/lint
+puliti.
