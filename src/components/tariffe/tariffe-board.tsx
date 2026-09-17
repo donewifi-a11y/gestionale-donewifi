@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw, Archive, Eye, EyeOff, Wifi, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,17 +28,6 @@ import type { Promozione, Tariffa, TipoPromozione } from "@/lib/types";
 
 const TIPOLOGIE: Tariffa["tipologia_cliente"][] = ["Tutti", "Privato", "Azienda"];
 const TIPI_PROMO: TipoPromozione[] = ["Sconto % / mese", "Sconto fisso / mese", "Mesi omaggio", "Attivazione gratuita"];
-
-// ★ NUOVA (2026-08) — richiesta esplicita: uniformare Tariffe al resto del
-// gestionale — proposta con artifact (audit grafico completo), opzione
-// "B · Card-row come Preventivi" scelta implicitamente ("fai come
-// suggerito" = la consigliata). Badge component al posto di `<span>`
-// ad-hoc, stesso principio di COLORE_STATO in preventivi-board.tsx.
-const COLORE_STATO_PROMO: Record<"Attiva" | "Programmata" | "Scaduta", string> = {
-  Attiva: "bg-success/10 text-success border-success/20",
-  Programmata: "bg-primary/10 text-primary border-primary/20",
-  Scaduta: "bg-muted text-muted-foreground border-transparent",
-};
 
 function statoPromozione(promo: Promozione): "Attiva" | "Programmata" | "Scaduta" {
   const oggi = new Date().toISOString().slice(0, 10);
@@ -184,9 +174,7 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline" className={`shrink-0 ${COLORE_STATO_PROMO[stato]}`}>
-                  {stato}
-                </Badge>
+                <StatusBadge status={stato} className="shrink-0" />
               </button>
             );
           })}
@@ -256,11 +244,7 @@ export function RigaTariffa({
             Solo trattativa diretta
           </Badge>
         )}
-        {t.attivo ? (
-          <Badge variant="outline" className="bg-success/10 text-success border-success/20">Attiva</Badge>
-        ) : (
-          <Badge variant="outline" className="bg-muted text-muted-foreground border-transparent">Non sottoscrivibile</Badge>
-        )}
+        {t.attivo ? <StatusBadge status="Attiva" /> : <StatusBadge status="Non sottoscrivibile" />}
         {t.attivo && (
           <Button
             size="icon"

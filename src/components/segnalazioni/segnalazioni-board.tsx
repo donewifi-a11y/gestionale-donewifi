@@ -67,6 +67,7 @@ import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { createClient } from "@/lib/supabase/client";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
+import { telefonoIntl } from "@/lib/telefono";
 
 const COLONNE: { titolo: string; stato: StatoSegnalazione }[] = [
   { titolo: "Da Contattare", stato: "Da Contattare" },
@@ -605,7 +606,7 @@ function DettaglioSegnalazione({
   );
   const primoNome = segnalazione.nome.trim().split(/\s+/)[0];
   const messaggio = `Ciao ${primoNome}, per completare la tua richiesta Done Wifi inserisci qui i tuoi dati: ${linkRichiestaDati}`;
-  const telefonoIntl = "39" + segnalazione.telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
+  const numeroIntl = telefonoIntl(segnalazione.telefono);
 
   function cambiaStato(nuovo: StatoSegnalazione) {
     startStato(async () => {
@@ -1120,7 +1121,7 @@ function DettaglioSegnalazione({
             </div>
             <div className="mb-2 grid grid-cols-3 gap-1.5">
               <a
-                href={`https://wa.me/${telefonoIntl}?text=${encodeURIComponent(messaggio)}`}
+                href={`https://wa.me/${numeroIntl}?text=${encodeURIComponent(messaggio)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-2.5 py-3 text-xs font-semibold shadow-sm transition hover:border-primary/40"

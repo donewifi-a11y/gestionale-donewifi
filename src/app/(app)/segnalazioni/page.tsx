@@ -95,9 +95,14 @@ export default async function SegnalazioniPage() {
   const personaCorrenteId = await getPersonaCorrenteId();
   const persona = await getPersonaCorrente(supabase);
 
-  const segnalazioni = await fetchTutteSegnalazioni(supabase);
-  const richieste = await fetchTutteRichieste(supabase);
-  const ticketPerSegnalazione = await fetchTicketPerSegnalazione(supabase);
+  // ★ FIX (2026-09-17, code review approfondita) — 3 fetch indipendenti (nessuno
+  // usa il risultato di un altro) eseguiti in sequenza invece che in parallelo:
+  // ogni round-trip di rete si sommava al successivo invece di sovrapporsi.
+  const [segnalazioni, richieste, ticketPerSegnalazione] = await Promise.all([
+    fetchTutteSegnalazioni(supabase),
+    fetchTutteRichieste(supabase),
+    fetchTicketPerSegnalazione(supabase),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl">

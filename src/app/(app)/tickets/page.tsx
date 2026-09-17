@@ -51,32 +51,33 @@ async function fetchTuttiTicketNonAnnullati(supabase: Awaited<ReturnType<typeof 
 export default async function TicketsPage() {
   const supabase = await createClient();
 
-  const tickets = await fetchTuttiTicketNonAnnullati(supabase);
-
-  const { data: persone } = await supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true);
-  // ★ NUOVA — serve al pannello "Apri scheda di lavoro" (vedi
-  // tickets-board.tsx): un admin/commerciale deve poter compilare la
-  // Scheda Installazione/Lavorazione dal Ticket, stesso form già usato in
-  // Vista Tecnico, che richiede il catalogo materiali per il selettore.
-  const { data: materiali } = await supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true });
-  const personaCorrenteId = await getPersonaCorrenteId();
-  // ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: elenco tecnici esterni
-  // attivi, per assegnare un Ticket a uno di loro dal dettaglio (vedi
-  // "Assegnato a" in tickets-board.tsx).
-  const { data: tecniciEsterni } = await supabase.from("tecnici_esterni").select("id, nome, cognome").eq("attivo", true).order("nome", { ascending: true });
-  // ★ NUOVA (2026-09-04, richiesta esplicita: "devo vedere dai ticket
-  // quando sono pianificati e devo avere l'etichetta che lo dice") — prima
-  // l'unico modo di sapere se (e quando) un Ticket avesse già un
-  // appuntamento fissato era aprirlo: DettaglioTicket lo scopriva con un
-  // fetch a parte, invisibile dalla bacheca. Un solo giro qui invece di un
-  // fetch per Ticket aperto — gli appuntamenti "Programmato" sono per
-  // natura un insieme limitato (solo lavori futuri/in corso, mai l'intero
-  // storico), non serve la paginazione usata per i Ticket sopra.
-  const { data: appuntamentiProgrammati } = await supabase
-    .from("appuntamenti")
-    .select("id, ticket_id, data_ora, tipo_servizio")
-    .eq("stato", "Programmato")
-    .not("ticket_id", "is", null);
+  // ★ FIX (2026-09-17, code review approfondita) — 5 fetch indipendenti
+  // (nessuno usa il risultato di un altro) eseguiti in sequenza invece che
+  // in parallelo: ogni round-trip di rete si sommava al successivo invece
+  // di sovrapporsi.
+  const [tickets, { data: persone }, { data: materiali }, personaCorrenteId, { data: tecniciEsterni }, { data: appuntamentiProgrammati }] = await Promise.all([
+    fetchTuttiTicketNonAnnullati(supabase),
+    // ★ NUOVA — serve al pannello "Apri scheda di lavoro" (vedi
+    // tickets-board.tsx): un admin/commerciale deve poter compilare la
+    // Scheda Installazione/Lavorazione dal Ticket, stesso form già usato in
+    // Vista Tecnico, che richiede il catalogo materiali per il selettore.
+    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
+    supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
+    getPersonaCorrenteId(),
+    // ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: elenco tecnici esterni
+    // attivi, per assegnare un Ticket a uno di loro dal dettaglio (vedi
+    // "Assegnato a" in tickets-board.tsx).
+    supabase.from("tecnici_esterni").select("id, nome, cognome").eq("attivo", true).order("nome", { ascending: true }),
+    // ★ NUOVA (2026-09-04, richiesta esplicita: "devo vedere dai ticket
+    // quando sono pianificati e devo avere l'etichetta che lo dice") — prima
+    // l'unico modo di sapere se (e quando) un Ticket avesse già un
+    // appuntamento fissato era aprirlo: DettaglioTicket lo scopriva con un
+    // fetch a parte, invisibile dalla bacheca. Un solo giro qui invece di un
+    // fetch per Ticket aperto — gli appuntamenti "Programmato" sono per
+    // natura un insieme limitato (solo lavori futuri/in corso, mai l'intero
+    // storico), non serve la paginazione usata per i Ticket sopra.
+    supabase.from("appuntamenti").select("id, ticket_id, data_ora, tipo_servizio").eq("stato", "Programmato").not("ticket_id", "is", null),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl">

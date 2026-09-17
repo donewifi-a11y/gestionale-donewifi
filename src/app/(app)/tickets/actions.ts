@@ -183,8 +183,7 @@ export async function creaTicket(
     const messaggioRls = await messaggioErroreRls(supabase, "creare Ticket", error.message, persona);
     return { errore: messaggioRls ?? error.message };
   }
-  // ★ tipo di conRitentativoRls() è generico (T | null) — nessun errore ma
-  // dati mancanti non dovrebbe succedere mai in pratica, solo per TypeScript.
+  // ★ nessun errore ma dati mancanti non dovrebbe succedere mai in pratica, solo per TypeScript.
   if (!data) return { errore: "Errore imprevisto: nessun dato restituito dopo la creazione." };
 
   await supabase.from("storico").insert({

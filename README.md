@@ -4893,3 +4893,29 @@ Non ancora toccati (valutati a priorità più bassa, nessun bug attivo trovato):
 di pose (client-side, un solo tecnico per dispositivo — rischio di concorrenza solo teorico),
 varie piccole duplicazioni di codice, pagine che caricano dati in sequenza invece che in
 parallelo. Build/lint puliti dopo ogni correzione.
+
+✅ **Code review approfondita — pulizie di Bassa priorità** (2026-09-17, continuazione, "fai
+priorità bassa"). Nessun bug attivo in questi punti — solo manutenzione futura:
+
+- **`conRitentativoRls()`** (`lib/errori-rls.ts`) — funzione morta, zero chiamate reali rimaste
+  (solo commenti storici che ne raccontavano la rimozione dai 3 punti originali): rimossa.
+- **Mappe colore duplicate rispetto a `StatusBadge`** — `COLORE_PRIORITA` in
+  `vista-tecnico-board.tsx` e `COLORE_STATO_PROMO` in `tariffe-board.tsx` reinventavano
+  localmente colori già presenti nella mappa condivisa (`components/status-badge.tsx`, creata
+  apposta perché "ogni componente aveva la sua mappa... con la stessa idea di stato che finiva
+  colorata in modo leggermente diverso da un componente all'altro"). Sostituite con
+  `<StatusBadge status={...} />`.
+- **Calcolo del numero WhatsApp in formato internazionale duplicato in 3 componenti**
+  (`vista-tecnico-board.tsx`, `segnalazioni-board.tsx`, `condivisi/invio-link.tsx`) — stessa
+  identica espressione copiata 3 volte. Estratta in `lib/telefono.ts` (`telefonoIntl()`).
+- **5 fetch indipendenti eseguiti in sequenza invece che in parallelo** in `tickets/page.tsx`
+  (tickets, persone, materiali, persona corrente, tecnici esterni, appuntamenti programmati) e
+  3 in `segnalazioni/page.tsx` (segnalazioni, richieste clienti, ticket collegati) — nessuno usa
+  il risultato di un altro, ogni round-trip di rete si sommava al successivo invece di
+  sovrapporsi. Convertiti in `Promise.all(...)`.
+
+Non toccati (nessun bug attivo, solo un'osservazione teorica): la coda offline di pose
+(client-side, un solo tecnico per dispositivo) e il bypass `/api/*` completo su
+pose.donewifi.it nel proxy (ogni rotta API già fa il proprio controllo di autenticazione al suo
+interno, indipendentemente dal proxy — ridondante aggiungerne un secondo qui). Build/lint
+puliti dopo ogni correzione.

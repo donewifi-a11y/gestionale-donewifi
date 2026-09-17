@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/status-badge";
+import { telefonoIntl } from "@/lib/telefono";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -336,17 +337,7 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
   );
 }
 
-function telefonoIntl(telefono: string) {
-  return "39" + telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "");
-}
-
 const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
-
-const COLORE_PRIORITA: Record<string, string> = {
-  Urgente: "bg-critical/10 text-critical border-critical/20",
-  Normale: "bg-warning/10 text-warning border-warning/20",
-  Bassa: "bg-success/10 text-success border-success/20",
-};
 
 export function VistaTecnicoBoard({
   appuntamenti,
@@ -631,9 +622,7 @@ export function VistaTecnicoBoard({
                   <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span>
                 </div>
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className={COLORE_PRIORITA[t.priorita]}>
-                    {t.priorita}
-                  </Badge>
+                  <StatusBadge status={t.priorita} />
                   <Badge variant="outline">{t.stato}</Badge>
                 </div>
                 {t.problema && <p className="mb-3 text-sm text-muted-foreground">{t.problema}</p>}

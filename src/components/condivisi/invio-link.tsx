@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MessageCircle, Mail, Copy, Check } from "lucide-react";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
+import { telefonoIntl } from "@/lib/telefono";
 
 // ★ stesso pattern già usato per il link "Richiesta Dati" su Segnalazioni —
 // estratto qui per essere riusabile anche da Richieste Clienti e Disdetta,
@@ -31,7 +32,7 @@ export function InvioLinkCliente({
   const [copiato, setCopiato] = useState(false);
   const [inCorsoEmail, setInCorsoEmail] = useState(false);
   const [esitoEmail, setEsitoEmail] = useState("");
-  const telefonoIntl = telefono ? "39" + telefono.replace(/\D/g, "").replace(/^0?39/, "").replace(/^0/, "") : "";
+  const numeroIntl = telefonoIntl(telefono);
 
   function copiaLink() {
     navigator.clipboard.writeText(url);
@@ -54,11 +55,11 @@ export function InvioLinkCliente({
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         <a
-          href={telefonoIntl ? `https://wa.me/${telefonoIntl}?text=${encodeURIComponent(messaggio)}` : "#"}
+          href={numeroIntl ? `https://wa.me/${numeroIntl}?text=${encodeURIComponent(messaggio)}` : "#"}
           target="_blank"
           rel="noopener noreferrer"
-          aria-disabled={!telefonoIntl}
-          className={`flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40 ${!telefonoIntl ? "pointer-events-none opacity-40" : ""}`}
+          aria-disabled={!numeroIntl}
+          className={`flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs font-semibold shadow-sm transition hover:border-primary/40 ${!numeroIntl ? "pointer-events-none opacity-40" : ""}`}
         >
           <span className={`flex h-6 w-6 items-center justify-center rounded-md ${COLORE_WHATSAPP.badge}`}>
             <MessageCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
