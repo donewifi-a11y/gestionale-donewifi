@@ -5427,3 +5427,17 @@ via per vedere quei dati: un tap sulla card apre il dettaglio, dove tipologia e 
 campi espliciti sempre visibili (righe 1081/1083 di `segnalazioni-board.tsx`), e il telefono è
 comunque tra i criteri di ricerca della lista. Nessuna modifica necessaria — il tooltip resta solo
 un comodo extra per chi usa il mouse, non un'informazione altrimenti irraggiungibile su mobile.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 6/N)** (2026-09-18).
+Sincronizzazione Google Calendar silenziosa in caso di errore:
+
+- `creaEventoCalendario()` registrava già l'esito in `integrazioni_log` (visibile da
+  `/sistema`), ma `aggiornaEventoCalendario()` e `listaEventiGoogleCalendario()` no —
+  un aggiornamento/cancellazione fallito (token scaduto, evento già rimosso su Google)
+  lasciava l'evento disallineato dal gestionale senza che nessuno potesse scoprirne la
+  causa da `/sistema`; una lettura fallita faceva sparire silenziosamente dal Calendario gli
+  eventi inseriti direttamente su Google. Aggiunto `registraEsitoIntegrazione("google_calendar",
+  "errore", ...)` in entrambe, stesso pattern già in uso per email/telegram — resta comunque
+  un errore non bloccante, l'appuntamento/evento nel gestionale non viene mai perso.
+
+Build/lint puliti (0 errori).

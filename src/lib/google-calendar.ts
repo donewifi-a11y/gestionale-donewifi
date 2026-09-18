@@ -137,6 +137,13 @@ export async function listaEventiGoogleCalendario(inizio: Date, fine: Date): Pro
       });
   } catch (err) {
     console.error("Google Calendar: lettura eventi fallita", err);
+    // ★ FIX (2026-09-18, audit — backlog "sincronizzazione Google Calendar
+    // silenziosa in caso di errore") — a differenza di creaEventoCalendario,
+    // un fallimento qui non veniva registrato in integrazioni_log: uno
+    // staff che notava eventi Google mancanti dal Calendario non aveva
+    // modo di scoprire, dalla pagina /sistema, che la causa era proprio
+    // una chiamata fallita, non l'assenza di eventi.
+    await registraEsitoIntegrazione("google_calendar", "errore", err instanceof Error ? err.message : "Lettura eventi fallita.");
     return [];
   }
 }
@@ -176,5 +183,12 @@ export async function aggiornaEventoCalendario(
     });
   } catch (err) {
     console.error("Google Calendar: aggiornamento evento fallito", err);
+    // ★ FIX (2026-09-18, audit — backlog "sincronizzazione Google Calendar
+    // silenziosa in caso di errore") — stesso motivo di listaEventiGoogleCalendario
+    // sopra: un aggiornamento/cancellazione fallito (es. token scaduto)
+    // lasciava l'evento su Google Calendar disallineato dal gestionale
+    // (data/orario vecchi, o un evento cancellato che restava visibile)
+    // senza che nessuno se ne accorgesse da /sistema.
+    await registraEsitoIntegrazione("google_calendar", "errore", err instanceof Error ? err.message : "Aggiornamento evento fallito.");
   }
 }
