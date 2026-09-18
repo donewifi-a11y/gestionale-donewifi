@@ -5419,3 +5419,11 @@ Pratica):
   arriverà a quei moduli, non un problema nuovo introdotto qui.
 
 Build/lint puliti (0 errori).
+
+✅ **Verifica backlog — tooltip tipologia/telefono su card Segnalazione** (2026-09-18). Difetto
+UI/UX segnalato nell'audit: il tooltip con tipologia cliente/telefono sulla card è invisibile su
+touch (Radix Tooltip è hover-only, nessun fallback nativo al tap). Verificato che non è l'unica
+via per vedere quei dati: un tap sulla card apre il dettaglio, dove tipologia e telefono sono già
+campi espliciti sempre visibili (righe 1081/1083 di `segnalazioni-board.tsx`), e il telefono è
+comunque tra i criteri di ricerca della lista. Nessuna modifica necessaria — il tooltip resta solo
+un comodo extra per chi usa il mouse, non un'informazione altrimenti irraggiungibile su mobile.
