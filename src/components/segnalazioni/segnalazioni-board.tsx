@@ -986,8 +986,11 @@ function DettaglioSegnalazione({
       l'intestazione sopra è sticky con un bordo in fondo, ma il contenuto
       qui sotto non aveva alcuno spazio proprio all'inizio: il tracciato
       di stato toccava subito il bordo. `pt-4` pareggia il `pb-3`
-      dell'intestazione. */}
-      <div className="flex min-w-0 flex-col gap-4 pt-4 text-sm">
+      dell'intestazione.
+      ★ FIX (2026-09-18, seguito diretto — screenshot sul Ticket, stesso
+      trattamento qui per coerenza) — pt-4 non bastava ancora, alzato a
+      pt-6. */}
+      <div className="flex min-w-0 flex-col gap-4 pt-6 text-sm">
         <div>
           <div className="flex items-center gap-1">
             {COLONNE.map((c, i) => (

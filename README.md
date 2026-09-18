@@ -5080,3 +5080,14 @@ pannello. Aggiunto `pt-4` (pareggia il `pb-3` dell'intestazione) sia in `tickets
 sia in `segnalazioni-board.tsx`, che avevano lo stesso identico problema; verificato che
 `calendario-board.tsx` (unico altro punto con la stessa intestazione fissa) aveva già lo
 spazio corretto. Build/lint puliti (0 errori).
+
+✅ **Fix: ancora poco spazio tra intestazione e stato del Ticket/Segnalazione** (2026-09-18,
+seguito diretto dopo il fix precedente — screenshot: "dove è scritto in lavorazione con i
+passaggi vorrei più spazio dalla riga sopra"). `pt-4` non bastava ancora: alzato a `pt-6` in
+`tickets-board.tsx` e, per coerenza, anche in `segnalazioni-board.tsx`. Build/lint puliti
+(0 errori).
+
+⚠️ **Nota a parte, non ancora indagata**: lo stesso screenshot mostra in console un
+`Uncaught Error: Minified React error #418` (mismatch di hydration server/client) sulla
+pagina Ticket — non collegato a questa richiesta, segnalato all'utente ma non ancora
+investigato.
