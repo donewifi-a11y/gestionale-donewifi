@@ -5441,3 +5441,32 @@ Sincronizzazione Google Calendar silenziosa in caso di errore:
   un errore non bloccante, l'appuntamento/evento nel gestionale non viene mai perso.
 
 Build/lint puliti (0 errori).
+
+✅ **Split di `DettaglioTicket` (~1175 righe) in 6 file** (2026-09-18). Primo dei 5
+refactoring di componenti monolitici rimandati dall'audit — deciso insieme prima di
+partire, procedendo un componente alla volta con verifica intermedia:
+
+- Nessuna modifica di logica: stato e handler restano tutti in `DettaglioTicket`
+  (`tickets-board.tsx`), passati giù come props ai nuovi componenti — puro
+  spostamento di JSX, stesso pattern già in uso nel file per `SubentroDoppioConsenso`
+  (che infatti è il primo pezzo spostato, invariato).
+- Nuovi file in `src/components/tickets/`: `sezione-subentro.tsx` (SubentroDoppioConsenso
+  + StatoTraccia, solo spostati), `sezione-stato-ticket.tsx` (stepper di stato +
+  rapportino + appuntamento pianificato), `sezione-assegnazione.tsx` (Assegnato a/
+  Reparto/Contatti/Pianifica appuntamento/disclosure "Altri dettagli e azioni"),
+  `sezione-documenti-ticket.tsx` (contratto/scheda-rapportino/moduli ricevuti/Subentro/
+  Dismissione/Invia pratica/Intervento da remoto), `sezione-note-ticket.tsx` (note e
+  aggiornamenti).
+- `tickets-board.tsx` passa da 2881 a ~2000 righe. Due bug reali introdotti dallo
+  spostamento e presi dal build (TypeScript + build Turbopack, non a occhio): uno
+  scambio di icona (`CalendarCheck2` sostituita per errore con `FileText` in un
+  copia-incolla) e una `</div>` di chiusura persa nel taglio di un blocco — entrambi
+  risolti prima del commit, confermando perché ogni pezzo va verificato con build/lint
+  subito dopo lo spostamento, non alla fine di tutti e 6.
+- Verifica: build/lint puliti; non è stato possibile un controllo visivo dal vivo nel
+  dettaglio Ticket in questa sessione (ambiente senza accesso a un browser autenticato)
+  — consigliato un giro rapido su un Ticket reale dopo il deploy per confermare che
+  nulla sia scivolato nello split.
+
+Prossimo componente pianificato: TicketsBoard (~775 righe) o uno degli altri 3 — da
+confermare col prossimo giro.

@@ -4,17 +4,13 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, NotebookText, Send, FileText, FileSignature, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Trash2, Loader2, BookmarkPlus, Check, Repeat, Phone, Mail, MapPin } from "lucide-react";
-import { CONFIG_STATO_TRACCIA, type StatoTraccia as TipoStatoTraccia } from "@/lib/stato-traccia";
-import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
-import { StatusBadge } from "@/components/status-badge";
+import { UserRound, X, Search, ChevronRight, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check } from "lucide-react";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   aggiornaStatoTicket,
@@ -24,7 +20,6 @@ import {
   getNoteTicket,
   inviaEmailApprovazioneTicket,
   inviaEmailPraticaCliente,
-  inviaEmailPraticaGenerica,
   cambiaRepartoTicket,
   eliminaTicket,
   fissaDataDismissioneDisdetta,
@@ -39,21 +34,20 @@ import {
 } from "@/app/(app)/richieste-clienti/actions";
 import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { creaAppuntamento, getSlotOccupatiProssimi, getAppuntamentoAttivoPerTicket, getAntenneRiservatePerTicket, type SlotOccupato } from "@/app/(app)/calendario/actions";
-import { InvioLinkCliente } from "@/components/condivisi/invio-link";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
-import { RapportinoForm, RapportinoVista } from "@/components/tickets/rapportino";
-import { SchedaVista } from "@/components/schede/scheda-vista";
+import { SezioneStatoTicket } from "@/components/tickets/sezione-stato-ticket";
+import { SezioneAssegnazioneTicket } from "@/components/tickets/sezione-assegnazione";
+import { SezioneDocumentiTicket } from "@/components/tickets/sezione-documenti-ticket";
+import { SezioneNoteTicket } from "@/components/tickets/sezione-note-ticket";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { getSchedaLavoroPerTicket } from "@/app/(app)/calendario/actions";
 import { messaggioWhatsappPratica, CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/richieste-cliente-config";
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
-import { getRichiesteClientiPerTicket, urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
-import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
+import { getRichiesteClientiPerTicket } from "@/app/(app)/richieste-clienti/actions";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
-import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
-import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, tipoServizioDaTicket, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
+import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
 import { useToast } from "@/components/ui/toast";
@@ -86,28 +80,7 @@ const PRATICA_PER_SOTTOCATEGORIA: Record<string, (typeof PRATICHE_INVIABILI)[num
   Disdetta: "disdetta",
 };
 
-const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
-// ★ NUOVA (2026-09, redesign del popup Ticket) — stesse combinazioni
-// testo/sfondo di STILI_STATO in status-badge.tsx (non esportata da lì),
-// qui applicate a un <select> invece che a un Badge: il selettore di stato
-// del Ticket diventa un unico controllo colorato come lo stato corrente
-// invece di 4 pulsanti sempre visibili.
-// ★ NUOVA (2026-09-10, "si facciamo anche quello" — proposta B
-// dell'artifact "Il Ticket, Senza Tab", risposta a "troppi stati... da
-// tenere a mente") — colore del segmento "attivo" e del testo per la
-// versione a tracciato dello stato: si legge la POSIZIONE (quanti
-// segmenti pieni) invece di dover riconoscere la parola, il colore serve
-// solo a confermare cosa significa quel passo una volta letta la
-// posizione. Sostituisce STILE_STATO_TICKET (era per il <select> del
-// redesign precedente, non più in uso — qui serve un tono pieno per il
-// segmento, non una coppia bg tenue/testo).
-const COLORE_STATO_SEGMENTO: Record<StatoTicket, { seg: string; testo: string }> = {
-  "Da gestire": { seg: "bg-muted-foreground/50", testo: "text-muted-foreground" },
-  "In lavorazione": { seg: "bg-primary", testo: "text-primary" },
-  "In attesa": { seg: "bg-warning", testo: "text-warning" },
-  Completato: { seg: "bg-success", testo: "text-success" },
-  Annullato: { seg: "bg-muted-foreground/50", testo: "text-muted-foreground" },
-};
+export const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "In attesa", "Completato"];
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
@@ -164,7 +137,7 @@ const COLONNE: { titolo: string; stati: StatoTicket[]; vuoto: string }[] = [
   { titolo: "Lavorata", stati: ["Completato"], vuoto: "Nessun ticket lavorato al momento" },
 ];
 
-function iniziali(persona: Persona) {
+export function iniziali(persona: Persona) {
   return persona.nome.slice(0, 2).toUpperCase();
 }
 
@@ -1439,10 +1412,6 @@ function DettaglioTicket({
     getNoteTicket(ticket.id).then(setNote);
   }, [ticket.id]);
 
-  function trovaPersona(id: string | null) {
-    return id ? persone.find((p) => p.id === id) ?? null : null;
-  }
-
   function inviaNota() {
     const testo = notaTesto.trim();
     if (!testo) return;
@@ -1556,86 +1525,26 @@ function DettaglioTicket({
         memoria — stesso valore esatto di prima (SEQUENZA_STATO non
         cambia), stesso `cambiaStato()`, resta cliccabile un passo alla
         volta come i pulsanti originali (prima del redesign a <select>). */}
-        {ticket.stato === "Annullato" ? (
-          <StatusBadge status="Annullato" className="w-fit" />
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-0.5" role="group" aria-label="Stato del Ticket">
-                {SEQUENZA_STATO.map((s, i) => {
-                  const idxStato = SEQUENZA_STATO.indexOf(ticket.stato);
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      title={s}
-                      aria-label={s}
-                      aria-current={s === ticket.stato ? "step" : undefined}
-                      disabled={inCorsoStato}
-                      onClick={() => cambiaStato(s)}
-                      className={`h-2 w-8 transition disabled:opacity-60 ${i === 0 ? "rounded-l-full" : ""} ${
-                        i === SEQUENZA_STATO.length - 1 ? "rounded-r-full" : ""
-                      } ${i < idxStato ? "bg-primary/70" : i === idxStato ? COLORE_STATO_SEGMENTO[s].seg : "bg-muted"}`}
-                    />
-                  );
-                })}
-              </div>
-              {inCorsoStato && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
-            </div>
-            <span className={`w-fit text-xs font-bold ${COLORE_STATO_SEGMENTO[ticket.stato].testo}`}>
-              {ticket.stato} — {SEQUENZA_STATO.indexOf(ticket.stato) + 1}° di {SEQUENZA_STATO.length} passi
-            </span>
-          </div>
-        )}
-
-        {mostraRapportinoForm && (
-          <RapportinoForm
-            ticketId={ticket.id}
-            ticketNumero={ticket.numero}
-            statoVecchio={ticket.stato}
-            onAnnulla={() => setMostraRapportinoForm(false)}
-            onSalvato={() => {
-              // ★ FIX (2026-09-16, bug reale segnalato: "quando si chiudono
-              // i ticket non escono popup di conferma") — stesso bug del
-              // gemello in TicketsBoard (Scheda di Installazione/
-              // Lavorazione): il rapportino si salvava, il popup si
-              // chiudeva, ma nessun toast confermava la chiusura.
-              toast(`Ticket #${ticket.numero} completato.`, "successo");
-              setMostraRapportinoForm(false);
-              onCambiato({ ...ticket, stato: "Completato" });
-              router.refresh();
-            }}
-          />
-        )}
-
-        {/* ★ NUOVA — appuntamento pianificato ma non ancora completato: la
-        Scheda si apre da qui (non serve più essere il tecnico assegnato,
-        né aspettare il giorno dell'appuntamento su Vista Tecnico) — in un
-        popup centrale separato (vedi TicketsBoard), "visuale centrale"
-        richiesta esplicitamente. */}
-        {ticket.stato !== "Completato" && appuntamentoAttivo && (
-          <div className="rounded-xl border bg-card p-3 shadow-sm">
-            <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <IconaCategoria icona={CalendarCheck2} categoria="tempo" dimensione="sm" />
-              Appuntamento pianificato
-            </p>
-            <p className="mb-2.5 text-sm font-medium">
-              {new Date(appuntamentoAttivo.data_ora).toLocaleString("it-IT", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              {" — "}
-              {appuntamentoAttivo.tipo_servizio}
-            </p>
-            <Button size="sm" onClick={() => onApriScheda(appuntamentoAttivo)}>
-              <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-              Apri scheda di lavoro
-            </Button>
-          </div>
-        )}
+        <SezioneStatoTicket
+          ticket={ticket}
+          inCorsoStato={inCorsoStato}
+          cambiaStato={cambiaStato}
+          mostraRapportinoForm={mostraRapportinoForm}
+          onAnnullaRapportino={() => setMostraRapportinoForm(false)}
+          onRapportinoSalvato={() => {
+            // ★ FIX (2026-09-16, bug reale segnalato: "quando si chiudono
+            // i ticket non escono popup di conferma") — stesso bug del
+            // gemello in TicketsBoard (Scheda di Installazione/
+            // Lavorazione): il rapportino si salvava, il popup si
+            // chiudeva, ma nessun toast confermava la chiusura.
+            toast(`Ticket #${ticket.numero} completato.`, "successo");
+            setMostraRapportinoForm(false);
+            onCambiato({ ...ticket, stato: "Completato" });
+            router.refresh();
+          }}
+          appuntamentoAttivo={appuntamentoAttivo}
+          onApriScheda={onApriScheda}
+        />
 
         {/* ★ RIORDINATA (2026-09, "ancora incasinato. riordinato" —
         seconda passata dopo screenshot del popup reale) — "chi se ne
@@ -1645,937 +1554,149 @@ function DettaglioTicket({
         contesto → azione, invece dell'ordine precedente che infilava
         l'azione tra i contatti senza un perché. Stessa griglia/stessa
         logica di prima, solo spostata. */}
-        <div className="grid grid-cols-2 gap-3">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <IconaCategoria icona={UserRound} categoria="persona" dimensione="sm" />
-            Assegnato a
-          </div>
-          {/* ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione
-          Ticket via artifact: "due meccanismi separati" → "semplifica") —
-          prima "Prendi in carico" (solo se stesso) e l'assegnazione a un
-          tecnico esterno erano due controlli diversi, e non esisteva alcun
-          modo di assegnare a UN COLLEGA (solo a sé stessi o a un esterno).
-          Un solo select copre tutti i casi: te stesso (scorciatoia in
-          cima), un collega, o un tecnico esterno — stessa logica di
-          "assegnato/rimuovi" per entrambi i tipi invece di due rami
-          diversi con lo stesso bottone "Rimuovi" duplicato due volte. */}
-          {assegnatario || assegnatarioEsterno ? (
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                    assegnatarioEsterno ? "bg-servizio-installazione text-white" : "bg-primary text-primary-foreground"
-                  }`}
-                >
-                  {assegnatarioEsterno ? assegnatarioEsterno.nome.slice(0, 2).toUpperCase() : iniziali(assegnatario!)}
-                </span>
-                <span className="font-medium">
-                  {assegnatarioEsterno ? `${assegnatarioEsterno.nome} ${assegnatarioEsterno.cognome ?? ""}`.trim() : assegnatario!.nome}
-                </span>
-                {assegnatarioEsterno && (
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">esterno</span>
-                )}
-              </div>
-              <button
-                type="button"
-                disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
-                onClick={() =>
-                  startAssegna(async () => {
-                    const risultato = await assegnaTicket(ticket.id, null);
-                    if (risultato.errore) {
-                      toast(risultato.errore);
-                      return;
-                    }
-                    onCambiato({ ...ticket, tecnico_assegnato: null, tecnico_esterno_id: null });
-                  })
-                }
-                className="text-xs text-muted-foreground hover:text-critical disabled:opacity-60"
-              >
-                Rimuovi
-              </button>
-            </div>
-          ) : (
-            /* ★ RESTILIZZATA (2026-09, "ancora incasinato") — appearance-none
-            + chevron disegnato a mano invece della freccia nativa del
-            browser: stesso trattamento del select di stato qui sopra,
-            così i tre controlli del pannello non sembrano tre stili
-            diversi mescolati insieme. */
-            <div className="relative mt-1.5">
-              <select
-                defaultValue=""
-                disabled={inCorsoAssegna || inCorsoAssegnaEsterno}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (!v) return;
-                  if (v === "io") {
-                    startAssegna(async () => {
-                      const risultato = await assegnaTicket(ticket.id, currentPersonaId);
-                      if (risultato.errore) {
-                        toast(risultato.errore);
-                        return;
-                      }
-                      onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
-                    });
-                  } else if (v.startsWith("p:")) {
-                    const id = v.slice(2);
-                    startAssegna(async () => {
-                      const risultato = await assegnaTicket(ticket.id, id);
-                      if (risultato.errore) {
-                        toast(risultato.errore);
-                        return;
-                      }
-                      onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
-                    });
-                  } else {
-                    const id = v.slice(2);
-                    startAssegnaEsterno(async () => {
-                      const risultato = await assegnaTicketTecnicoEsterno(ticket.id, id);
-                      if (risultato.errore) {
-                        toast(risultato.errore);
-                        return;
-                      }
-                      onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
-                    });
-                  }
-                }}
-                className="h-9 w-full appearance-none rounded-lg border bg-background pl-2.5 pr-7 text-xs disabled:opacity-60"
-              >
-                <option value="">Assegna a...</option>
-                <option value="io">Io{persone.find((p) => p.id === currentPersonaId) ? ` (${persone.find((p) => p.id === currentPersonaId)!.nome})` : ""}</option>
-                {persone.filter((p) => p.attivo && p.id !== currentPersonaId).length > 0 && (
-                  <optgroup label="Staff">
-                    {persone
-                      .filter((p) => p.attivo && p.id !== currentPersonaId)
-                      .map((p) => (
-                        <option key={p.id} value={`p:${p.id}`}>{p.nome}</option>
-                      ))}
-                  </optgroup>
-                )}
-                {tecniciEsterni.length > 0 && (
-                  <optgroup label="Tecnici esterni">
-                    {tecniciEsterni.map((t) => (
-                      <option key={t.id} value={`e:${t.id}`}>
-                        {t.nome} {t.cognome}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Reparto
-            <SuggerimentoCampo testo="Il reparto responsabile di questo Ticket — cambialo se la pratica va gestita da un altro reparto (es. da Commerciale ad Analisi Rete per l'installazione)." />
-          </div>
-          <div className="relative mt-1.5">
-            <select
-              value={ticket.reparto}
-              disabled={inCorsoReparto}
-              onChange={(e) => cambiaReparto(e.target.value as (typeof REPARTI)[number])}
-              className="h-9 w-full appearance-none rounded-lg border bg-background pl-2.5 pr-7 text-xs font-medium disabled:opacity-60"
-            >
-              {REPARTI.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" strokeWidth={2.5} />
-          </div>
-        </div>
-        </div>
-
-        {/* ★ NUOVA (2026-09, stesso redesign) — telefono/email/indirizzo
-        erano tre blocchi "etichetta sopra, valore sotto" impilati: qui
-        diventano chip inline, stesso trattamento icona-colorata già in
-        uso per i contatti altrove nel gestionale (preventivi-board.tsx,
-        clienti-board.tsx...) invece di un pattern nuovo solo per questo
-        popup. */}
-        {(ticket.telefono || ticket.email || ticket.indirizzo) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            {ticket.telefono && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={Phone} categoria="contatto" dimensione="sm" />
-                {ticket.telefono}
-              </span>
-            )}
-            {ticket.email && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={Mail} categoria="contatto" dimensione="sm" />
-                {ticket.email}
-              </span>
-            )}
-            {ticket.indirizzo && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
-                {ticket.indirizzo}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ★ FIX — un Ticket nato da una Segnalazione trasmessa è quasi
-        sempre una prima installazione, ma il tipo di servizio non lo
-        deduceva mai da solo: il menu partiva sempre su "Lavorazione
-        tecnica" come per qualunque altro Ticket, rischiando la Scheda
-        sbagliata sul campo se chi pianifica non se ne accorgeva.
-        ★ FIX (2026-08-28, bug reale segnalato DUE VOLTE: "stai trattando le
-        nuove installazioni come interventi in loco") — prima guardava solo
-        `categoria === "Commerciale" || segnalazione_id`: un Ticket
-        categoria "Assistenza" con sottocategoria "Pianificazione
-        installazione" (trovato reale in produzione, appuntamenti già con
-        la Scheda sbagliata aperta sul campo) non passava da nessuno dei
-        due. Ora usa `tipoServizioDaTicket()` (lib/types.ts), unica fonte
-        condivisa anche con Calendario → FormNuovoAppuntamento invece di
-        due condizioni copiate e disallineate; `segnalazione_id` resta
-        come controllo aggiuntivo di sicurezza.
-        ★ SPOSTATA (2026-09, redesign) — era in fondo al tab, sotto ogni
-        altro campo: quando non c'è ancora un appuntamento attivo è
-        l'azione più probabile su questo Ticket, ora promossa ad azione
-        primaria (`primario`), ultima nell'ordine identità → responsabilità
-        → contesto → azione. */}
-        <PianificaAppuntamento
+        <SezioneAssegnazioneTicket
           ticket={ticket}
           persone={persone}
-          tipoServizioIniziale={
-            tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
-              ? "Nuova installazione"
-              : "Lavorazione tecnica"
-          }
-          primario={!appuntamentoAttivo && ticket.stato !== "Completato"}
-        />
-
-        {/* ★ NUOVA (2026-09, "troppi pulsanti e possibilità" — trend 2026
-        "progressive disclosure": mostra il minimo per decidere il prossimo
-        passo, il resto a richiesta) — priorità, problema/note, i campi
-        extra della sottocategoria ed "Elimina Ticket" (azione rara e
-        distruttiva) sono ora dietro un disclosure nativo invece di sempre
-        in vista: nessuno script, il `<details>` del browser gestisce
-        apertura/chiusura e lo stato non va salvato da nessuna parte.
-        ★ ALLEGGERITA (2026-09, "ancora incasinato") — non più una barra
-        bordata a piena larghezza (leggeva come un quarto pulsante invece
-        che come un "mostra altro"): solo testo + chevron, larga quanto il
-        suo contenuto; il riquadro bordato compare solo intorno al
-        contenuto quando è aperto. */}
-        <details className="group">
-          <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground [&::-webkit-details-marker]:hidden">
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-150 group-open:rotate-180" strokeWidth={2.5} />
-            Altri dettagli e azioni
-          </summary>
-          <div className="mt-2.5 flex flex-col gap-3 rounded-xl border bg-card p-3">
-            <Campo etichetta="Priorità" valore={ticket.priorita} />
-            <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
-            {ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 && (
-              <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
-            )}
-            {ticket.sottocategoria && <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />}
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={elimina}
-                disabled={inCorsoElimina}
-                className="flex w-fit items-center gap-1.5 text-xs font-semibold text-critical hover:underline disabled:opacity-50"
-              >
-                {inCorsoElimina ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                {inCorsoElimina ? "Eliminazione in corso…" : "Elimina Ticket"}
-              </button>
-            )}
-          </div>
-        </details>
-        </div>
-
-        <div className="h-px bg-border" />
-
-        {/* ★ NUOVA — richiesta esplicita: contratto, scheda/rapportino
-        completati e moduli inviati dal cliente (Cambio IBAN/Anagrafica/
-        Trasferimento/Subentro) erano sparsi in punti diversi dello scroll
-        (o del tutto assenti, per i moduli) — ora tutti insieme qui, un
-        solo posto per "tutta la carta" del Ticket.
-        ★ SEZIONE, NON PIÙ TAB (2026-09-10, "la a") — sempre visibile,
-        subito sotto Dettagli invece che dietro un secondo clic. */}
-        <div className="flex flex-col gap-4">
-          {/* ★ FIX (2026-09-18, richiesta esplicita dopo uno screenshot:
-          "verifica gli spazi e tutto, finiscono alcune scritte sotto.
-          rendi il tutto più ordinato ed omogeneo") — questa intestazione
-          non aveva alcuna condizione, a differenza di ogni sotto-sezione
-          che le sta sotto (Contratto/Moduli ricevuti/Scheda-rapportino
-          hanno tutte il proprio `{condizione && (...)}`): su un Ticket
-          senza nessun documento vero (es. Assistenza appena aperta, come
-          nello screenshot) restava comunque scritta da sola, seguita
-          subito da sezioni che non sono documenti (Dismissione, Invia
-          pratica, Intervento risolto da remoto) — sembrava un'etichetta
-          rotta invece che una sezione vuota nascosta come tutte le altre.
-          `numeroDocumenti` esisteva già solo per il numero tra parentesi:
-          ora decide anche se l'intestazione compare. */}
-          {numeroDocumenti > 0 && (
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Documenti ({numeroDocumenti})
-            </div>
-          )}
-        {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} modificabile={isAdmin} />}
-        {ticket.stato === "Completato" && !scheda && rapportino && (
-          <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
-        )}
-
-        {/* ★ FIX (2026-09-10, "correggi tutto" — punto 3 dell'artifact
-        "Ordine Definitivo per i Ticket") — su un Ticket nato da una
-        Segnalazione con contratto già firmato, questo pulsante compariva
-        da solo in cima alla tab, senza un'intestazione — l'unico blocco
-        così in tutta l'interfaccia (ogni altra sezione qui sotto ne ha
-        una, icona colorata + etichetta). Aggiunta per coerenza. */}
-        {ticket.contratto_pdf_url && (
-          <div>
-            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
-              Contratto
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              onClick={async () => {
-                const risultato = await urlContratto(ticket.contratto_pdf_url!);
-                if (risultato.errore || !risultato.url) {
-                  toast(risultato.errore || "Errore imprevisto.");
+          tecniciEsterni={tecniciEsterni}
+          currentPersonaId={currentPersonaId}
+          assegnatario={assegnatario}
+          assegnatarioEsterno={assegnatarioEsterno}
+          inCorsoAssegna={inCorsoAssegna}
+          inCorsoAssegnaEsterno={inCorsoAssegnaEsterno}
+          onAssegnaValore={(v) => {
+            if (v === "io") {
+              startAssegna(async () => {
+                const risultato = await assegnaTicket(ticket.id, currentPersonaId);
+                if (risultato.errore) {
+                  toast(risultato.errore);
                   return;
                 }
-                window.open(risultato.url, "_blank", "noopener,noreferrer");
-              }}
-            >
-              <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-              Vedi contratto
-            </Button>
-          </div>
-        )}
-
-        {/* ★ FIX (2026-09-09, "problema cliccando documenti" — pagina che
-        va in crash) — bug reale trovato sul Ticket #89: la pratica di
-        Subentro ha già la sua sezione dedicata più sotto
-        (SubentroDoppioConsenso), ma finiva ANCHE qui dentro, dove
-        `Object.entries(r.dettagli)` prova a scrivere ogni valore come
-        testo. La bozza di contatto salvata onBlur (vedi
-        CHIAVE_BOZZA_CONTATTO_SUBENTRO) è un OGGETTO `{telefono, email}`,
-        non una stringa — React va in crash ("Objects are not valid as a
-        React child") appena quella bozza esiste, cioè non appena lo
-        staff scrive un contatto prima che il nuovo cliente risponda.
-        Escludere qui il tipo "Subentro" risolve il crash alla radice ed
-        elimina anche il doppione (stessa pratica mostrata due volte). */}
-        {richieste.filter((r) => r.tipo_richiesta !== "Subentro").length > 0 && (
-          <div>
-            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
-              Moduli ricevuti dal cliente
-            </div>
-            <div className="flex flex-col gap-2">
-              {richieste
-                .filter((r) => r.tipo_richiesta !== "Subentro")
-                .map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-3">
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold">{r.tipo_richiesta}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(r.data).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {Object.entries(r.dettagli || {}).map(([chiave, valore]) =>
-                      /* ★ FIX — stesso principio di sicurezza: se un valore
-                      non è testo/numero (non dovrebbe succedere per gli
-                      altri tipi di pratica, ma "mai rompere il rendering"
-                      per un dato imprevisto), non provarlo a scrivere. */
-                      valore && (typeof valore === "string" || typeof valore === "number") ? (
-                        <div key={chiave} className="text-xs">
-                          <span className="text-muted-foreground">{etichettaDettaglio(chiave)}: </span>
-                          <span className="font-medium break-words">{valore}</span>
-                        </div>
-                      ) : null
-                    )}
-                  </div>
-                  {r.documenti?.length > 0 && (
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      {r.documenti.map((doc, i) => (
-                        <PulsanteDocumento
-                          key={i}
-                          percorso={doc.percorso}
-                          nome={doc.nome}
-                          etichetta={doc.tipo ? `${doc.tipo} — ${doc.nome}` : doc.nome}
-                          onOttieniUrl={urlDocumentoRichiesta}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
-        semplificata" — vedi l'artifact "Il Processo del Subentro") —
-        sezione propria, sempre visibile, non più una voce da scegliere
-        in un menu a tendina generico: lo stesso pulsante "Avvia
-        Subentro" di NuovaPraticaClienteEsterno (scheda Cliente Esterno),
-        qui applicato al Ticket già aperto invece di doverne creare uno
-        nuovo.
-
-        ★ FIX (2026-09-10, "perchè figura il subentro per un cliente che
-        deve essere installato... le schermate sono tutte uguali e non
-        sono specifiche per il tipo di intervento" — screenshot reale di
-        un Ticket Assistenza/Pianificazione installazione con la sezione
-        Subentro comunque visibile): questa sezione non aveva NESSUNA
-        condizione — compariva identica su ogni Ticket, installazioni
-        comprese, dove un subentro (trasferimento di un contratto
-        esistente a un nuovo titolare) non ha senso: il cliente non ha
-        ancora un contratto da trasferire. Subentro è una pratica
-        Commerciale/Amministrativa, mai un'Assistenza.
-        ★ FIX (2026-09-18, richiesta esplicita — screenshot reale di un
-        Ticket di Disdetta con la sezione Subentro comunque visibile:
-        "pratica di subentro non deve essere sempre attivo ma solo quando
-        aperta una pratica di subentro da scheda cliente") — restava
-        comunque sempre visibile su OGNI Ticket Commerciale/Amministrativa
-        (Disdetta compresa, come in questo caso), con un pulsante "Avvia
-        pratica di Subentro" pronto a crearne una nuova anche dove non
-        c'entra nulla. L'unico punto d'ingresso per avviare un Subentro
-        resta la scheda del Cliente Esterno (avviaPraticaSubentro() in
-        clienti-esterni/actions.ts) — qui la sezione compare solo per
-        gestire/proseguire una pratica GIÀ avviata da lì (`praticaSubentro`
-        già trovata sopra), mai per proporne una nuova. */}
-        {ticket.categoria !== "Assistenza" && praticaSubentro && (
-        <div>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <IconaCategoria icona={Repeat} categoria="documento" dimensione="sm" />
-            Subentro
-          </div>
-          <SubentroDoppioConsenso
-            praticaSubentro={praticaSubentro}
-            nuovoClienteHaRisposto={nuovoClienteHaRisposto}
-            nomeNuovoTitolare={nomeNuovoTitolare}
-            setNomeNuovoTitolare={setNomeNuovoTitolare}
-            inCorsoAvvioSubentro={inCorsoAvvioSubentro}
-            avviaSubentro={avviaSubentro}
-            linkVecchioCliente={linkVecchioCliente}
-            esitoLinkVecchio={esitoLinkVecchio}
-            inCorsoLinkVecchio={inCorsoLinkVecchio}
-            inviaLinkVecchio={inviaLinkVecchio}
-            ticketTelefono={ticket.telefono}
-            linkNuovoClienteSubentro={linkNuovoClienteSubentro}
-            telefonoNuovoCliente={telefonoNuovoCliente}
-            setTelefonoNuovoCliente={setTelefonoNuovoCliente}
-            emailNuovoCliente={emailNuovoCliente}
-            setEmailNuovoCliente={setEmailNuovoCliente}
-            nomeCliente={ticket.cliente}
-            salvaContattoBozza={salvaContattoBozza}
-            inCorsoCompletamentoSubentro={inCorsoCompletamentoSubentro}
-            completaSubentroClick={completaSubentroClick}
-            inCorsoContrattoSubentro={inCorsoContrattoSubentro}
-            caricaContrattoSubentroClick={caricaContrattoSubentroClick}
-            inCorsoInvioContrattoSubentro={inCorsoInvioContrattoSubentro}
-            inviaContrattoSubentroClick={inviaContrattoSubentroClick}
-            ticketCompletato={ticket.stato === "Completato"}
-          />
-        </div>
-        )}
-
-        {/* ★ NUOVA (2026-09-10, richiesta esplicita: "problemi con i ticket
-        di disdetta... fatturazione... deve dare i tempi per la
-        dismissione e una volta fatto deve essere inoltrato al reparto
-        analisi di rete... per il ritiro degli apparati") — un solo
-        passaggio, non due da ricordarsi separatamente: vedi
-        fissaDataDismissioneDisdetta() e fissaDismissione() più sopra. */}
-        {ticket.sottocategoria === "Disdetta" && (
-        <div>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
-            Dismissione — ritiro apparati
-          </div>
-          {ticket.data_dismissione_disdetta ? (
-            <p className="rounded-lg border bg-muted/30 p-3 text-sm">
-              Dismissione fissata per il <b>{new Date(ticket.data_dismissione_disdetta).toLocaleDateString("it-IT")}</b>
-              {ticket.reparto === "Analisi Rete" ? " — passato ad Analisi Rete per il ritiro apparati." : "."}
-            </p>
-          ) : ticket.reparto === "Fatturazione" ? (
-            <div className="flex flex-col gap-2 rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">
-                Fissa la data di dismissione concordata col cliente — il Ticket passerà da solo ad Analisi Rete per
-                pianificare il ritiro degli apparati.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={dataDismissione}
-                  onChange={(e) => setDataDismissione(e.target.value)}
-                  className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
-                />
-                <Button size="sm" onClick={fissaDismissione} disabled={inCorsoDismissione} className="min-h-9 shrink-0">
-                  {inCorsoDismissione ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <CalendarClock className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                  {inCorsoDismissione ? "Salvataggio…" : "Fissa e passa ad Analisi Rete"}
-                </Button>
-              </div>
-              {erroreDismissione && <p className="text-xs text-critical">{erroreDismissione}</p>}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">In attesa che Fatturazione fissi la data di dismissione.</p>
-          )}
-        </div>
-        )}
-
-        {/* ★ NASCOSTA per i Ticket di Subentro (2026-09-10, "non deve
-        comparire invia una pratica al cliente è ancora un refuso del
-        passato" — screenshot del popup reale) — da quando Subentro ha la
-        sua sezione dedicata sopra (con il proprio flusso completo,
-        contratto incluso), PRATICHE_INVIABILI/PRATICA_PER_SOTTOCATEGORIA
-        non contengono più "subentro": per un Ticket di Subentro questo
-        menu offriva solo "Disdetta contratto", un'opzione senza senso su
-        una pratica che sta ancora avviando il trasferimento, avanzo
-        visibile di quando Subentro passava di qui. */}
-        {/* ★ FIX (2026-09-10, "correggi tutto" — punto 2 dell'artifact
-        "Ordine Definitivo per i Ticket") — questo menu era pensato per
-        scegliere fra più pratiche; da quando Trasferimento/Cambio IBAN/
-        Cambio Anagrafica/Subentro sono usciti da qui (ognuno ha il
-        proprio posto), PRATICHE_INVIABILI contiene solo "Disdetta
-        contratto" — un menu a tendina più un secondo passaggio per
-        un'unica scelta. Con una sola pratica disponibile un pulsante
-        diretto basta, stesso pattern di "Avvia Subentro"; il menu
-        ricompare da solo se in futuro le pratiche selezionabili
-        tornassero più di una. */}
-        {/* ★ FIX (2026-09-10, stessa richiesta della sezione Subentro sopra):
-        Disdetta contratto è una pratica Amministrativa — non ha senso su un
-        Ticket di Assistenza (es. Pianificazione installazione), dove il
-        cliente non ha nulla da disdire. */}
-        {ticket.categoria !== "Assistenza" && ticket.sottocategoria !== "Subentro" && (
-        <div>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
-            Invia una pratica al cliente
-          </div>
-          {PRATICHE_INVIABILI.length > 1 ? (
-            <>
-              <p className="mb-2 text-[11px] text-muted-foreground">
-                Manda al cliente un link a un modulo pubblico da compilare (es. cambio IBAN, trasloco) — i dati inviati compaiono poi qui, nella tab Documenti.
-              </p>
-              <select
-                value={praticaScelta}
-                onChange={(e) => setPraticaScelta(e.target.value)}
-                className="h-9 w-full rounded-lg border bg-background px-3 text-xs"
-              >
-                <option value="">Scegli una pratica...</option>
-                {PRATICHE_INVIABILI.map((p) => (
-                  <option key={p.slug} value={p.slug}>
-                    {p.titolo}
-                    {PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] === p.slug ? " (consigliata)" : ""}
-                  </option>
-                ))}
-              </select>
-              {praticaScelta && (
-                <div className="mt-2.5">
-                  <InvioLinkCliente
-                    url={linkPratica}
-                    telefono={ticket.telefono}
-                    email={ticket.email}
-                    messaggio={messaggioPratica}
-                    onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
-                  />
-                </div>
-              )}
-            </>
-          ) : !praticaScelta ? (
-            // ★ FIX (2026-09-17, "i pulsanti li farei più colorati") —
-            // stessa azione vera di "Invia email di approvazione" qui sopra,
-            // stesso trattamento.
-            <Button variant="default" onClick={() => setPraticaScelta(PRATICHE_INVIABILI[0].slug)} className="min-h-9 w-full">
-              <Send className="h-3.5 w-3.5" strokeWidth={2.25} />
-              Invia richiesta di disdetta
-            </Button>
-          ) : (
-            <InvioLinkCliente
-              url={linkPratica}
-              telefono={ticket.telefono}
-              email={ticket.email}
-              messaggio={messaggioPratica}
-              onInviaEmail={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
-            />
-          )}
-        </div>
-        )}
-
-        {ticket.email && (
-          <div>
-            <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Intervento risolto da remoto?
-              <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
-            </p>
-            {/* ★ FIX (2026-09-17, richiesta esplicita dopo uno screenshot:
-            "i pulsanti li farei più colorati") — era `variant="outline"`
-            come un pulsante qualunque, indistinguibile da un'azione
-            secondaria: è invece un'azione vera (manda al cliente il link di
-            conferma), merita lo stesso risalto del colore primario già
-            usato per "Pianifica appuntamento" quando è l'azione principale. */}
-            <Button variant="default" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
-              {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
-              {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
-            </Button>
-          </div>
-        )}
+                onCambiato({ ...ticket, tecnico_assegnato: currentPersonaId, tecnico_esterno_id: null });
+              });
+            } else if (v.startsWith("p:")) {
+              const id = v.slice(2);
+              startAssegna(async () => {
+                const risultato = await assegnaTicket(ticket.id, id);
+                if (risultato.errore) {
+                  toast(risultato.errore);
+                  return;
+                }
+                onCambiato({ ...ticket, tecnico_assegnato: id, tecnico_esterno_id: null });
+              });
+            } else {
+              const id = v.slice(2);
+              startAssegnaEsterno(async () => {
+                const risultato = await assegnaTicketTecnicoEsterno(ticket.id, id);
+                if (risultato.errore) {
+                  toast(risultato.errore);
+                  return;
+                }
+                onCambiato({ ...ticket, tecnico_esterno_id: id, tecnico_assegnato: null });
+              });
+            }
+          }}
+          onRimuoviAssegnazione={() =>
+            startAssegna(async () => {
+              const risultato = await assegnaTicket(ticket.id, null);
+              if (risultato.errore) {
+                toast(risultato.errore);
+                return;
+              }
+              onCambiato({ ...ticket, tecnico_assegnato: null, tecnico_esterno_id: null });
+            })
+          }
+          cambiaReparto={cambiaReparto}
+          inCorsoReparto={inCorsoReparto}
+          appuntamentoAttivo={appuntamentoAttivo}
+          isAdmin={isAdmin}
+          inCorsoElimina={inCorsoElimina}
+          onElimina={elimina}
+          dettagliExtra={
+            ticket.sottocategoria && Object.keys(ticket.dettagli_extra || {}).length > 0 ? (
+              <DettagliExtra sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} />
+            ) : null
+          }
+          campiMancanti={ticket.sottocategoria ? <CampiMancanti sottocategoria={ticket.sottocategoria} dettagli={ticket.dettagli_extra} /> : null}
+        />
         </div>
 
         <div className="h-px bg-border" />
 
-        <div>
-          <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <NotebookText className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Note e aggiornamenti{note.length > 0 ? ` (${note.length})` : ""}
-          </div>
-          <div className="flex flex-col gap-2.5">
-            {note.length === 0 && (
-              <p className="text-xs text-muted-foreground">Nessun aggiornamento ancora.</p>
-            )}
-            {note.map((n) => {
-              const autore = trovaPersona(n.autore_id);
-              return (
-                <div key={n.id} className="flex gap-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-                    {autore ? iniziali(autore) : "?"}
-                  </span>
-                  <div className="flex-1 rounded-lg bg-muted/60 px-3 py-2">
-                    <div className="mb-0.5 text-[10.5px] font-bold text-muted-foreground">
-                      {autore?.nome || "Persona"} ·{" "}
-                      {new Date(n.creato_il).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                    <div className="text-xs leading-relaxed">{n.testo}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-2.5 flex gap-2">
-            <input
-              value={notaTesto}
-              onChange={(e) => setNotaTesto(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && inviaNota()}
-              placeholder="Scrivi un aggiornamento su questo ticket..."
-              className="h-9 flex-1 rounded-lg border bg-background px-3 text-xs"
-            />
-            <Button size="icon" className="h-11 w-11 shrink-0" disabled={inCorsoNota || !notaTesto.trim()} onClick={inviaNota} title="Invia nota" aria-label="Invia nota">
-              {inCorsoNota ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.5} />}
-            </Button>
-          </div>
-          {erroreNota && <p className="mt-1.5 text-xs text-critical">{erroreNota}</p>}
-        </div>
+        <SezioneDocumentiTicket
+          ticket={ticket}
+          numeroDocumenti={numeroDocumenti}
+          scheda={scheda}
+          rapportino={rapportino}
+          isAdmin={isAdmin}
+          onVediContratto={async () => {
+            const risultato = await urlContratto(ticket.contratto_pdf_url!);
+            if (risultato.errore || !risultato.url) {
+              toast(risultato.errore || "Errore imprevisto.");
+              return;
+            }
+            window.open(risultato.url, "_blank", "noopener,noreferrer");
+          }}
+          richieste={richieste}
+          praticaSubentro={praticaSubentro}
+          subentro={{
+            praticaSubentro,
+            nuovoClienteHaRisposto,
+            nomeNuovoTitolare,
+            setNomeNuovoTitolare,
+            inCorsoAvvioSubentro,
+            avviaSubentro,
+            linkVecchioCliente,
+            esitoLinkVecchio,
+            inCorsoLinkVecchio,
+            inviaLinkVecchio,
+            ticketTelefono: ticket.telefono,
+            linkNuovoClienteSubentro,
+            telefonoNuovoCliente,
+            setTelefonoNuovoCliente,
+            emailNuovoCliente,
+            setEmailNuovoCliente,
+            nomeCliente: ticket.cliente,
+            salvaContattoBozza,
+            inCorsoCompletamentoSubentro,
+            completaSubentroClick,
+            inCorsoContrattoSubentro,
+            caricaContrattoSubentroClick,
+            inCorsoInvioContrattoSubentro,
+            inviaContrattoSubentroClick,
+            ticketCompletato: ticket.stato === "Completato",
+          }}
+          dataDismissione={dataDismissione}
+          setDataDismissione={setDataDismissione}
+          fissaDismissione={fissaDismissione}
+          inCorsoDismissione={inCorsoDismissione}
+          erroreDismissione={erroreDismissione}
+          praticheInviabili={PRATICHE_INVIABILI}
+          praticaPerSottocategoria={PRATICA_PER_SOTTOCATEGORIA}
+          praticaScelta={praticaScelta}
+          setPraticaScelta={setPraticaScelta}
+          linkPratica={linkPratica}
+          messaggioPratica={messaggioPratica}
+          onInviaEmailPratica={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
+          inCorsoApprovazione={inCorsoApprovazione}
+          inviaApprovazione={inviaApprovazione}
+        />
+
+        <div className="h-px bg-border" />
+
+        <SezioneNoteTicket
+          note={note}
+          persone={persone}
+          notaTesto={notaTesto}
+          setNotaTesto={setNotaTesto}
+          inviaNota={inviaNota}
+          inCorsoNota={inCorsoNota}
+          erroreNota={erroreNota}
+        />
       </div>
     </>
   );
 }
 
-// ★ NUOVA (2026-08) — Sistema Subentro, Opzione B (doppio consenso in
-// parallelo — proposta approvata, vedi README): sostituisce il singolo
-// InvioLinkCliente usato dalle altre pratiche pubbliche con due tracce
-// indipendenti — il VECCHIO cliente (contatto già noto, quello del
-// Ticket) conferma solo sì/no la cessione; il NUOVO cliente (contatto
-// ancora sconosciuto al sistema, l'operatore lo digita qui) compila dati e
-// documenti nel modulo pubblico esistente. Le due possono rispondere in
-// qualsiasi ordine — nessuna delle due blocca l'altra.
-function SubentroDoppioConsenso({
-  praticaSubentro,
-  nuovoClienteHaRisposto,
-  nomeNuovoTitolare,
-  setNomeNuovoTitolare,
-  inCorsoAvvioSubentro,
-  avviaSubentro,
-  linkVecchioCliente,
-  esitoLinkVecchio,
-  inCorsoLinkVecchio,
-  inviaLinkVecchio,
-  ticketTelefono,
-  linkNuovoClienteSubentro,
-  telefonoNuovoCliente,
-  setTelefonoNuovoCliente,
-  emailNuovoCliente,
-  setEmailNuovoCliente,
-  nomeCliente,
-  salvaContattoBozza,
-  inCorsoCompletamentoSubentro,
-  completaSubentroClick,
-  inCorsoContrattoSubentro,
-  caricaContrattoSubentroClick,
-  inCorsoInvioContrattoSubentro,
-  inviaContrattoSubentroClick,
-  ticketCompletato,
-}: {
-  praticaSubentro: RichiestaCliente | undefined;
-  nuovoClienteHaRisposto: boolean;
-  nomeNuovoTitolare: string;
-  setNomeNuovoTitolare: (v: string) => void;
-  inCorsoAvvioSubentro: boolean;
-  avviaSubentro: () => void;
-  linkVecchioCliente: string;
-  esitoLinkVecchio: string;
-  inCorsoLinkVecchio: boolean;
-  inviaLinkVecchio: () => void;
-  ticketTelefono: string | null;
-  linkNuovoClienteSubentro: string;
-  telefonoNuovoCliente: string;
-  setTelefonoNuovoCliente: (v: string) => void;
-  emailNuovoCliente: string;
-  setEmailNuovoCliente: (v: string) => void;
-  nomeCliente: string;
-  /** ★ NUOVA — salva la bozza di telefono/email del nuovo cliente appena
-   * si esce dal campo (vedi commento in DettaglioTicket). */
-  salvaContattoBozza: () => void;
-  inCorsoCompletamentoSubentro: boolean;
-  completaSubentroClick: () => void;
-  inCorsoContrattoSubentro: boolean;
-  caricaContrattoSubentroClick: (file: File | null) => void;
-  inCorsoInvioContrattoSubentro: boolean;
-  inviaContrattoSubentroClick: () => void;
-  ticketCompletato: boolean;
-}) {
-  if (!praticaSubentro) {
-    return (
-      <div className="flex flex-col gap-2 rounded-xl border bg-muted/40 p-3">
-        <div>
-          <Label htmlFor="nomeNuovoTitolare">Nome del nuovo titolare (facoltativo)</Label>
-          <Input
-            id="nomeNuovoTitolare"
-            value={nomeNuovoTitolare}
-            onChange={(e) => setNomeNuovoTitolare(e.target.value)}
-            placeholder="Se già lo conosci — comparirà nel link di conferma"
-            className="mt-1 h-9 text-xs"
-          />
-        </div>
-        <Button size="sm" onClick={avviaSubentro} disabled={inCorsoAvvioSubentro} className="min-h-9">
-          {inCorsoAvvioSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />}
-          {inCorsoAvvioSubentro ? "Avvio in corso…" : "Avvia pratica di Subentro"}
-        </Button>
-        <p className="text-[11px] text-muted-foreground">
-          Crea la pratica: dopo puoi inviare separatamente il link di conferma al vecchio cliente e il modulo dati al nuovo.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* ★ ALLEGGERITA (2026-09, "un po' incasinato" — screenshot del
-      popup reale, tab Documenti) — ogni traccia era un riquadro bordato
-      (bg-muted/40) che conteneva a sua volta la card di InvioLinkCliente
-      (bordo + ombra propria): un riquadro dentro un riquadro, la stessa
-      anteprima messaggio ripetuta due volte in sequenza. Ora la card di
-      InvioLinkCliente (già ben distinguibile da sola) resta l'unico
-      riquadro; il testo/pulsante che la precede è semplice testo, non
-      un'altra cornice. */}
-      <StatoTraccia
-        etichetta="Vecchio cliente"
-        stato={praticaSubentro.vecchio_cliente_confermato_il ? "ok" : praticaSubentro.vecchio_cliente_rifiutato_il ? "no" : "attesa"}
-        testoOk="Cessione confermata"
-        testoNo="Non ha confermato"
-        testoAttesa="In attesa di conferma"
-      />
-      {/* ★ NASCOSTA A CONFERMA AVVENUTA (2026-09-09, "devi togliere una
-      volta approvati... la possibilità di mandare il link al vecchio
-      cliente" — dopo lo stesso screenshot del popup reale) — una volta
-      confermato non c'è più nulla da fare qui: reinviare un link di
-      conferma già dato non ha senso, il pallino verde sopra è già tutta
-      l'informazione che serve. Resta visibile solo mentre serve ancora
-      un'azione (in attesa, o rifiutato — lì può servire reinviarlo). */}
-      {!praticaSubentro.vecchio_cliente_confermato_il && (
-        <div>
-          {!linkVecchioCliente ? (
-            <>
-              <p className="mb-2 text-[11px] text-muted-foreground">
-                Link di sola conferma (nessun dato da inserire) — verso il contatto già registrato sul Ticket.
-              </p>
-              <Button size="sm" variant="outline" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="min-h-9 w-full">
-                {inCorsoLinkVecchio ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                {inCorsoLinkVecchio ? "Invio…" : "Invia link di conferma al vecchio cliente"}
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* ★ solo WhatsApp/copia: l'email è già stata inviata dal
-              pulsante sopra (stesso link) — un secondo pulsante Email qui
-              manderebbe una seconda email identica invece di aprire un
-              vero client locale, inutile. */}
-              <InvioLinkCliente
-                url={linkVecchioCliente}
-                telefono={ticketTelefono}
-                email={null}
-                messaggio={`Ciao, conferma la cessione del contratto Done Wifi: ${linkVecchioCliente}`}
-                onInviaEmail={async () => ({ errore: null })}
-              />
-              <button type="button" onClick={inviaLinkVecchio} disabled={inCorsoLinkVecchio} className="mt-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60">
-                {inCorsoLinkVecchio ? "Invio…" : "Invia di nuovo"}
-              </button>
-            </>
-          )}
-          {esitoLinkVecchio && <p className="mt-1.5 text-[11px] text-muted-foreground">{esitoLinkVecchio}</p>}
-        </div>
-      )}
-
-      <StatoTraccia
-        etichetta="Nuovo cliente"
-        stato={nuovoClienteHaRisposto ? "ok" : "attesa"}
-        testoOk="Dati e documenti ricevuti"
-        testoNo=""
-        testoAttesa="In attesa dei dati"
-      />
-      {/* ★ NASCOSTA A DATI RICEVUTI (2026-09-09, stessa richiesta) — una
-      volta che il nuovo cliente ha già inviato i suoi dati, i campi per
-      inserirne una bozza e il link da rimandargli non servono più: il
-      modulo è già stato compilato per davvero (vedi "Moduli ricevuti dal
-      cliente"/tab Documenti), riscriverlo o rimandare il link
-      creerebbe solo confusione su quale versione sia quella buona. */}
-      {!nuovoClienteHaRisposto && (
-      <div>
-        <p className="mb-2 text-[11px] text-muted-foreground">Modulo dati + documenti — il contatto del nuovo titolare non è ancora noto al sistema, inseriscilo qui.</p>
-        <div className="mb-2.5 grid grid-cols-2 gap-2">
-          <Input
-            value={telefonoNuovoCliente}
-            onChange={(e) => setTelefonoNuovoCliente(e.target.value)}
-            onBlur={salvaContattoBozza}
-            placeholder="Telefono nuovo cliente"
-            className="h-9 text-xs"
-          />
-          <Input
-            value={emailNuovoCliente}
-            onChange={(e) => setEmailNuovoCliente(e.target.value)}
-            onBlur={salvaContattoBozza}
-            placeholder="Email nuovo cliente"
-            type="email"
-            className="h-9 text-xs"
-          />
-        </div>
-        <InvioLinkCliente
-          url={linkNuovoClienteSubentro}
-          telefono={telefonoNuovoCliente || null}
-          email={emailNuovoCliente || null}
-          messaggio={`Ciao, per completare il subentro sul contratto ${nomeCliente} apri questo link: ${linkNuovoClienteSubentro}`}
-          onInviaEmail={() => inviaEmailPraticaGenerica(emailNuovoCliente, nomeNuovoTitolare, "Dati per il Subentro", linkNuovoClienteSubentro, "Commerciale")}
-        />
-      </div>
-      )}
-
-      {/* ★ NUOVA (2026-09, "il contratto nuovo approvato solo da nuovo" —
-      vedi l'artifact "Il Subentro Fino all'Installazione") — visibile solo
-      dopo che il nuovo cliente ha inviato i suoi dati: prima di allora non
-      c'è ancora nulla su cui basare il contratto. Approva SOLO il nuovo
-      cliente (il vecchio ha già dato il suo consenso alla cessione sopra),
-      stesso meccanismo già in uso per il contratto dei Nuovi Clienti. */}
-      {nuovoClienteHaRisposto && (
-        <>
-          <StatoTraccia
-            etichetta="Contratto"
-            stato={praticaSubentro.contratto_approvato_nuovo_cliente_il ? "ok" : "attesa"}
-            testoOk="Approvato dal nuovo cliente"
-            testoNo=""
-            testoAttesa={praticaSubentro.contratto_inviato_approvazione_il ? "In attesa di approvazione" : "Da caricare"}
-          />
-          <div className="rounded-xl border bg-muted/40 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* ★ FIX (2026-09-10, "diversi tipi di forme e non
-              uniformità" — screenshot del popup reale) — questa etichetta
-              era alta 36px (min-h-9) accanto a PulsanteDocumento
-              ("Vedi contratto" + icona download) alto 44px (min-h-11):
-              stessa riga, due altezze diverse. Allineata alla stessa
-              altezza del componente condiviso invece di lasciarla al suo
-              valore di default. */}
-              <label className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border bg-background px-2.5 text-xs font-semibold transition hover:border-primary/40">
-                {inCorsoContrattoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                {praticaSubentro.contratto_pdf_url ? "Ricarica contratto" : "Carica contratto (PDF)"}
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  disabled={inCorsoContrattoSubentro}
-                  onChange={(e) => {
-                    caricaContrattoSubentroClick(e.target.files?.[0] ?? null);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {praticaSubentro.contratto_pdf_url && (
-                <PulsanteDocumento percorso={praticaSubentro.contratto_pdf_url} nome="contratto-subentro.pdf" etichetta="Vedi contratto" onOttieniUrl={urlDocumentoRichiesta} />
-              )}
-            </div>
-            {praticaSubentro.contratto_pdf_url && !praticaSubentro.contratto_approvato_nuovo_cliente_il && (
-              <Button size="sm" variant="outline" onClick={inviaContrattoSubentroClick} disabled={inCorsoInvioContrattoSubentro} className="mt-2 min-h-9 w-full">
-                {inCorsoInvioContrattoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Send className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                {inCorsoInvioContrattoSubentro ? "Invio…" : praticaSubentro.contratto_inviato_approvazione_il ? "Invia di nuovo" : "Invia per approvazione al nuovo cliente"}
-              </Button>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ★ NUOVA (2026-09, "è un macello, va riorganizzata e
-      semplificata" — passo 3+5 della proposta) — un solo segnale, acceso
-      da solo quando le tracce sopra sono complete, invece di dover andare
-      a spostare a mano la card tra le colonne di stato in "Richieste
-      Clienti". Il pulsante chiude per davvero la pratica.
-      ★ ESTESA (2026-09, "il contratto nuovo approvato solo da nuovo") —
-      "completa" ora richiede anche il contratto approvato e il Ticket
-      "Completato" (installazione svolta), non solo i due consensi di
-      partenza — la pratica non è finita finché non lo è davvero. */}
-      {praticaSubentro.stato === "Lavorata" ? (
-        <div className="flex items-center gap-1.5 rounded-lg bg-success/10 px-3 py-2 text-xs font-semibold text-success">
-          <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-          Subentro chiuso — trasferimento completato.
-        </div>
-      ) : (
-        praticaSubentro.vecchio_cliente_confermato_il &&
-        nuovoClienteHaRisposto &&
-        praticaSubentro.contratto_approvato_nuovo_cliente_il &&
-        ticketCompletato && (
-          <div className="flex flex-col gap-2 rounded-xl border border-success/30 bg-success/10 p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-success">
-              <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-              Pronta da completare — contratto approvato, installazione svolta.
-            </p>
-            <Button size="sm" onClick={completaSubentroClick} disabled={inCorsoCompletamentoSubentro} className="min-h-9">
-              {inCorsoCompletamentoSubentro ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
-              {inCorsoCompletamentoSubentro ? "Chiusura in corso…" : "Trasferimento completato"}
-            </Button>
-            <p className="text-[11px] text-muted-foreground">Premi qui dopo aver eseguito il cambio intestatario nel sistema esterno (Aruba/anagrafica).</p>
-          </div>
-        )
-      )}
-    </div>
-  );
-}
-
-function StatoTraccia({
-  etichetta,
-  stato,
-  testoOk,
-  testoNo,
-  testoAttesa,
-}: {
-  etichetta: string;
-  stato: TipoStatoTraccia;
-  testoOk: string;
-  testoNo: string;
-  testoAttesa: string;
-}) {
-  const { icona: Icona, classi } = CONFIG_STATO_TRACCIA[stato];
-  const testo = { ok: testoOk, no: testoNo, attesa: testoAttesa }[stato];
-  return (
-    <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${classi}`}>
-      <Icona className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-      {etichetta} — {testo}
-    </div>
-  );
-}
-
-function Campo({ etichetta, valore }: { etichetta: string; valore: string }) {
-  return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etichetta}</div>
-      <div className="font-medium">{valore}</div>
-    </div>
-  );
-}
 // ★ FIX — il percorso rapido "Nuovo Ticket" di Vista Tecnico crea Ticket
 // "Nuovo contratto"/altre sottocategoria con campi extra obbligatori senza
 // raccoglierli (form ridotto apposta per restare rapido sul campo), e
