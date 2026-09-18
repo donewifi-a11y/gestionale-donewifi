@@ -7,7 +7,7 @@ import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto 
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
-import { validaEmail } from "@/lib/validazione";
+import { validaEmail, validaTelefono } from "@/lib/validazione";
 
 async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
   const {
@@ -341,6 +341,13 @@ export async function creaSegnalazione(dati: {
   // essere bloccata subito in creazione.
   const esitoEmail = validaEmail(dati.email);
   if (!esitoEmail.valido) return { errore: esitoEmail.messaggio };
+  // ★ FIX (2026-09-18, backlog audit modulo Segnalazioni) — telefono e CAP
+  // non avevano alcuna validazione di formato (solo "non vuoto" per il
+  // telefono, il CAP nemmeno quello): un numero testuale o un CAP di
+  // lunghezza qualsiasi venivano accettati senza avviso.
+  const esitoTelefono = validaTelefono(dati.telefono);
+  if (!esitoTelefono.valido) return { errore: esitoTelefono.messaggio };
+  if (dati.cap.trim() && !/^\d{5}$/.test(dati.cap.trim())) return { errore: "Il CAP deve essere composto da 5 cifre." };
 
   // ★ NUOVA — nessun controllo esisteva su telefono/email già usati da
   // un'altra Segnalazione: un cliente che richiama, o due operatori che
@@ -349,10 +356,17 @@ export async function creaSegnalazione(dati: {
   // invece di un blocco vero: può darsi che sia davvero un'altra persona
   // con lo stesso numero (es. numero di casa condiviso).
   if (!dati.forza) {
+    // ★ FIX (2026-09-18, backlog audit — indurimento) — `dati.telefono`
+    // veniva interpolato as-is in un filtro `.or()` di PostgREST: già
+    // validato per formato qui sopra (quindi improbabile da sfruttare per
+    // davvero), ma sanificato ai soli caratteri numerici come indurimento
+    // alla radice invece di fare affidamento solo sulla validazione a
+    // monte, stesso principio già applicato a trova-cliente/route.ts.
+    const telefonoCifre = dati.telefono.replace(/\D/g, "");
     const { data: duplicati } = await supabase
       .from("segnalazioni")
       .select("numero, nome, stato")
-      .or(`telefono.eq.${dati.telefono},email.eq.${dati.email}`)
+      .or(`telefono.eq.${telefonoCifre},email.eq.${dati.email}`)
       .limit(5);
     if (duplicati && duplicati.length > 0) {
       return {
@@ -478,6 +492,11 @@ export async function aggiornaDatiSegnalazione(
     copertura: Copertura;
     tipologiaCliente: "Privato" | "Azienda";
     note: string;
+    /** ★ NUOVA (2026-09-18, backlog audit modulo Segnalazioni) — stesso
+     * principio di `creaSegnalazione()`: senza conferma, un telefono/email
+     * già usato da un'altra pratica torna come avviso soft invece di
+     * salvare subito. */
+    forza?: boolean;
   }
 ) {
   const supabase = await createClient();
@@ -490,6 +509,13 @@ export async function aggiornaDatiSegnalazione(
 
   if (!dati.nome.trim()) return { errore: "Il nome è obbligatorio." };
   if (!dati.telefono.trim()) return { errore: "Il telefono è obbligatorio." };
+  // ★ FIX (2026-09-18, backlog audit modulo Segnalazioni) — stessa
+  // validazione di formato già aggiunta a creaSegnalazione(), qui
+  // dimenticata: un "telefono" testuale o un CAP di lunghezza qualsiasi
+  // venivano accettati anche in modifica.
+  const esitoTelefono = validaTelefono(dati.telefono);
+  if (!esitoTelefono.valido) return { errore: esitoTelefono.messaggio };
+  if (dati.cap.trim() && !/^\d{5}$/.test(dati.cap.trim())) return { errore: "Il CAP deve essere composto da 5 cifre." };
   // ★ FIX (2026-09-18, audit modulo Segnalazioni) — a differenza di
   // creaSegnalazione() (email obbligatoria e ora validata nel formato),
   // la modifica non validava affatto l'email: si poteva salvare un
@@ -501,6 +527,34 @@ export async function aggiornaDatiSegnalazione(
   if (emailPulita) {
     const esitoEmail = validaEmail(emailPulita);
     if (!esitoEmail.valido) return { errore: esitoEmail.messaggio };
+  }
+
+  // ★ FIX (2026-09-18, backlog audit modulo Segnalazioni) — a differenza
+  // di creaSegnalazione(), la modifica non ripeteva mai il controllo
+  // duplicati: un operatore che corregge un refuso nel telefono/email
+  // poteva far collidere silenziosamente la pratica con un'altra già
+  // esistente, senza alcun avviso. Stesso avviso soft (mai un blocco vero
+  // — può darsi che sia davvero un'altra persona con lo stesso numero),
+  // escludendo però questa stessa Segnalazione dal confronto.
+  if (!dati.forza) {
+    const telefonoCifre = dati.telefono.replace(/\D/g, "");
+    // ★ email facoltativa in modifica (a differenza della creazione, dove
+    // è sempre presente): un filtro `email.eq.` con stringa vuota
+    // combacerebbe con altre righe altrettanto senza email — la clausola
+    // si aggiunge solo se c'è davvero un'email da confrontare.
+    const filtro = emailPulita ? `telefono.eq.${telefonoCifre},email.eq.${emailPulita}` : `telefono.eq.${telefonoCifre}`;
+    const { data: duplicati } = await supabase
+      .from("segnalazioni")
+      .select("numero, nome, stato")
+      .neq("id", id)
+      .or(filtro)
+      .limit(5);
+    if (duplicati && duplicati.length > 0) {
+      return {
+        errore: null,
+        duplicati: duplicati.map((d) => `#${d.numero} — ${d.nome} (${d.stato})`),
+      };
+    }
   }
 
   const { error } = await supabase

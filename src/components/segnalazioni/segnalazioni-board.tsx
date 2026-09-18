@@ -1806,6 +1806,11 @@ function FormModificaSegnalazione({
   const [via, setVia] = useState(segnalazione.via);
   const [comune, setComune] = useState(segnalazione.comune);
   const [cap, setCap] = useState(segnalazione.cap);
+  // ★ FIX (2026-09-18, backlog audit modulo Segnalazioni) — stesso
+  // meccanismo di avviso soft già in uso nella creazione (nuovo/page.tsx):
+  // prima la modifica non ripeteva mai il controllo duplicati.
+  const [duplicati, setDuplicati] = useState<string[]>([]);
+  const [datiInCorso, setDatiInCorso] = useState<Omit<Parameters<typeof aggiornaDatiSegnalazione>[1], "forza"> | null>(null);
 
   function onSelezionaIndirizzo(d: DettagliIndirizzo) {
     setVia(d.via);
@@ -1813,47 +1818,63 @@ function FormModificaSegnalazione({
     if (d.cap) setCap(d.cap);
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErrore("");
-    const dati = new FormData(e.currentTarget);
-    const nome = String(dati.get("nome") || "").trim();
-    const telefono = String(dati.get("telefono") || "").trim();
-    if (!nome) return setErrore("Il nome è obbligatorio.");
-    if (!telefono) return setErrore("Il telefono è obbligatorio.");
-
+  function salva(dati: Parameters<typeof aggiornaDatiSegnalazione>[1]) {
     startTransizione(async () => {
-      const risultato = await aggiornaDatiSegnalazione(segnalazione.id, {
-        nome,
-        telefono,
-        email: String(dati.get("email") || "").trim(),
-        via,
-        civico: String(dati.get("civico") || "").trim(),
-        comune,
-        cap,
-        copertura: String(dati.get("copertura") || segnalazione.copertura) as Copertura,
-        tipologiaCliente,
-        note: String(dati.get("note") || "").trim(),
-      });
+      const risultato = await aggiornaDatiSegnalazione(segnalazione.id, dati);
+      if (risultato.duplicati && risultato.duplicati.length > 0) {
+        setDatiInCorso(dati);
+        setDuplicati(risultato.duplicati);
+        return;
+      }
       if (risultato.errore) {
         setErrore(risultato.errore);
         return;
       }
       onSalvato({
         ...segnalazione,
-        nome,
-        telefono,
-        email: String(dati.get("email") || "").trim() || null,
-        via,
-        civico: String(dati.get("civico") || "").trim(),
-        comune,
-        cap,
-        copertura: String(dati.get("copertura") || segnalazione.copertura) as Copertura,
-        tipologia_cliente: tipologiaCliente,
-        note: String(dati.get("note") || "").trim() || null,
+        nome: dati.nome,
+        telefono: dati.telefono,
+        email: dati.email || null,
+        via: dati.via,
+        civico: dati.civico,
+        comune: dati.comune,
+        cap: dati.cap,
+        copertura: dati.copertura,
+        tipologia_cliente: dati.tipologiaCliente,
+        note: dati.note || null,
       });
       router.refresh();
     });
+  }
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrore("");
+    setDuplicati([]);
+    const dati = new FormData(e.currentTarget);
+    const nome = String(dati.get("nome") || "").trim();
+    const telefono = String(dati.get("telefono") || "").trim();
+    if (!nome) return setErrore("Il nome è obbligatorio.");
+    if (!telefono) return setErrore("Il telefono è obbligatorio.");
+
+    salva({
+      nome,
+      telefono,
+      email: String(dati.get("email") || "").trim(),
+      via,
+      civico: String(dati.get("civico") || "").trim(),
+      comune,
+      cap,
+      copertura: String(dati.get("copertura") || segnalazione.copertura) as Copertura,
+      tipologiaCliente,
+      note: String(dati.get("note") || "").trim(),
+    });
+  }
+
+  function salvaComunque() {
+    if (!datiInCorso) return;
+    setDuplicati([]);
+    salva({ ...datiInCorso, forza: true });
   }
 
   return (
@@ -1939,6 +1960,21 @@ function FormModificaSegnalazione({
           <Textarea id="mod-note" name="note" rows={3} defaultValue={segnalazione.note ?? ""} className="mt-1" />
         </div>
 
+        {duplicati.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg bg-warning/10 p-2.5 text-sm text-warning">
+            <p className="flex items-start gap-2 font-semibold">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
+              Telefono o email già presenti su un&apos;altra pratica:
+            </p>
+            <ul className="ml-6 list-disc">
+              {duplicati.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+            <p className="text-xs">Se è comunque un cliente diverso, puoi procedere lo stesso.</p>
+          </div>
+        )}
+
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.25} />
@@ -1947,10 +1983,17 @@ function FormModificaSegnalazione({
         )}
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={inCorso} className="flex-1">
-            {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
-            {inCorso ? "Salvataggio…" : "Salva modifiche"}
-          </Button>
+          {duplicati.length > 0 ? (
+            <Button type="button" variant="outline" className="flex-1 border-warning text-warning hover:bg-warning/10" disabled={inCorso} onClick={salvaComunque}>
+              {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
+              {inCorso ? "Salvataggio…" : "Salva comunque"}
+            </Button>
+          ) : (
+            <Button type="submit" disabled={inCorso} className="flex-1">
+              {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : null}
+              {inCorso ? "Salvataggio…" : "Salva modifiche"}
+            </Button>
+          )}
           <Button type="button" variant="ghost" onClick={onAnnulla} disabled={inCorso}>
             Annulla
           </Button>

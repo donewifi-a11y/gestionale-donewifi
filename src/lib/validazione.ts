@@ -101,3 +101,20 @@ export function validaEmail(valore: string): EsitoValidazione {
   if (!REGEX_EMAIL.test(email)) return { valido: false, messaggio: "Formato email non valido." };
   return { valido: true, messaggio: "Email valida." };
 }
+
+/**
+ * ★ NUOVA (2026-09-18, backlog audit — Telefono senza validazione di
+ * formato in più form del gestionale) — deliberatamente permissiva: un
+ * numero italiano può arrivare con o senza prefisso, con spazi/trattini,
+ * fisso o mobile. Qui si controlla solo che, tolto tutto il resto, restino
+ * abbastanza cifre per essere un numero reale — non un formato esatto,
+ * altrimenti si rischia di rifiutare numeri validi scritti in modo
+ * leggermente diverso da quello previsto (già visto altrove nel progetto,
+ * es. verifica-stato/route.ts confronta solo le ultime 9 cifre).
+ */
+export function validaTelefono(valore: string): EsitoValidazione {
+  const cifre = valore.replace(/\D/g, "");
+  if (!cifre) return { valido: false, messaggio: "Numero di telefono mancante." };
+  if (cifre.length < 6 || cifre.length > 15) return { valido: false, messaggio: "Il numero di telefono non sembra valido." };
+  return { valido: true, messaggio: "Numero valido." };
+}

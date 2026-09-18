@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { creaTicket, cercaClientiEsistenti, listaNomiTariffeAttive, type ClienteEsistente } from "../actions";
+import { validaEmail, validaTelefono } from "@/lib/validazione";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET, REPARTO_PER_CATEGORIA_TICKET } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
@@ -110,6 +111,20 @@ export default function NuovoTicketPage() {
     const nomeCliente = cliente.trim();
     if (!nomeCliente) {
       setErrore("Il nome del cliente è obbligatorio.");
+      return;
+    }
+    // ★ FIX (2026-09-18, backlog audit modulo Ticket) — Telefono/Email non
+    // avevano alcuna validazione di formato, solo il tipo HTML nativo
+    // (che non blocca comunque nulla senza `required`): un "telefono"
+    // testuale o un'email palesemente malformata venivano salvati senza
+    // alcun avviso. Entrambi restano facoltativi — controllati solo se
+    // compilati.
+    if (telefono.trim() && !validaTelefono(telefono).valido) {
+      setErrore(validaTelefono(telefono).messaggio);
+      return;
+    }
+    if (email.trim() && !validaEmail(email).valido) {
+      setErrore(validaEmail(email).messaggio);
       return;
     }
 

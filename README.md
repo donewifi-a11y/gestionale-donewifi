@@ -5315,3 +5315,29 @@ due componenti monolitici `calendario-board.tsx` (~1500 righe) e `vista-tecnico-
 (~840 righe); deduplicazione tra `scheda-installazione-form.tsx` e `scheda-lavorazione-form.tsx`
 (blocco "Metodo di pagamento" quasi identico). Build/lint puliti (0 errori) dopo ogni
 correzione.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 1/N)** (2026-09-18, "ora dobbiamo
+risolvere i problemi riscontrati" — richiesta esplicita di affrontare i problemi segnalati come
+"non ancora affrontati" nei 4 moduli auditati). Validazioni di formato mancanti e controllo
+duplicati:
+
+- **Ticket (Nuovo Ticket)**: Telefono ed Email non avevano alcuna validazione di formato, solo
+  il tipo HTML nativo (`type="tel"`/`type="email"`, che senza `required` non blocca nulla). Nuovo
+  `validaTelefono()` in `lib/validazione.ts` (permissivo: solo conta le cifre, 6-15, per non
+  rifiutare numeri scritti in modo leggermente diverso da quello previsto) + `validaEmail()`
+  già esistente, applicati sia lato client sia lato server (`creaTicket()`), entrambi restano
+  facoltativi.
+- **Segnalazioni**: stessa validazione applicata a `creaSegnalazione()` e
+  `aggiornaDatiSegnalazione()` per Telefono (obbligatorio) e CAP (`^\d{5}$`, se compilato).
+- **Segnalazioni — controllo duplicati mancante in modifica**: `aggiornaDatiSegnalazione()` non
+  ripeteva mai il controllo "telefono/email già usati da un'altra pratica" già presente in
+  creazione — un operatore che correggeva un refuso poteva far collidere silenziosamente la
+  pratica con un'altra esistente. Stesso avviso soft (mai un blocco vero) esteso alla modifica,
+  con lo stesso meccanismo "Salva comunque" della creazione lato UI.
+- **Indurimento filtro `.or()`**: `dati.telefono` interpolato direttamente nel filtro duplicati
+  (sia in creazione sia ora in modifica) sanificato ai soli caratteri numerici, stesso principio
+  già applicato a `trova-cliente/route.ts` — improbabile da sfruttare per davvero (input già
+  validato per formato a monte), ma chiude la classe di bug alla radice.
+
+Build/lint puliti (0 errori). Prossimo lotto: Calendario (sovrapposizioni orarie, giacenza
+materiali), touch target, sostituzione `prompt()`/`confirm()`.

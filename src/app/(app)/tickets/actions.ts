@@ -11,6 +11,7 @@ import { messaggioErroreRls } from "@/lib/errori-rls";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 import { dataItaliaStringa } from "@/lib/data-italia";
+import { validaEmail, validaTelefono } from "@/lib/validazione";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -128,6 +129,12 @@ export async function creaTicket(
   // creava comunque un Ticket con `cliente` vuoto o fatto di soli spazi.
   const cliente = dati.cliente.trim();
   if (!cliente) return { errore: "Il nome del cliente è obbligatorio." };
+  // ★ FIX (2026-09-18, backlog audit modulo Ticket) — Telefono/Email erano
+  // validati solo lato client (nuovo/page.tsx) — ripetuto qui perché
+  // questa Server Action, se richiamata da un punto diverso, non aveva
+  // alcuna garanzia di formato. Entrambi restano facoltativi.
+  if (dati.telefono.trim() && !validaTelefono(dati.telefono).valido) return { errore: validaTelefono(dati.telefono).messaggio };
+  if (dati.email.trim() && !validaEmail(dati.email).valido) return { errore: validaEmail(dati.email).messaggio };
 
   // ★ i campi extra per sottocategoria (ex CONFIG_CATEGORIE) possono
   // includere un allegato (foto apparati, allegato contabile) — già
