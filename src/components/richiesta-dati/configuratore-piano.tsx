@@ -209,12 +209,18 @@ export function ConfiguratorePiano({
               {extender.nome} — {formattaValuta(prezzoExtenderUnitario)} cad. — copertura Wi-Fi estesa in tutta casa
             </span>
           </span>
+          {/* ★ FIX (2026-09-18, backlog audit — touch target sotto i
+          44px) — h-7/w-7 (28px), ben sotto la soglia raccomandata per un
+          tocco preciso su smartphone, il contesto d'uso quasi esclusivo di
+          questo form: un tocco impreciso su pulsanti adiacenti così
+          piccoli altera facilmente un preventivo di costo senza che il
+          cliente se ne accorga subito. Alzati a 44px (h-11/w-11). */}
           <span className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setExtenderQuantita((q) => Math.max(0, q - 1))}
               disabled={extenderQuantita === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-30"
+              className="flex h-11 w-11 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-30"
               aria-label="Riduci quantità extender"
             >
               <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -223,7 +229,7 @@ export function ConfiguratorePiano({
             <button
               type="button"
               onClick={() => setExtenderQuantita((q) => q + 1)}
-              className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary"
+              className="flex h-11 w-11 items-center justify-center rounded-md border text-muted-foreground transition hover:border-primary hover:text-primary"
               aria-label="Aumenta quantità extender"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />

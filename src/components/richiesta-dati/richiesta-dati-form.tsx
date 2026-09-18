@@ -294,7 +294,7 @@ export function RichiestaDatiForm({
           <div>
             <Label htmlFor="profiloInternet">Profilo internet richiesto</Label>
             {tariffe.length > 0 ? (
-              <select id="profiloInternet" name="profiloInternet" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+              <select id="profiloInternet" name="profiloInternet" className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm">
                 <option value="">Seleziona il tuo piano...</option>
                 {tariffeVisibili.map((t) => (
                   <option key={t.id} value={t.nome}>
@@ -309,7 +309,7 @@ export function RichiestaDatiForm({
                 ))}
               </select>
             ) : (
-              <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-10" />
+              <Input id="profiloInternet" name="profiloInternet" placeholder="Es. Fibra 1Gbps" className="mt-1 h-11" />
             )}
           </div>
 
@@ -333,50 +333,50 @@ export function RichiestaDatiForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="nome">Nome *</Label>
-              <Input id="nome" name="nome" defaultValue={nomeIniziale} className="mt-1 h-10" />
+              <Input id="nome" name="nome" defaultValue={nomeIniziale} className="mt-1 h-11" />
             </div>
             <div>
               <Label htmlFor="cognome">Cognome *</Label>
-              <Input id="cognome" name="cognome" defaultValue={cognomeIniziale} className="mt-1 h-10" />
+              <Input id="cognome" name="cognome" defaultValue={cognomeIniziale} className="mt-1 h-11" />
             </div>
           </div>
           <div>
             <Label htmlFor="codiceFiscale">Codice Fiscale *</Label>
-            <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-10 uppercase" maxLength={16} />
+            <Input id="codiceFiscale" name="codiceFiscale" className="mt-1 h-11 uppercase" maxLength={16} />
           </div>
         </>
       ) : (
         <>
           <div>
             <Label htmlFor="ragioneSociale">Ragione Sociale *</Label>
-            <Input id="ragioneSociale" name="ragioneSociale" required className="mt-1 h-10" />
+            <Input id="ragioneSociale" name="ragioneSociale" required className="mt-1 h-11" />
           </div>
           <div>
             <Label htmlFor="partitaIva">Partita IVA *</Label>
-            <Input id="partitaIva" name="partitaIva" className="mt-1 h-10" maxLength={11} />
+            <Input id="partitaIva" name="partitaIva" className="mt-1 h-11" maxLength={11} />
           </div>
           <div>
             <Label htmlFor="codiceFiscaleAzienda">Codice Fiscale Azienda *</Label>
-            <Input id="codiceFiscaleAzienda" name="codiceFiscaleAzienda" className="mt-1 h-10 uppercase" maxLength={16} />
+            <Input id="codiceFiscaleAzienda" name="codiceFiscaleAzienda" className="mt-1 h-11 uppercase" maxLength={16} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="pec">PEC *</Label>
-              <Input id="pec" name="pec" type="email" className="mt-1 h-10" />
+              <Input id="pec" name="pec" type="email" className="mt-1 h-11" />
             </div>
             <div>
               <Label htmlFor="sdi">Codice SDI *</Label>
-              <Input id="sdi" name="sdi" maxLength={7} className="mt-1 h-10" />
+              <Input id="sdi" name="sdi" maxLength={7} className="mt-1 h-11" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="legaleRappresentanteNome">Nome Legale Rappresentante *</Label>
-              <Input id="legaleRappresentanteNome" name="legaleRappresentanteNome" className="mt-1 h-10" />
+              <Input id="legaleRappresentanteNome" name="legaleRappresentanteNome" className="mt-1 h-11" />
             </div>
             <div>
               <Label htmlFor="legaleRappresentanteCf">CF Legale Rappresentante *</Label>
-              <Input id="legaleRappresentanteCf" name="legaleRappresentanteCf" className="mt-1 h-10 uppercase" maxLength={16} />
+              <Input id="legaleRappresentanteCf" name="legaleRappresentanteCf" className="mt-1 h-11 uppercase" maxLength={16} />
             </div>
           </div>
         </>
@@ -385,11 +385,11 @@ export function RichiestaDatiForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="telefono">Telefono *</Label>
-          <Input id="telefono" name="telefono" type="tel" className="mt-1 h-10" />
+          <Input id="telefono" name="telefono" type="tel" className="mt-1 h-11" />
         </div>
         <div>
           <Label htmlFor="email">Email *</Label>
-          <Input id="email" name="email" type="email" className="mt-1 h-10" />
+          <Input id="email" name="email" type="email" className="mt-1 h-11" />
         </div>
       </div>
 
@@ -399,21 +399,21 @@ export function RichiestaDatiForm({
         <div className="grid grid-cols-[1fr_100px] gap-3">
           <div>
             <Label htmlFor="via">Via/Piazza *</Label>
-            <Input id="via" name="via" defaultValue={indirizzo?.via ?? ""} className="mt-1 h-10" />
+            <Input id="via" name="via" defaultValue={indirizzo?.via ?? ""} className="mt-1 h-11" />
           </div>
           <div>
             <Label htmlFor="civico">Civico *</Label>
-            <Input id="civico" name="civico" defaultValue={indirizzo?.civico ?? ""} className="mt-1 h-10" />
+            <Input id="civico" name="civico" defaultValue={indirizzo?.civico ?? ""} className="mt-1 h-11" />
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="comune">Comune *</Label>
-            <Input id="comune" name="comune" defaultValue={indirizzo?.comune ?? ""} className="mt-1 h-10" />
+            <Input id="comune" name="comune" defaultValue={indirizzo?.comune ?? ""} className="mt-1 h-11" />
           </div>
           <div>
             <Label htmlFor="cap">CAP *</Label>
-            <Input id="cap" name="cap" defaultValue={indirizzo?.cap ?? ""} maxLength={5} className="mt-1 h-10" />
+            <Input id="cap" name="cap" defaultValue={indirizzo?.cap ?? ""} maxLength={5} className="mt-1 h-11" />
           </div>
         </div>
       </div>
@@ -440,17 +440,17 @@ export function RichiestaDatiForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="ibanIntestatarioNome">Nome Cognome intestatario *</Label>
-                <Input id="ibanIntestatarioNome" name="ibanIntestatarioNome" className="mt-1 h-10" />
+                <Input id="ibanIntestatarioNome" name="ibanIntestatarioNome" className="mt-1 h-11" />
               </div>
               <div>
                 <Label htmlFor="ibanIntestatarioCf">CF intestatario *</Label>
-                <Input id="ibanIntestatarioCf" name="ibanIntestatarioCf" className="mt-1 h-10 uppercase" maxLength={16} />
+                <Input id="ibanIntestatarioCf" name="ibanIntestatarioCf" className="mt-1 h-11 uppercase" maxLength={16} />
               </div>
             </div>
           )}
           <div>
             <Label htmlFor="iban">IBAN *</Label>
-            <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-10 uppercase" />
+            <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-11 uppercase" />
           </div>
           <label className="flex items-start gap-2 text-xs text-muted-foreground">
             <input type="checkbox" name="mandatoSepa" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -465,7 +465,7 @@ export function RichiestaDatiForm({
           id="tipoDocumento"
           value={tipoDocumento}
           onChange={(e) => setTipoDocumento(e.target.value)}
-          className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm"
+          className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm"
         >
           <option value="CI">Carta d&apos;Identità</option>
           <option value="PATENTE">Patente</option>

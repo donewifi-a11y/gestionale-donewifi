@@ -109,21 +109,21 @@ function FormApriTicket() {
       <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e cognome *</Label>
-        <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
+        <Input id="nome" name="nome" autoFocus required className="mt-1 h-11" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="telefono">Telefono *</Label>
-          <Input id="telefono" name="telefono" type="tel" required placeholder="Es. 340 1234567" className="mt-1 h-10" />
+          <Input id="telefono" name="telefono" type="tel" required placeholder="Es. 340 1234567" className="mt-1 h-11" />
         </div>
         <div>
           <Label htmlFor="email">Email *</Label>
-          <Input id="email" name="email" type="email" required className="mt-1 h-10" />
+          <Input id="email" name="email" type="email" required className="mt-1 h-11" />
         </div>
       </div>
       <div>
         <Label htmlFor="categoria">Tipo di richiesta *</Label>
-        <select id="categoria" name="categoria" required defaultValue="" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+        <select id="categoria" name="categoria" required defaultValue="" className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm">
           <option value="" disabled>Seleziona...</option>
           {CATEGORIE_TICKET.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -193,11 +193,11 @@ function FormVerificaStato() {
         </p>
         <div>
           <Label htmlFor="numero">Numero ticket</Label>
-          <Input id="numero" name="numero" placeholder="Es. 128" className="mt-1 h-10" />
+          <Input id="numero" name="numero" placeholder="Es. 128" className="mt-1 h-11" />
         </div>
         <div>
           <Label htmlFor="telefono">Telefono</Label>
-          <Input id="telefono" name="telefono" type="tel" placeholder="Es. 340 1234567" className="mt-1 h-10" />
+          <Input id="telefono" name="telefono" type="tel" placeholder="Es. 340 1234567" className="mt-1 h-11" />
         </div>
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">

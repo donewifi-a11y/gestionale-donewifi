@@ -157,15 +157,15 @@ function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | 
       <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome *</Label>
-        <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
+        <Input id="nome" name="nome" autoFocus required className="mt-1 h-11" />
       </div>
       <div>
         <Label htmlFor="cf">Codice Fiscale</Label>
-        <Input id="cf" name="cf" className="mt-1 h-10 uppercase" maxLength={16} />
+        <Input id="cf" name="cf" className="mt-1 h-11 uppercase" maxLength={16} />
       </div>
       <div>
         <Label htmlFor="iban">Nuovo IBAN *</Label>
-        <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-10 uppercase" />
+        <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-11 uppercase" />
       </div>
       <div>
         <Label htmlFor="note">Note (facoltativo)</Label>
@@ -207,7 +207,7 @@ function FormCambioAnagrafica({ ticketId, tokenClienteEsterno }: { ticketId: str
       <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome *</Label>
-        <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
+        <Input id="nome" name="nome" autoFocus required className="mt-1 h-11" />
       </div>
 
       <label className="flex items-center gap-2 text-sm font-medium">
@@ -215,7 +215,7 @@ function FormCambioAnagrafica({ ticketId, tokenClienteEsterno }: { ticketId: str
         Modifica telefono
       </label>
       {modTelefono && (
-        <Input name="nuovoTelefono" type="tel" placeholder="Nuovo numero di telefono" className="h-10" />
+        <Input name="nuovoTelefono" type="tel" placeholder="Nuovo numero di telefono" className="h-11" />
       )}
 
       <label className="flex items-center gap-2 text-sm font-medium">
@@ -223,7 +223,7 @@ function FormCambioAnagrafica({ ticketId, tokenClienteEsterno }: { ticketId: str
         Modifica email
       </label>
       {modEmail && (
-        <Input name="nuovaEmail" type="email" placeholder="Nuovo indirizzo email" className="h-10" />
+        <Input name="nuovaEmail" type="email" placeholder="Nuovo indirizzo email" className="h-11" />
       )}
 
       <div>
@@ -275,11 +275,11 @@ function FormTrasferimento({ ticketId, tokenClienteEsterno }: { ticketId: string
       <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] h-0 opacity-0" />
       <div>
         <Label htmlFor="nome">Nome e Cognome / Ragione Sociale *</Label>
-        <Input id="nome" name="nome" autoFocus required className="mt-1 h-10" />
+        <Input id="nome" name="nome" autoFocus required className="mt-1 h-11" />
       </div>
       <div>
         <Label htmlFor="telefono">Telefono *</Label>
-        <Input id="telefono" name="telefono" type="tel" required className="mt-1 h-10" />
+        <Input id="telefono" name="telefono" type="tel" required className="mt-1 h-11" />
       </div>
       <div>
         <Label htmlFor="via">Via / Frazione *</Label>
@@ -289,21 +289,21 @@ function FormTrasferimento({ ticketId, tokenClienteEsterno }: { ticketId: string
           value={via}
           onChange={setVia}
           onSeleziona={(d) => { setVia(d.via); if (d.comune) setComune(d.comune); if (d.cap) setCap(d.cap); }}
-          className="mt-1 h-10"
+          className="mt-1 h-11"
         />
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <Input name="civico" placeholder="Civico *" required className="h-10" />
-        <Input value={comune} onChange={(e) => setComune(e.target.value)} placeholder="Comune *" required className="h-10" />
-        <Input value={cap} onChange={(e) => setCap(e.target.value)} placeholder="CAP *" required className="h-10" />
+        <Input name="civico" placeholder="Civico *" required className="h-11" />
+        <Input value={comune} onChange={(e) => setComune(e.target.value)} placeholder="Comune *" required className="h-11" />
+        <Input value={cap} onChange={(e) => setCap(e.target.value)} placeholder="CAP *" required className="h-11" />
       </div>
       <div>
         <Label htmlFor="piano">Piano / Interno (facoltativo)</Label>
-        <Input id="piano" name="piano" placeholder="Es. 2° piano, interno 4" className="mt-1 h-10" />
+        <Input id="piano" name="piano" placeholder="Es. 2° piano, interno 4" className="mt-1 h-11" />
       </div>
       <div>
         <Label htmlFor="dataPreferita">Data preferita per il trasferimento (facoltativo)</Label>
-        <Input id="dataPreferita" name="dataPreferita" type="date" className="mt-1 h-10" />
+        <Input id="dataPreferita" name="dataPreferita" type="date" className="mt-1 h-11" />
       </div>
       <div>
         <Label htmlFor="note">Note (facoltativo)</Label>
@@ -402,41 +402,41 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
         <>
           <div>
             <Label htmlFor="nome">Nome e Cognome *</Label>
-            <Input id="nome" name="nome" required className="mt-1 h-10" />
+            <Input id="nome" name="nome" required className="mt-1 h-11" />
           </div>
           <div>
             <Label htmlFor="cf">Codice Fiscale</Label>
-            <Input id="cf" name="cf" className="mt-1 h-10 uppercase" maxLength={16} />
+            <Input id="cf" name="cf" className="mt-1 h-11 uppercase" maxLength={16} />
           </div>
         </>
       ) : (
         <>
           <div>
             <Label htmlFor="ragioneSociale">Ragione Sociale *</Label>
-            <Input id="ragioneSociale" name="ragioneSociale" required className="mt-1 h-10" />
+            <Input id="ragioneSociale" name="ragioneSociale" required className="mt-1 h-11" />
           </div>
           <div>
             <Label htmlFor="piva">Partita IVA</Label>
-            <Input id="piva" name="piva" className="mt-1 h-10" maxLength={11} />
+            <Input id="piva" name="piva" className="mt-1 h-11" maxLength={11} />
           </div>
           <div>
             <Label htmlFor="cfAzienda">Codice Fiscale Azienda (se diverso)</Label>
-            <Input id="cfAzienda" name="cfAzienda" className="mt-1 h-10 uppercase" maxLength={16} />
+            <Input id="cfAzienda" name="cfAzienda" className="mt-1 h-11 uppercase" maxLength={16} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input name="pec" type="email" placeholder="PEC" className="h-10" />
-            <Input name="sdi" placeholder="Codice SDI" maxLength={7} className="h-10" />
+            <Input name="pec" type="email" placeholder="PEC" className="h-11" />
+            <Input name="sdi" placeholder="Codice SDI" maxLength={7} className="h-11" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input name="legaleRappresentanteNome" placeholder="Nome Legale Rappresentante" className="h-10" />
-            <Input name="legaleRappresentanteCf" placeholder="CF Legale Rappresentante" className="h-10 uppercase" maxLength={16} />
+            <Input name="legaleRappresentanteNome" placeholder="Nome Legale Rappresentante" className="h-11" />
+            <Input name="legaleRappresentanteCf" placeholder="CF Legale Rappresentante" className="h-11 uppercase" maxLength={16} />
           </div>
         </>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Input name="telefono" type="tel" placeholder="Telefono" className="h-10" />
-        <Input name="email" type="email" placeholder="Email" className="h-10" />
+        <Input name="telefono" type="tel" placeholder="Telefono" className="h-11" />
+        <Input name="email" type="email" placeholder="Email" className="h-11" />
       </div>
 
       <div>
@@ -459,13 +459,13 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
           </label>
           {intestatarioDiverso && (
             <div className="grid grid-cols-2 gap-3">
-              <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-10" />
-              <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-10 uppercase" maxLength={16} />
+              <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-11" />
+              <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
             </div>
           )}
           <div>
             <Label htmlFor="iban">IBAN *</Label>
-            <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-10 uppercase" />
+            <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-11 uppercase" />
           </div>
           <label className="flex items-start gap-2 text-xs text-muted-foreground">
             <input type="checkbox" name="mandatoSepa" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -476,7 +476,7 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
 
       <div>
         <Label htmlFor="tipoDocumento">Tipo documento</Label>
-        <select id="tipoDocumento" name="tipoDocumento" defaultValue="CI" className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+        <select id="tipoDocumento" name="tipoDocumento" defaultValue="CI" className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm">
           <option value="CI">Carta d&apos;Identità</option>
           <option value="PATENTE">Patente</option>
           <option value="PASSAPORTO">Passaporto</option>

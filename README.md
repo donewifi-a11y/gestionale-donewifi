@@ -5379,3 +5379,19 @@ e accessibilità:
 
 Build/lint puliti (0 errori). Prossimo lotto: touch target sotto i 44px, pulsanti +/- del
 configuratore piano, `prompt()`/`confirm()` nativi del browser.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 4/N)** (2026-09-18). Touch target sotto
+i 44px sui form pubblici (mobile-first, spesso compilati da smartphone):
+
+- **Pulsanti +/- del configuratore piano** (`configuratore-piano.tsx`): i pulsanti per la
+  quantità di extender erano `h-7 w-7` (28px) — sotto lo standard WCAG/Apple HIG di 44×44px per
+  un target toccabile. Portati a `h-11 w-11`.
+- **Campi `<Input>`/`<select>` a `h-10` (40px) nei form pubblici**: `richiesta-dati-form.tsx`
+  (22 campi), `richiesta-cliente-form.tsx` (tutti i campi dei 4 sotto-form: Cambio IBAN, Cambio
+  Anagrafica, Trasferimento, Subentro), `portale-tabs.tsx` e `pratiche-tab.tsx` (identificazione
+  cliente) — tutti sotto i 44px richiesti su mobile. Portati a `h-11`, escludendo
+  deliberatamente le icone `<CheckCircle2 className="h-10 w-10">` di conferma invio, che non
+  sono target toccabili e non c'entrano con l'accessibilità dei form.
+
+Build/lint puliti (0 errori). Prossimo lotto: sostituzione dei `prompt()`/`confirm()` nativi del
+browser (Ticket, Segnalazioni, Subentro) con i componenti Dialog/Drawer del progetto.

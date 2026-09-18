@@ -128,11 +128,11 @@ function FormIdentificazione({
         <p className="text-xs text-muted-foreground">Per trovare il tuo contratto, inserisci entrambi i dati.</p>
         <div>
           <Label htmlFor="telefono">Telefono registrato sul contratto *</Label>
-          <Input id="telefono" type="tel" required autoFocus value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Es. 340 1234567" className="mt-1 h-10" />
+          <Input id="telefono" type="tel" required autoFocus value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Es. 340 1234567" className="mt-1 h-11" />
         </div>
         <div>
           <Label htmlFor="cf">Codice Fiscale o Partita IVA *</Label>
-          <Input id="cf" required value={codiceFiscale} onChange={(e) => setCodiceFiscale(e.target.value.toUpperCase())} maxLength={16} className="mt-1 h-10 uppercase" />
+          <Input id="cf" required value={codiceFiscale} onChange={(e) => setCodiceFiscale(e.target.value.toUpperCase())} maxLength={16} className="mt-1 h-11 uppercase" />
         </div>
         {errore && (
           <p className="flex items-start gap-2 rounded-lg bg-critical/10 p-2.5 text-sm text-critical">
