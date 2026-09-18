@@ -5069,3 +5069,14 @@ rotta invece di una sezione vuota nascosta come tutte le altre. Ora compare solo
 anche i margini delle intestazioni delle sotto-sezioni (Contratto, Moduli ricevuti, Subentro,
 Dismissione, Invia una pratica al cliente), prima chi `mb-1` chi `mb-2` senza un motivo, ora
 tutte `mb-1.5`. Build/lint puliti (0 errori).
+
+✅ **Fix: il contenuto toccava subito il bordo dell'intestazione fissa** (2026-09-18,
+richiesta esplicita a seguito di uno screenshot reale del Ticket #176 "Anna Gaggiolo": "dove
+vedi completato è attaccato alla riga, da mettere"). L'intestazione del dettaglio Ticket/
+Segnalazione è fissa in alto (sticky) con un bordo in fondo, ma il contenuto subito sotto
+(lo stato del Ticket — "Completato — 4° di 4 passi" nel caso dello screenshot) non aveva
+nessuno spazio prima di iniziare: toccava il bordo invece di staccarsene come il resto del
+pannello. Aggiunto `pt-4` (pareggia il `pb-3` dell'intestazione) sia in `tickets-board.tsx`
+sia in `segnalazioni-board.tsx`, che avevano lo stesso identico problema; verificato che
+`calendario-board.tsx` (unico altro punto con la stessa intestazione fissa) aveva già lo
+spazio corretto. Build/lint puliti (0 errori).

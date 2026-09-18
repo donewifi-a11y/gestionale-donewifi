@@ -981,7 +981,13 @@ function DettaglioSegnalazione({
         </DialogContent>
       </Dialog>
 
-      <div className="flex min-w-0 flex-col gap-4 text-sm">
+      {/* ★ FIX (2026-09-18, stesso bug corretto in tickets-board.tsx dopo
+      uno screenshot: "dove vedi completato è attaccato alla riga") —
+      l'intestazione sopra è sticky con un bordo in fondo, ma il contenuto
+      qui sotto non aveva alcuno spazio proprio all'inizio: il tracciato
+      di stato toccava subito il bordo. `pt-4` pareggia il `pb-3`
+      dell'intestazione. */}
+      <div className="flex min-w-0 flex-col gap-4 pt-4 text-sm">
         <div>
           <div className="flex items-center gap-1">
             {COLONNE.map((c, i) => (

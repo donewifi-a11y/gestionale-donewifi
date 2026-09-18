@@ -1396,7 +1396,14 @@ function DettaglioTicket({
           {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
         </DialogDescription>
       </DialogHeader>
-      <div className="flex min-w-0 flex-col gap-5 text-sm">
+      {/* ★ FIX (2026-09-18, richiesta esplicita dopo uno screenshot:
+      "dove vedi completato è attaccato alla riga") — l'intestazione sopra
+      è sticky con un bordo in fondo (`border-b`), ma questo contenuto non
+      aveva alcuno spazio proprio all'inizio: il primo elemento (qui lo
+      stato del Ticket, es. "Completato — 4° di 4 passi") toccava subito
+      il bordo invece di staccarsene come ogni altro spazio del pannello.
+      `pt-4` pareggia il `pb-3` dell'intestazione qui sopra. */}
+      <div className="flex min-w-0 flex-col gap-5 pt-4 text-sm">
         {/* ★ RIMOSSE (2026-09-10, "la a" — proposta A dell'artifact "Il
         Ticket, Senza Tab", risposta a "troppi stati/tab da tenere a
         mente") — Dettagli/Documenti/Note erano 3 viste che nascondevano
