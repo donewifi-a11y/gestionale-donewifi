@@ -5101,3 +5101,61 @@ quella sezione (stato, appuntamento pianificato, assegnato/reparto, contatti, pi
 appuntamento, altri dettagli) alzato a `gap-6`, stesso principio già applicato allo spazio
 sotto l'intestazione. Stesso trattamento anche in `segnalazioni-board.tsx` per coerenza tra i
 due pannelli. Build/lint puliti (0 errori).
+
+✅ **Correzioni dal report di audit del modulo Ticket** (2026-09-18, "inizia con le
+correzioni" — a seguito del report generato con un audit UI/UX/funzionale/debito tecnico
+dedicato). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critico**
+- `assegnaTicket()`/`assegnaTicketTecnicoEsterno()` (`tickets/actions.ts`) erano le uniche
+  scritture Ticket rimaste sul client RLS standard invece che sulla service role — stesso
+  identico bug reale e ripetuto già risolto per `cambiaRepartoTicket()`/`aggiornaStatoTicket()`
+  (un operatore che assegna un Ticket di un reparto diverso dal proprio veniva bloccato da
+  `is_active_staff()`). Passate a service role, con la stessa traduzione dell'errore RLS
+  (`messaggioErroreRls`) già in uso altrove nel file.
+
+**Problemi Funzionali**
+- `completaTicketConRapportino()`: `Number(importoFatturato)` non validato per `NaN` — ora
+  controllato PRIMA di scrivere il rapportino (non dopo, per non lasciare un rapportino orfano
+  se l'importo non è valido).
+- `eliminaTicket()`: gli scollegamenti di `note_calendario`/`richieste_clienti` prima della
+  cancellazione ora controllano l'errore invece di fallire silenziosamente e propagare un
+  errore Postgres grezzo sulla `.delete()` successiva.
+- `fissaDataDismissioneDisdetta()`: ora valida che la data sia un formato valido e non nel
+  passato (fuso Italia, `dataItaliaStringa()`), non solo che il campo non sia vuoto.
+- `creaTicket()`: il nome cliente è ora validato (obbligatorio, `.trim()`) anche lato server,
+  non solo nel form — prima chi richiamasse la Server Action da un punto diverso poteva creare
+  un Ticket con cliente vuoto.
+- Ricerca cliente in "Nuovo Ticket" (`nuovo/page.tsx`): due ricerche potevano restare in corso
+  insieme (utente che digita "Ma" poi rapidamente "Mario") — con rete instabile la risposta più
+  lenta poteva sovrascrivere suggerimenti più recenti e corretti. Un contatore di generazione
+  scarta ogni risposta ormai superata.
+- `numeroDocumenti` (dettaglio Ticket) contava anche le pratiche di Subentro, ma la sezione
+  "Moduli ricevuti dal cliente" le esclude apposta (hanno una sezione propria): un Ticket con
+  solo Subentro avviato mostrava "Documenti (1)" seguito da nessun contenuto.
+
+**Difetti UI/UX**
+- "Prendi in carico", "Riassegna" e "Avanza stato" sulla card Kanban ora hanno un loading state
+  per Ticket (spinner + disabilitazione), evitando che un doppio click invii due richieste in
+  sequenza — prima erano le uniche azioni del modulo senza alcun feedback di caricamento.
+- "Elimina vista" (tastiera): aggiunto il tasto Space accanto a Enter, convenzione standard per
+  un elemento `role="button"`.
+- "Invia email di approvazione": l'esito non viene più mostrato due volte con due meccanismi
+  diversi (testo permanente + toast, stesso messaggio) — resta solo il toast, come ogni altra
+  azione dello stesso pannello.
+
+**Debito Tecnico**
+- I due `onSalvato` di `SchedaInstallazioneForm`/`SchedaLavorazioneForm` (codice duplicato
+  identico) estratti in un'unica funzione condivisa.
+- `DettagliExtra`: aggiunta la stessa guardia di tipo (`typeof valore === "string" ||
+  "number"`) già applicata altrove dopo un crash reale documentato sullo stesso genere di dato
+  (`dettagli_extra`/`dettagli` sono jsonb liberi, mai validati a runtime).
+- Corretta la posizione di un commento in `tickets/page.tsx` che descriveva la paginazione di
+  `fetchTuttiTicketNonAnnullati()` ma era attaccato a `maxDuration`, fuorviante alla lettura.
+
+Non ancora affrontati in questo giro (rimandati, richiedono modifiche più ampie/rischiose):
+selezione bulk e azioni rapide sulla card invisibili su touch (hover-only), `prompt()`/
+`confirm()` nativi del browser per nominare/eliminare una vista (stonano con i Dialog
+personalizzati usati altrove), validazione di formato per Telefono/Email nel form Nuovo
+Ticket, split dei due componenti monolitici `DettaglioTicket` (~1100 righe) e `TicketsBoard`
+(~775 righe). Build/lint puliti (0 errori) dopo ogni correzione.

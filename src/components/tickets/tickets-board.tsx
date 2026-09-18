@@ -293,6 +293,14 @@ export function TicketsBoard({
   // aver registrato cosa è stato fatto.
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
   const [inCorsoBulk, startBulk] = useTransition();
+  // ★ FIX (2026-09-18, audit modulo Ticket) — "Prendi in carico", "Avanza
+  // stato" e "Riassegna" sulla card non avevano alcun loading state, a
+  // differenza delle stesse azioni nel dettaglio: un doppio click (facile
+  // su un pulsante piccolo, hover-only) poteva inviare due richieste in
+  // sequenza prima che la UI si aggiornasse. Un Set di id Ticket "in corso"
+  // invece di un booleano unico, così un'azione su una card non disabilita
+  // anche i pulsanti di tutte le altre.
+  const [ticketInCorso, setTicketInCorso] = useState<Set<string>>(new Set());
 
   // ★ apre direttamente un ticket via ?aperto=<id> — usato dalla ricerca
   // globale e dal link "vai al ticket" dopo aver trasmesso una Segnalazione.
@@ -374,8 +382,18 @@ export function TicketsBoard({
     return id ? persone.find((p) => p.id === id) ?? null : null;
   }
 
+  function segnaInCorso(id: string, valore: boolean) {
+    setTicketInCorso((cur) => {
+      const nuovo = new Set(cur);
+      if (valore) nuovo.add(id);
+      else nuovo.delete(id);
+      return nuovo;
+    });
+  }
+
   async function avanzaStato(t: Ticket, e: React.MouseEvent) {
     e.stopPropagation();
+    if (ticketInCorso.has(t.id)) return;
     const idx = SEQUENZA_STATO.indexOf(t.stato);
     const prossimo = SEQUENZA_STATO[idx + 1];
     if (!prossimo) return;
@@ -385,7 +403,9 @@ export function TicketsBoard({
       setAperto(t);
       return;
     }
+    segnaInCorso(t.id, true);
     const risultato = await aggiornaStatoTicket(t.id, prossimo, t.stato);
+    segnaInCorso(t.id, false);
     if (risultato.errore) {
       toast(risultato.errore);
       return;
@@ -396,7 +416,10 @@ export function TicketsBoard({
 
   async function prendiInCarico(t: Ticket, e: React.MouseEvent) {
     e.stopPropagation();
+    if (ticketInCorso.has(t.id)) return;
+    segnaInCorso(t.id, true);
     const risultato = await assegnaTicket(t.id, currentPersonaId);
+    segnaInCorso(t.id, false);
     if (risultato.errore) {
       toast(risultato.errore);
       return;
@@ -434,7 +457,10 @@ export function TicketsBoard({
   // preso da un tecnico a un altro — senza aprire nulla.
   async function riassegnaInline(t: Ticket, personaId: string, e: React.ChangeEvent<HTMLSelectElement> | React.MouseEvent) {
     e.stopPropagation();
+    if (ticketInCorso.has(t.id)) return;
+    segnaInCorso(t.id, true);
     const risultato = await assegnaTicket(t.id, personaId || null);
+    segnaInCorso(t.id, false);
     if (risultato.errore) {
       toast(risultato.errore);
       return;
@@ -477,7 +503,16 @@ export function TicketsBoard({
               role="button"
               tabIndex={0}
               onClick={(e) => eliminaVista(v, e)}
-              onKeyDown={(e) => e.key === "Enter" && eliminaVista(v, e as unknown as React.MouseEvent)}
+              onKeyDown={(e) => {
+                // ★ FIX (2026-09-18, audit modulo Ticket) — mancava Space,
+                // il tasto standard per attivare un elemento con
+                // role="button" da tastiera (Enter da solo non basta per
+                // seguire la convenzione nativa di un vero <button>).
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  eliminaVista(v, e as unknown as React.MouseEvent);
+                }
+              }}
               aria-label={`Elimina vista "${v.nome}"`}
               title="Elimina vista"
               className="opacity-40 transition hover:opacity-100"
@@ -850,11 +885,16 @@ export function TicketsBoard({
                               {!assegnatario && (
                                 <button
                                   onClick={(e) => prendiInCarico(t, e)}
+                                  disabled={ticketInCorso.has(t.id)}
                                   title="Prendi in carico"
                                   aria-label="Prendi in carico"
-                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-60"
                                 >
-                                  <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                                  {ticketInCorso.has(t.id) ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />
+                                  ) : (
+                                    <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                                  )}
                                 </button>
                               )}
                               {/* ★ NUOVA — riassegna un Ticket già preso senza
@@ -873,8 +913,9 @@ export function TicketsBoard({
                                     value={t.tecnico_assegnato ?? ""}
                                     onChange={(e) => riassegnaInline(t, e.target.value, e)}
                                     onClick={(e) => e.stopPropagation()}
+                                    disabled={ticketInCorso.has(t.id)}
                                     aria-label="Riassegna tecnico"
-                                    className="max-w-14 truncate border-none bg-transparent text-[10px] font-semibold outline-none"
+                                    className="max-w-14 truncate border-none bg-transparent text-[10px] font-semibold outline-none disabled:opacity-60"
                                   >
                                     <option value="">Nessuno</option>
                                     {persone.map((p) => (
@@ -886,11 +927,16 @@ export function TicketsBoard({
                               {puoAvanzare && (
                                 <button
                                   onClick={(e) => avanzaStato(t, e)}
+                                  disabled={ticketInCorso.has(t.id)}
                                   title="Avanza allo stato successivo"
                                   aria-label="Avanza allo stato successivo"
-                                  className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
                                 >
-                                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                  {ticketInCorso.has(t.id) ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />
+                                  ) : (
+                                    <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                  )}
                                 </button>
                               )}
                             </div>
@@ -951,39 +997,40 @@ export function TicketsBoard({
       "Completato" renderebbe il pannello aperto subito disallineato. */}
       <Dialog open={!!schedaAperta} onOpenChange={(v) => !v && setSchedaAperta(null)}>
         <DialogContent className="sm:max-w-xl">
-          {schedaAperta && (
-            schedaAperta.tipo_servizio === "Nuova installazione" ? (
-              <SchedaInstallazioneForm
-                appuntamentoId={schedaAperta.id}
-                catalogoMateriali={catalogoMateriali}
-                onAnnulla={() => setSchedaAperta(null)}
-                onSalvato={() => {
-                  // ★ FIX (2026-09-16, bug reale segnalato: "quando si
-                  // chiudono i ticket non escono popup di conferma") —
-                  // il salvataggio riusciva e il popup si chiudeva, ma
-                  // nessun toast confermava che il Ticket fosse stato
-                  // davvero completato — stesso standard di successo già
-                  // in uso ovunque altro nel gestionale, mancante qui.
-                  toast(aperto ? `Ticket #${aperto.numero} completato.` : "Ticket completato.", "successo");
-                  setSchedaAperta(null);
-                  setAperto(null);
-                  router.refresh();
-                }}
-              />
-            ) : (
-              <SchedaLavorazioneForm
-                appuntamentoId={schedaAperta.id}
-                catalogoMateriali={catalogoMateriali}
-                onAnnulla={() => setSchedaAperta(null)}
-                onSalvato={() => {
-                  toast(aperto ? `Ticket #${aperto.numero} completato.` : "Ticket completato.", "successo");
-                  setSchedaAperta(null);
-                  setAperto(null);
-                  router.refresh();
-                }}
-              />
-            )
-          )}
+          {schedaAperta &&
+            // ★ FIX (2026-09-18, audit modulo Ticket, debito tecnico) — i
+            // due `onSalvato` erano codice duplicato quasi identico (stesso
+            // toast, stesso reset di stato, stesso refresh): estratto qui
+            // una volta sola invece di mantenerne due copie allineate a mano.
+            (() => {
+              const chiudiSchedaSalvata = () => {
+                // ★ FIX (2026-09-16, bug reale segnalato: "quando si
+                // chiudono i ticket non escono popup di conferma") — il
+                // salvataggio riusciva e il popup si chiudeva, ma nessun
+                // toast confermava che il Ticket fosse stato davvero
+                // completato — stesso standard di successo già in uso
+                // ovunque altro nel gestionale, mancante qui.
+                toast(aperto ? `Ticket #${aperto.numero} completato.` : "Ticket completato.", "successo");
+                setSchedaAperta(null);
+                setAperto(null);
+                router.refresh();
+              };
+              return schedaAperta.tipo_servizio === "Nuova installazione" ? (
+                <SchedaInstallazioneForm
+                  appuntamentoId={schedaAperta.id}
+                  catalogoMateriali={catalogoMateriali}
+                  onAnnulla={() => setSchedaAperta(null)}
+                  onSalvato={chiudiSchedaSalvata}
+                />
+              ) : (
+                <SchedaLavorazioneForm
+                  appuntamentoId={schedaAperta.id}
+                  catalogoMateriali={catalogoMateriali}
+                  onAnnulla={() => setSchedaAperta(null)}
+                  onSalvato={chiudiSchedaSalvata}
+                />
+              );
+            })()}
         </DialogContent>
       </Dialog>
     </div>
@@ -1066,7 +1113,6 @@ function DettaglioTicket({
   const [praticaScelta, setPraticaScelta] = useState<string>(() => PRATICA_PER_SOTTOCATEGORIA[ticket.sottocategoria ?? ""] ?? "");
   const [inCorsoApprovazione, startApprovazione] = useTransition();
   const [inCorsoReparto, startReparto] = useTransition();
-  const [esitoApprovazione, setEsitoApprovazione] = useState("");
   const [mostraRapportinoForm, setMostraRapportinoForm] = useState(false);
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
   const [scheda, setScheda] = useState<SchedaLavoro | null>(null);
@@ -1138,7 +1184,15 @@ function DettaglioTicket({
     getRichiesteClientiPerTicket(ticket.id).then(setRichieste);
   }, [ticket.id, ticket.stato]);
 
-  const numeroDocumenti = (ticket.contratto_pdf_url ? 1 : 0) + richieste.length + (ticket.stato === "Completato" && (scheda || rapportino) ? 1 : 0);
+  // ★ FIX (2026-09-18, audit modulo Ticket) — contava anche le pratiche di
+  // Subentro, ma la sezione "Moduli ricevuti dal cliente" qui sotto le
+  // esclude apposta (hanno una sezione propria, "Subentro"): un Ticket con
+  // solo una pratica Subentro avviata mostrava "Documenti (1)" seguito da
+  // nessun contenuto in "Moduli ricevuti" — l'etichetta sembrava rotta.
+  const numeroDocumenti =
+    (ticket.contratto_pdf_url ? 1 : 0) +
+    richieste.filter((r) => r.tipo_richiesta !== "Subentro").length +
+    (ticket.stato === "Completato" && (scheda || rapportino) ? 1 : 0);
 
   const linkPratica = useMemo(() => {
     if (!praticaScelta || typeof window === "undefined") return "";
@@ -1275,11 +1329,13 @@ function DettaglioTicket({
 
   const messaggioPratica = praticaScelta ? messaggioWhatsappPratica(ticket.cliente, titoloPraticaScelta, linkPratica) : "";
 
+  // ★ FIX (2026-09-18, audit modulo Ticket) — l'esito veniva mostrato due
+  // volte con due meccanismi diversi (testo permanente sotto il pulsante +
+  // toast), stesso messaggio duplicato — nessun'altra azione di questo
+  // pannello lo fa: solo toast, come tutte le altre.
   function inviaApprovazione() {
-    setEsitoApprovazione("");
     startApprovazione(async () => {
       const risultato = await inviaEmailApprovazioneTicket(ticket.id, window.location.origin);
-      setEsitoApprovazione(risultato.errore ? risultato.errore : "Email di approvazione inviata.");
       toast(risultato.errore || "Email di approvazione inviata al cliente.", risultato.errore ? "errore" : "successo");
     });
   }
@@ -2113,7 +2169,6 @@ function DettaglioTicket({
               {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
               {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
             </Button>
-            {esitoApprovazione && <p className="mt-1.5 text-xs text-muted-foreground">{esitoApprovazione}</p>}
           </div>
         )}
         </div>
@@ -2525,6 +2580,14 @@ function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; d
           .filter(([chiave]) => chiave !== "_allegato" && chiave !== "_allegatoNome")
           .map(([chiave, valore]) => {
             const label = config?.campi.find((c) => c.id === chiave)?.label ?? chiave;
+            // ★ FIX (2026-09-18, audit modulo Ticket, debito tecnico) —
+            // `dettagli` è tipizzato `Record<string, string>` solo lato
+            // TypeScript: arriva da `dettagli_extra`, una colonna jsonb
+            // libera, senza validazione a runtime. Stessa identica classe
+            // di crash ("Objects are not valid as a React child") già
+            // trovata e corretta per `richieste.dettagli` del Subentro —
+            // qui mancava la stessa guardia.
+            if (typeof valore !== "string" && typeof valore !== "number") return null;
             return (
               <div key={chiave}>
                 <span className="font-semibold">{label}: </span>

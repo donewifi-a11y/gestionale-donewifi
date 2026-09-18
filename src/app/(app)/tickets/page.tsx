@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { TicketsBoard } from "@/components/tickets/tickets-board";
 import type { MaterialeMagazzino, Ticket } from "@/lib/types";
 
-// ★ FIX — la Kanban Ticket esclude solo "Annullato": la colonna "Lavorata"
-// mostra TUTTI i ticket completati dall'inizio dell'attività, senza limite
-// temporale. Una `.select()` senza `.range()` è limitata a 1000 righe da
-// Supabase/PostgREST — stesso bug già trovato e corretto due volte su
-// questo progetto (clienti_esterni, fatture_esterne). Pagina fin da
-// subito invece di aspettare che il troncamento diventi visibile.
+// ★ FIX (2026-09-18, audit modulo Ticket, debito tecnico) — questo
+// commento descriveva in realtà la paginazione di
+// fetchTuttiTicketNonAnnullati() più sotto, non `maxDuration` a cui era
+// fisicamente attaccato — spostato vicino alla funzione giusta.
+// `maxDuration` alza il limite di tempo della funzione serverless perché
+// quella paginazione (un giro a pagina finché non finiscono i Ticket) può
+// superare i 10s di default con molte righe.
 export const maxDuration = 30;
 
 // ★ NUOVA (2026-09) — richiesta esplicita: "andrebbe ripulito ogni tot
@@ -24,6 +25,13 @@ export const maxDuration = 30;
 // dalla vista quotidiana, non si cancella nulla.
 const GIORNI_CONSERVAZIONE_LAVORATA = 14;
 
+// ★ FIX — la Kanban Ticket esclude solo "Annullato": la colonna "Lavorata"
+// mostrerebbe TUTTI i ticket completati dall'inizio dell'attività, senza
+// limite temporale, se non fosse per GIORNI_CONSERVAZIONE_LAVORATA qui
+// sopra. Una `.select()` senza `.range()` è comunque limitata a 1000 righe
+// da Supabase/PostgREST — stesso bug già trovato e corretto due volte su
+// questo progetto (clienti_esterni, fatture_esterne) — pagina fin da
+// subito invece di aspettare che il troncamento diventi visibile.
 async function fetchTuttiTicketNonAnnullati(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Ticket[]> {
   const PAGINA = 1000;
   const cutoff = new Date(Date.now() - GIORNI_CONSERVAZIONE_LAVORATA * 24 * 60 * 60 * 1000).toISOString();

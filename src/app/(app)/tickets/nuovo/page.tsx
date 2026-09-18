@@ -55,6 +55,14 @@ export default function NuovoTicketPage() {
   const sottocategoria = operazione.sottocategoria;
   const [suggerimentiCliente, setSuggerimentiCliente] = useState<ClienteEsistente[]>([]);
   const timeoutClienteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ★ FIX (2026-09-18, audit modulo Ticket) — due ricerche potevano restare
+  // in corso insieme (es. l'utente digita "Ma", si ferma abbastanza da far
+  // scattare la ricerca, poi digita "Mario" prima che la risposta arrivi):
+  // con rete instabile la risposta più lenta ("Ma") poteva arrivare DOPO
+  // quella più recente ("Mario") e sovrascrivere suggerimenti corretti con
+  // altri ormai superati. Un contatore di "generazione" scarta ogni
+  // risposta che non sia più quella dell'ultima ricerca avviata.
+  const generazioneRicercaRef = useRef(0);
   // ★ opzioni reali del catalogo Tariffe per "Nuovo profilo desiderato"
   // (Upgrade/Downgrade) — caricate solo se serve, non ad ogni apertura del
   // form. Se il caricamento fallisce o il catalogo è vuoto, il campo tiene
@@ -73,11 +81,17 @@ export default function NuovoTicketPage() {
     setCliente(v);
     if (timeoutClienteRef.current) clearTimeout(timeoutClienteRef.current);
     if (v.trim().length < 2) {
+      generazioneRicercaRef.current++;
       setSuggerimentiCliente([]);
       return;
     }
+    const generazione = ++generazioneRicercaRef.current;
     timeoutClienteRef.current = setTimeout(async () => {
-      setSuggerimentiCliente(await cercaClientiEsistenti(v));
+      const risultati = await cercaClientiEsistenti(v);
+      // ★ una ricerca più recente è già partita nel frattempo: questa
+      // risposta è superata, non deve sovrascrivere quella giusta.
+      if (generazione !== generazioneRicercaRef.current) return;
+      setSuggerimentiCliente(risultati);
     }, 300);
   }
 

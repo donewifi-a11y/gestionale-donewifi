@@ -10,6 +10,7 @@ import { RICHIESTE_CLIENTE_CONFIG, type SlugRichiestaCliente } from "@/lib/richi
 import { messaggioErroreRls } from "@/lib/errori-rls";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
+import { dataItaliaStringa } from "@/lib/data-italia";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -50,8 +51,15 @@ export async function eliminaTicket(id: string) {
   if (erroreLettura || !ticket) return { errore: erroreLettura?.message || "Ticket non trovato." };
 
   const service = createServiceClient();
-  await service.from("note_calendario").update({ ticket_id: null }).eq("ticket_id", id);
-  await service.from("richieste_clienti").update({ ticket_id: null }).eq("ticket_id", id);
+  // ★ FIX (2026-09-18, audit modulo Ticket) — questi due scollegamenti non
+  // controllavano `error`: se uno dei due falliva silenziosamente, la
+  // `.delete()` sotto falliva a sua volta per vincolo di chiave esterna,
+  // con un messaggio Postgres grezzo che non spiega la vera causa (nota o
+  // pratica ancora collegata) invece di un errore chiaro subito qui.
+  const { error: erroreScollegaNote } = await service.from("note_calendario").update({ ticket_id: null }).eq("ticket_id", id);
+  if (erroreScollegaNote) return { errore: erroreScollegaNote.message };
+  const { error: erroreScollegaRichieste } = await service.from("richieste_clienti").update({ ticket_id: null }).eq("ticket_id", id);
+  if (erroreScollegaRichieste) return { errore: erroreScollegaRichieste.message };
 
   // ★ se il Ticket veniva da una Segnalazione "Trasmessa", la si riporta a
   // "Gestione Cliente" invece di lasciarla bloccata su uno stato finale
@@ -114,6 +122,12 @@ export async function creaTicket(
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   const personaId = persona.id;
+  // ★ FIX (2026-09-18, audit modulo Ticket) — "obbligatorio" per il nome
+  // cliente esisteva solo nel form (nuovo/page.tsx): questa Server Action,
+  // se richiamata da un punto diverso che dimenticasse lo stesso controllo,
+  // creava comunque un Ticket con `cliente` vuoto o fatto di soli spazi.
+  const cliente = dati.cliente.trim();
+  if (!cliente) return { errore: "Il nome del cliente è obbligatorio." };
 
   // ★ i campi extra per sottocategoria (ex CONFIG_CATEGORIE) possono
   // includere un allegato (foto apparati, allegato contabile) — già
@@ -145,7 +159,7 @@ export async function creaTicket(
   const { data, error } = await service
     .from("tickets")
     .insert({
-      cliente: dati.cliente,
+      cliente,
       telefono: dati.telefono || null,
       email: dati.email || null,
       indirizzo: dati.indirizzo || null,
@@ -259,6 +273,17 @@ export async function fissaDataDismissioneDisdetta(ticketId: string, dataDismiss
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   if (!dataDismissione) return { errore: "Indica la data di dismissione." };
+  // ★ FIX (2026-09-18, audit modulo Ticket) — validava solo che il campo
+  // non fosse vuoto, non che fosse una data valida o non già passata: si
+  // poteva fissare una dismissione a ieri (o a un valore manomesso non in
+  // formato data) e il Ticket passava comunque ad Analisi Rete con quella
+  // data storicamente scorretta, senza alcun avviso.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataDismissione) || Number.isNaN(new Date(dataDismissione).getTime())) {
+    return { errore: "Data di dismissione non valida." };
+  }
+  if (dataDismissione < dataItaliaStringa()) {
+    return { errore: "La data di dismissione non può essere nel passato." };
+  }
 
   const service = createServiceClient();
   const { data: ticket } = await service
@@ -345,21 +370,33 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
 // creaTicket...), qui mancava sia il controllo di chi sta chiamando sia la
 // voce di storico: un cambio di assegnazione tecnico non lasciava traccia
 // di chi l'avesse fatto e quando, a differenza di ogni altra modifica sul
-// Ticket — un vero buco nell'audit trail più che un bypass di sicurezza
-// (la RLS della tabella tickets resta comunque attiva su questa scrittura,
-// a differenza delle funzioni che passano da service role).
+// Ticket — un vero buco nell'audit trail più che un bypass di sicurezza.
+//
+// ★ FIX (2026-09-18, audit modulo Ticket, Bug Critico confermato) — restava
+// comunque l'unica scrittura Ticket di questo file a passare ancora dal
+// client RLS standard invece che dalla service role: stesso identico
+// scenario già risolto per cambiaRepartoTicket()/aggiornaStatoTicket() (un
+// operatore che assegna/riassegna un Ticket di un reparto diverso dal
+// proprio viene bloccato da is_active_staff(), bug reale e ripetuto in
+// produzione) — qui in più senza nemmeno la traduzione dell'errore RLS in
+// un messaggio comprensibile (messaggioErroreRls(), già in uso altrove in
+// questo file).
 export async function assegnaTicket(id: string, personaId: string | null) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
+  const service = createServiceClient();
   // ★ `tecnico_assegnato` (interno) e `tecnico_esterno_id` (pose.donewifi.it,
   // migrazione 0061) sono alternativi: assegnare a uno staff interno azzera
   // sempre un eventuale tecnico esterno già assegnato, mai entrambi insieme.
-  const { error } = await supabase.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }).eq("id", id);
-  if (error) return { errore: error.message };
+  const { error } = await service.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }).eq("id", id);
+  if (error) {
+    const messaggioRls = await messaggioErroreRls(supabase, "assegnare il Ticket", error.message, persona);
+    return { errore: messaggioRls ?? error.message };
+  }
 
-  await supabase.from("storico").insert({
+  await service.from("storico").insert({
     origine: "ticket",
     riferimento_id: id,
     operazione: "Assegnazione Tecnico",
@@ -375,16 +412,22 @@ export async function assegnaTicket(id: string, personaId: string | null) {
  * esterno (sistema pose.donewifi.it) — vedi il commento lì sopra.
  *
  * ★ FIX (2026-09-17, code review approfondita) — stesso identico buco di
- * audit trail di assegnaTicket() qui sopra, corretto allo stesso modo. */
+ * audit trail di assegnaTicket() qui sopra, corretto allo stesso modo.
+ * ★ FIX (2026-09-18, audit modulo Ticket) — stesso identico passaggio a
+ * service role + traduzione errore RLS di assegnaTicket() qui sopra. */
 export async function assegnaTicketTecnicoEsterno(id: string, tecnicoEsternoId: string | null) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
-  const { error } = await supabase.from("tickets").update({ tecnico_esterno_id: tecnicoEsternoId, tecnico_assegnato: null }).eq("id", id);
-  if (error) return { errore: error.message };
+  const service = createServiceClient();
+  const { error } = await service.from("tickets").update({ tecnico_esterno_id: tecnicoEsternoId, tecnico_assegnato: null }).eq("id", id);
+  if (error) {
+    const messaggioRls = await messaggioErroreRls(supabase, "assegnare il Ticket", error.message, persona);
+    return { errore: messaggioRls ?? error.message };
+  }
 
-  await supabase.from("storico").insert({
+  await service.from("storico").insert({
     origine: "ticket",
     riferimento_id: id,
     operazione: "Assegnazione Tecnico Esterno",
@@ -544,6 +587,16 @@ export async function completaTicketConRapportino(
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   const personaId = persona.id;
   if (!dati.esito.trim()) return { errore: "L'esito dell'intervento è obbligatorio." };
+  // ★ FIX (2026-09-18, audit modulo Ticket) — validato PRIMA di scrivere il
+  // rapportino (non dopo): `Number()` di un valore non numerico (es.
+  // incollato da un altro campo, o un browser mobile che lascia comunque
+  // digitare lettere in un input "number") dava `NaN` — controllarlo solo
+  // dopo l'insert del rapportino avrebbe lasciato un rapportino orfano
+  // senza che il Ticket passasse comunque a Completato.
+  const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
+  if (importo !== null && !Number.isFinite(importo)) {
+    return { errore: "L'importo fatturato non è un numero valido." };
+  }
   // ★ SEMPLIFICATA (2026-08-27, richiesta esplicita — revisione Ticket via
   // artifact: "deve solo inviare il rapportino al cliente") — prima qui si
   // bloccava la chiusura senza una conferma del cliente (OTP verificato, o
@@ -568,8 +621,6 @@ export async function completaTicketConRapportino(
     creato_da: personaId,
   });
   if (erroreRapportino) return { errore: erroreRapportino.message };
-
-  const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;
   // ★ FIX (2026-09-10, stessa causa/stesso fix di creaTicket() più sopra —
   // vedi quel commento per il dettaglio completo: il blocco su un reparto
   // diverso dal proprio è risultato stabile con l'uso reale, non un
