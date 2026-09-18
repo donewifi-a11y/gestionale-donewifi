@@ -5159,3 +5159,52 @@ selezione bulk e azioni rapide sulla card invisibili su touch (hover-only), `pro
 personalizzati usati altrove), validazione di formato per Telefono/Email nel form Nuovo
 Ticket, split dei due componenti monolitici `DettaglioTicket` (~1100 righe) e `TicketsBoard`
 (~775 righe). Build/lint puliti (0 errori) dopo ogni correzione.
+
+✅ **Correzioni dal report di audit del modulo Segnalazioni** (2026-09-18, secondo modulo dopo
+Ticket). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `caricaContrattoSegnalazione()`: riceveva ancora il `File` vero dentro un `FormData` passato
+  a una Server Action — stesso identico limite di ~1MB già trovato e corretto 4+ volte altrove
+  nel gestionale, qui esplicitamente anticipato in un commento di
+  `api/richieste-clienti/upload-contratto-url/route.ts` ma mai risolto. Nuova rotta
+  `api/segnalazioni/upload-contratto-url` (signed upload URL), il file si carica ora dal
+  browser direttamente allo storage; verificato il meccanismo contro il bucket reale di
+  produzione.
+- `cambiaStatoSegnalazione()`: nessun controllo impediva di passare `statoNuovo = "Trasmessa"`
+  da qui — a differenza di ogni altra transizione, "Trasmessa" deve creare il Ticket collegato
+  (unica fonte di verità: `trasmettiPerInstallazione()`/`eseguiTrasmissione()`). Passandola da
+  qui si otteneva una Segnalazione "Trasmessa" orfana, senza Ticket, con "Torna a"
+  esplicitamente escluso per questo stato — irrecuperabile se non da eliminazione admin.
+  L'interfaccia non lo fa mai oggi, ma nulla lo impediva lato server per un chiamante diverso.
+  Ora rifiutato esplicitamente con un messaggio che indica la via corretta.
+
+**Problemi Funzionali**
+- `fetchTutteSegnalazioni`/`fetchTutteRichieste`/`fetchTicketPerSegnalazione` non controllavano
+  mai `error`: una query fallita caricava la bacheca silenziosamente vuota o parziale, ora
+  l'errore resta almeno nei log server.
+- `creaSegnalazione()`/`aggiornaDatiSegnalazione()`: l'email era controllata solo per "non
+  vuota", mai per formato — ora entrambe usano `validaEmail()` (già esistente, prima solo
+  lato client in creazione, assente del tutto in modifica).
+- `eliminaSegnalazione()`: i file nel bucket storage (contratto PDF, documenti allegati dal
+  cliente) restavano orfani a tempo indeterminato dopo l'eliminazione — ora rimossi insieme
+  alle righe DB.
+- `api/richiesta-dati/route.ts`: nessun controllo di idempotenza — un doppio submit ravvicinato
+  (doppio click, due tab aperte) poteva inserire due righe distinte in `richieste_clienti` con
+  update concorrenti su `segnalazioni`. Ora un secondo invio, se `dati_ricevuti_at` è già
+  valorizzato, viene rifiutato con un messaggio chiaro (mitiga il caso comune — due richieste
+  davvero simultanee restano una race non chiudibile senza un vincolo a livello di database).
+
+**Difetti UI/UX**
+- Card Segnalazione: aggiunto il tasto Space da tastiera (mancava, solo Enter), stesso fix già
+  applicato alla card Ticket.
+- Toggle "Privato/Azienda" (creazione e modifica): aggiunto `aria-pressed`, prima i due
+  pulsanti erano indistinguibili per uno screen reader in termini di stato selezionato.
+
+Non ancora affrontati in questo giro (rimandati): tooltip hover-only per tipologia/telefono
+invisibili su touch, `window.confirm()` nativo per Trasmetti/Elimina (stona con Drawer/Dialog
+usati altrove), validazione formato per telefono/CAP, controllo duplicati mancante in
+modifica dati, race condition non atomica sul controllo duplicati in creazione (richiederebbe
+un vincolo a livello DB), split del componente monolitico `DettaglioSegnalazione` (~1000
+righe) e deduplicazione dei form creazione/modifica quasi identici. Build/lint puliti (0
+errori) dopo ogni correzione.

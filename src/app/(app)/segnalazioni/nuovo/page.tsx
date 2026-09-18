@@ -108,9 +108,14 @@ export default function NuovaSegnalazionePage() {
           <Label>Tipologia Cliente</Label>
           <p className="mb-1.5 text-xs text-muted-foreground">Prima stima — il cliente la riconferma lui stesso più avanti nella Richiesta Dati.</p>
           <div className="grid grid-cols-2 gap-2">
+            {/* ★ FIX (2026-09-18, audit modulo Segnalazioni) — due <button>
+            distinti solo da colore/bordo, senza aria-pressed: per uno
+            screen reader erano indistinguibili in termini di stato
+            selezionato. */}
             <button
               type="button"
               onClick={() => setTipologiaCliente("Privato")}
+              aria-pressed={tipologiaCliente === "Privato"}
               className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
               👤 Privato
@@ -118,6 +123,7 @@ export default function NuovaSegnalazionePage() {
             <button
               type="button"
               onClick={() => setTipologiaCliente("Azienda")}
+              aria-pressed={tipologiaCliente === "Azienda"}
               className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
               🏢 Azienda

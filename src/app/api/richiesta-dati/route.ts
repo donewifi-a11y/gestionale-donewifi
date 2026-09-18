@@ -55,11 +55,24 @@ export async function POST(request: NextRequest) {
 
   const { data: segnalazione, error: erroreLettura } = await supabase
     .from("segnalazioni")
-    .select("id, nome, numero")
+    .select("id, nome, numero, dati_ricevuti_at")
     .eq("id", segnalazioneId)
     .single();
   if (erroreLettura || !segnalazione) {
     return NextResponse.json({ errore: "Segnalazione non trovata." }, { status: 404 });
+  }
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni) — nessun controllo di
+  // idempotenza: un doppio submit ravvicinato (doppio click prima che la UI
+  // disabiliti il bottone, o due tab aperte sullo stesso link) superava
+  // entrambi la validazione e inseriva due righe distinte in
+  // richieste_clienti, con due update concorrenti su segnalazioni il cui
+  // esito dipendeva dall'ordine di arrivo — documenti caricati due volte,
+  // una delle due submission salvata ma mai più utilizzata da nessuna UI
+  // (che legge solo la prima trovata). Una volta che `dati_ricevuti_at` è
+  // già valorizzato, i dati sono già arrivati: un secondo invio va
+  // rifiutato con un messaggio chiaro invece di creare un doppione.
+  if (segnalazione.dati_ricevuti_at) {
+    return NextResponse.json({ errore: "I dati per questa richiesta sono già stati inviati in precedenza." }, { status: 409 });
   }
 
   const tipologiaCliente = String(dati.tipologiaCliente || "");

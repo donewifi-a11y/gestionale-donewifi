@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   UserRound,
@@ -399,7 +398,18 @@ export function SegnalazioniBoard({
                     role="button"
                     tabIndex={0}
                     onClick={() => setAperta(s)}
-                    onKeyDown={(e) => e.key === "Enter" && setAperta(s)}
+                    onKeyDown={(e) => {
+                      // ★ FIX (2026-09-18, audit modulo Segnalazioni) —
+                      // mancava Space, il tasto standard per attivare un
+                      // elemento con role="button" da tastiera (Enter da
+                      // solo non basta per seguire la convenzione nativa
+                      // di un vero <button>) — stesso fix già applicato
+                      // alla card Ticket.
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setAperta(s);
+                      }
+                    }}
                     className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
@@ -507,8 +517,7 @@ export function SegnalazioniBoard({
 // con un file da inviare — le altre azioni (cambio stato, trasmetti…) non
 // hanno campi propri e restano bottoni con Server Action invocata dentro
 // una transizione, vedi useTransition() più sotto.
-function EtichettaCaricamentoContratto({ giaCaricato }: { giaCaricato: boolean }) {
-  const { pending } = useFormStatus();
+function EtichettaCaricamentoContratto({ giaCaricato, pending }: { giaCaricato: boolean; pending: boolean }) {
   if (giaCaricato) {
     return (
       <span className="cursor-pointer text-xs font-semibold text-primary underline-offset-2 hover:underline">
@@ -557,6 +566,7 @@ function DettaglioSegnalazione({
   const [inCorsoApprovazione, startApprovazione] = useTransition();
   const [inCorsoEmail, startEmail] = useTransition();
   const [inCorsoDubbioso, startDubbioso] = useTransition();
+  const [inCorsoContratto, startContratto] = useTransition();
   // ★ NUOVA (2026-08) — "parcheggio" per un cliente indeciso, Opzione C
   // della proposta con artifact: un mini-form (motivo + data di richiamo
   // facoltativa) invece di un semplice interruttore, per capire poi DA
@@ -576,7 +586,6 @@ function DettaglioSegnalazione({
   const [erroreContratto, setErroreContratto] = useState("");
   const [infoCaricamento, setInfoCaricamento] = useState<{ nome: string; data: string } | null>(null);
   const [erroreApprovazione, setErroreApprovazione] = useState("");
-  const formContrattoRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!contrattoUrl) {
@@ -830,32 +839,55 @@ function DettaglioSegnalazione({
     });
   }
 
-  // ★ NUOVA — l'upload del contratto passa ora da un vero <form action={...}>:
-  // il campo file mantiene l'invio automatico alla scelta del file
-  // (onChange → requestSubmit(), stessa UX di prima, senza un secondo click
-  // su un bottone "Invia" separato) ma lo stato "in corso" della label è
-  // letto da useFormStatus() dentro EtichettaCaricamentoContratto — nessun
-  // booleano locale da tenere sincronizzato a mano con l'invio del form.
-  async function inviaFormContratto(formData: FormData) {
-    setErroreContratto("");
-    const risultato = await caricaContrattoSegnalazione(segnalazione.id, formData);
-    if (risultato.errore || !risultato.percorso) {
-      setErroreContratto(risultato.errore || "Errore imprevisto.");
-      toast(risultato.errore || "Errore imprevisto.");
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni, Bug Critico confermato) —
+  // prima un vero <form action={inviaFormContratto}> passava il File intero
+  // dentro il corpo della Server Action, superando facilmente il limite di
+  // ~1MB per un contratto scansionato multi-pagina — stesso identico
+  // problema già anticipato nel commento di
+  // api/richieste-clienti/upload-contratto-url/route.ts ma mai corretto
+  // qui. Ora, stesso schema di caricaContrattoSubentroClick()
+  // (tickets-board.tsx): un signed upload URL, il file vero caricato dal
+  // browser direttamente sullo storage, la Server Action riceve solo il
+  // percorso già scritto. Il form nativo (e lo stato "in corso" letto da
+  // useFormStatus()) non serve più: `inCorsoContratto` lo sostituisce.
+  function caricaContrattoClick(file: File | null) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast("Il contratto deve essere un file PDF.");
       return;
     }
-    setContrattoUrl(risultato.percorso);
-    onCambiata({
-      ...segnalazione,
-      contratto_pdf_url: risultato.percorso,
-      contratto_inviato_approvazione_il: null,
-      contratto_approvato_cliente_il: null,
-    });
-    toast("Contratto caricato.", "successo");
-  }
+    setErroreContratto("");
+    startContratto(async () => {
+      try {
+        const rispostaUrl = await fetch("/api/segnalazioni/upload-contratto-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ segnalazioneId: segnalazione.id, nomeFile: file.name }),
+        });
+        const risultatoUrl = await rispostaUrl.json();
+        if (!rispostaUrl.ok) throw new Error(risultatoUrl.errore || "Errore preparazione upload.");
 
-  function selezionatoFileContratto() {
-    formContrattoRef.current?.requestSubmit();
+        const supabase = createClient();
+        const { error: erroreUpload } = await supabase.storage.from("documenti").uploadToSignedUrl(risultatoUrl.percorso, risultatoUrl.token, file);
+        if (erroreUpload) throw new Error(erroreUpload.message);
+
+        const risultato = await caricaContrattoSegnalazione(segnalazione.id, risultatoUrl.percorso, file.name);
+        if (risultato.errore || !risultato.percorso) throw new Error(risultato.errore || "Errore imprevisto.");
+
+        setContrattoUrl(risultato.percorso);
+        onCambiata({
+          ...segnalazione,
+          contratto_pdf_url: risultato.percorso,
+          contratto_inviato_approvazione_il: null,
+          contratto_approvato_cliente_il: null,
+        });
+        toast("Contratto caricato.", "successo");
+      } catch (err) {
+        const messaggio = err instanceof Error ? err.message : "Errore imprevisto durante il caricamento.";
+        setErroreContratto(messaggio);
+        toast(messaggio);
+      }
+    });
   }
 
   // ★ FIX — i documenti allegati dalla Richiesta Dati (fronte/retro
@@ -1400,38 +1432,44 @@ function DettaglioSegnalazione({
             <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
             Contratto
           </p>
-          {/* ★ form reale: il campo file invia se stesso appena scelto
-           * (selezionatoFileContratto → requestSubmit()), la Server Action
-           * caricaContrattoSegnalazione() viene chiamata da inviaFormContratto()
-           * dentro l'attributo action — EtichettaCaricamentoContratto legge lo
-           * stato "in corso" con useFormStatus() invece di una prop passata a
-           * mano. */}
-          <form ref={formContrattoRef} action={inviaFormContratto}>
-            {contrattoUrl ? (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" className="min-h-11" onClick={vediContratto}>
-                  <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  Vedi contratto
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label className="cursor-pointer">
-                      <input type="file" name="file" accept="application/pdf" onChange={selezionatoFileContratto} className="hidden" />
-                      <EtichettaCaricamentoContratto giaCaricato />
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Sostituendo il contratto, un&apos;eventuale approvazione già data dal cliente viene annullata: andrà richiesta di nuovo.
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            ) : (
-              <label className="cursor-pointer">
-                <input type="file" name="file" accept="application/pdf" onChange={selezionatoFileContratto} className="hidden" />
-                <EtichettaCaricamentoContratto giaCaricato={false} />
-              </label>
-            )}
-          </form>
+          {/* ★ FIX (2026-09-18) — non più un vero <form>: il file va prima
+           * caricato allo storage (vedi caricaContrattoClick sopra), lo
+           * stato "in corso" viene da `inCorsoContratto` (useTransition)
+           * invece di useFormStatus(), che richiedeva un form reale. */}
+          {contrattoUrl ? (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="min-h-11" onClick={vediContratto}>
+                <FileText className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Vedi contratto
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => caricaContrattoClick(e.target.files?.[0] ?? null)}
+                      className="hidden"
+                    />
+                    <EtichettaCaricamentoContratto giaCaricato pending={inCorsoContratto} />
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Sostituendo il contratto, un&apos;eventuale approvazione già data dal cliente viene annullata: andrà richiesta di nuovo.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => caricaContrattoClick(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+              <EtichettaCaricamentoContratto giaCaricato={false} pending={inCorsoContratto} />
+            </label>
+          )}
           {contrattoUrl && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               {infoCaricamento
@@ -1828,9 +1866,12 @@ function FormModificaSegnalazione({
         <div>
           <Label>Tipologia Cliente</Label>
           <div className="mt-1 grid grid-cols-2 gap-2">
+            {/* ★ FIX (2026-09-18, audit modulo Segnalazioni) — stesso fix
+            di aria-pressed applicato al toggle gemello in nuovo/page.tsx. */}
             <button
               type="button"
               onClick={() => setTipologiaCliente("Privato")}
+              aria-pressed={tipologiaCliente === "Privato"}
               className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Privato" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
               👤 Privato
@@ -1838,6 +1879,7 @@ function FormModificaSegnalazione({
             <button
               type="button"
               onClick={() => setTipologiaCliente("Azienda")}
+              aria-pressed={tipologiaCliente === "Azienda"}
               className={`rounded-lg border px-3 py-2 text-sm font-semibold ${tipologiaCliente === "Azienda" ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
               🏢 Azienda

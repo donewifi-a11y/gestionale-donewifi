@@ -13,15 +13,27 @@ import type { RichiestaCliente, Segnalazione } from "@/lib/types";
 // e corretto due volte su questo progetto.
 export const maxDuration = 30;
 
+// ★ FIX (2026-09-18, audit modulo Segnalazioni) — `error` non era mai
+// controllato: se una pagina falliva (permessi, timeout, blip di rete),
+// `data` era `null`, il ciclo lo trattava come "pagina vuota" e si
+// fermava lì — la bacheca si caricava silenziosamente vuota o parziale,
+// indistinguibile per l'utente da "non ci sono Segnalazioni". Ora l'errore
+// resta comunque nei log server, anche se la pagina non lo mostra
+// esplicitamente (nessuna UI di errore prevista per un Server Component
+// che ha già iniziato a renderizzare la pagina).
 async function fetchTutteSegnalazioni(supabase: Awaited<ReturnType<typeof createClient>>): Promise<Segnalazione[]> {
   const PAGINA = 1000;
   const tutte: Segnalazione[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("segnalazioni")
       .select("*")
       .order("data", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    if (error) {
+      console.error("fetchTutteSegnalazioni:", error.message);
+      break;
+    }
     const pagina = (data as Segnalazione[] | null) ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -33,11 +45,15 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
   const PAGINA = 1000;
   const tutte: RichiestaCliente[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("richieste_clienti")
       .select("*")
       .order("data", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    if (error) {
+      console.error("fetchTutteRichieste:", error.message);
+      break;
+    }
     const pagina = (data as RichiestaCliente[] | null) ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -60,7 +76,8 @@ async function fetchTutteRichieste(supabase: Awaited<ReturnType<typeof createCli
 async function fetchTicketPerSegnalazione(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<Record<string, { id: string; numero: number; stato: string; appuntamentoDataOra: string | null }>> {
-  const { data } = await supabase.from("tickets").select("id, numero, stato, segnalazione_id").not("segnalazione_id", "is", null);
+  const { data, error } = await supabase.from("tickets").select("id, numero, stato, segnalazione_id").not("segnalazione_id", "is", null);
+  if (error) console.error("fetchTicketPerSegnalazione:", error.message);
   const mappa: Record<string, { id: string; numero: number; stato: string; appuntamentoDataOra: string | null }> = {};
   const ticketIds: string[] = [];
   for (const t of data ?? []) {

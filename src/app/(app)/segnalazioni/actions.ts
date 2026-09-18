@@ -7,6 +7,7 @@ import { inviaEmail, emailRichiestaDatiSegnalazione, emailApprovazioneContratto 
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import type { AreaAccesso, Copertura, StatoSegnalazione } from "@/lib/types";
+import { validaEmail } from "@/lib/validazione";
 
 async function verificaAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
   const {
@@ -34,7 +35,7 @@ export async function eliminaSegnalazione(id: string) {
 
   const { data: segnalazione, error: erroreLettura } = await supabase
     .from("segnalazioni")
-    .select("numero, nome")
+    .select("numero, nome, contratto_pdf_url")
     .eq("id", id)
     .single();
   if (erroreLettura || !segnalazione) return { errore: erroreLettura?.message || "Segnalazione non trovata." };
@@ -44,6 +45,19 @@ export async function eliminaSegnalazione(id: string) {
   const { data: ticketCollegato } = await service.from("tickets").select("numero").eq("segnalazione_id", id).maybeSingle();
   if (ticketCollegato) return { errore: `Elimina prima il Ticket collegato (#${ticketCollegato.numero}).` };
 
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni) — le righe `richieste_clienti`
+  // venivano cancellate ma i file veri nel bucket storage (documenti
+  // d'identità allegati dal cliente, contratto PDF) restavano orfani a
+  // tempo indeterminato: mai più raggiungibili da nessuna UI ma occupanti
+  // spazio. Letti qui PRIMA di cancellare le righe, rimossi dallo storage
+  // dopo che la cancellazione DB è andata a buon fine.
+  const { data: richiesteCollegate } = await service.from("richieste_clienti").select("documenti").eq("segnalazione_id", id);
+  const percorsiDaRimuovere = (richiesteCollegate ?? [])
+    .flatMap((r) => (Array.isArray(r.documenti) ? r.documenti : []))
+    .map((doc: { percorso?: string }) => doc?.percorso)
+    .filter((p): p is string => !!p);
+  if (segnalazione.contratto_pdf_url) percorsiDaRimuovere.push(segnalazione.contratto_pdf_url);
+
   // ★ i dati/documenti inviati dal cliente per questa Segnalazione non
   // hanno senso senza di essa (nessun Ticket a cui restano comunque
   // agganciati, appena verificato sopra) — vengono rimossi insieme.
@@ -51,6 +65,15 @@ export async function eliminaSegnalazione(id: string) {
 
   const { error } = await service.from("segnalazioni").delete().eq("id", id);
   if (error) return { errore: error.message };
+
+  if (percorsiDaRimuovere.length > 0) {
+    const { error: erroreStorage } = await service.storage.from("documenti").remove(percorsiDaRimuovere);
+    // ★ la Segnalazione è già eliminata a questo punto: un fallimento qui
+    // (raro — il file non esiste già, o un errore di rete verso lo storage)
+    // non deve bloccare l'operazione né tornare un errore all'utente, solo
+    // restare nei log per un'eventuale pulizia manuale successiva.
+    if (erroreStorage) console.error("eliminaSegnalazione — rimozione file storage:", erroreStorage.message);
+  }
 
   await service.from("storico").insert({
     origine: "segnalazione",
@@ -101,26 +124,28 @@ export async function inviaEmailRichiestaDatiSegnalazione(segnalazioneId: string
 // e lettura passano dalla service role (stesso pattern del modulo
 // pubblico Richiesta Dati), l'URL restituito al browser è sempre firmato
 // e a scadenza breve.
-export async function caricaContrattoSegnalazione(segnalazioneId: string, formData: FormData) {
+// ★ FIX (2026-09-18, audit modulo Segnalazioni, Bug Critico confermato) —
+// riceveva il `File` vero dentro un `FormData` passato come argomento della
+// Server Action: superato il limite di ~1MB del corpo di una Server Action
+// (un contratto scansionato multi-pagina lo supera facilmente), l'upload
+// falliva con un errore generico non gestito. Ora riceve solo il percorso
+// già caricato dal browser direttamente sullo storage (vedi
+// api/segnalazioni/upload-contratto-url/route.ts), stesso schema ormai
+// consolidato in tutto il resto del gestionale.
+export async function caricaContrattoSegnalazione(segnalazioneId: string, percorso: string, nomeFile: string) {
   const supabase = await createClient();
   // ★ FIX SICUREZZA — controllava solo che ci fosse un cookie persona
   // valido (getPersonaCorrenteId), non che lo staff fosse ancora attivo:
-  // sotto si passa alla service role per l'upload, che bypassa la RLS.
-  // Stesso pattern già corretto per le funzioni "URL firmata documento".
+  // sotto si passa alla service role per scrivere sulla Segnalazione, che
+  // bypassa la RLS. Stesso pattern già corretto per le funzioni "URL
+  // firmata documento".
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
   const personaId = persona.id;
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { errore: "Nessun file selezionato." };
-  if (file.type !== "application/pdf") return { errore: "Il contratto deve essere un file PDF." };
+  if (!percorso) return { errore: "Nessun file selezionato." };
 
   const service = createServiceClient();
-  const percorso = `contratti/${segnalazioneId}-${Date.now()}-${file.name}`;
-  const { error: erroreUpload } = await service.storage
-    .from("documenti")
-    .upload(percorso, file, { contentType: "application/pdf" });
-  if (erroreUpload) return { errore: erroreUpload.message };
 
   // ★ FIX — sostituire il PDF (es. errore nel primo caricamento) lasciava
   // intatta un'eventuale approvazione già data dal cliente: l'interfaccia
@@ -128,7 +153,7 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
   // file vecchio, e "Trasmetti" restava sbloccato per un contratto che il
   // cliente non ha mai visto. Ogni nuovo caricamento azzera l'approvazione
   // (e l'invio), costringendo a rimandarla per il file nuovo.
-  const { error } = await supabase
+  const { error } = await service
     .from("segnalazioni")
     .update({
       contratto_pdf_url: percorso,
@@ -139,11 +164,11 @@ export async function caricaContrattoSegnalazione(segnalazioneId: string, formDa
     .eq("id", segnalazioneId);
   if (error) return { errore: error.message };
 
-  await supabase.from("storico").insert({
+  await service.from("storico").insert({
     origine: "segnalazione",
     riferimento_id: segnalazioneId,
     operazione: "Contratto caricato",
-    valore_dopo: file.name,
+    valore_dopo: nomeFile,
     operatore_id: personaId,
   });
 
@@ -307,6 +332,15 @@ export async function creaSegnalazione(dati: {
   // Richiesta Dati (né le comunicazioni successive: approvazione contratto,
   // ecc.), ripetuto qui perché il controllo lato client non basta da solo.
   if (!dati.email.trim()) return { errore: "L'email è obbligatoria." };
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni) — controllava solo che
+  // l'email non fosse vuota, mai il formato: `validaEmail()` esisteva già
+  // ma era chiamata solo lato client (nuovo/page.tsx), che un chiamante
+  // diverso dal form potrebbe non rispettare. Un'email malformata salvata
+  // qui avrebbe fatto fallire più a valle (invio Richiesta Dati,
+  // approvazione contratto) con un errore meno comprensibile, invece di
+  // essere bloccata subito in creazione.
+  const esitoEmail = validaEmail(dati.email);
+  if (!esitoEmail.valido) return { errore: esitoEmail.messaggio };
 
   // ★ NUOVA — nessun controllo esisteva su telefono/email già usati da
   // un'altra Segnalazione: un cliente che richiama, o due operatori che
@@ -386,6 +420,22 @@ export async function cambiaStatoSegnalazione(id: string, statoNuovo: StatoSegna
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni, Bug Critico confermato) —
+  // nessun controllo impediva di passare "Trasmessa" qui: a differenza di
+  // ogni altra transizione, "Trasmessa" DEVE creare il Ticket collegato
+  // (vedi trasmettiPerInstallazione()/eseguiTrasmissione(), la sola fonte
+  // di verità dichiarata per la trasmissione) — passandola da qui si
+  // otteneva una Segnalazione "Trasmessa" orfana, senza alcun Ticket, con
+  // "Torna a" esplicitamente escluso per questo stato: l'unico modo per
+  // uscirne sarebbe stata l'eliminazione da admin. Oggi l'interfaccia non
+  // chiama mai questa funzione con "Trasmessa" (solo con "In Contatto"/
+  // "Gestione Cliente"/uno stato precedente), ma nulla lo impediva a
+  // livello di server per un chiamante diverso (devtools, un pulsante
+  // aggiunto in futuro).
+  if (statoNuovo === "Trasmessa") {
+    return { errore: "Usa \"Trasmetti per l'installazione\" per passare a questo stato." };
+  }
+
   const aggiornamento: Record<string, unknown> = { stato: statoNuovo, aggiornato_il: new Date().toISOString() };
   if (statoNuovo === "Gestione Cliente") {
     aggiornamento.documenti_richiesti_at = new Date().toISOString();
@@ -440,13 +490,25 @@ export async function aggiornaDatiSegnalazione(
 
   if (!dati.nome.trim()) return { errore: "Il nome è obbligatorio." };
   if (!dati.telefono.trim()) return { errore: "Il telefono è obbligatorio." };
+  // ★ FIX (2026-09-18, audit modulo Segnalazioni) — a differenza di
+  // creaSegnalazione() (email obbligatoria e ora validata nel formato),
+  // la modifica non validava affatto l'email: si poteva salvare un
+  // refuso palesemente non valido (es. "asd"), che avrebbe fatto fallire
+  // l'invio email più a valle con un errore meno comprensibile. Qui
+  // l'email resta facoltativa (a differenza della creazione) — controllato
+  // il formato solo se non è vuota.
+  const emailPulita = dati.email.trim();
+  if (emailPulita) {
+    const esitoEmail = validaEmail(emailPulita);
+    if (!esitoEmail.valido) return { errore: esitoEmail.messaggio };
+  }
 
   const { error } = await supabase
     .from("segnalazioni")
     .update({
       nome: dati.nome.trim(),
       telefono: dati.telefono.trim(),
-      email: dati.email.trim() || null,
+      email: emailPulita || null,
       via: dati.via.trim(),
       civico: dati.civico.trim(),
       comune: dati.comune.trim(),
