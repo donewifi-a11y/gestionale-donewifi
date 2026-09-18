@@ -1429,7 +1429,13 @@ function DettaglioTicket({
           </p>
         )}
 
-        <div className="flex flex-col gap-4">
+        {/* ★ FIX (2026-09-18, seguito diretto — screenshot: "qui è il
+        problema", tra "In lavorazione — 2° di 4 passi" e "Assegnato a")
+        — gap-4 (16px) tra i blocchi di questa sezione (stato, assegnato/
+        reparto, contatti, pianifica appuntamento...) restava comunque
+        troppo stretto: alzato a gap-6, stesso principio già applicato
+        allo spazio sotto l'intestazione qui sopra. */}
+        <div className="flex flex-col gap-6">
         {/* ★ RIDISEGNATA (2026-09, "vecchia e confusionaria... troppi
         pulsanti e possibilità" — richiesta esplicita dopo l'artifact "Il
         Ticket Ripensato", trend 2026 "strategic minimalism"/"progressive

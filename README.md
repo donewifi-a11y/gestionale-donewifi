@@ -5091,3 +5091,13 @@ passaggi vorrei più spazio dalla riga sopra"). `pt-4` non bastava ancora: alzat
 `Uncaught Error: Minified React error #418` (mismatch di hydration server/client) sulla
 pagina Ticket — non collegato a questa richiesta, segnalato all'utente ma non ancora
 investigato.
+
+✅ **Fix: spazio troppo stretto tra "In lavorazione — N° di 4 passi" e "Assegnato a"**
+(2026-09-18, seguito diretto — screenshot ritagliato, "qui è il problema"). Confermato via
+chiarimento: lo spazio sopra la barra segmentata (corretto nel giro precedente) andava bene,
+il problema era lo spazio SOTTO, tra il testo dello stato e l'inizio della sezione
+"Assegnato a"/"Reparto" — sembravano quasi attaccati. Il `gap-4` (16px) tra tutti i blocchi di
+quella sezione (stato, appuntamento pianificato, assegnato/reparto, contatti, pianifica
+appuntamento, altri dettagli) alzato a `gap-6`, stesso principio già applicato allo spazio
+sotto l'intestazione. Stesso trattamento anche in `segnalazioni-board.tsx` per coerenza tra i
+due pannelli. Build/lint puliti (0 errori).

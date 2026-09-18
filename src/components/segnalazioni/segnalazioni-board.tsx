@@ -989,8 +989,10 @@ function DettaglioSegnalazione({
       dell'intestazione.
       ★ FIX (2026-09-18, seguito diretto — screenshot sul Ticket, stesso
       trattamento qui per coerenza) — pt-4 non bastava ancora, alzato a
-      pt-6. */}
-      <div className="flex min-w-0 flex-col gap-4 pt-6 text-sm">
+      pt-6; stesso motivo, alzato anche il gap tra i blocchi da gap-4 a
+      gap-6 (era troppo stretto tra il tracciato di stato e il blocco
+      successivo). */}
+      <div className="flex min-w-0 flex-col gap-6 pt-6 text-sm">
         <div>
           <div className="flex items-center gap-1">
             {COLONNE.map((c, i) => (
