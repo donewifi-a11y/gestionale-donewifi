@@ -5055,3 +5055,17 @@ sezione sul Ticket compare solo per gestire/proseguire una pratica GIÀ avviata 
 proporne una nuova. Verificato sui dati reali di produzione: il Ticket #182 dello screenshot
 non ha alcuna pratica Subentro collegata — con la correzione la sezione non comparirà più.
 Build/lint puliti (0 errori).
+
+✅ **Fix: l'intestazione "DOCUMENTI" restava scritta da sola, senza nulla sotto** (2026-09-18,
+richiesta esplicita a seguito di uno screenshot reale del Ticket #181 "Pietro Laurent" —
+Assistenza/Internet assente: "verifica gli spazi e tutto, finiscono alcune scritte sotto.
+rendi il tutto più ordinato ed omogeneo"). A differenza di ogni sotto-sezione sotto di lei
+(Contratto, Moduli ricevuti dal cliente, Scheda/Rapportino — ognuna con la propria
+condizione), l'intestazione "Documenti" non aveva alcuna condizione: su un Ticket senza nessun
+documento vero (come questo, appena aperto) restava comunque scritta da sola, seguita subito
+da sezioni che documenti non sono (Intervento risolto da remoto, ecc.) — sembrava un'etichetta
+rotta invece di una sezione vuota nascosta come tutte le altre. Ora compare solo quando
+`numeroDocumenti > 0` (lo stesso conteggio già usato per il numero tra parentesi). Uniformati
+anche i margini delle intestazioni delle sotto-sezioni (Contratto, Moduli ricevuti, Subentro,
+Dismissione, Invia una pratica al cliente), prima chi `mb-1` chi `mb-2` senza un motivo, ora
+tutte `mb-1.5`. Build/lint puliti (0 errori).

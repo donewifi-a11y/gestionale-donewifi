@@ -1777,9 +1777,24 @@ function DettaglioTicket({
         ★ SEZIONE, NON PIÙ TAB (2026-09-10, "la a") — sempre visibile,
         subito sotto Dettagli invece che dietro un secondo clic. */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Documenti{numeroDocumenti > 0 ? ` (${numeroDocumenti})` : ""}
-          </div>
+          {/* ★ FIX (2026-09-18, richiesta esplicita dopo uno screenshot:
+          "verifica gli spazi e tutto, finiscono alcune scritte sotto.
+          rendi il tutto più ordinato ed omogeneo") — questa intestazione
+          non aveva alcuna condizione, a differenza di ogni sotto-sezione
+          che le sta sotto (Contratto/Moduli ricevuti/Scheda-rapportino
+          hanno tutte il proprio `{condizione && (...)}`): su un Ticket
+          senza nessun documento vero (es. Assistenza appena aperta, come
+          nello screenshot) restava comunque scritta da sola, seguita
+          subito da sezioni che non sono documenti (Dismissione, Invia
+          pratica, Intervento risolto da remoto) — sembrava un'etichetta
+          rotta invece che una sezione vuota nascosta come tutte le altre.
+          `numeroDocumenti` esisteva già solo per il numero tra parentesi:
+          ora decide anche se l'intestazione compare. */}
+          {numeroDocumenti > 0 && (
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Documenti ({numeroDocumenti})
+            </div>
+          )}
         {ticket.stato === "Completato" && scheda && <SchedaVista scheda={scheda} modificabile={isAdmin} />}
         {ticket.stato === "Completato" && !scheda && rapportino && (
           <RapportinoVista rapportino={rapportino} importoFatturato={ticket.importo_fatturato} />
@@ -1793,7 +1808,7 @@ function DettaglioTicket({
         una, icona colorata + etichetta). Aggiunta per coerenza. */}
         {ticket.contratto_pdf_url && (
           <div>
-            <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <IconaCategoria icona={FileText} categoria="documento" dimensione="sm" />
               Contratto
             </div>
@@ -1830,7 +1845,7 @@ function DettaglioTicket({
         elimina anche il doppione (stessa pratica mostrata due volte). */}
         {richieste.filter((r) => r.tipo_richiesta !== "Subentro").length > 0 && (
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
               Moduli ricevuti dal cliente
             </div>
@@ -1910,7 +1925,7 @@ function DettaglioTicket({
         già trovata sopra), mai per proporne una nuova. */}
         {ticket.categoria !== "Assistenza" && praticaSubentro && (
         <div>
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={Repeat} categoria="documento" dimensione="sm" />
             Subentro
           </div>
@@ -1952,7 +1967,7 @@ function DettaglioTicket({
         fissaDataDismissioneDisdetta() e fissaDismissione() più sopra. */}
         {ticket.sottocategoria === "Disdetta" && (
         <div>
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
             Dismissione — ritiro apparati
           </div>
@@ -2012,7 +2027,7 @@ function DettaglioTicket({
         cliente non ha nulla da disdire. */}
         {ticket.categoria !== "Assistenza" && ticket.sottocategoria !== "Subentro" && (
         <div>
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={FileSignature} categoria="documento" dimensione="sm" />
             Invia una pratica al cliente
           </div>
