@@ -240,7 +240,14 @@ export function SchedaInstallazioneForm({
     },
     {
       titolo: "Cablaggio",
-      valida: () => (tipoCavo.trim() ? null : "Il tipo di cavo è obbligatorio."),
+      valida: () => {
+        if (!tipoCavo.trim()) return "Il tipo di cavo è obbligatorio.";
+        // ★ FIX (2026-09-18, backlog audit) — `min="0"` sull'input da solo
+        // non basta su tutti i browser/tastiere mobili a impedire un
+        // valore negativo digitato direttamente.
+        if (metriCavo.trim() && Number(metriCavo) < 0) return "I metri stimati non possono essere negativi.";
+        return null;
+      },
       contenuto: (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Campo label="Tipo cavo *">
@@ -257,6 +264,14 @@ export function SchedaInstallazioneForm({
       valida: () => {
         if (!modelloCpe.trim()) return "Il modello CPE è obbligatorio.";
         if (!router.trim()) return "Il router è obbligatorio.";
+        // ★ FIX (2026-09-18, backlog audit) — stessi limiti degli attributi
+        // `min`/`max` sugli input sopra, ripetuti qui perché da soli non
+        // bastano su tutti i browser/tastiere mobili.
+        if (rssi.trim() && (Number(rssi) < -120 || Number(rssi) > 0)) return "Il segnale RSSI non sembra valido (atteso tra -120 e 0 dBm).";
+        if (snr.trim() && (Number(snr) < -20 || Number(snr) > 60)) return "Il segnale SNR non sembra valido.";
+        if (ping.trim() && Number(ping) < 0) return "Il ping non può essere negativo.";
+        if (download.trim() && Number(download) < 0) return "Il download non può essere negativo.";
+        if (upload.trim() && Number(upload) < 0) return "L'upload non può essere negativo.";
         return null;
       },
       contenuto: (
@@ -280,23 +295,31 @@ export function SchedaInstallazioneForm({
           <Campo label="VLAN Management">
             <input value={vlan} onChange={(e) => setVlan(e.target.value)} className={campoClass} />
           </Campo>
+          {/* ★ FIX (2026-09-18, backlog audit modulo Calendario/Vista
+          Tecnico) — nessun `min`/`max` su questi 5 campi: un RSSI di
+          -99999 o un Download di -50 Mbps venivano salvati senza alcun
+          avviso, finendo anche nell'email di chiusura al cliente. Range
+          larghi ma realistici per questo genere di misura — l'obiettivo è
+          scartare valori assurdi, non imporre un formato esatto. Ripetuto
+          anche in `valida()` sotto: `min`/`max` HTML da soli non bastano
+          su tutti i browser/tastiere mobili. */}
           <Campo label="Segnale RSSI (dBm)">
-            <input value={rssi} onChange={(e) => setRssi(e.target.value)} type="number" className={campoClass} />
+            <input value={rssi} onChange={(e) => setRssi(e.target.value)} type="number" min={-120} max={0} className={campoClass} />
           </Campo>
           <Campo label="Segnale SNR (dB)">
-            <input value={snr} onChange={(e) => setSnr(e.target.value)} type="number" className={campoClass} />
+            <input value={snr} onChange={(e) => setSnr(e.target.value)} type="number" min={-20} max={60} className={campoClass} />
           </Campo>
           <Campo label="Router *">
             <Select value={router} onChange={setRouter} opzioni={OPZIONI_INSTALLAZIONE.router} />
           </Campo>
           <Campo label="Ping (ms)">
-            <input value={ping} onChange={(e) => setPing(e.target.value)} type="number" className={campoClass} />
+            <input value={ping} onChange={(e) => setPing(e.target.value)} type="number" min={0} max={5000} className={campoClass} />
           </Campo>
           <Campo label="Download (Mbps)">
-            <input value={download} onChange={(e) => setDownload(e.target.value)} type="number" className={campoClass} />
+            <input value={download} onChange={(e) => setDownload(e.target.value)} type="number" min={0} max={10000} className={campoClass} />
           </Campo>
           <Campo label="Upload (Mbps)">
-            <input value={upload} onChange={(e) => setUpload(e.target.value)} type="number" className={campoClass} />
+            <input value={upload} onChange={(e) => setUpload(e.target.value)} type="number" min={0} max={10000} className={campoClass} />
           </Campo>
         </div>
       ),

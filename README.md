@@ -5341,3 +5341,24 @@ duplicati:
 
 Build/lint puliti (0 errori). Prossimo lotto: Calendario (sovrapposizioni orarie, giacenza
 materiali), touch target, sostituzione `prompt()`/`confirm()`.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 2/N)** (2026-09-18). Calendario:
+sovrapposizioni orarie e validazione campi tecnici:
+
+- **Controllo reale di sovrapposizione oraria per lo stesso tecnico**: `creaAppuntamento()`/
+  `modificaAppuntamento()` non impedivano di assegnare lo stesso tecnico a due appuntamenti
+  sovrapposti — il pannello "Slot già occupati" era solo informativo. Nuovo
+  `trovaSovrapposizioneTecnico()`: confronta gli intervalli [inizio, fine) di tutti gli
+  appuntamenti non annullati dello stesso tecnico, blocca il salvataggio con un errore chiaro
+  se si sovrappongono. Verificato contro un appuntamento reale di produzione: la sovrapposizione
+  simulata viene rilevata correttamente.
+- `modificaAppuntamento()`: mancava anche il controllo che `personaId` fosse valorizzato prima
+  di procedere (a differenza di `creaAppuntamento()`) — aggiunto.
+- Scheda di Installazione: RSSI, SNR, Ping, Download, Upload e Metri cavo non avevano alcun
+  limite oltre `type="number"` — un valore assurdo (RSSI di -99999, download negativo) veniva
+  salvato senza avviso e finiva anche nell'email di chiusura al cliente. Aggiunti `min`/`max`
+  realistici sugli input e la stessa validazione ripetuta nel passo del wizard (gli attributi
+  HTML da soli non bastano su tutte le tastiere mobili).
+
+Build/lint puliti (0 errori). Prossimo lotto: giacenza materiali in fase di selezione, touch
+target, `prompt()`/`confirm()` nativi.

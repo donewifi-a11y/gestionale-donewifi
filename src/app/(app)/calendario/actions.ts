@@ -150,6 +150,53 @@ async function notificaTecnicoAppuntamento(tecnicoId: string | null, testo: stri
   await inviaMessaggioChatSistemaDiretto(tecnicoId, testo);
 }
 
+/**
+ * ★ NUOVA (2026-09-18, backlog audit modulo Calendario) — prima nessun
+ * controllo reale impediva di assegnare lo stesso tecnico a due
+ * appuntamenti sovrapposti: il pannello "Slot già occupati" nel form è
+ * solo informativo, non blocca il salvataggio. Due persone che pianificano
+ * nello stesso momento (o una sola che non guarda l'elenco) potevano
+ * doppio-prenotare un tecnico senza che il server se ne accorgesse.
+ * Confronta gli intervalli [inizio, fine) — due appuntamenti si
+ * sovrappongono se l'uno inizia prima che l'altro sia finito, in entrambe
+ * le direzioni. Ignora gli appuntamenti "Annullato" (uno spazio libero) e,
+ * in modifica, l'appuntamento stesso.
+ */
+async function trovaSovrapposizioneTecnico(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tecnicoId: string,
+  dataOraInizio: string,
+  durataMinuti: number,
+  escludiAppuntamentoId?: string
+): Promise<string | null> {
+  const inizio = new Date(dataOraInizio);
+  const fine = new Date(inizio.getTime() + durataMinuti * 60 * 1000);
+  // ★ margine di un giorno per lato: comodo per la query (niente bisogno di
+  // calcolare la fine di ogni riga in SQL), la sovrapposizione vera si
+  // ricontrolla comunque riga per riga qui sotto.
+  const margineInizio = new Date(inizio.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const margineFine = new Date(fine.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
+    .from("appuntamenti")
+    .select("id, titolo, data_ora, durata_minuti")
+    .eq("tecnico_id", tecnicoId)
+    .neq("stato", "Annullato")
+    .gte("data_ora", margineInizio)
+    .lte("data_ora", margineFine);
+  if (escludiAppuntamentoId) query = query.neq("id", escludiAppuntamentoId);
+
+  const { data } = await query;
+  for (const a of data ?? []) {
+    const altroInizio = new Date(a.data_ora);
+    const altroFine = new Date(altroInizio.getTime() + a.durata_minuti * 60 * 1000);
+    if (altroInizio < fine && inizio < altroFine) {
+      return `${a.titolo} (${formattaDataOraBreve(a.data_ora)})`;
+    }
+  }
+  return null;
+}
+
 export async function creaAppuntamento(dati: {
   titolo: string;
   indirizzo: string;
@@ -167,6 +214,11 @@ export async function creaAppuntamento(dati: {
   if (!user) return { errore: "Non autenticato." };
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  if (dati.tecnicoId) {
+    const conflitto = await trovaSovrapposizioneTecnico(supabase, dati.tecnicoId, dati.dataOra, dati.durataMinuti);
+    if (conflitto) return { errore: `Il tecnico ha già un appuntamento in questa fascia oraria: ${conflitto}.` };
+  }
 
   // ★ l'evento Google si crea prima del salvataggio in database così, se
   // Google non è configurato o la chiamata fallisce, l'appuntamento viene
@@ -225,6 +277,16 @@ export async function modificaAppuntamento(
   } = await supabase.auth.getUser();
   if (!user) return { errore: "Non autenticato." };
   const personaId = await getPersonaCorrenteId();
+  // ★ FIX (2026-09-18, backlog audit modulo Calendario) — a differenza di
+  // creaAppuntamento(), non controllava che `personaId` fosse valorizzato
+  // prima di procedere (usato più sotto solo per le notifiche, senza
+  // bloccare nulla se assente).
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  if (dati.tecnicoId) {
+    const conflitto = await trovaSovrapposizioneTecnico(supabase, dati.tecnicoId, dati.dataOra, dati.durataMinuti, id);
+    if (conflitto) return { errore: `Il tecnico ha già un appuntamento in questa fascia oraria: ${conflitto}.` };
+  }
 
   const { data: esistente } = await supabase
     .from("appuntamenti")
