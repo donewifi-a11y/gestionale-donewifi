@@ -136,11 +136,15 @@ export function SchedaLavorazioneForm({
         <div>
           <Label>Interventi eseguiti (seleziona)</Label>
           <div className="mt-2 flex flex-wrap gap-2">
+            {/* ★ FIX (2026-09-18, backlog audit) — lo stato "selezionato"
+            era comunicato solo dal colore, non da alcun attributo
+            semantico leggibile da tecnologie assistive. */}
             {INTERVENTI_RAPIDI.map((i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => toggleIntervento(i)}
+                aria-pressed={interventi.includes(i)}
                 className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
                   interventi.includes(i) ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:border-primary/40"
                 }`}

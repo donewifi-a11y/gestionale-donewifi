@@ -200,6 +200,19 @@ function GruppoMateriali({
   // gruppo): onRimuovi opera sull'array intero passato da SelettoreMateriali.
   const righeGruppo = righe.map((r, i) => ({ r, i })).filter(({ r }) => (r.tipo_riga ?? (r.comodato_uso ? "Comodato" : "Prodotto")) === gruppo.chiave);
 
+  const materialeSelezionato = catalogo.find((m) => m.id === selezionato);
+  // ★ NUOVA (2026-09-18, backlog audit modulo Calendario/Vista Tecnico) —
+  // `SelettoreMateriali` non mostrava mai la giacenza disponibile: un
+  // tecnico poteva inserire una quantità di un articolo di cui restano
+  // pochi pezzi in magazzino senza alcun avviso in fase di compilazione,
+  // scoprendolo solo dopo (quando `scaricaGiacenzaMateriali()` scarica il
+  // magazzino alla cieca, potenzialmente sotto zero). Avviso soft, non un
+  // blocco: la giacenza qui potrebbe essere non aggiornata in tempo reale
+  // (altri tecnici la stanno usando in parallelo), un blocco vero
+  // impedirebbe di registrare comunque l'uso reale sul campo.
+  const giacenzaInsufficiente =
+    materialeSelezionato?.giacenza != null && Number(quantita) > materialeSelezionato.giacenza;
+
   function aggiungi() {
     const materiale = catalogo.find((m) => m.id === selezionato);
     const qta = Number(quantita);
@@ -243,11 +256,17 @@ function GruppoMateriali({
       )}
 
       <div className="flex flex-col gap-1.5 border-t bg-background p-2 sm:flex-row">
-        <select value={selezionato} onChange={(e) => setSelezionato(e.target.value)} className="h-8 flex-1 rounded-md border bg-background px-2 text-xs">
+        <select
+          value={selezionato}
+          onChange={(e) => setSelezionato(e.target.value)}
+          aria-label="Materiale da aggiungere"
+          className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
+        >
           <option value="">Aggiungi...</option>
           {catalogo.map((m) => (
             <option key={m.id} value={m.id}>
               {m.nome} {m.tipo_riga !== "Comodato" && `— ${formattaValuta(prezzoRiga(m))}/${m.unita_misura}`}
+              {m.giacenza != null ? ` (${m.giacenza} disponibili)` : ""}
             </option>
           ))}
         </select>
@@ -258,18 +277,25 @@ function GruppoMateriali({
           value={quantita}
           onChange={(e) => setQuantita(e.target.value)}
           placeholder="Qtà"
+          aria-label="Quantità"
           className="h-8 w-full rounded-md border bg-background px-2 text-xs sm:w-16"
         />
         <input
           value={dettagli}
           onChange={(e) => setDettagli(e.target.value)}
           placeholder="Dettagli (facoltativo)"
+          aria-label="Dettagli"
           className="h-8 w-full rounded-md border bg-background px-2 text-xs sm:w-32"
         />
         <Button type="button" size="sm" variant="outline" className="h-8 shrink-0" onClick={aggiungi} disabled={!selezionato}>
           Aggiungi
         </Button>
       </div>
+      {giacenzaInsufficiente && (
+        <p className="border-t bg-warning/10 p-2 text-[11px] font-semibold text-warning">
+          ⚠️ Solo {materialeSelezionato!.giacenza} disponibili in magazzino — la giacenza andrà sotto zero.
+        </p>
+      )}
       {catalogo.length === 0 && righeGruppo.length === 0 && (
         <p className="border-t p-2 text-center text-[11px] text-muted-foreground">Nessuna voce in questo gruppo nel catalogo Materiali.</p>
       )}

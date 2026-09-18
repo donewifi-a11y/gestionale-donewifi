@@ -5362,3 +5362,20 @@ sovrapposizioni orarie e validazione campi tecnici:
 
 Build/lint puliti (0 errori). Prossimo lotto: giacenza materiali in fase di selezione, touch
 target, `prompt()`/`confirm()` nativi.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 3/N)** (2026-09-18). Giacenza materiali
+e accessibilità:
+
+- **Giacenza materiali non mostrata in fase di selezione**: `SelettoreMateriali` non mostrava
+  mai quanti pezzi restano in magazzino — un tecnico poteva inserire una quantità superiore a
+  quella disponibile senza alcun avviso, scoprendolo solo dopo (`scaricaGiacenzaMateriali()`
+  scarica alla cieca dopo il salvataggio). Ora il numero di pezzi disponibili compare
+  nell'elenco del materiale, e un avviso soft (non un blocco — la giacenza potrebbe non essere
+  aggiornata in tempo reale se altri tecnici la stanno usando in parallelo) avvisa quando la
+  quantità inserita supera la giacenza.
+- Aggiunti `aria-label` mancanti su selettore materiale/quantità/dettagli in
+  `selettore-materiali.tsx` e `aria-pressed` sui chip "Interventi" in
+  `scheda-lavorazione-form.tsx` — lo stato "selezionato" era comunicato solo dal colore.
+
+Build/lint puliti (0 errori). Prossimo lotto: touch target sotto i 44px, pulsanti +/- del
+configuratore piano, `prompt()`/`confirm()` nativi del browser.
