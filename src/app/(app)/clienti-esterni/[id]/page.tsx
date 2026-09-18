@@ -9,6 +9,7 @@ import { StatoCliente } from "@/components/clienti-esterni/stato-cliente";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { formattaValuta } from "@/lib/types";
 import type { ClienteEsterno } from "@/lib/types";
+import { firmaClienteEsterno } from "@/lib/token-cliente-esterno";
 
 function nomeVisualizzato(c: ClienteEsterno): string {
   return c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—";
@@ -137,6 +138,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
           <NuovaPraticaClienteEsterno
             clienteId={c.id}
+            tokenClienteEsterno={firmaClienteEsterno(c.id)}
             telefono={c.telefono}
             email={c.email}
             nome={nomeVisualizzato(c)}

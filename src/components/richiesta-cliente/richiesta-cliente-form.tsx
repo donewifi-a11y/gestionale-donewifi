@@ -112,25 +112,25 @@ export function RichiestaClienteForm({
   slug,
   ticketId,
   praticaId,
-  clienteEsternoId,
+  tokenClienteEsterno,
 }: {
   slug: SlugRichiestaCliente;
   ticketId: string | null;
   praticaId?: string | null;
-  /** ★ NUOVA (2026-08) — collega la pratica al cliente vero (anagrafica
-   * Aruba) invece che a un Ticket, vedi proposta "Pratiche cliente senza
-   * Ticket". Solo per le 3 pratiche che non hanno bisogno di un secondo
-   * consenso (Subentro resta sul suo flusso dedicato — doppio consenso via
-   * Ticket, già costruito a parte). */
-  clienteEsternoId?: number | null;
+  /** ★ NUOVA (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+   * confermato — IDOR) — token firmato (lib/token-cliente-esterno.ts) che
+   * certifica DAVVERO quale Cliente Esterno è collegato: un `clienteEsternoId`
+   * nudo (colonna intera sequenziale, enumerabile) bastava prima a
+   * chiunque per agganciare una pratica a un cliente a piacere. */
+  tokenClienteEsterno?: string | null;
 }) {
-  if (slug === "cambio-iban") return <FormCambioIban ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
-  if (slug === "cambio-anagrafica") return <FormCambioAnagrafica ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
-  if (slug === "trasferimento") return <FormTrasferimento ticketId={ticketId} clienteEsternoId={clienteEsternoId ?? null} />;
+  if (slug === "cambio-iban") return <FormCambioIban ticketId={ticketId} tokenClienteEsterno={tokenClienteEsterno ?? null} />;
+  if (slug === "cambio-anagrafica") return <FormCambioAnagrafica ticketId={ticketId} tokenClienteEsterno={tokenClienteEsterno ?? null} />;
+  if (slug === "trasferimento") return <FormTrasferimento ticketId={ticketId} tokenClienteEsterno={tokenClienteEsterno ?? null} />;
   return <FormSubentro ticketId={ticketId} praticaId={praticaId ?? null} />;
 }
 
-function FormCambioIban({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
+function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | null; tokenClienteEsterno: string | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -145,7 +145,7 @@ function FormCambioIban({ ticketId, clienteEsternoId }: { ticketId: string | nul
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG["cambio-iban"].tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
-    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
+    if (tokenClienteEsterno) dati.set("tokenClienteEsterno", tokenClienteEsterno);
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 
@@ -180,7 +180,7 @@ function FormCambioIban({ ticketId, clienteEsternoId }: { ticketId: string | nul
   );
 }
 
-function FormCambioAnagrafica({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
+function FormCambioAnagrafica({ ticketId, tokenClienteEsterno }: { ticketId: string | null; tokenClienteEsterno: string | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -195,7 +195,7 @@ function FormCambioAnagrafica({ ticketId, clienteEsternoId }: { ticketId: string
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG["cambio-anagrafica"].tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
-    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
+    if (tokenClienteEsterno) dati.set("tokenClienteEsterno", tokenClienteEsterno);
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 
@@ -239,7 +239,7 @@ function FormCambioAnagrafica({ ticketId, clienteEsternoId }: { ticketId: string
   );
 }
 
-function FormTrasferimento({ ticketId, clienteEsternoId }: { ticketId: string | null; clienteEsternoId: number | null }) {
+function FormTrasferimento({ ticketId, tokenClienteEsterno }: { ticketId: string | null; tokenClienteEsterno: string | null }) {
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
@@ -250,6 +250,12 @@ function FormTrasferimento({ ticketId, clienteEsternoId }: { ticketId: string | 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrore("");
+    // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente) — solo `required`
+    // nativo su civico/comune/CAP, nessuna validazione di formato (a
+    // differenza di richiesta-dati-form.tsx, che verifica il CAP con
+    // `^\d{5}$`): un CAP con lettere o di lunghezza qualsiasi veniva
+    // accettato comunque.
+    if (!/^\d{5}$/.test(cap.trim())) return setErrore("Il CAP deve essere composto da 5 cifre.");
     const dati = new FormData(e.currentTarget);
     dati.set("via", via);
     dati.set("comune", comune);
@@ -257,7 +263,7 @@ function FormTrasferimento({ ticketId, clienteEsternoId }: { ticketId: string | 
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG.trasferimento.tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
-    if (clienteEsternoId) dati.set("clienteEsternoId", String(clienteEsternoId));
+    if (tokenClienteEsterno) dati.set("tokenClienteEsterno", tokenClienteEsterno);
     await invia(dati, setInCorso, setErrore, setInviato);
   }
 

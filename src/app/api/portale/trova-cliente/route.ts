@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
+import { firmaClienteEsterno } from "@/lib/token-cliente-esterno";
 
 // ★ NUOVA (2026-08) — richiesta esplicita: punto d'ingresso per il cliente
 // che vuole avviare da solo una pratica (Trasferimento/Cambio IBAN/Cambio
@@ -67,5 +68,12 @@ export async function POST(request: NextRequest) {
 
   const c = data[0];
   const nome = c.ragionesociale || [c.nome, c.cognome].filter(Boolean).join(" ") || "Cliente";
-  return NextResponse.json({ ok: true, clienteEsternoId: c.id, nome });
+  // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+  // confermato — IDOR) — restituire l'id nudo bastava a chi lo chiama per
+  // spacciarsi per qualunque cliente presso api/richiesta-cliente (colonna
+  // sequenziale, enumerabile). Il token firmato (lib/token-cliente-esterno.ts)
+  // certifica che QUESTA identificazione è avvenuta per davvero — solo lui,
+  // non più l'id nudo, va accettato per collegare una pratica a un cliente.
+  const token = firmaClienteEsterno(c.id);
+  return NextResponse.json({ ok: true, clienteEsternoId: c.id, token, nome });
 }

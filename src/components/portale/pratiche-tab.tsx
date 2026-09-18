@@ -22,7 +22,13 @@ const PRATICHE_SELF_SERVICE: { slug: SlugRichiestaCliente; icona: typeof FileEdi
 
 export function PraticheTab() {
   const [slug, setSlug] = useState<SlugRichiestaCliente | null>(null);
-  const [identificato, setIdentificato] = useState<{ id: number; nome: string } | null>(null);
+  // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+  // confermato — IDOR) — `id` da solo bastava a chi lo mandasse a
+  // api/richiesta-cliente per agganciare la pratica a un cliente
+  // qualsiasi (colonna sequenziale, enumerabile): il `token` firmato,
+  // restituito da trova-cliente solo dopo una vera identificazione
+  // telefono+CF, è ora l'unica cosa che la Server Action accetta.
+  const [identificato, setIdentificato] = useState<{ id: number; nome: string; token: string } | null>(null);
 
   function reset() {
     setSlug(null);
@@ -40,7 +46,7 @@ export function PraticheTab() {
           <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.25} />
           Ciao {identificato.nome}, abbiamo trovato il tuo contratto.
         </p>
-        <RichiestaClienteForm slug={slug} ticketId={null} clienteEsternoId={identificato.id} />
+        <RichiestaClienteForm slug={slug} ticketId={null} tokenClienteEsterno={identificato.token} />
       </div>
     );
   }
@@ -84,7 +90,7 @@ function FormIdentificazione({
 }: {
   titolo: string;
   onIndietro: () => void;
-  onIdentificato: (v: { id: number; nome: string }) => void;
+  onIdentificato: (v: { id: number; nome: string; token: string }) => void;
 }) {
   const [telefono, setTelefono] = useState("");
   const [codiceFiscale, setCodiceFiscale] = useState("");
@@ -103,7 +109,7 @@ function FormIdentificazione({
       });
       const risultato = await risposta.json();
       if (!risposta.ok) throw new Error(risultato.errore || "Errore imprevisto.");
-      onIdentificato({ id: risultato.clienteEsternoId, nome: risultato.nome });
+      onIdentificato({ id: risultato.clienteEsternoId, nome: risultato.nome, token: risultato.token });
     } catch (err) {
       setErrore(err instanceof Error ? err.message : "Errore imprevisto.");
     } finally {

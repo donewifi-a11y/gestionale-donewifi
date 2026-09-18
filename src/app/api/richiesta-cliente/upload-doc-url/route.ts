@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
+import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
 
 /** ★ NUOVA (2026-09-17, "controllo d'oro" — continuazione, bug reale
  * trovato per confronto con la rotta gemella già corretta) — stesso
@@ -12,8 +13,22 @@ import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
  * pubblici con allegati a non essere mai stato migrato a questo schema.
  * Genera solo un signed upload URL (poche centinaia di byte): il file
  * vero si carica poi dal browser direttamente allo storage Supabase.
+ *
+ * ★ FIX (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+ * confermato) — stesso identico buco di rate limiting già corretto in
+ * api/richiesta-dati/upload-url/route.ts, dimenticato qui: nessun limite
+ * di tentativi, nessun id da verificare (questa rotta non ne riceve
+ * nemmeno uno) — uno script poteva ottenere signed upload URL in loop
+ * illimitato.
  */
+const troppiTentativi = creaLimitatoreTentativi(15, 5 * 60 * 1000);
+
 export async function POST(request: NextRequest) {
+  const ip = ipRichiesta(request);
+  if (troppiTentativi(ip)) {
+    return NextResponse.json({ errore: "Troppi tentativi. Riprova tra qualche minuto." }, { status: 429 });
+  }
+
   const corpo = await request.json().catch(() => ({}) as Record<string, unknown>);
   const nomeFile = String(corpo.nomeFile || "");
   if (!nomeFile) {

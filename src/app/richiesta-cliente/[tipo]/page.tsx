@@ -7,10 +7,15 @@ export default async function RichiestaClientePage({
   searchParams,
 }: {
   params: Promise<{ tipo: string }>;
-  searchParams: Promise<{ ticketId?: string; praticaId?: string; clienteEsternoId?: string }>;
+  // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+  // confermato — IDOR) — il link generato dallo staff dalla scheda Cliente
+  // Esterno (nuova-pratica.tsx) portava l'id nudo in query string, colonna
+  // sequenziale enumerabile: sostituito da un token firmato, vedi
+  // lib/token-cliente-esterno.ts.
+  searchParams: Promise<{ ticketId?: string; praticaId?: string; tokenClienteEsterno?: string }>;
 }) {
   const { tipo } = await params;
-  const { ticketId, praticaId, clienteEsternoId } = await searchParams;
+  const { ticketId, praticaId, tokenClienteEsterno } = await searchParams;
 
   if (!SLUG_RICHIESTE_CLIENTE.includes(tipo as SlugRichiestaCliente)) notFound();
   const config = RICHIESTE_CLIENTE_CONFIG[tipo as SlugRichiestaCliente];
@@ -30,7 +35,7 @@ export default async function RichiestaClientePage({
           slug={tipo as SlugRichiestaCliente}
           ticketId={ticketId || null}
           praticaId={praticaId || null}
-          clienteEsternoId={clienteEsternoId ? Number(clienteEsternoId) : null}
+          tokenClienteEsterno={tokenClienteEsterno || null}
         />
       </div>
     </div>

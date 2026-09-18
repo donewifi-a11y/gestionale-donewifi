@@ -5208,3 +5208,52 @@ modifica dati, race condition non atomica sul controllo duplicati in creazione (
 un vincolo a livello DB), split del componente monolitico `DettaglioSegnalazione` (~1000
 righe) e deduplicazione dei form creazione/modifica quasi identici. Build/lint puliti (0
 errori) dopo ogni correzione.
+
+✅ **Correzioni dal report di audit del modulo Portale pubblico / Richiesta Dati / Richiesta
+Cliente** (2026-09-18, terzo modulo dopo Ticket e Segnalazioni — priorità più alta per natura:
+uniche pagine raggiungibili da utenti non autenticati). Trovata e corretta una vulnerabilità
+IDOR reale, oltre a diversi problemi funzionali:
+
+**Bug Critici**
+- **IDOR su `clienteEsternoId`** (`api/richiesta-cliente/route.ts`) — la rotta accettava questo
+  id direttamente dal client (form pubblico o link generato dallo staff) e lo scriveva così
+  com'è in `richieste_clienti.cliente_esterno_id`, senza alcuna verifica che chi lo mandasse
+  avesse davvero superato l'identificazione (telefono+CF via `trova-cliente`) o ricevuto quel
+  link. `clienti_esterni.id` è una colonna intera **sequenziale**, enumerabile in pochi minuti:
+  chiunque poteva agganciare una pratica di Cambio IBAN/Cambio Anagrafica/Trasferimento a un
+  cliente reale a piacere, semplicemente cambiando un numero nell'URL o nella chiamata POST —
+  lo staff l'avrebbe vista nel gestionale come legittima. **Corretto** con un token firmato
+  HMAC (nuovo `lib/token-cliente-esterno.ts`, stesso schema già in uso per i cookie di
+  persona/tecnico esterno, scadenza 30 giorni): l'id del cliente passa ora sempre e solo come
+  questo token, mai come numero nudo, verificato lato server prima di essere usato. Il token è
+  generato da `api/portale/trova-cliente` (dopo una vera identificazione) o dalla scheda
+  Cliente Esterno lato staff (`clienti-esterni/[id]/page.tsx`, calcolato server-side). Attacco
+  simulato e verificato: un id manomesso nel token viene rifiutato, un token scaduto viene
+  rifiutato, un id nudo passato al posto del token viene rifiutato.
+- **Rate limiting mancante su `api/richiesta-dati/upload-url` e
+  `api/richiesta-cliente/upload-doc-url`** — uniche due rotte pubbliche mutanti del gruppo
+  senza alcun limite di tentativi (tutte le altre già protette): uno script poteva chiamarle in
+  loop illimitato ottenendo signed upload URL validi e caricando file arbitrari nel bucket
+  storage, anche sotto una `segnalazioneId` inventata — costo di storage/egress senza freno.
+  Aggiunto lo stesso `creaLimitatoreTentativi` già in uso altrove; `richiesta-dati/upload-url`
+  ora verifica anche che la `segnalazioneId` corrisponda a un record esistente.
+
+**Problemi Funzionali**
+- `ticketId` (in `api/richiesta-cliente/route.ts`) non era mai verificato contro la tabella
+  `tickets` — ora controllato come già avveniva per `praticaId`.
+- Il ramo legacy di upload diretto (fallback per client non aggiornato) non applicava
+  `nomeFileSicuro()` al nome file — unico punto rimasto senza, ora corretto.
+- Form Trasferimento (Richiesta Cliente): il CAP non aveva validazione di formato (a differenza
+  di Richiesta Dati, che verifica `^\d{5}$`) — ora allineato.
+
+Non ancora affrontati in questo giro (richiedono una decisione infrastrutturale o modifiche più
+ampie): nessun limite di dimensione/tipo file lato server sulle rotte di signed-upload — l'API
+Supabase `createSignedUploadUrl()` non lo supporta, andrebbe impostato a livello di bucket
+storage (`fileSizeLimit`/`allowedMimeTypes` su `updateBucket()`), ma il bucket "documenti" è
+condiviso da molti altri flussi del gestionale (Ticket, Segnalazioni, Subentro, Chat): una
+scelta che richiede una decisione esplicita sui limiti giusti, non una modifica silenziosa;
+la finestra di race condition residua sul doppio submit di Richiesta Dati (già mitigata,
+mai chiusa del tutto senza un vincolo a livello DB); validazione profiloInternet/importi non
+verificati contro il catalogo tariffe reale; touch target sotto i 44px in più punti;
+`window.confirm()` nativo; deduplicazione dei form di upload/validazione tra Richiesta Dati e
+Richiesta Cliente. Build/lint puliti (0 errori) dopo ogni correzione.

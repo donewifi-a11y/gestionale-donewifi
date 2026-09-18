@@ -5,13 +5,15 @@ import { inviaMessaggioChatSistema } from "@/lib/chat";
 import { inviaEmail, emailAvvisoInterno } from "@/lib/email";
 import { REPARTO_PER_TIPO_RICHIESTA, TIPI_RICHIESTA_CLIENTE, type TipoRichiestaCliente } from "@/lib/types";
 import { creaLimitatoreTentativi, ipRichiesta } from "@/lib/rate-limit-portale";
+import { verificaTokenClienteEsterno } from "@/lib/token-cliente-esterno";
+import { nomeFileSicuro } from "@/lib/nome-file-sicuro";
 
 // ★ FIX (2026-09-17, code review approfondita) — stesso identico buco delle
 // altre rotte pubbliche mutanti (apri-ticket, richiesta-dati): protetta
 // solo dall'honeypot "sito_web", nessun limite di tentativi.
 const troppiTentativi = creaLimitatoreTentativi(10, 5 * 60 * 1000);
 
-const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "clienteEsternoId", "consenso", "volontaSubentro", "sito_web", "documentiCaricati"]);
+const CAMPI_RISERVATI = new Set(["tipo", "nomeCliente", "ticketId", "praticaId", "tokenClienteEsterno", "consenso", "volontaSubentro", "sito_web", "documentiCaricati"]);
 const CAMPI_FILE: Record<string, string> = {
   fronteDoc: "Fronte documento",
   retroDoc: "Retro documento",
@@ -68,8 +70,24 @@ export async function POST(request: NextRequest) {
   // /api/portale/trova-cliente) o quando l'operatore la avvia dalla scheda
   // Cliente Esterno. Facoltativo: le pratiche legate a un Ticket (incluso
   // Subentro) continuano a funzionare come prima, senza questo campo.
-  const clienteEsternoIdRaw = String(dati.get("clienteEsternoId") || "");
-  const clienteEsternoId = clienteEsternoIdRaw && Number.isFinite(Number(clienteEsternoIdRaw)) ? Number(clienteEsternoIdRaw) : null;
+  //
+  // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+  // confermato — IDOR) — accettava prima un `clienteEsternoId` NUDO
+  // mandato dal client, senza alcuna verifica: `clienti_esterni.id` è una
+  // colonna intera sequenziale (non un UUID), enumerabile in pochi minuti.
+  // Chiunque poteva chiamare questa rotta direttamente (bypassando del
+  // tutto trova-cliente) con un id a piacere e agganciare una pratica
+  // (Cambio IBAN, Cambio Anagrafica, Trasferimento) a un cliente reale
+  // ignaro — lo staff l'avrebbe vista nel gestionale come legittima e
+  // potuta evadere. Ora l'unico modo di valorizzare questo campo è un
+  // token firmato (lib/token-cliente-esterno.ts), generato SOLO da
+  // trova-cliente (dopo una vera identificazione telefono+CF) o dalla
+  // scheda Cliente Esterno lato staff — mai da un numero a piacere.
+  const tokenClienteEsterno = String(dati.get("tokenClienteEsterno") || "");
+  const clienteEsternoId = tokenClienteEsterno ? verificaTokenClienteEsterno(tokenClienteEsterno) : null;
+  if (tokenClienteEsterno && clienteEsternoId === null) {
+    return NextResponse.json({ errore: "Il link non è più valido — richiedine uno nuovo." }, { status: 400 });
+  }
 
   const dettagli: Record<string, string> = {};
   for (const [chiave, valore] of dati.entries()) {
@@ -83,6 +101,20 @@ export async function POST(request: NextRequest) {
     const { data: esistente } = await supabase.from("richieste_clienti").select("id, tipo_richiesta").eq("id", praticaId).maybeSingle();
     if (!esistente || esistente.tipo_richiesta !== tipo) {
       return NextResponse.json({ errore: "Pratica non valida o già gestita diversamente." }, { status: 400 });
+    }
+  }
+
+  // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente) — `ticketId` non
+  // veniva mai verificato contro la tabella `tickets` (a differenza di
+  // `praticaId` qui sopra): un id arbitrario o inesistente finiva scritto
+  // as-is in `richieste_clienti.ticket_id` e usato per il link nella
+  // notifica interna — un id falso genera un link a un Ticket inesistente,
+  // o (se combacia per caso con un altro Ticket reale) collega
+  // silenziosamente la richiesta al Ticket sbagliato.
+  if (ticketId) {
+    const { data: ticketEsistente } = await supabase.from("tickets").select("id").eq("id", ticketId).maybeSingle();
+    if (!ticketEsistente) {
+      return NextResponse.json({ errore: "Il link non è più valido — richiedine uno nuovo." }, { status: 400 });
     }
   }
 
@@ -110,7 +142,11 @@ export async function POST(request: NextRequest) {
     for (const [campo, etichetta] of Object.entries(CAMPI_FILE)) {
       const file = dati.get(campo);
       if (!(file instanceof File) || file.size === 0) continue;
-      const percorso = `richieste-cliente/${Date.now()}-${file.name}`;
+      // ★ FIX (2026-09-18, audit Portale/Richiesta Cliente) — unico ramo
+      // upload del gruppo rimasto senza nomeFileSicuro(), stesso bug già
+      // risolto ovunque altro nel gestionale (nome con spazi/accenti/
+      // caratteri di path finiva as-is nel percorso dello Storage).
+      const percorso = `richieste-cliente/${Date.now()}-${nomeFileSicuro(file.name)}`;
       const { error: erroreUpload } = await supabase.storage.from("documenti").upload(percorso, file, {
         contentType: file.type || "application/octet-stream",
       });

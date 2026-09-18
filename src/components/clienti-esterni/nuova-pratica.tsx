@@ -50,11 +50,20 @@ const PRATICHE_DISPONIBILI: { slug: PraticaScelta; titolo: string }[] = [
 // stretta e compatta.
 export function NuovaPraticaClienteEsterno({
   clienteId,
+  tokenClienteEsterno,
   telefono,
   email,
   nome,
 }: {
   clienteId: number;
+  /** ★ NUOVA (2026-09-18, audit Portale/Richiesta Cliente, Bug Critico
+   * confermato — IDOR) — il link mandato al cliente portava prima l'id
+   * nudo (colonna sequenziale, enumerabile): chiunque ricevesse UN link
+   * poteva cambiare il numero e agganciare una pratica (Cambio IBAN,
+   * Cambio Anagrafica, Trasferimento) a un cliente reale a piacere. Il
+   * token è firmato lato server (vedi lib/token-cliente-esterno.ts) dalla
+   * pagina che rende questo componente — mai generabile qui, che è client. */
+  tokenClienteEsterno: string;
   telefono: string | null;
   email: string | null;
   nome: string;
@@ -103,8 +112,8 @@ export function NuovaPraticaClienteEsterno({
 
   const link = useMemo(() => {
     if (!slugGenerico || typeof window === "undefined") return "";
-    return `${window.location.origin}/richiesta-cliente/${slugGenerico}?clienteEsternoId=${clienteId}`;
-  }, [slugGenerico, clienteId]);
+    return `${window.location.origin}/richiesta-cliente/${slugGenerico}?tokenClienteEsterno=${encodeURIComponent(tokenClienteEsterno)}`;
+  }, [slugGenerico, tokenClienteEsterno]);
 
   const messaggio = slugGenerico ? messaggioWhatsappPratica(nome, RICHIESTE_CLIENTE_CONFIG[slugGenerico].titolo, link) : "";
 
