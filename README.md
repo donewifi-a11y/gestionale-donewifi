@@ -5257,3 +5257,61 @@ mai chiusa del tutto senza un vincolo a livello DB); validazione profiloInternet
 verificati contro il catalogo tariffe reale; touch target sotto i 44px in più punti;
 `window.confirm()` nativo; deduplicazione dei form di upload/validazione tra Richiesta Dati e
 Richiesta Cliente. Build/lint puliti (0 errori) dopo ogni correzione.
+
+✅ **Correzioni dal report di audit del modulo Calendario / Vista Tecnico** (2026-09-18, quarto
+modulo). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `verificaOtpFirmaCliente()`/`verificaOtpAmministratore()`: confrontavano l'hash del codice
+  OTP con `!==`, un confronto a tempo non costante — incoerente con lo standard già in uso nello
+  stesso progetto (`timingSafeEqual`, usato in persona/tecnico-esterno/token-cliente-esterno/
+  cron). Stesso bug già corretto altrove, dimenticato qui — estratto un helper condiviso
+  `hashOtpNonCorrisponde()`.
+- Nessun controllo reale di sovrapposizione oraria per lo stesso tecnico su
+  `creaAppuntamento`/`modificaAppuntamento` — il pannello "Slot già occupati" è solo
+  informativo, non blocca il salvataggio. Segnalato ma non chiuso in questo giro: cambiare
+  comportamento (bloccare o solo avvisare più chiaramente) è una scelta di prodotto, non solo
+  tecnica.
+- Durata appuntamento: `Number(durata || 60)` trattava "0" come vuoto (sovrascritto a 60 senza
+  avviso) ma un valore negativo come "-30" passava così com'è, propagato anche all'evento
+  Google Calendar. Ora un nuovo `durataMinutiValida()` accetta solo un numero finito e
+  positivo, altrimenti 60; aggiunto anche `min={5}` ai campi.
+- `salvaSchedaLavoro()`: nessun controllo che una Scheda non esistesse già per lo stesso
+  appuntamento — un doppio tap "Invia" da connessione mobile debole (scenario realistico sul
+  campo) poteva generare due schede, doppio scarico di magazzino, doppia email di chiusura.
+  Verificato sui dati reali di produzione: nessun doppione esistente oggi. Aggiunto un
+  controllo prima di scrivere (mitiga il caso comune, non chiude del tutto una race fra due
+  richieste davvero simultanee senza un vincolo a livello di database).
+- `cambiaStatoAppuntamento()`: a differenza di ogni altra scrittura Appuntamento nello stesso
+  file, non aveva alcun controllo di autenticazione — aggiunto.
+
+**Problemi Funzionali**
+- Email cliente per l'invio OTP firma (`firma-cliente-scheda.tsx` + `inviaOtpFirmaCliente()`):
+  controllata solo per "non vuota", mai per formato — stessa lacuna già corretta nel modulo
+  Portale pubblico, qui dimenticata. Aggiunta `validaEmail()` sia lato client sia lato server.
+- Un tecnico disattivato ma già assegnato a un appuntamento passato spariva del tutto dalla
+  vista (card e form di modifica mostravano "Da assegnare", nessun modo di sapere chi fosse
+  davvero). Verificato sui dati reali: 0 casi attuali, ma un dipendente che lascia l'azienda in
+  futuro li creerebbe. La query di `persone` non filtra più `attivo` (serve a MOSTRARE chi era
+  assegnato); i due `<select>` di assegnazione filtrano loro `attivo` per non offrire di
+  assegnare nuovo lavoro a chi non lo è più.
+
+**Difetti UI/UX**
+- Riga appuntamento "Completato" nel Calendario: appariva identica a una "Programmato" pur
+  essendo non apribile (`disabled`) — nessun segnale visivo del perché il tap non facesse
+  nulla. Ora stessa opacità ridotta già usata per "Annullato", più `cursor-default` esplicito.
+- Campo "Titolo" di un nuovo appuntamento: un input non controllato con una `key` che ne
+  forzava il remount ad ogni cambio di tipo servizio/intervento/comune — un titolo corretto a
+  mano dall'operatore veniva scartato in silenzio al cambio di uno di questi valori. Ora un
+  campo controllato: il titolo proposto si aggiorna da solo finché l'utente non lo tocca, poi
+  resta suo (si azzera solo scegliendo un Ticket diverso, un contesto davvero nuovo).
+
+Non ancora affrontati in questo giro (richiedono più tempo o una decisione di prodotto):
+controllo reale di sovrapposizione oraria; validazione RSSI/SNR/Ping/Download/Upload/Metri
+cavo nella Scheda di Installazione (nessun limite oltre `type="number"`); giacenza materiali
+non mostrata durante la selezione (si scopre solo dopo, quando `scaricaGiacenzaMateriali` può
+già andare sotto zero); sincronizzazione Google Calendar silenziosa in caso di errore; split dei
+due componenti monolitici `calendario-board.tsx` (~1500 righe) e `vista-tecnico-board.tsx`
+(~840 righe); deduplicazione tra `scheda-installazione-form.tsx` e `scheda-lavorazione-form.tsx`
+(blocco "Metodo di pagamento" quasi identico). Build/lint puliti (0 errori) dopo ogni
+correzione.

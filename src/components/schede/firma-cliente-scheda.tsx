@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Mail, Send, Check, Loader2, AlertTriangle, RotateCcw, ShieldAlert, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { validaEmail } from "@/lib/validazione";
 import {
   getContattoPerFirmaCliente,
   inviaOtpFirmaCliente,
@@ -82,8 +83,15 @@ export function FirmaClienteScheda({
 
   function inviaCodice() {
     setErrore("");
-    if (!email.trim()) {
-      setErrore("Inserisci l'email del cliente.");
+    // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — solo
+    // "non vuota", mai il formato: il campo ha `type="email"` ma non è
+    // dentro un <form> inviato via submit (il bottone chiama questa
+    // funzione da un onClick), quindi la validazione nativa del browser
+    // non scatta mai. Stessa lacuna già corretta nel modulo Portale
+    // pubblico/Richiesta Cliente (validaEmail(), qui riusata).
+    const esitoEmail = validaEmail(email);
+    if (!esitoEmail.valido) {
+      setErrore(esitoEmail.messaggio);
       return;
     }
     startInvio(async () => {

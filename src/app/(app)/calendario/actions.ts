@@ -11,7 +11,8 @@ import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntennaRecuperata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, timingSafeEqual } from "crypto";
+import { validaEmail } from "@/lib/validazione";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
 import { inizioGiornataItalia } from "@/lib/data-italia";
 
@@ -285,9 +286,18 @@ export async function modificaAppuntamento(
   return { errore: null };
 }
 
+// ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — a differenza
+// di creaAppuntamento()/modificaAppuntamento() (verificano `user`) e di
+// eliminaAppuntamento() (verifica `persona`/admin), questa funzione non
+// aveva alcun controllo di autenticazione: `personaId` veniva letto solo
+// per la notifica (può restare null senza bloccare nulla) e si procedeva
+// comunque all'update. L'unica barriera reale restava la RLS sul client
+// legato ai cookie — nessun secondo livello applicativo come nel resto del
+// file.
 export async function cambiaStatoAppuntamento(id: string, stato: StatoAppuntamento) {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
+  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
   const { data: appuntamento } = await supabase
     .from("appuntamenti")
     .select("google_event_id, titolo, tecnico_id, data_ora")
@@ -586,6 +596,18 @@ export async function salvaSchedaLavoro(
 
   const service = createServiceClient();
 
+  // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — nessun
+  // controllo impediva di salvare due Schede per lo stesso appuntamento: un
+  // doppio tap su "Invia" da connessione mobile debole (scenario reale,
+  // frequente sul campo) o due schermate aperte in due tab potevano
+  // generare due righe `schede_lavoro`, con doppio scarico di magazzino
+  // (scaricaGiacenzaMateriali chiamato due volte), doppia riconciliazione
+  // antenna e doppia email di chiusura al cliente. L'unica difesa prima era
+  // il bottone client disabilitato durante l'invio — non una garanzia
+  // server-side.
+  const { data: schedaEsistente } = await service.from("schede_lavoro").select("id").eq("appuntamento_id", appuntamentoId).maybeSingle();
+  if (schedaEsistente) return { errore: "Una Scheda per questo appuntamento è già stata salvata." };
+
   async function salvaFirma(dataUrl: string | undefined, suffisso: string): Promise<{ percorso: string | null; errore: string | null }> {
     if (!dataUrl) return { percorso: null, errore: null };
     const risposta = await fetch(dataUrl);
@@ -860,6 +882,20 @@ function hashCodiceOtp(codice: string) {
   return createHash("sha256").update(codice).digest("hex");
 }
 
+// ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — entrambi i
+// punti che verificano un OTP confrontavano gli hash con `!==`, un
+// confronto a tempo non costante — incoerente con lo standard già in uso
+// nello stesso progetto per ogni altro confronto segreto-contro-segreto
+// (lib/tecnico-esterno.ts, lib/persona.ts, lib/token-cliente-esterno.ts,
+// lib/cron.ts, tutti con timingSafeEqual). Rischio pratico basso (5
+// tentativi massimi, scadenza 10 minuti), ma la stessa classe di bug è
+// stata trattata come da correggere ovunque altro nel progetto.
+function hashOtpNonCorrisponde(codice: string, hashAtteso: string): boolean {
+  const attesa = Buffer.from(hashAtteso);
+  const ricevuta = Buffer.from(hashCodiceOtp(codice.trim()));
+  return attesa.length !== ricevuta.length || !timingSafeEqual(attesa, ricevuta);
+}
+
 /** una sola colonna valorizzata alla volta, mai entrambe — vedi il check
  * constraint otp_firma_cliente_un_riferimento nella migrazione 0051. */
 function colonnaRiferimento(rif: RiferimentoFirmaCliente) {
@@ -875,7 +911,11 @@ export async function inviaOtpFirmaCliente(rif: RiferimentoFirmaCliente, email: 
   const supabase = await createClient();
   const operatore = await getOperatoreCorrente(supabase);
   if (!operatore) return { errore: ERRORE_PERSONA_MANCANTE };
-  if (!email.trim()) return { errore: "Serve un'email per inviare il codice." };
+  // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — controllava
+  // solo "non vuota", mai il formato: ripetuto qui lato server perché il
+  // controllo lato client (firma-cliente-scheda.tsx) non basta da solo.
+  const esitoEmail = validaEmail(email);
+  if (!esitoEmail.valido) return { errore: esitoEmail.messaggio };
 
   const codice = String(randomInt(0, 1000000)).padStart(6, "0");
   const service = createServiceClient();
@@ -916,7 +956,7 @@ export async function verificaOtpFirmaCliente(rif: RiferimentoFirmaCliente, emai
   if (new Date(riga.scaduto_il).getTime() < Date.now()) return { errore: "Il codice è scaduto — invialo di nuovo.", verificatoIl: null };
   if (riga.tentativi >= TENTATIVI_MASSIMI_OTP) return { errore: "Troppi tentativi sbagliati — invia un nuovo codice.", verificatoIl: null };
 
-  if (hashCodiceOtp(codice.trim()) !== riga.codice_hash) {
+  if (hashOtpNonCorrisponde(codice, riga.codice_hash)) {
     await service.from("otp_firma_cliente").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
     return { errore: "Codice errato.", verificatoIl: null };
   }
@@ -1015,7 +1055,7 @@ export async function verificaOtpAmministratore(rif: RiferimentoFirmaCliente, co
   if (new Date(riga.scaduto_il).getTime() < Date.now()) return { errore: "Il codice è scaduto — richiedilo di nuovo.", verificatoIl: null };
   if (riga.tentativi >= TENTATIVI_MASSIMI_OTP) return { errore: "Troppi tentativi sbagliati — richiedi un nuovo codice.", verificatoIl: null };
 
-  if (hashCodiceOtp(codice.trim()) !== riga.codice_hash) {
+  if (hashOtpNonCorrisponde(codice, riga.codice_hash)) {
     await service.from("otp_admin_firma").update({ tentativi: riga.tentativi + 1 }).eq("id", riga.id);
     return { errore: "Codice errato.", verificatoIl: null };
   }

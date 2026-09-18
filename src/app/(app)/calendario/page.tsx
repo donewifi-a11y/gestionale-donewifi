@@ -71,7 +71,16 @@ export default async function CalendarioPage({
       .gte("data_promemoria", formattaData(inizioRange))
       .lte("data_promemoria", formattaData(fineRange))
       .order("data_promemoria", { ascending: true }),
-    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
+    // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — filtrare
+    // solo gli attivi qui rendeva INVISIBILE anche il nome di un tecnico
+    // disattivato ma già assegnato a un appuntamento passato: la card
+    // mostrava "Da assegnare" e il <select> di modifica non aveva più
+    // quell'id tra le opzioni, come se l'appuntamento non fosse mai stato
+    // assegnato a nessuno. Ora la lista completa arriva qui (per poter
+    // sempre MOSTRARE chi era assegnato); solo i due <select> di
+    // assegnazione in calendario-board.tsx filtrano `.attivo` per non
+    // offrire di assegnare nuovo lavoro a chi non è più attivo.
+    supabase.from("persone").select("id, nome, attivo, amministratore, reparti"),
     supabase
       .from("tickets")
       // ★ NUOVA (2026-08-28, bug reale: "stai trattando le nuove

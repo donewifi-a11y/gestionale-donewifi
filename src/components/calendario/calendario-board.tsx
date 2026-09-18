@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil } from "lucide-react";
@@ -56,6 +56,16 @@ interface TicketMinimo {
 // il giorno vicino alla mezzanotte, bug già capitato in questo progetto) ──
 function formattaData(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — `Number(x || 60)`
+// tratta "0" come falsy e lo sovrascrive silenziosamente a 60 (nessun avviso
+// a chi voleva davvero segnalare 0 minuti), ma un valore negativo come "-30"
+// è truthy e passa così com'è: un appuntamento con durata negativa,
+// propagato anche all'evento Google Calendar (fine prima dell'inizio).
+// Qui si accetta solo un numero finito e positivo, altrimenti 60 di default.
+function durataMinutiValida(valore: FormDataEntryValue | null): number {
+  const n = Number(valore);
+  return Number.isFinite(n) && n > 0 ? n : 60;
 }
 function parseData(iso: string): Date {
   return new Date(`${iso}T00:00:00`);
@@ -405,12 +415,21 @@ function RigaAppuntamento({
 }) {
   const ora = new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   return (
-    <div className={`flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm ${a.stato === "Annullato" ? "opacity-50" : ""}`}>
+    // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — solo
+    // "Annullato" aveva un'opacità ridotta: una riga "Completato" (anche lei
+    // non apribile, `disabled` sotto) appariva identica a una "Programmato"
+    // — stesso colore, nessun `cursor-not-allowed` esplicito — senza alcun
+    // modo di capire perché il tap non produce effetto.
+    <div className={`flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm ${a.stato !== "Programmato" ? "opacity-60" : ""}`}>
       <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-accent py-1.5 text-accent-foreground">
         <Clock className="h-3 w-3" strokeWidth={2.5} />
         <span className="text-xs font-bold">{ora}</span>
       </div>
-      <button onClick={() => a.stato === "Programmato" && onApri(a)} className="min-w-0 flex-1 text-left" disabled={a.stato !== "Programmato"}>
+      <button
+        onClick={() => a.stato === "Programmato" && onApri(a)}
+        className="min-w-0 flex-1 text-left disabled:cursor-default"
+        disabled={a.stato !== "Programmato"}
+      >
         <div className="mb-0.5 flex items-center gap-1.5">
           <span title={a.titolo} className="truncate font-semibold">{a.titolo}</span>
           <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
@@ -901,6 +920,16 @@ function FormNuovoAppuntamento({
   const [comune, setComune] = useState("");
   const [comuneApplicato, setComuneApplicato] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
+  // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — il campo
+  // Titolo era un input non controllato con una `key` che ne forzava il
+  // remount ad ogni cambio di tipoServizio/tipoIntervento/comuneApplicato/
+  // ticket: se l'utente aveva già corretto a mano il titolo proposto e poi
+  // cambiava idea su uno di questi valori, la propria modifica veniva
+  // scartata in silenzio, sostituita dal titolo rigenerato automaticamente.
+  // Ora è un campo controllato: il titolo proposto si aggiorna da solo
+  // finché l'utente non lo tocca (`titoloModificatoRef`), poi resta suo.
+  const [titolo, setTitolo] = useState("");
+  const titoloModificatoRef = useRef(false);
 
   useEffect(() => {
     // sincronizza con la prop ticketIniziale quando cambia dopo il mount
@@ -925,9 +954,20 @@ function FormNuovoAppuntamento({
     const stima = stimaComuneDaIndirizzo(ticket.find((t) => t.id === id)?.indirizzo);
     setComune(stima);
     setComuneApplicato(stima);
+    // ★ cambiare Ticket è un contesto nuovo: un titolo scritto a mano per
+    // il Ticket precedente non ha senso qui, meglio ripartire dal
+    // suggerimento automatico per il nuovo Ticket scelto.
+    titoloModificatoRef.current = false;
   }
 
   const ticketSelezionato = ticket.find((t) => t.id === ticketId);
+
+  useEffect(() => {
+    // ★ vedi commento su `titoloModificatoRef` sopra — il titolo proposto
+    // si aggiorna da solo finché l'utente non lo modifica di persona.
+    if (titoloModificatoRef.current) return;
+    setTitolo(titoloAppuntamento(tipoServizio, tipoIntervento, comuneApplicato, ticketSelezionato?.cliente ?? ""));
+  }, [tipoServizio, tipoIntervento, comuneApplicato, ticketSelezionato?.cliente]);
 
   // ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo: "quale
   // antenna mettere") — vedi getAntenneRiservatePerTicket(): se Analisi
@@ -969,7 +1009,7 @@ function FormNuovoAppuntamento({
         titolo,
         indirizzo: String(dati.get("indirizzo") || ""),
         dataOra: new Date(`${data}T${ora}`).toISOString(),
-        durataMinuti: Number(dati.get("durata") || 60),
+        durataMinuti: durataMinutiValida(dati.get("durata")),
         tecnicoId,
         ticketId,
         note: String(dati.get("note") || ""),
@@ -1056,12 +1096,15 @@ function FormNuovoAppuntamento({
           <div>
             <Label htmlFor="titolo">Titolo *</Label>
             <Input
-              key={`${ticketId}-${tipoServizio}-${tipoIntervento}-${comuneApplicato}`}
               id="titolo"
               name="titolo"
               required
               autoFocus
-              defaultValue={titoloAppuntamento(tipoServizio, tipoIntervento, comuneApplicato, ticketSelezionato?.cliente ?? "")}
+              value={titolo}
+              onChange={(e) => {
+                titoloModificatoRef.current = true;
+                setTitolo(e.target.value);
+              }}
               className="mt-1 bg-background"
             />
           </div>
@@ -1100,7 +1143,7 @@ function FormNuovoAppuntamento({
           </div>
           <div>
             <Label htmlFor="durata">Durata (min)</Label>
-            <Input id="durata" name="durata" type="number" defaultValue={60} step={15} className="mt-1 bg-background" />
+            <Input id="durata" name="durata" type="number" defaultValue={60} min={5} step={15} className="mt-1 bg-background" />
           </div>
         </SezioneForm>
 
@@ -1114,7 +1157,12 @@ function FormNuovoAppuntamento({
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
               <option value="">Da assegnare</option>
-              {persone.map((p) => (
+              {/* ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) —
+              `persone` ora arriva senza filtro attivo/non attivo (vedi
+              calendario/page.tsx, serve a mostrare chi era già assegnato
+              anche se nel frattempo disattivato): qui invece, per una NUOVA
+              assegnazione, restano selezionabili solo gli attivi. */}
+              {persone.filter((p) => p.attivo).map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
@@ -1207,7 +1255,7 @@ function FormModificaAppuntamento({
         titolo,
         indirizzo: String(dati.get("indirizzo") || ""),
         dataOra: new Date(`${data}T${ora}`).toISOString(),
-        durataMinuti: Number(dati.get("durata") || 60),
+        durataMinuti: durataMinutiValida(dati.get("durata")),
         tecnicoId,
         note: String(dati.get("note") || ""),
         tipoServizio,
@@ -1372,7 +1420,7 @@ function FormModificaAppuntamento({
           </div>
           <div>
             <Label htmlFor="durata-m">Durata (min)</Label>
-            <Input id="durata-m" name="durata" type="number" defaultValue={appuntamento.durata_minuti} step={15} className="mt-1 bg-background" />
+            <Input id="durata-m" name="durata" type="number" defaultValue={appuntamento.durata_minuti} min={5} step={15} className="mt-1 bg-background" />
           </div>
         </SezioneForm>
 
@@ -1386,7 +1434,12 @@ function FormModificaAppuntamento({
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
               <option value="">Da assegnare</option>
-              {persone.map((p) => (
+              {/* ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) —
+              `persone` ora arriva senza filtro attivo/non attivo (vedi
+              calendario/page.tsx, serve a mostrare chi era già assegnato
+              anche se nel frattempo disattivato): qui invece, per una NUOVA
+              assegnazione, restano selezionabili solo gli attivi. */}
+              {persone.filter((p) => p.attivo).map((p) => (
                 <option key={p.id} value={p.id}>{p.nome}</option>
               ))}
             </select>
