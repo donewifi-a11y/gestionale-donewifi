@@ -5395,3 +5395,27 @@ i 44px sui form pubblici (mobile-first, spesso compilati da smartphone):
 
 Build/lint puliti (0 errori). Prossimo lotto: sostituzione dei `prompt()`/`confirm()` nativi del
 browser (Ticket, Segnalazioni, Subentro) con i componenti Dialog/Drawer del progetto.
+
+✅ **Risoluzione del backlog rimandato dall'audit (lotto 5/N)** (2026-09-18). `prompt()`/
+`confirm()` nativi del browser nei 3 moduli auditati (Ticket, Segnalazioni, Subentro/Nuova
+Pratica):
+
+- **`window.prompt()`/`window.confirm()`**: popup di sistema fuori dal controllo grafico
+  dell'app (stile inconsistente da browser a browser, testo spesso troncato su schermi
+  piccoli) e bloccano l'intero thread JS finché non vengono chiusi. Creato un hook riutilizzabile
+  `useConfirm()` (`src/hooks/use-confirm.tsx`) che espone una `confirm({ titolo, descrizione,
+  distruttivo })` a Promise, risolta da un vero `<Dialog>` del progetto (stile coerente,
+  variante "destructive" per le eliminazioni).
+- Sostituiti in `tickets-board.tsx`: `eliminaVista()`, "Elimina Ticket"
+  (`DettaglioTicket.elimina()`); `salvaVistaAttuale()` usava `prompt()` per un testo libero (non
+  un sì/no) — sostituito con un piccolo `<Dialog>` dedicato con un `<Input>`, non copribile da
+  `useConfirm()`.
+- Sostituiti in `segnalazioni-board.tsx`: "Trasmetti" e "Elimina segnalazione"
+  (`DettaglioSegnalazione.trasmetti()`/`elimina()`).
+- Sostituito in `nuova-pratica.tsx`: `segnaDisdetta()`.
+- Restano `confirm()` nativi in altri moduli non ancora auditati con questo processo (Persone,
+  Tariffe, Preventivi, Materiali, Archivio, Calendario, Vista Tecnico, Utenti, Lavorazioni,
+  Todo, Firma Cliente, Richieste Clienti, Sistema) — stesso `useConfirm()` riusabile quando si
+  arriverà a quei moduli, non un problema nuovo introdotto qui.
+
+Build/lint puliti (0 errori).

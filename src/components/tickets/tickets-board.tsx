@@ -10,11 +10,12 @@ import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { StatusBadge } from "@/components/status-badge";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   aggiornaStatoTicket,
   assegnaTicket,
@@ -259,22 +260,35 @@ export function TicketsBoard({
   // ★ NUOVA — vedi VISTE_INTEGRATE sopra: l'elenco delle viste proprie
   // dell'utente, ricordate per browser come i filtri stessi.
   const [visteSalvate, aggiornaVisteSalvate] = usePersistedState(CHIAVE_VISTE_SALVATE, { elenco: [] as VistaSalvata[] });
+  // ★ FIX (2026-09-18, audit — backlog "prompt()/confirm() nativi del
+  // browser") — window.prompt()/confirm() sostituiti con dialog del
+  // progetto: nomeVistaAperto gestisce l'input testuale (useConfirm non
+  // copre quel caso, solo sì/no), confirmEliminaVista la conferma.
+  const [nomeVistaAperto, setNomeVistaAperto] = useState(false);
+  const [nomeVistaBozza, setNomeVistaBozza] = useState("");
+  const { confirm: confirmEliminaVista, ConfirmDialog: DialogEliminaVista } = useConfirm();
 
   function applicaVista(v: FiltriTicket) {
     aggiornaFiltri(v);
   }
 
   function salvaVistaAttuale() {
-    const nome = prompt('Nome per questa vista (es. "Urgenti Fatturazione"):');
-    if (!nome?.trim()) return;
-    const nuova: VistaSalvata = { id: crypto.randomUUID(), nome: nome.trim(), filtri: { ...filtri } };
-    aggiornaVisteSalvate({ elenco: [...visteSalvate.elenco, nuova] });
-    toast(`Vista "${nome.trim()}" salvata.`, "successo");
+    setNomeVistaBozza("");
+    setNomeVistaAperto(true);
   }
 
-  function eliminaVista(v: VistaSalvata, e: React.MouseEvent) {
+  function confermaSalvaVista() {
+    const nome = nomeVistaBozza.trim();
+    if (!nome) return;
+    const nuova: VistaSalvata = { id: crypto.randomUUID(), nome, filtri: { ...filtri } };
+    aggiornaVisteSalvate({ elenco: [...visteSalvate.elenco, nuova] });
+    toast(`Vista "${nome}" salvata.`, "successo");
+    setNomeVistaAperto(false);
+  }
+
+  async function eliminaVista(v: VistaSalvata, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm(`Eliminare la vista "${v.nome}"?`)) return;
+    if (!(await confirmEliminaVista({ titolo: "Eliminare la vista?", descrizione: `Eliminare la vista "${v.nome}"?`, distruttivo: true }))) return;
     aggiornaVisteSalvate({ elenco: visteSalvate.elenco.filter((x) => x.id !== v.id) });
   }
   const [aperto, setAperto] = useState<Ticket | null>(null);
@@ -471,6 +485,30 @@ export function TicketsBoard({
 
   return (
     <div>
+      <DialogEliminaVista />
+      <Dialog open={nomeVistaAperto} onOpenChange={setNomeVistaAperto}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Salva vista</DialogTitle>
+            <DialogDescription>Nome per questa vista (es. &quot;Urgenti Fatturazione&quot;)</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={nomeVistaBozza}
+            onChange={(e) => setNomeVistaBozza(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && confermaSalvaVista()}
+            placeholder="Nome vista"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNomeVistaAperto(false)}>
+              Annulla
+            </Button>
+            <Button onClick={confermaSalvaVista} disabled={!nomeVistaBozza.trim()}>
+              Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* ★ NUOVA — "viste" (③ integrate + quelle salvate dall'utente):
       applicano l'intera combinazione di filtri con un click, invece di
       ricostruirla a mano ogni volta con i menu a tendina sotto. Evidenziata
@@ -1102,6 +1140,7 @@ function DettaglioTicket({
   const [inCorsoAssegna, startAssegna] = useTransition();
   const [inCorsoElimina, startElimina] = useTransition();
   const [inCorsoNota, startNota] = useTransition();
+  const { confirm: confirmElimina, ConfirmDialog: DialogConfermaElimina } = useConfirm();
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
   const [erroreNota, setErroreNota] = useState("");
@@ -1374,8 +1413,16 @@ function DettaglioTicket({
     });
   }
 
-  function elimina() {
-    if (!confirm(`Eliminare definitivamente il Ticket #${ticket.numero} — ${ticket.cliente}? L'operazione non è reversibile.`)) return;
+  async function elimina() {
+    if (
+      !(await confirmElimina({
+        titolo: "Eliminare il Ticket?",
+        descrizione: `Eliminare definitivamente il Ticket #${ticket.numero} — ${ticket.cliente}? L'operazione non è reversibile.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
+    )
+      return;
     startElimina(async () => {
       const risultato = await eliminaTicket(ticket.id);
       if (risultato.errore) {
@@ -1434,6 +1481,7 @@ function DettaglioTicket({
 
   return (
     <>
+      <DialogConfermaElimina />
       {/* ★ sticky top-0, stesso trattamento del titolo Segnalazione: resta
       visibile scorrendo il dialog invece di sparire lasciando al suo
       posto un campo qualsiasi senza etichetta. */}

@@ -11,6 +11,7 @@ import { inviaEmailPraticaClienteEsterno, segnaDisdettaRicevuta, avviaSubentroCl
 import { RICHIESTE_CLIENTE_CONFIG, messaggioWhatsappPratica, type SlugRichiestaCliente } from "@/lib/richieste-cliente-config";
 import { REPARTO_PER_TIPO_RICHIESTA } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 
 /** ★ RIUNIFICATA (2026-09-10, "riorganizziamo il sistema nuova pratica.
  * semplifichiamo" — proposta approvata dell'artifact "Nuova Pratica,
@@ -74,9 +75,17 @@ export function NuovaPraticaClienteEsterno({
   const [inCorsoDisdetta, startDisdetta] = useTransition();
   const [nomeNuovoTitolare, setNomeNuovoTitolare] = useState("");
   const [inCorsoSubentro, startSubentro] = useTransition();
+  const { confirm: confirmDisdetta, ConfirmDialog: DialogConfermaDisdetta } = useConfirm();
 
-  function segnaDisdetta() {
-    if (!confirm(`Segnare la disdetta di "${nome}" come ricevuta? Non sostituisce la comunicazione scritta ufficiale, serve solo a tracciarla qui.`)) return;
+  async function segnaDisdetta() {
+    if (
+      !(await confirmDisdetta({
+        titolo: "Segnare la disdetta come ricevuta?",
+        descrizione: `Segnare la disdetta di "${nome}" come ricevuta? Non sostituisce la comunicazione scritta ufficiale, serve solo a tracciarla qui.`,
+        testoConferma: "Segna ricevuta",
+      }))
+    )
+      return;
     startDisdetta(async () => {
       const risultato = await segnaDisdettaRicevuta(clienteId);
       if (risultato.errore) {
@@ -135,6 +144,7 @@ export function NuovaPraticaClienteEsterno({
 
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-md">
+      <DialogConfermaDisdetta />
       <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
         <IconaCategoria icona={FileSignature} categoria="documento" />
         Nuova pratica

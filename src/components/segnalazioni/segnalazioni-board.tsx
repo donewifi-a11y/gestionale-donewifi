@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useConfirm } from "@/hooks/use-confirm";
 import { IndirizzoAutocomplete, type DettagliIndirizzo } from "@/components/condivisi/indirizzo-autocomplete";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SegnalePulsante, type TonoSegnale } from "@/components/condivisi/segnale-pulsante";
@@ -567,6 +568,8 @@ function DettaglioSegnalazione({
   const [inCorsoEmail, startEmail] = useTransition();
   const [inCorsoDubbioso, startDubbioso] = useTransition();
   const [inCorsoContratto, startContratto] = useTransition();
+  const { confirm: confirmTrasmetti, ConfirmDialog: DialogConfermaTrasmetti } = useConfirm();
+  const { confirm: confirmElimina, ConfirmDialog: DialogConfermaElimina } = useConfirm();
   // ★ NUOVA (2026-08) — "parcheggio" per un cliente indeciso, Opzione C
   // della proposta con artifact: un mini-form (motivo + data di richiamo
   // facoltativa) invece di un semplice interruttore, per capire poi DA
@@ -759,9 +762,16 @@ function DettaglioSegnalazione({
   else if (!segnalazione.contratto_approvato_cliente_il) mancanti.push("approvazione del contratto da parte del cliente");
   const puoTrasmettere = mancanti.length === 0;
 
-  function trasmetti() {
+  async function trasmetti() {
     if (!puoTrasmettere) return;
-    if (!confirm(`Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket per Analisi Rete.`)) return;
+    if (
+      !(await confirmTrasmetti({
+        titolo: "Trasmettere per l'installazione?",
+        descrizione: `Trasmettere la segnalazione #${segnalazione.numero} per l'installazione? Verrà creato un Ticket per Analisi Rete.`,
+        testoConferma: "Trasmetti",
+      }))
+    )
+      return;
     startTrasmetti(async () => {
       // ★ FIX — richiesta esplicita: la scelta manuale del reparto (con
       // default già "Analisi Rete") era un passaggio in più da compilare
@@ -790,8 +800,16 @@ function DettaglioSegnalazione({
   // affatto per gli altri, controllo comunque ripetuto lato server in
   // eliminaSegnalazione()): cancellazione vera, non un cambio di stato,
   // pensata per pratiche di prova o duplicate.
-  function elimina() {
-    if (!confirm(`Eliminare definitivamente la segnalazione #${segnalazione.numero} — ${segnalazione.nome}? L'operazione non è reversibile.`)) return;
+  async function elimina() {
+    if (
+      !(await confirmElimina({
+        titolo: "Eliminare la segnalazione?",
+        descrizione: `Eliminare definitivamente la segnalazione #${segnalazione.numero} — ${segnalazione.nome}? L'operazione non è reversibile.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
+    )
+      return;
     startElimina(async () => {
       const risultato = await eliminaSegnalazione(segnalazione.id);
       if (risultato.errore) {
@@ -982,6 +1000,8 @@ function DettaglioSegnalazione({
 
   return (
     <>
+      <DialogConfermaTrasmetti />
+      <DialogConfermaElimina />
       {/* ★ FIX — la X per chiudere restava fissa in alto (dentro DialogContent,
        * fuori dal contenitore che scorre) ma il titolo no: scorrendo il
        * dialog, nome/indirizzo sparivano e al loro posto compariva qualunque
