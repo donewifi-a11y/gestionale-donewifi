@@ -5040,3 +5040,18 @@ seconda del gruppo in cui capitavano, incoerente scorrendo la colonna. Ora sempr
 quando presente; se il Ticket non ha nemmeno una sottocategoria (Assistenza generica), il
 problema descritto dal cliente fa da descrizione di ripiego, invece di lasciare la card senza
 alcun testo sotto il nome. Build/lint puliti (0 errori).
+
+✅ **Fix: la sezione Subentro compariva su ogni Ticket, Disdetta compresa** (2026-09-18,
+richiesta esplicita a seguito di uno screenshot reale del Ticket #182 "Mititelu Alexandra" —
+Amministrativa/Disdetta — con la sezione "Subentro" e il pulsante "Avvia pratica di Subentro"
+comunque visibili: "pratica di subentro non deve essere sempre attivo ma solo quando aperta
+una pratica di subentro da scheda cliente"). La sezione era già stata ristretta il 2026-09-10
+a "non su Assistenza" (le installazioni), ma restava sempre visibile su OGNI Ticket
+Commerciale/Amministrativa — con un pulsante pronto ad avviarne una nuova anche dove non
+c'entra nulla (Disdetta, Cambio IBAN, Cambio Anagrafica, Trasferimento...). L'unico punto
+d'ingresso per avviare un Subentro resta la scheda del Cliente Esterno
+(`avviaSubentroClienteEsterno()`, che crea Ticket e pratica insieme in un solo click): ora la
+sezione sul Ticket compare solo per gestire/proseguire una pratica GIÀ avviata da lì, mai per
+proporne una nuova. Verificato sui dati reali di produzione: il Ticket #182 dello screenshot
+non ha alcuna pratica Subentro collegata — con la correzione la sezione non comparirà più.
+Build/lint puliti (0 errori).

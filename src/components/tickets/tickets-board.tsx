@@ -1895,8 +1895,20 @@ function DettaglioTicket({
         comprese, dove un subentro (trasferimento di un contratto
         esistente a un nuovo titolare) non ha senso: il cliente non ha
         ancora un contratto da trasferire. Subentro è una pratica
-        Commerciale/Amministrativa, mai un'Assistenza. */}
-        {ticket.categoria !== "Assistenza" && (
+        Commerciale/Amministrativa, mai un'Assistenza.
+        ★ FIX (2026-09-18, richiesta esplicita — screenshot reale di un
+        Ticket di Disdetta con la sezione Subentro comunque visibile:
+        "pratica di subentro non deve essere sempre attivo ma solo quando
+        aperta una pratica di subentro da scheda cliente") — restava
+        comunque sempre visibile su OGNI Ticket Commerciale/Amministrativa
+        (Disdetta compresa, come in questo caso), con un pulsante "Avvia
+        pratica di Subentro" pronto a crearne una nuova anche dove non
+        c'entra nulla. L'unico punto d'ingresso per avviare un Subentro
+        resta la scheda del Cliente Esterno (avviaPraticaSubentro() in
+        clienti-esterni/actions.ts) — qui la sezione compare solo per
+        gestire/proseguire una pratica GIÀ avviata da lì (`praticaSubentro`
+        già trovata sopra), mai per proporne una nuova. */}
+        {ticket.categoria !== "Assistenza" && praticaSubentro && (
         <div>
           <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             <IconaCategoria icona={Repeat} categoria="documento" dimensione="sm" />
