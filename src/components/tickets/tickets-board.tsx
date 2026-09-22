@@ -1525,6 +1525,12 @@ function DettaglioTicket({
         memoria — stesso valore esatto di prima (SEQUENZA_STATO non
         cambia), stesso `cambiaStato()`, resta cliccabile un passo alla
         volta come i pulsanti originali (prima del redesign a <select>). */}
+        {/* ★ NUOVA (2026-09-22) — ancora per lo scroll automatico dal
+        pulsante "Segna come completato" in SezioneDocumentiTicket, molto
+        più in basso nel pannello su un Ticket lungo: senza, il Rapportino
+        di chiusura si apre qui ma resta fuori vista, sembrando che il
+        click non abbia avuto alcun effetto. */}
+        <div id={`ticket-stato-${ticket.id}`} />
         <SezioneStatoTicket
           ticket={ticket}
           inCorsoStato={inCorsoStato}
@@ -1679,6 +1685,14 @@ function DettaglioTicket({
           onInviaEmailPratica={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
           inCorsoApprovazione={inCorsoApprovazione}
           inviaApprovazione={inviaApprovazione}
+          onCompletaClick={() => {
+            setMostraRapportinoForm(true);
+            // ★ il Rapportino si apre in cima al pannello (vedi
+            // SezioneStatoTicket sopra), fuori vista se il pulsante è stato
+            // premuto da quaggiù su un Ticket lungo — senza questo scroll
+            // sembrerebbe che il click non abbia avuto alcun effetto.
+            requestAnimationFrame(() => document.getElementById(`ticket-stato-${ticket.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+          }}
         />
 
         <div className="h-px bg-border" />

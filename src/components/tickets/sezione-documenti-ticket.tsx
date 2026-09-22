@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { FileText, FileSignature, Repeat, CalendarClock, Send, Loader2 } from "lucide-react";
+import { FileText, FileSignature, Repeat, CalendarClock, Send, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -58,6 +58,7 @@ export function SezioneDocumentiTicket({
   onInviaEmailPratica,
   inCorsoApprovazione,
   inviaApprovazione,
+  onCompletaClick,
 }: {
   ticket: Ticket;
   numeroDocumenti: number;
@@ -82,6 +83,9 @@ export function SezioneDocumentiTicket({
   onInviaEmailPratica: () => Promise<{ errore: string | null }>;
   inCorsoApprovazione: boolean;
   inviaApprovazione: () => void;
+  /** ★ apre lo stesso Rapportino di chiusura dello stepper di stato in
+   * SezioneStatoTicket (setMostraRapportinoForm(true) in DettaglioTicket). */
+  onCompletaClick: () => void;
 }) {
   const richiesteNonSubentro = richieste.filter((r) => r.tipo_richiesta !== "Subentro");
 
@@ -339,22 +343,38 @@ export function SezioneDocumentiTicket({
         </div>
       )}
 
-      {ticket.email && (
+      {(ticket.email || ticket.stato !== "Completato") && ticket.stato !== "Annullato" && (
         <div>
           <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             Intervento risolto da remoto?
             <SuggerimentoCampo testo="Manda al cliente un link email monouso: un suo click conferma che l'intervento è stato risolto, senza dover fissare un appuntamento in loco." />
           </p>
-          {/* ★ FIX (2026-09-17, richiesta esplicita dopo uno screenshot:
-          "i pulsanti li farei più colorati") — era `variant="outline"`
-          come un pulsante qualunque, indistinguibile da un'azione
-          secondaria: è invece un'azione vera (manda al cliente il link di
-          conferma), merita lo stesso risalto del colore primario già
-          usato per "Pianifica appuntamento" quando è l'azione principale. */}
-          <Button variant="default" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
-            {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
-            {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {ticket.email && (
+              /* ★ FIX (2026-09-17, richiesta esplicita dopo uno screenshot:
+              "i pulsanti li farei più colorati") — era `variant="outline"`
+              come un pulsante qualunque, indistinguibile da un'azione
+              secondaria: è invece un'azione vera (manda al cliente il link di
+              conferma), merita lo stesso risalto del colore primario già
+              usato per "Pianifica appuntamento" quando è l'azione principale. */
+              <Button variant="default" disabled={inCorsoApprovazione} onClick={inviaApprovazione} className="min-h-11">
+                {inCorsoApprovazione && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} />}
+                {inCorsoApprovazione ? "Invio in corso…" : "Invia email di approvazione"}
+              </Button>
+            )}
+            {/* ★ NUOVA (2026-09-22, richiesta esplicita: "non c'è il pulsante
+            completato, mettilo affianco di conferma cliente") — lo stepper di
+            stato in cima al pannello (SezioneStatoTicket) permette già di
+            passare a "Completato", ma su un Ticket lungo (con un appuntamento
+            pianificato sopra) resta fuori vista senza risalire lo scroll.
+            Stessa identica azione (apre il Rapportino di chiusura — vedi
+            SezioneStatoTicket), solo raggiungibile anche da qui, accanto
+            all'altra via per chiudere un intervento (la conferma via email). */}
+            <Button variant="outline" onClick={onCompletaClick} className="min-h-11">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Segna come completato
+            </Button>
+          </div>
         </div>
       )}
     </div>

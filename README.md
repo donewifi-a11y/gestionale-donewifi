@@ -5493,3 +5493,13 @@ approvazione del cliente. altrimenti rimangono fermi"):
   non è più imposta.
 
 Build/lint puliti (0 errori).
+
+✅ **Pulsante "Segna come completato" accanto a "Invia email di approvazione"**
+(2026-09-22, richiesta esplicita: "non c'è il pulsante completato, mettilo affianco di
+conferma cliente"): su un Ticket con un appuntamento pianificato sopra (quindi lungo),
+l'unico modo per passare a Completato era lo stepper di stato in cima al pannello — fuori
+vista senza risalire lo scroll, sembrava mancante. Aggiunto un pulsante equivalente
+proprio accanto a "Invia email di approvazione" (sezione "Intervento risolto da
+remoto?"), che apre lo stesso Rapportino di chiusura dello stepper e ci scrolla sopra
+automaticamente (altrimenti si sarebbe aperto comunque in cima, fuori vista, sembrando
+di nuovo senza effetto).
