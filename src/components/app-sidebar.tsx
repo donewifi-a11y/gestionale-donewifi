@@ -25,6 +25,7 @@ import {
   FileText,
   Wrench,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -99,6 +100,7 @@ export function AppSidebar({
   const isAdmin = personaAmministratore;
   const vedeTariffe = isAdmin || personaReparti.includes("Commerciale");
   const vedeRichieste = isAdmin || personaReparti.includes("Commerciale") || personaReparti.includes("Fatturazione");
+  const vedeInsoluti = isAdmin || personaReparti.includes("Fatturazione");
 
   // ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
   // nel Menu", confermata) — prima ogni reparto aveva una voce di menu a sé
@@ -188,7 +190,14 @@ export function AppSidebar({
         // "Clienti" (vedi clienti-board.tsx), non più una voce a sé — resta
         // comunque raggiungibile da /clienti-esterni per i link diretti già
         // in giro, semplicemente non più nel menu.
-        voci: [{ href: "/clienti", etichetta: "Clienti", icona: Users2 }],
+        voci: [
+          { href: "/clienti", etichetta: "Clienti", icona: Users2 },
+          // ★ NUOVA (2026-09-22, richiesta esplicita: "elenco dei clienti in
+          // insoluto o da rallentare da poter consultare") — riservata a
+          // Fatturazione/Admin, stesso criterio già usato per "Gestione
+          // Cliente" più sopra (vedeRichieste).
+          ...(vedeInsoluti ? [{ href: "/insoluti", etichetta: "Insoluti", icona: AlertTriangle }] : []),
+        ],
       },
       {
         id: "analisi",
@@ -234,7 +243,7 @@ export function AppSidebar({
     // mondo senza né voci né href (nessun permesso per nulla al suo
     // interno) sparisce del tutto.
     return lista.filter((m) => m.voci.length > 0 || m.href);
-  }, [vedeRichieste, vedeTariffe, isAdmin]);
+  }, [vedeRichieste, vedeTariffe, vedeInsoluti, isAdmin]);
 
   // ★ il mondo della pagina corrente (es. aprendo /tariffe è "Vendita") —
   // usato per tenere la sua sezione già aperta nell'accordion sotto.

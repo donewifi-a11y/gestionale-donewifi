@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, personaHaAccessoAdmin } from "@/lib/persona";
+import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { fetchTuttiClientiEsterni, dedupClientiPerInstallazione } from "@/lib/clienti-esterni";
 import { inviaEmail, emailPraticaCliente } from "@/lib/email";
 import { creaTicket } from "@/app/(app)/tickets/actions";
@@ -709,6 +709,111 @@ export async function impostaRallentato(clienteEsternoId: number, rallentato: bo
   revalidatePath("/clienti-esterni");
   revalidatePath("/clienti");
   return { errore: null };
+}
+
+// ★ NUOVA (2026-09-22, migrazione 0080, richiesta esplicita: "un elenco dei
+// clienti in insoluto o da rallentare... con indicazione da parte del
+// reparto fatturazione di quando riattivarlo perché ha pagato") — solo
+// campo informativo (promemoria per lo staff), condiviso tra i due flag
+// sopra: nessuna azione automatica sull'apparato, stessa scelta esplicita
+// già fatta per "rallentato".
+export async function impostaDataRiattivazionePrevista(clienteEsternoId: number, data: string | null) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("clienti_esterni")
+    .update({ data_riattivazione_prevista: data || null })
+    .eq("id", clienteEsternoId);
+  if (error) return { errore: error.message };
+
+  revalidatePath(`/clienti-esterni/${clienteEsternoId}`);
+  revalidatePath("/clienti-esterni");
+  revalidatePath("/clienti");
+  revalidatePath("/insoluti");
+  return { errore: null };
+}
+
+export interface ClienteInsolutoRallentato {
+  id: number;
+  nome: string;
+  telefono: string | null;
+  email: string | null;
+  fatturaInsoluta: boolean;
+  fatturaInsolutaDal: string | null;
+  fatturaInsolutaNota: string | null;
+  rallentato: boolean;
+  rallentatoDal: string | null;
+  rallentatoMotivo: string | null;
+  dataRiattivazionePrevista: string | null;
+}
+
+type ClienteEsternoPerInsoluti = Pick<
+  ClienteEsterno,
+  | "id"
+  | "nome"
+  | "cognome"
+  | "ragionesociale"
+  | "telefono"
+  | "email"
+  | "attivo"
+  | "codice_gestionale"
+  | "codice_fiscale"
+  | "partita_iva"
+  | "indirizzo"
+  | "numero_civico"
+  | "comune"
+  | "fattura_insoluta_manuale"
+  | "fattura_insoluta_dal"
+  | "fattura_insoluta_nota"
+  | "rallentato"
+  | "rallentato_dal"
+  | "rallentato_motivo"
+  | "data_riattivazione_prevista"
+>;
+
+/** ★ NUOVA — elenco aggregato per il reparto Fatturazione (pagina
+ * /insoluti): tutti i clienti con almeno uno dei due flag manuali attivo
+ * (vedi impostaFatturaInsolutaManuale/impostaRallentato sopra) — prima
+ * erano consultabili solo uno per volta, dalla scheda del singolo cliente.
+ * `dedupClientiPerInstallazione()` invece di `dedupClientiPerContratto()`:
+ * stesso criterio già usato per l'Anagrafica completa in clienti/page.tsx
+ * (qui servono i dettagli pieni del cliente, non solo stato/telefono). */
+export async function getElencoInsolutiRallentati(): Promise<ClienteInsolutoRallentato[]> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!personaHaAccessoAdmin(persona) && !personaVedeReparto(persona, "Fatturazione")) return [];
+
+  const grezzi = await fetchTuttiClientiEsterni<ClienteEsternoPerInsoluti>(
+    supabase,
+    "id, nome, cognome, ragionesociale, telefono, email, attivo, codice_gestionale, codice_fiscale, partita_iva, indirizzo, numero_civico, comune, fattura_insoluta_manuale, fattura_insoluta_dal, fattura_insoluta_nota, rallentato, rallentato_dal, rallentato_motivo, data_riattivazione_prevista"
+  );
+  const clienti = dedupClientiPerInstallazione(grezzi).filter((c) => c.fattura_insoluta_manuale || c.rallentato);
+
+  return clienti
+    .map((c) => ({
+      id: c.id,
+      nome: c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—",
+      telefono: c.telefono,
+      email: c.email,
+      fatturaInsoluta: c.fattura_insoluta_manuale,
+      fatturaInsolutaDal: c.fattura_insoluta_dal,
+      fatturaInsolutaNota: c.fattura_insoluta_nota,
+      rallentato: c.rallentato,
+      rallentatoDal: c.rallentato_dal,
+      rallentatoMotivo: c.rallentato_motivo,
+      dataRiattivazionePrevista: c.data_riattivazione_prevista,
+    }))
+    // ★ chi non ha ancora una data prevista di riattivazione viene prima
+    // (è il caso che serve seguire), poi le date più vicine.
+    .sort((a, b) => {
+      if (!a.dataRiattivazionePrevista && b.dataRiattivazionePrevista) return -1;
+      if (a.dataRiattivazionePrevista && !b.dataRiattivazionePrevista) return 1;
+      if (!a.dataRiattivazionePrevista && !b.dataRiattivazionePrevista) return a.nome.localeCompare(b.nome);
+      return a.dataRiattivazionePrevista!.localeCompare(b.dataRiattivazionePrevista!);
+    });
 }
 
 // ★ NUOVA (2026-09, richiesta esplicita da screenshot: "manca la pratica di

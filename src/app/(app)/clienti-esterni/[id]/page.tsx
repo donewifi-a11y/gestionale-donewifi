@@ -134,6 +134,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
             rallentato={c.rallentato}
             rallentatoDal={c.rallentato_dal}
             rallentatoMotivo={c.rallentato_motivo}
+            dataRiattivazionePrevista={c.data_riattivazione_prevista}
           />
 
           <NuovaPraticaClienteEsterno

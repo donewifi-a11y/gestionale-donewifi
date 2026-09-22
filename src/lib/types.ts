@@ -508,6 +508,13 @@ export interface ClienteEsterno {
   rallentato: boolean;
   rallentato_dal: string | null;
   rallentato_motivo: string | null;
+  /** ★ NUOVA (2026-09-22, migrazione 0080, richiesta esplicita: "elenco dei
+   * clienti in insoluto o da rallentare... con indicazione da parte del
+   * reparto fatturazione di quando riattivarlo") — solo campo informativo
+   * (promemoria), nessuna azione automatica: condiviso tra i due flag sopra,
+   * un cliente insoluto e rallentato insieme ha comunque una sola data
+   * prevista di rientro. */
+  data_riattivazione_prevista: string | null;
 }
 
 export interface FatturaEsterna {

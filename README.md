@@ -5503,3 +5503,31 @@ proprio accanto a "Invia email di approvazione" (sezione "Intervento risolto da
 remoto?"), che apre lo stesso Rapportino di chiusura dello stepper e ci scrolla sopra
 automaticamente (altrimenti si sarebbe aperto comunque in cima, fuori vista, sembrando
 di nuovo senza effetto).
+
+✅ **Elenco Insoluti/Rallentati, con data prevista di riattivazione** (2026-09-22,
+richiesta esplicita: "avrei bisogno di avere un elenco dei clienti in insoluto o da
+rallentare da poter consultare, con indicazione da parte del reparto fatturazione di
+quando riattivarlo perché ha pagato"). I due flag manuali `fattura_insoluta_manuale`/
+`rallentato` (migrazione 0076, 16/09) esistevano già ma erano consultabili solo uno alla
+volta, dalla scheda del singolo cliente — nessun modo per Fatturazione di vedere il
+quadro completo:
+
+- Nuova voce di menu **"Insoluti"** (mondo Clienti, riservata a Fatturazione/Admin — sia
+  nel menu sia lato server, `getElencoInsolutiRallentati()`/pagina si proteggono da sole
+  indipendentemente dal menu), elenco cercabile per nome/telefono/email di tutti i
+  clienti con almeno uno dei due flag attivo, con badge Insoluta/Rallentato, nota/motivo e
+  data "dal".
+- Nuovo campo **`data_riattivazione_prevista`** (migrazione 0080) — solo un promemoria
+  informativo scritto da Fatturazione ("riattivare il gg/mm perché ha pagato"), niente
+  automatismi: come già per "rallentato", nessuna integrazione con router/RADIUS esiste in
+  questo gestionale, l'azione vera resta sempre manuale altrove. Editabile sia dal nuovo
+  elenco sia dalla scheda del singolo cliente (`StatoCliente`), stesso identico dato.
+- `dedupClientiPerInstallazione()` (non solo `dedupClientiPerContratto()`) per l'elenco:
+  stesso criterio già in uso per l'Anagrafica completa in `clienti/page.tsx`, evita di
+  contare due volte lo stesso cliente per un rinnovo di contratto.
+
+Build/lint puliti (0 errori). Non ancora verificato con dati reali (serve applicare prima
+la migrazione).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0080_data_riattivazione_prevista.sql`
+— aggiunge `data_riattivazione_prevista` (date, nullable) a `clienti_esterni`.

@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Gauge, Loader2 } from "lucide-react";
+import { AlertTriangle, Gauge, Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { impostaFatturaInsolutaManuale, impostaRallentato } from "@/app/(app)/clienti-esterni/actions";
+import { impostaFatturaInsolutaManuale, impostaRallentato, impostaDataRiattivazionePrevista } from "@/app/(app)/clienti-esterni/actions";
 
 /** ★ NUOVA (2026-09-16, migrazione 0076, richiesta esplicita: "metterei
  * all'interno della scheda cliente la possibilità di far inserire se una
@@ -29,6 +29,7 @@ export function StatoCliente({
   rallentato,
   rallentatoDal,
   rallentatoMotivo,
+  dataRiattivazionePrevista,
 }: {
   clienteId: number;
   fatturaInsoluta: boolean;
@@ -37,9 +38,29 @@ export function StatoCliente({
   rallentato: boolean;
   rallentatoDal: string | null;
   rallentatoMotivo: string | null;
+  /** ★ NUOVA (2026-09-22, migrazione 0080, richiesta esplicita: "elenco dei
+   * clienti in insoluto o da rallentare... con indicazione da parte del
+   * reparto fatturazione di quando riattivarlo") — vedi anche l'elenco
+   * aggregato /insoluti, dove lo stesso campo è modificabile per tutti i
+   * clienti insieme; qui resta comunque editabile scheda per scheda. */
+  dataRiattivazionePrevista: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
+  const [inCorsoData, startTransizioneData] = useTransition();
+  const [bozzaData, setBozzaData] = useState(dataRiattivazionePrevista ?? "");
+
+  function salvaData(nuovaData: string) {
+    setBozzaData(nuovaData);
+    startTransizioneData(async () => {
+      const risultato = await impostaDataRiattivazionePrevista(clienteId, nuovaData || null);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-md">
@@ -88,6 +109,23 @@ export function StatoCliente({
             return true;
           }}
         />
+        {(fatturaInsoluta || rallentato) && (
+          <div className="flex items-center gap-2 rounded-xl border p-3">
+            <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+            <label className="text-xs font-semibold text-muted-foreground" htmlFor={`riattivazione-${clienteId}`}>
+              Riattivare il
+            </label>
+            <input
+              id={`riattivazione-${clienteId}`}
+              type="date"
+              value={bozzaData}
+              disabled={inCorsoData}
+              onChange={(e) => salvaData(e.target.value)}
+              className="h-9 rounded-md border bg-background px-2.5 text-xs disabled:opacity-60"
+            />
+            {inCorsoData && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" strokeWidth={2.5} />}
+          </div>
+        )}
       </div>
     </div>
   );
