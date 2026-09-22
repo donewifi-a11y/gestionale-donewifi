@@ -124,7 +124,7 @@ export function SchedaInstallazioneDomande({
       note,
       metodoPagamentoPosa: metodoPagamento,
       materiali,
-      firmaCliente: firmaCliente!,
+      firmaCliente,
       supporto, posizione, gpsLat: gps?.lat, gpsLng: gps?.lng,
       metriCavo, bts, modelloCpe, mac, rssi,
       pingMs: ping, downloadMbps: download, uploadMbps: upload,
@@ -342,8 +342,13 @@ export function SchedaInstallazioneDomande({
       domanda: "Il cliente conferma l'intervento?",
       categoria: "firma",
       icona: <FileSignature className="h-6 w-6" strokeWidth={2.25} />,
-      aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti.",
-      valida: () => (firmaCliente ? null : "Conferma la firma del cliente prima di continuare."),
+      // ★ FIX (2026-09-22, richiesta esplicita: "fai in modo che i ticket si
+      // possano chiudere senza approvazione del cliente. altrimenti
+      // rimangono fermi") — stesso gemello di scheda-installazione-form.tsx,
+      // vedi lì per il commento completo: non più obbligatoria, un cliente
+      // irraggiungibile non deve più bloccare l'installazione.
+      aiuto: "Un codice a 6 cifre arriva via email — il cliente lo legge ad alta voce, tu lo digiti. Facoltativo: puoi proseguire anche senza.",
+      valida: () => null,
       contenuto: <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />,
     },
   ];

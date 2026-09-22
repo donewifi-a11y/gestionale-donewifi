@@ -579,11 +579,12 @@ export async function salvaSchedaLavoroEsterno(
   // ★ RIVISTO (2026-09-16, stesso gemello di salvaSchedaLavoro() — vedi lì
   // per il commento completo: "per le chiusure dei ticket non è
   // necessario otp del cliente o amministratore... obbligatorio per
-  // nuove installazioni e trasferimenti") — obbligatoria solo per "Nuova
-  // installazione" (include già il Trasferimento).
-  if (tipo === "Nuova installazione" && !dati.firmaCliente?.metodo) {
-    return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
-  }
+  // nuove installazioni e trasferimenti") — era obbligatoria solo per
+  // "Nuova installazione" (include già il Trasferimento).
+  // ★ RIVISTO ANCORA (2026-09-22, stesso gemello di salvaSchedaLavoro() —
+  // vedi lì per il commento completo: "fai in modo che i ticket si possano
+  // chiudere senza approvazione del cliente. altrimenti rimangono fermi")
+  // — facoltativa ora per qualunque tipo.
   if (dati.firmaCliente?.metodo) {
     if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
       return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };

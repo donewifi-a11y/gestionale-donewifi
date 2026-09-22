@@ -136,10 +136,6 @@ export function SchedaInstallazioneForm({
 
   async function invia() {
     setErroreInvio("");
-    if (!firmaCliente) {
-      setErroreInvio("Conferma la firma del cliente (codice email o link di approvazione) prima di salvare.");
-      return;
-    }
     const fileDaCaricare: File[] = [];
     if (fotoEsterna) fileDaCaricare.push(new File([fotoEsterna], `Struttura-esterna_${fotoEsterna.name}`, { type: fotoEsterna.type }));
     if (fotoInterna) fileDaCaricare.push(new File([fotoInterna], `Router-interno_${fotoInterna.name}`, { type: fotoInterna.type }));
@@ -384,8 +380,18 @@ export function SchedaInstallazioneForm({
       ),
     },
     {
-      titolo: "Firme",
-      valida: () => (firmaCliente ? null : "Conferma la firma del cliente (codice email o link di approvazione) prima di proseguire."),
+      titolo: "Firme (cliente facoltativa)",
+      // ★ FIX (2026-09-22, richiesta esplicita: "fai in modo che i ticket si
+      // possano chiudere senza approvazione del cliente. altrimenti
+      // rimangono fermi") — era obbligatoria solo per "Nuova installazione"
+      // (vedi salvaSchedaLavoro() in calendario/actions.ts): un cliente
+      // irraggiungibile o che rifiuta di confermare (email non consultata,
+      // non risponde al telefono per l'OTP) lasciava l'installazione bloccata
+      // senza alcuna via d'uscita, a differenza di una Lavorazione tecnica
+      // dove la firma è già facoltativa. Ora facoltativa anche qui, stesso
+      // trattamento — il tecnico può comunque farla confermare se il cliente
+      // è disponibile, semplicemente non è più un requisito per salvare.
+      valida: () => null,
       contenuto: (
         // ★ FIX — richiesta esplicita: due colonne strette (grid-cols-2)
         // lasciavano troppo poco spazio all'input del codice + bottone
@@ -396,6 +402,9 @@ export function SchedaInstallazioneForm({
         <div className="flex flex-col gap-6">
           <div>
             <Label>Firma cliente</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Facoltativa — puoi farla confermare comunque, ma non è richiesta per salvare.
+            </p>
             <div className="mt-1.5">
               <FirmaClienteScheda riferimento={{ tipo: "appuntamento", id: appuntamentoId }} value={firmaCliente} onChange={setFirmaCliente} />
             </div>

@@ -692,15 +692,18 @@ export async function salvaSchedaLavoro(
   // ★ RIVISTO (2026-09-16, richiesta esplicita: "per le chiusure dei
   // ticket non è necessario otp del cliente o amministratore. si può
   // fare ma non obbligatorio. obbligatorio per nuove installazioni e
-  // trasferimenti") — obbligatoria solo per "Nuova installazione" (che
+  // trasferimenti") — era obbligatoria solo per "Nuova installazione" (che
   // include già il Trasferimento, vedi il commento su
-  // ContestoClienteTicket più sotto). Per una Lavorazione tecnica resta
-  // solo facoltativa: se il tecnico la fa comunque, la coerenza dei campi
-  // (email/adminId/verificatoIl) si controlla comunque, a prescindere dal
-  // tipo — solo la sua PRESENZA non è più imposta.
-  if (tipo === "Nuova installazione" && !dati.firmaCliente?.metodo) {
-    return { errore: "Manca la conferma del cliente (codice email, link di approvazione, o autorizzazione admin)." };
-  }
+  // ContestoClienteTicket più sotto).
+  // ★ RIVISTO ANCORA (2026-09-22, richiesta esplicita: "fai in modo che i
+  // ticket si possano chiudere senza approvazione del cliente. altrimenti
+  // rimangono fermi") — anche per "Nuova installazione" non è più
+  // obbligatoria: un cliente irraggiungibile (non risponde al telefono per
+  // l'OTP, non controlla l'email) lasciava l'installazione bloccata senza
+  // alcuna via d'uscita. Facoltativa ora per qualunque tipo, stesso
+  // trattamento già in uso per la Lavorazione tecnica — se il tecnico la fa
+  // comunque, la coerenza dei campi (email/adminId/verificatoIl) si
+  // controlla comunque qui sotto, solo la sua PRESENZA non è più imposta.
   if (dati.firmaCliente?.metodo) {
     if (dati.firmaCliente.metodo !== "otp_admin" && !dati.firmaCliente.email) {
       return { errore: "Manca la conferma del cliente (codice email o link di approvazione)." };

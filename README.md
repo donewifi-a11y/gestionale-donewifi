@@ -5470,3 +5470,26 @@ partire, procedendo un componente alla volta con verifica intermedia:
 
 Prossimo componente pianificato: TicketsBoard (~775 righe) o uno degli altri 3 — da
 confermare col prossimo giro.
+
+✅ **Conferma cliente resa facoltativa anche per Nuova installazione/Trasferimento**
+(2026-09-22, richiesta esplicita: "fai in modo che i ticket si possano chiudere senza
+approvazione del cliente. altrimenti rimangono fermi"):
+
+- Il 2026-09-16 la conferma cliente (OTP email o autorizzazione admin) era già stata
+  resa facoltativa per la Lavorazione tecnica, ma restava **obbligatoria** per Nuova
+  installazione/Trasferimento — un cliente irraggiungibile (non risponde al telefono
+  per leggere il codice, non controlla l'email) lasciava l'installazione bloccata sul
+  passo "Firme" del wizard, senza alcuna via d'uscita per il tecnico.
+- Rimosso il blocco sia lato client (`scheda-installazione-form.tsx`,
+  `pose/scheda-installazione-domande.tsx` — stesso form, uno per lo staff interno e uno
+  per i tecnici esterni via pose.donewifi.it) sia lato server (`salvaSchedaLavoro()` in
+  `calendario/actions.ts`, `salvaSchedaLavoroEsterno()` in `pose/actions.ts`, unica vera
+  fonte di verità — il controllo client era già raddoppiato lì per lo stesso motivo di
+  sicurezza di `trasmettiPerInstallazione()`). Il passo "Firme" del wizard resta
+  disponibile (il tecnico può ancora far confermare il cliente se è raggiungibile) ma
+  non blocca più il salvataggio — stesso trattamento della Lavorazione tecnica.
+- La coerenza interna dei campi (email/adminId/codice verificato) resta comunque
+  controllata quando una firma viene effettivamente fornita — solo la sua *presenza*
+  non è più imposta.
+
+Build/lint puliti (0 errori).
