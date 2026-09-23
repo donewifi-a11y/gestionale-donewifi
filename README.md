@@ -5531,3 +5531,26 @@ la migrazione).
 
 **⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0080_data_riattivazione_prevista.sql`
 — aggiunge `data_riattivazione_prevista` (date, nullable) a `clienti_esterni`.
+✅ Migrazione applicata e verificata contro i dati reali (2026-09-22).
+
+✅ **Fix — Ticket bloccato per sempre dopo un rapportino orfano** (2026-09-23, bug reale
+segnalato con screenshot: Ticket #75, errore grezzo `duplicate key value violates unique
+constraint "rapportino_intervento_ticket_id_key"`). Causa trovata sui dati reali: il
+rapportino esisteva già in `rapportini_intervento` (creato il 09/09), ma il Ticket era
+rimasto `In lavorazione` — la prima chiusura aveva salvato il rapportino con successo ma
+l'aggiornamento successivo dello stato del Ticket era poi fallito (le due scritture non
+sono in una transazione). Ogni tentativo successivo di chiudere quel Ticket ripeteva lo
+stesso `insert()`, che sbatteva di nuovo sul vincolo univoco `ticket_id` — nessuna via
+d'uscita dalla UI, il Ticket restava bloccato per sempre.
+
+- `completaTicketConRapportino()` (`tickets/actions.ts`) e la sua gemella per i tecnici
+  esterni (`pose/actions.ts`) ora usano `upsert()` invece di `insert()` su
+  `rapportini_intervento` (`onConflict: "ticket_id"`): un rapportino orfano viene
+  aggiornato con i dati appena inviati invece di far fallire tutta la chiusura, e il
+  Ticket può finalmente passare a Completato.
+- Bug probabilmente non isolato al Ticket #75 — qualunque Ticket con un fallimento
+  transitorio nello stesso punto (RLS, rete) sarebbe rimasto bloccato allo stesso modo.
+
+Build/lint puliti (0 errori). Verificato contro i dati reali: il rapportino orfano del
+Ticket #75 (creato il 09/09, Ticket ancora "In lavorazione") conferma esattamente lo
+scenario del bug.

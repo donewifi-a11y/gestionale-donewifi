@@ -375,19 +375,29 @@ export async function completaTicketConRapportinoEsterno(
     return { errore: "Questo intervento non risulta assegnato a te." };
   }
 
-  const { error: erroreRapportino } = await service.from("rapportini_intervento").insert({
-    ticket_id: ticketId,
-    esito: dati.esito.trim(),
-    lavori_svolti: dati.lavoriSvolti.trim() || null,
-    materiali: dati.materiali.trim() || null,
-    firma_url: null,
-    firma_metodo: null,
-    firma_email: null,
-    firma_verificato_il: null,
-    foto,
-    creato_da: operatore.tipo === "persona" ? operatore.id : null,
-    creato_da_tecnico_esterno_id: operatore.tipo === "tecnico_esterno" ? operatore.id : null,
-  });
+  // ★ FIX (2026-09-23, stesso gemello di completaTicketConRapportino() in
+  // tickets/actions.ts — vedi lì per il commento completo: bug reale
+  // trovato in produzione, Ticket bloccato per sempre su "duplicate key
+  // value violates unique constraint" dopo che un rapportino era stato
+  // salvato ma l'aggiornamento dello stato del Ticket era poi fallito) —
+  // `upsert()` invece di `insert()` permette di riprovare la chiusura
+  // anche quando un rapportino orfano esiste già per questo Ticket.
+  const { error: erroreRapportino } = await service.from("rapportini_intervento").upsert(
+    {
+      ticket_id: ticketId,
+      esito: dati.esito.trim(),
+      lavori_svolti: dati.lavoriSvolti.trim() || null,
+      materiali: dati.materiali.trim() || null,
+      firma_url: null,
+      firma_metodo: null,
+      firma_email: null,
+      firma_verificato_il: null,
+      foto,
+      creato_da: operatore.tipo === "persona" ? operatore.id : null,
+      creato_da_tecnico_esterno_id: operatore.tipo === "tecnico_esterno" ? operatore.id : null,
+    },
+    { onConflict: "ticket_id" }
+  );
   if (erroreRapportino) return { errore: erroreRapportino.message };
 
   const importo = dati.importoFatturato.trim() ? Number(dati.importoFatturato) : null;

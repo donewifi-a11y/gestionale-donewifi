@@ -615,18 +615,34 @@ export async function completaTicketConRapportino(
 
   const { data: ticketRiga } = await supabase.from("tickets").select("cliente, numero, email, reparto").eq("id", ticketId).single();
 
-  const { error: erroreRapportino } = await service.from("rapportini_intervento").insert({
-    ticket_id: ticketId,
-    esito: dati.esito.trim(),
-    lavori_svolti: dati.lavoriSvolti.trim() || null,
-    materiali: dati.materiali.trim() || null,
-    firma_url: null,
-    firma_metodo: null,
-    firma_email: null,
-    firma_verificato_il: null,
-    foto,
-    creato_da: personaId,
-  });
+  // ★ FIX (2026-09-23, bug reale segnalato — Ticket #75 bloccato per
+  // sempre su "duplicate key value violates unique constraint
+  // 'rapportino_intervento_ticket_id_key'") — un `insert()` semplice qui
+  // presumeva che nessun rapportino esistesse ancora per questo Ticket,
+  // ma le due scritture sotto (rapportino, poi stato del Ticket) non sono
+  // in una transazione: se la prima riesce e la seconda fallisce (visto
+  // in produzione, causa probabile un errore RLS transitorio già corretto
+  // altrove in questo file), il rapportino resta orfano e il Ticket resta
+  // bloccato sul suo stato precedente per sempre — ogni nuovo tentativo di
+  // chiuderlo ripete lo stesso insert e sbatte di nuovo sullo stesso
+  // vincolo univoco, senza che nessuno step della UI possa uscirne.
+  // `upsert()` su `ticket_id` aggiorna la riga se esiste già invece di
+  // fallire, permettendo di riprovare la chiusura in sicurezza.
+  const { error: erroreRapportino } = await service.from("rapportini_intervento").upsert(
+    {
+      ticket_id: ticketId,
+      esito: dati.esito.trim(),
+      lavori_svolti: dati.lavoriSvolti.trim() || null,
+      materiali: dati.materiali.trim() || null,
+      firma_url: null,
+      firma_metodo: null,
+      firma_email: null,
+      firma_verificato_il: null,
+      foto,
+      creato_da: personaId,
+    },
+    { onConflict: "ticket_id" }
+  );
   if (erroreRapportino) return { errore: erroreRapportino.message };
   // ★ FIX (2026-09-10, stessa causa/stesso fix di creaTicket() più sopra —
   // vedi quel commento per il dettaglio completo: il blocco su un reparto
