@@ -187,6 +187,20 @@ function giorniAperta(data: string) {
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
 
+// ★ NUOVA (2026-09-24, richiesta esplicita: "per i ticket di disdetta e
+// ritiro, gli stessi devono rimanere visibili e editabili anche dal
+// reparto fatturazione") — un Ticket di Disdetta viene riassegnato a
+// "Analisi Rete" per il ritiro apparati (fissaDataDismissioneDisdetta(),
+// migrazione 0074), ma Fatturazione deve continuare a trovarlo — stessa
+// regola appena estesa lato RLS (persona_vede_ticket(), migrazione 0081):
+// qui serve applicarla anche alla tab per reparto appena aggiunta,
+// altrimenti un Ticket tornato visibile dal database sparirebbe comunque
+// dalla tab "Fatturazione" perché il suo `reparto` è ormai "Analisi Rete".
+function repartiTabDelTicket(t: Ticket): string[] {
+  if (t.sottocategoria === "Disdetta" && t.reparto !== "Fatturazione") return [t.reparto, "Fatturazione"];
+  return [t.reparto];
+}
+
 export function TicketsBoard({
   tickets,
   currentPersonaId,
@@ -323,7 +337,7 @@ export function TicketsBoard({
           (!filtri.stato || t.stato === filtri.stato) &&
           (!filtri.categoria || t.categoria === filtri.categoria) &&
           (!filtri.priorita || t.priorita === filtri.priorita) &&
-          (!filtri.reparto || t.reparto === filtri.reparto) &&
+          (!filtri.reparto || repartiTabDelTicket(t).includes(filtri.reparto)) &&
           (!filtri.soloMiei || t.tecnico_assegnato === currentPersonaId) &&
           (!filtri.nonAssegnati || !t.tecnico_assegnato) &&
           (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
@@ -354,7 +368,9 @@ export function TicketsBoard({
 
   const conteggioPerReparto = useMemo(() => {
     const conteggio: Partial<Record<AreaAccesso, number>> = {};
-    for (const t of filtratiSenzaReparto) conteggio[t.reparto] = (conteggio[t.reparto] ?? 0) + 1;
+    for (const t of filtratiSenzaReparto) {
+      for (const r of repartiTabDelTicket(t)) conteggio[r as AreaAccesso] = (conteggio[r as AreaAccesso] ?? 0) + 1;
+    }
     return conteggio;
   }, [filtratiSenzaReparto]);
 

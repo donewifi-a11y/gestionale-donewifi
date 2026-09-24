@@ -5576,3 +5576,37 @@ Build/lint puliti (0 errori). Primo passo della richiesta ("dividendo... per rep
 tipologia"): la parte "tipologia" (raggruppamento per categoria) c'era già; se dopo aver
 provato le tab il problema "troppi ticket insieme" persiste ancora dentro un singolo
 reparto, prossimo passo da valutare insieme.
+
+✅ **Fix — Ticket di Disdetta invisibili a Fatturazione dopo il passaggio ad Analisi
+Rete** (2026-09-24, richiesta esplicita: "per i ticket di disdetta e ritiro, gli stessi
+devono rimanere visibili e editabili anche dal reparto fatturazione"). Causa: un Ticket
+di Disdetta nasce in reparto "Fatturazione" ma `fissaDataDismissioneDisdetta()` lo
+riassegna ad "Analisi Rete" per il ritiro apparati (migrazione 0074) — da quel momento la
+policy RLS di visibilità per reparto (`persona_vede_ticket()`, migrazione 0048) lo
+nascondeva del tutto a chi ha solo Fatturazione (non anche Analisi Rete/admin/
+assegnatario diretto). **Non un problema di interfaccia: un vero blocco a livello di
+database**, sia in lettura sia in scrittura. Verificato sui dati reali: 18 Ticket di
+Disdetta su 21 sono oggi in reparto "Analisi Rete", quindi invisibili a "Antonietta
+Favre" (Fatturazione) — la stessa persona che aveva già segnalato un bug di visibilità
+simile (vedi migrazione 0072).
+
+- `persona_vede_ticket()` estesa con un terzo parametro (sottocategoria della riga): un
+  Ticket di Disdetta resta visibile/editabile anche da chi ha "Fatturazione" tra i propri
+  reparti, indipendentemente da dove sia stato spostato il reparto responsabile — stessa
+  idea già in uso per l'assegnatario diretto, qui applicata al reparto di origine.
+- Le tab per reparto appena aggiunte alla bacheca (lotto precedente) aggiornate di
+  conseguenza (`repartiTabDelTicket()`): un Ticket di Disdetta compare ora sia sotto
+  "Analisi Rete" (chi fa il ritiro) sia sotto "Fatturazione" (chi segue la pratica fino
+  in fondo) — altrimenti sarebbe tornato visibile dal database ma sparito di nuovo dalla
+  tab, stesso problema spostato di un livello.
+- Stessa tecnica difensiva già di 0073 (drift delle policy in produzione): le policy
+  SELECT/UPDATE su `tickets` vengono eliminate dinamicamente per nome prima di
+  ricrearle, invece di assumere che coincidano con quelle tracciate qui.
+
+Build/lint puliti (0 errori). Verificato sui dati reali (21 Ticket Disdetta, 18 in
+Analisi Rete, 2 persone Fatturazione-only interessate).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0081_disdetta_visibile_fatturazione.sql`
+— estende `persona_vede_ticket()` e ricrea le policy SELECT/UPDATE su `tickets`. Dopo
+averla applicata, esegui anche la query di verifica in fondo al file (deve restituire
+esattamente una riga per SELECT e una per UPDATE).
