@@ -5554,3 +5554,25 @@ d'uscita dalla UI, il Ticket restava bloccato per sempre.
 Build/lint puliti (0 errori). Verificato contro i dati reali: il rapportino orfano del
 Ticket #75 (creato il 09/09, Ticket ancora "In lavorazione") conferma esattamente lo
 scenario del bug.
+
+✅ **Tab per reparto in cima alla bacheca Ticket** (2026-09-24, richiesta esplicita:
+"riusciamo a migliorare la visuale? magari dividendo i ticket per reparto e tipologia.
+vorrei migliorare l'usabilità" — problema indicato: "troppi ticket insieme, difficile
+trovare i propri/quelli urgenti"):
+
+- Nuove tab **Tutti / Analisi Rete / Commerciale / Fatturazione** subito sopra le "viste"
+  esistenti (Tutti/Le mie/Urgenti scoperti) — un click riduce la bacheca al solo reparto
+  scelto, invece di aprire il menu a tendina "Tutti i reparti" tra gli altri filtri più in
+  basso (rimosso da lì: sarebbe stato un secondo controllo per lo stesso identico stato,
+  solo più lento da raggiungere).
+- Ogni tab mostra un conteggio che tiene conto degli altri filtri già attivi (ricerca/
+  stato/categoria/priorità/solo miei/non assegnati) — dice quanti Ticket compaiono
+  cliccandola davvero, non il totale assoluto ignorando il resto.
+- Il raggruppamento per categoria dentro ogni colonna di stato (Assistenza/Amministrativa/
+  Commerciale, già esistente) resta invariato — le tab per reparto sono un livello sopra,
+  non lo sostituiscono.
+
+Build/lint puliti (0 errori). Primo passo della richiesta ("dividendo... per reparto e
+tipologia"): la parte "tipologia" (raggruppamento per categoria) c'era già; se dopo aver
+provato le tab il problema "troppi ticket insieme" persiste ancora dentro un singolo
+reparto, prossimo passo da valutare insieme.

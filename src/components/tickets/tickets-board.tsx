@@ -46,7 +46,7 @@ import { messaggioWhatsappPratica, CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket } from "@/app/(app)/richieste-clienti/actions";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
-import type { Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
+import type { AreaAccesso, Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { urlDocumentoRapportino } from "@/app/(app)/tickets/actions";
@@ -331,6 +331,33 @@ export function TicketsBoard({
       .sort((a, b) => ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita]);
   }, [tickets, filtri, currentPersonaId, ricerca]);
 
+  // ★ NUOVA (2026-09-24, richiesta esplicita: "riusciamo a migliorare la
+  // visuale? magari dividendo i ticket per reparto... troppi ticket
+  // insieme, difficile trovare i propri/quelli urgenti") — tab per reparto
+  // in cima alla bacheca (vedi JSX sotto): stessi filtri di `filtrati`
+  // sopra MA senza quello sul reparto, per contare quanti Ticket ci
+  // sarebbero in ciascuna tab a parità di ogni altro filtro attivo (stato/
+  // categoria/priorità/ricerca/solo miei/non assegnati) — un numero che
+  // riflette davvero cosa si vedrebbe cliccandola, non il totale assoluto.
+  const filtratiSenzaReparto = useMemo(() => {
+    const testo = ricerca.trim().toLowerCase();
+    return tickets.filter(
+      (t) =>
+        (!filtri.stato || t.stato === filtri.stato) &&
+        (!filtri.categoria || t.categoria === filtri.categoria) &&
+        (!filtri.priorita || t.priorita === filtri.priorita) &&
+        (!filtri.soloMiei || t.tecnico_assegnato === currentPersonaId) &&
+        (!filtri.nonAssegnati || !t.tecnico_assegnato) &&
+        (!testo || t.cliente.toLowerCase().includes(testo) || String(t.numero).includes(testo))
+    );
+  }, [tickets, filtri, currentPersonaId, ricerca]);
+
+  const conteggioPerReparto = useMemo(() => {
+    const conteggio: Partial<Record<AreaAccesso, number>> = {};
+    for (const t of filtratiSenzaReparto) conteggio[t.reparto] = (conteggio[t.reparto] ?? 0) + 1;
+    return conteggio;
+  }, [filtratiSenzaReparto]);
+
   // ★ NUOVA — vedi normalizzaTelefono() sopra: calcolato una volta sola su
   // TUTTI i Ticket (non solo quelli filtrati/visibili in bacheca ora),
   // altrimenti un cliente ripetuto sparirebbe dal segnale appena si
@@ -482,6 +509,41 @@ export function TicketsBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ★ NUOVA (2026-09-24, richiesta esplicita: "riusciamo a migliorare
+      la visuale? magari dividendo i ticket per reparto" — problema
+      indicato: "troppi ticket insieme, difficile trovare i propri/quelli
+      urgenti") — tab per reparto, stesso ruolo delle tab di Dashboard: un
+      click riduce subito la bacheca al solo reparto scelto, invece di
+      dover aprire il menu a tendina "Tutti i reparti" tra gli altri
+      filtri più sotto (rimosso da lì, sarebbe stato un secondo controllo
+      per lo stesso identico stato). Il conteggio per tab riflette gli
+      altri filtri già attivi (ricerca/stato/categoria/priorità/solo miei/
+      non assegnati — vedi filtratiSenzaReparto sopra), non il totale
+      assoluto: dice davvero quanti Ticket comparirebbero cliccandola. */}
+      <div className="mb-3 flex items-center gap-1 overflow-x-auto border-b" role="tablist" aria-label="Filtra per reparto">
+        {[{ valore: "", etichetta: "Tutti" }, ...REPARTI.map((r) => ({ valore: r, etichetta: r }))].map((tab) => {
+          const attiva = filtri.reparto === tab.valore;
+          const conteggio = tab.valore ? (conteggioPerReparto[tab.valore as AreaAccesso] ?? 0) : filtratiSenzaReparto.length;
+          return (
+            <button
+              key={tab.valore || "tutti"}
+              type="button"
+              role="tab"
+              aria-selected={attiva}
+              onClick={() => aggiornaFiltri({ reparto: tab.valore })}
+              className={`relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm font-semibold transition ${
+                attiva ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.etichetta}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${attiva ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                {conteggio}
+              </span>
+              {attiva && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" />}
+            </button>
+          );
+        })}
+      </div>
       {/* ★ NUOVA — "viste" (③ integrate + quelle salvate dall'utente):
       applicano l'intera combinazione di filtri con un click, invece di
       ricostruirla a mano ogni volta con i menu a tendina sotto. Evidenziata
@@ -556,7 +618,6 @@ export function TicketsBoard({
         <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} />
         <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} />
         <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} />
-        <Select value={filtri.reparto} onChange={(v) => aggiornaFiltri({ reparto: v })} placeholder="Tutti i reparti" options={[...REPARTI]} />
         <Button
           size="sm"
           variant={filtri.soloMiei ? "default" : "outline"}
