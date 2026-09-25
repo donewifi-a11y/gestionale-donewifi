@@ -23,11 +23,13 @@ export function DashboardTabs({ tabs }: { tabs: TabDashboard[] }) {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-1 rounded-full border bg-card p-1 shadow-sm print:hidden">
+      <div className="mb-5 flex flex-wrap items-center gap-1 rounded-full border bg-card p-1 shadow-sm print:hidden" role="tablist" aria-label="Reparto">
         {tabs.map((t) => (
           <button
             key={t.chiave}
             type="button"
+            role="tab"
+            aria-selected={attivo === t.chiave}
             onClick={() => setAttivo(t.chiave)}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
               attivo === t.chiave ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"

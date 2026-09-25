@@ -17,12 +17,18 @@ async function fetchTicketArchivio(supabase: Awaited<ReturnType<typeof createCli
   const PAGINA = 1000;
   const tutti: Ticket[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tickets")
       .select("*")
       .in("stato", ["Completato", "Annullato"])
       .order("data_creazione", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    // ★ FIX (2026-09-25, audit modulo Archivio) — un errore a metà
+    // paginazione veniva ignorato e trattato come fine dei risultati,
+    // stesso bug già corretto per Clienti/Materiali/Persone/Dashboard —
+    // qui l'Archivio (per definizione senza limite di tempo, il candidato
+    // più probabile a superare le 1000 righe) tronca in silenzio.
+    if (error) throw new Error(`fetchTicketArchivio: ${error.message}`);
     const pagina = (data as Ticket[] | null) ?? [];
     tutti.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -34,12 +40,13 @@ async function fetchSegnalazioniArchivio(supabase: Awaited<ReturnType<typeof cre
   const PAGINA = 1000;
   const tutte: Segnalazione[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("segnalazioni")
       .select("*")
       .eq("stato", "Trasmessa")
       .order("data", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    if (error) throw new Error(`fetchSegnalazioniArchivio: ${error.message}`);
     const pagina = (data as Segnalazione[] | null) ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;

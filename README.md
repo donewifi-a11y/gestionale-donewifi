@@ -5838,3 +5838,65 @@ lettura — una disattivazione ha effetto immediato).
 Build/lint puliti (0 errori). Verificato contro i dati reali: lettura `lavorazioni_interne`
 e `tecnici_esterni` di produzione, forma delle righe conforme a quanto assunto dal
 nuovo controllo di `cambiaStatoLavorazione()`.
+
+---
+
+## Audit d'oro — modulo Dashboard/Analisi + Archivio + Chat + Todo + Sistema (2026-09-25)
+
+Ottavo e ultimo modulo di questo giro dell'audit sistematico — chiude la prima
+passata completa su tutto il gestionale (Ticket, Segnalazioni, Portale/Richiesta Dati/
+Richiesta Cliente, Calendario/Vista Tecnico, Clienti, Materiali/Preventivi/Tariffe,
+Persone/Team/Lavorazioni, e questo). Stessa disciplina delle precedenti.
+
+✅ **Correzioni dal report di audit del modulo Dashboard + Archivio + Chat + Todo +
+Sistema** (2026-09-25). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `completaTodoPersonale()`/`eliminaTodoPersonale()`/`modificaTodoPersonale()`
+  (`todo/actions.ts`): nessun controllo di persona né filtro `persona_id`, contavano
+  solo sulla RLS ("aggiorna/elimina propri to-do", migrazione 0043). Un update/delete
+  filtrato dalla RLS a 0 righe **non torna come errore da PostgREST** — stesso
+  comportamento silenzioso già scoperto per Ticket e Lavorazioni Interne: un id non
+  proprio avrebbe dato "fatto" senza che nulla fosse davvero cambiato. Aggiunto il
+  controllo persona, il filtro esplicito su `persona_id`, e una verifica che la riga sia
+  stata davvero trovata prima di dichiarare successo.
+- `getOrCreaConversazioneDiretta()` (`chat/actions.ts`): `altraPersonaId` arriva diretto
+  dal client (Server Action pubblica) e finiva interpolato senza controlli in un filtro
+  `.or()` — una virgola o una parentesi in un id fabbricato ad arte avrebbe distorto la
+  sintassi del filtro invece di fallire semplicemente. Aggiunta una validazione di
+  formato uuid prima di costruire il filtro.
+- `fetchTuttiTicketStato()`/`fetchTutteSegnalazioniStato()` (Dashboard) e
+  `fetchTicketArchivio()`/`fetchSegnalazioniArchivio()` (Archivio): tutte e quattro
+  ignoravano l'errore Supabase a metà paginazione — stesso identico bug già corretto
+  per Clienti/Materiali/Persone questa settimana, qui sottostimerebbe in silenzio i
+  conteggi di Dashboard o troncherebbe l'Archivio (per definizione senza limite di
+  tempo, il candidato più probabile a superare le 1000 righe). Tutte e quattro ora
+  sollevano un errore esplicito.
+
+**Difetti UI/UX**
+- Tab reparto di Dashboard: nessun `role`/`aria-selected`, indistinguibili per stato da
+  uno screen reader. Aggiunto `role="tablist"`/`role="tab"`/`aria-selected`.
+
+**Verificato, non un bug**
+- `riapriTicket()` (Archivio) usa la stessa identica policy RLS di
+  `aggiornaStatoTicket()` (Ticket, già auditato) senza duplicare il controllo lato app
+  — coerente con quel pattern già accettato altrove nel modulo Ticket, non
+  un'inconsistenza isolata di questo modulo.
+- `lib/chat.ts`: nessun rischio XSS (il testo dei messaggi passa sempre per nodi di
+  testo React, mai `dangerouslySetInnerHTML`); tutti i canali Realtime hanno una pulizia
+  `removeChannel`/`clearTimeout` corretta all'unmount, nessuna perdita trovata.
+- `env-check.ts`/`sistema/page.tsx`: espongono solo booleani (presente/formato valido),
+  mai il valore vero di una variabile d'ambiente — nessuna fuga verso il client.
+
+**Debito Tecnico** (annotato, non ancora corretto)
+- Todo: gli aggiornamenti ottimistici in `todo-panel.tsx` non fanno rollback se il
+  server restituisce un errore — la UI può restare disallineata dal database in
+  silenzio finché non si ricarica la pagina.
+- `dashboard/page.tsx`: alcune query pesanti riservate all'amministratore sono
+  sequenziali invece che in `Promise.all` come le altre — probabile solo un problema di
+  latenza al caricamento, non di correttezza.
+
+Con questo si chiude la prima passata di audit sistematico su tutti i moduli principali
+del gestionale. Build/lint puliti (0 errori). Verificato contro i dati reali: lettura
+`todo_personali`/`conversazioni` di produzione, forma delle righe conforme alle nuove
+verifiche aggiunte.

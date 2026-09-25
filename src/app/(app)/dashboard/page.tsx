@@ -58,11 +58,16 @@ async function fetchTuttiTicketStato(supabase: Supabase) {
   const PAGINA = 1000;
   const tutti: { stato: string; priorita: string; tecnico_assegnato: string | null }[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tickets")
       .select("stato, priorita, tecnico_assegnato")
       .neq("stato", "Annullato")
       .range(offset, offset + PAGINA - 1);
+    // ★ FIX (2026-09-25, audit modulo Dashboard) — un errore a metà
+    // paginazione veniva ignorato e trattato come fine dei risultati,
+    // stesso bug già corretto per Clienti/Materiali/Persone: qui
+    // sottostimerebbe in silenzio i conteggi mostrati in Dashboard.
+    if (error) throw new Error(`fetchTuttiTicketStato: ${error.message}`);
     const pagina = data ?? [];
     tutti.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -74,7 +79,8 @@ async function fetchTutteSegnalazioniStato(supabase: Supabase) {
   const PAGINA = 1000;
   const tutte: { stato: string }[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase.from("segnalazioni").select("stato").range(offset, offset + PAGINA - 1);
+    const { data, error } = await supabase.from("segnalazioni").select("stato").range(offset, offset + PAGINA - 1);
+    if (error) throw new Error(`fetchTutteSegnalazioniStato: ${error.message}`);
     const pagina = data ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;

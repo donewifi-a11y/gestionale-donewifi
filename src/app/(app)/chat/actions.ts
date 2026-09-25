@@ -135,10 +135,21 @@ export async function getContattiChat(): Promise<{ persone: ContattoChat[]; grup
 }
 
 /** Trova (o crea al primo utilizzo) la conversazione diretta con un'altra persona. */
+// ★ FIX (2026-09-25, audit modulo Chat) — `altraPersonaId` arriva diretto
+// dal client (Server Action pubblica) e finiva interpolato senza controlli
+// in un filtro `.or()`: una virgola o una parentesi in un id fabbricato ad
+// arte avrebbe distorto la sintassi del filtro PostgREST invece di fallire
+// semplicemente — stesso principio già applicato altrove in questo
+// gestionale per input diretti dell'utente. `persone.id` è sempre un uuid,
+// un valore che non rispetta quel formato viene rifiutato prima di
+// costruire il filtro.
+const UUID_VALIDO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getOrCreaConversazioneDiretta(altraPersonaId: string): Promise<{ errore: string | null; id: string | null }> {
   const supabase = await createClient();
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE, id: null };
+  if (!UUID_VALIDO.test(altraPersonaId)) return { errore: "Destinatario non valido.", id: null };
 
   const { data: esistente } = await supabase
     .from("conversazioni")
