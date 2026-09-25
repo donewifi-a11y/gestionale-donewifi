@@ -5767,3 +5767,74 @@ Build/lint puliti (0 errori).
 il salvataggio di una Scheda di Lavoro con materiali fallisce silenziosamente nello
 scarico giacenza (l'errore viene solo loggato, non blocca il salvataggio della Scheda
 stessa — vedi il commento nel codice — ma la giacenza non si aggiorna).
+
+---
+
+## Audit d'oro — modulo Persone + Team + Lavorazioni Interne (2026-09-25)
+
+Settimo modulo dell'audit sistematico. Stessa disciplina delle precedenti — incluso
+`lib/persona.ts`, il file su cui si appoggia il controllo permessi di tutto il
+gestionale: verificato riga per riga, nessun problema trovato (cookie firmato HMAC,
+confronto a tempo costante, `getPersonaCorrente()` ricontrolla `attivo=true` a ogni
+lettura — una disattivazione ha effetto immediato).
+
+✅ **Correzioni dal report di audit del modulo Persone + Team + Lavorazioni Interne**
+(2026-09-25). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `cambiaStatoLavorazione()`: unica funzione del file senza alcun controllo
+  applicativo (le gemelle `creaLavorazione()`/`eliminaLavorazione()` verificano
+  entrambe chi può fare cosa), contava solo sulla RLS. Un update filtrato dalla RLS a 0
+  righe **non torna come errore da PostgREST** — stesso comportamento silenzioso già
+  scoperto e documentato per i Ticket (migrazione 0072): chi non è né assegnatario né
+  assegnante di una lavorazione avrebbe visto un "aggiornato" senza che nulla fosse
+  davvero cambiato. Aggiunto lo stesso controllo esplicito della RLS (migrazione 0053),
+  **senza** eccezione per l'amministratore: la RLS stessa non ne fa una su UPDATE (solo
+  la lettura "tutte le lavorazioni di tutti" passa da service role in pagina), un
+  bypass admin lato app avrebbe comunque incontrato lo stesso 0-righe-silenzioso.
+- `getTecniciEsterni()`: unica funzione di `tecnici-esterni/actions.ts` senza
+  `verificaAdmin()`, nonostante il commento in cima al file dichiari quel controllo per
+  ogni funzione del file. Restituiva username/email/telefono di tutti i tecnici
+  esterni a chiunque fosse autenticato (oggi chiamata solo dalla pagina Persone, già
+  riservata admin, ma resta comunque una Server Action invocabile direttamente).
+  Aggiunto.
+- `generaPasswordProvvisoria()`: usava `Math.random()`, non un generatore
+  crittograficamente sicuro — anche per una password provvisoria. Sostituito con
+  `crypto.randomInt()` di Node.
+- `creaPersona()`/`aggiornaPersona()`: se la creazione dell'account Supabase Auth
+  riusciva ma il collegamento a `persone.auth_user_id` falliva subito dopo, restava un
+  account "fantasma" orfano — esattamente la stessa classe di problema poi trovata e
+  ripulita a mano per fornitori@donewifi.it/donewifi@gmail.com (vedi voce del
+  2026-09-10 più sopra in questo stesso README). Aggiunto un rollback best-effort
+  (elimina l'account appena creato) prima di restituire l'errore.
+
+**Problemi Funzionali**
+- `eliminaPersona()`: se la Persona veniva eliminata ma la rimozione del suo accesso
+  Supabase Auth collegato falliva, l'unico segnale era un `console.error` lato server —
+  l'admin vedeva "eliminata con successo" senza sapere che era rimasto un accesso
+  fantasma da ripulire a mano. Ora torna un avviso non bloccante, mostrato in un toast.
+- `RigaPasswordProvvisoria` (pulsante "Copia"): `navigator.clipboard.writeText()`
+  ritorna una Promise che può rifiutarsi (permesso negato, contesto non sicuro) — non
+  gestita, un fallimento silenzioso mostrava comunque "Password copiata". Ora un
+  fallimento mostra un avviso invece di una falsa conferma.
+
+**Difetti UI/UX**
+- Tab vista Persone (Persone/Accessi condivisi/Tecnici esterni): aggiunto
+  `role="tablist"`/`role="tab"`/`aria-selected`, mancavano del tutto. Filtro categoria
+  Lavorazioni (Rete/Ufficio) e pulsanti di stato in `DettaglioLavorazione`: aggiunto
+  `aria-pressed`.
+- Verificata (non un bug): la disattivazione di un tecnico esterno passa da una
+  checkbox dentro un form con salvataggio esplicito, non da un pulsante di azione
+  immediata — coerente con lo stesso pattern già usato per disattivare una Persona,
+  non necessita di un dialog di conferma aggiuntivo.
+
+**Debito Tecnico** (annotato, non ancora corretto)
+- `verificaAdmin()` duplicato identico in `persone/actions.ts`, `tecnici-esterni/
+  actions.ts` e `utenti/actions.ts` invece di un'unica funzione condivisa.
+- `persone`/`lavorazioni_interne` lette con `.select("*")`/`.select(...)` senza
+  `.range()` — stesso limite delle 1000 righe già corretto altrove, qui a basso rischio
+  immediato (tabelle oggi piccole).
+
+Build/lint puliti (0 errori). Verificato contro i dati reali: lettura `lavorazioni_interne`
+e `tecnici_esterni` di produzione, forma delle righe conforme a quanto assunto dal
+nuovo controllo di `cambiaStatoLavorazione()`.

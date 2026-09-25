@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, impostaCookiePersona } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
@@ -67,7 +68,19 @@ export async function creaPersona(dati: { nome: string; email: string; amministr
         return { errore: erroreAuth?.message || "Persona creata, ma l'accesso individuale non è riuscito." };
       }
       const { error: erroreLink } = await service.from("persone").update({ auth_user_id: creato.user.id }).eq("id", data.id);
-      if (erroreLink) return { errore: erroreLink.message };
+      if (erroreLink) {
+        // ★ FIX (2026-09-25, audit modulo Team) — se il collegamento
+        // fallisce dopo che l'account Supabase Auth è già stato creato,
+        // restava un accesso "fantasma" non collegato a nessuna Persona —
+        // esattamente la stessa classe di problema poi trovata e ripulita
+        // a mano per fornitori@donewifi.it/donewifi@gmail.com (vedi
+        // eliminaPersona sotto, e il README del 2026-09-10). Il rollback è
+        // best-effort: se anche questo fallisce l'errore resta nei log,
+        // ma non blocca la segnalazione dell'errore principale all'admin.
+        const { error: erroreRollback } = await service.auth.admin.deleteUser(creato.user.id);
+        if (erroreRollback) console.error("creaPersona — rollback account Auth orfano fallito:", erroreRollback.message);
+        return { errore: erroreLink.message };
+      }
     }
   }
 
@@ -120,7 +133,14 @@ export async function aggiornaPersona(
         return { errore: erroreAuth?.message || "Persona aggiornata, ma l'accesso individuale non è riuscito." };
       }
       const { error: erroreLink } = await service.from("persone").update({ auth_user_id: creato.user.id }).eq("id", id);
-      if (erroreLink) return { errore: erroreLink.message };
+      if (erroreLink) {
+        // ★ FIX (2026-09-25, audit modulo Team) — stesso rollback di
+        // creaPersona() sopra, stesso motivo: evitare un account Auth
+        // orfano se il collegamento fallisce dopo la creazione.
+        const { error: erroreRollback } = await service.auth.admin.deleteUser(creato.user.id);
+        if (erroreRollback) console.error("aggiornaPersona — rollback account Auth orfano fallito:", erroreRollback.message);
+        return { errore: erroreLink.message };
+      }
     }
   }
 
@@ -168,21 +188,34 @@ export async function eliminaPersona(id: string) {
   // trovato e disattivato per fornitori@donewifi.it/donewifi@gmail.com in
   // una sessione precedente (vedi README, 2026-09-10). Non bloccante: la
   // Persona è già stata eliminata con successo sopra.
+  let avviso: string | null = null;
   if (persona.auth_user_id) {
     const { error: erroreAuth } = await service.auth.admin.deleteUser(persona.auth_user_id);
     if (erroreAuth) {
+      // ★ FIX (2026-09-25, audit modulo Team) — l'unico segnale di questo
+      // fallimento era un console.error lato server: un admin che elimina
+      // una Persona non aveva modo di sapere che l'accesso Supabase Auth
+      // era rimasto "fantasma" (stessa classe di problema poi trovata e
+      // ripulita a mano per fornitori@donewifi.it/donewifi@gmail.com) —
+      // ora torna come avviso non bloccante insieme all'esito positivo.
       console.error("eliminaPersona — persona eliminata ma l'accesso Supabase Auth non è stato rimosso:", erroreAuth.message);
+      avviso = "Persona eliminata, ma l'accesso di login collegato non è stato rimosso — segnalalo per una pulizia manuale.";
     }
   }
 
   revalidatePath("/persone");
-  return { errore: null };
+  return { errore: null, avviso };
 }
 
+// ★ FIX (2026-09-25, audit modulo Team) — `Math.random()` non è un
+// generatore crittograficamente sicuro (documentato dalla stessa API
+// JavaScript): per una password vera, anche solo provvisoria, va usato un
+// generatore adatto — `crypto.randomInt()` di Node, già disponibile lato
+// server senza dipendenze aggiuntive.
 function generaPasswordProvvisoria(): string {
   const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   let risultato = "";
-  for (let i = 0; i < 10; i++) risultato += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  for (let i = 0; i < 10; i++) risultato += alfabeto[randomInt(alfabeto.length)];
   return risultato;
 }
 

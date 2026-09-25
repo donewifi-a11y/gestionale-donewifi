@@ -56,7 +56,7 @@ export function LavorazioniBoard({
             const Icona = ICONA_CATEGORIA[c];
             const conteggio = lavorazioni.filter((l) => l.categoria === c && l.stato !== "Fatta").length;
             return (
-              <Button key={c} size="sm" variant={categoria === c ? "default" : "outline"} onClick={() => setCategoria(c)}>
+              <Button key={c} size="sm" variant={categoria === c ? "default" : "outline"} aria-pressed={categoria === c} onClick={() => setCategoria(c)}>
                 <Icona className="h-3.5 w-3.5" strokeWidth={2.25} />
                 {c}
                 {conteggio > 0 && (
@@ -337,6 +337,8 @@ function DettaglioLavorazione({
           {STATI_LAVORAZIONE.map((s) => (
             <button
               key={s}
+              type="button"
+              aria-pressed={s === lavorazione.stato}
               disabled={inCorsoStato}
               onClick={() => cambiaStato(s)}
               className={`flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-60 ${

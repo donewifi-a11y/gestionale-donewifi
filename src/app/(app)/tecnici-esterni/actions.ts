@@ -41,6 +41,16 @@ async function verificaAdmin(): Promise<string | null> {
 // colonne. Stesso principio già applicato a `persone` (mai un `select("*")`
 // verso il client su una tabella con una colonna password).
 export async function getTecniciEsterni(): Promise<TecnicoEsterno[]> {
+  // ★ FIX (2026-09-25, audit modulo Team) — unica funzione del file senza
+  // verificaAdmin(), nonostante il commento in cima al file dichiari "Stesso
+  // schema di sicurezza di persone/actions.ts: verificaAdmin() qui" per
+  // OGNI funzione. È una Server Action chiamabile direttamente da chiunque
+  // sia autenticato, non solo dalla pagina Persone (già riservata admin
+  // lato server) che oggi è l'unica a invocarla — restituisce comunque
+  // username/email/telefono di tutti i tecnici esterni.
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tecnici_esterni")

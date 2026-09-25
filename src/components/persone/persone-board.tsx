@@ -67,20 +67,29 @@ export function PersoneBoard({
         {/* ★ UNIFORMATO (2026-08-28, artifact "Armonia UI", "sì, pillola
         arrotondata ovunque") — stesso guscio di Calendario/navigazione data/
         rail sidebar, al posto del segmento quadrato usato qui prima. */}
-        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm" role="tablist" aria-label="Vista Persone">
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "persone"}
             onClick={() => setVista("persone")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "persone" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Persone
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "utenti"}
             onClick={() => setVista("utenti")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "utenti" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Accessi condivisi
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "esterni"}
             onClick={() => setVista("esterni")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "esterni" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
@@ -333,7 +342,8 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
         setErrore(risultato.errore);
         return;
       }
-      toast(`${persona.nome} eliminata.`, "successo");
+      if (risultato.avviso) toast(risultato.avviso, "info");
+      else toast(`${persona.nome} eliminata.`, "successo");
       router.refresh();
       onFatto();
     });
@@ -493,9 +503,17 @@ function RigaPasswordProvvisoria({ password, nomePersona }: { password: string; 
   const [copiato, setCopiato] = useState(false);
 
   function copia() {
-    navigator.clipboard.writeText(password);
-    setCopiato(true);
-    toast("Password copiata.", "successo");
+    // ★ FIX (2026-09-25, audit modulo Team) — `writeText()` ritorna una
+    // Promise che può rifiutarsi (permesso negato, contesto non sicuro):
+    // senza gestirla, un fallimento silenzioso mostrava comunque "Password
+    // copiata" — un admin poteva fidarsi di una copia mai avvenuta.
+    navigator.clipboard.writeText(password).then(
+      () => {
+        setCopiato(true);
+        toast("Password copiata.", "successo");
+      },
+      () => toast("Impossibile copiare — seleziona e copia la password a mano.")
+    );
   }
 
   return (

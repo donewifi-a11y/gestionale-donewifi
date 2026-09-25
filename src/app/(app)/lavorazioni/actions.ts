@@ -61,6 +61,26 @@ export async function cambiaStatoLavorazione(id: string, nuovoStato: StatoLavora
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
+  // ★ FIX (2026-09-25, audit modulo Team/Lavorazioni) — a differenza delle
+  // funzioni gemelle (creaLavorazione/eliminaLavorazione), qui mancava
+  // qualunque controllo applicativo: contava solo sulla RLS ("aggiorna le
+  // proprie lavorazioni" — assegnato_a o assegnato_da, migrazione 0053).
+  // Un update filtrato dalla RLS a 0 righe non torna come errore da
+  // PostgREST (stesso identico comportamento silenzioso già scoperto e
+  // documentato per i Ticket, migrazione 0072) — chi non è né assegnatario
+  // né chi ha assegnato la lavorazione avrebbe visto un "aggiornato" senza
+  // che nulla fosse davvero cambiato, invece di un errore chiaro.
+  // ★ la RLS (migrazione 0053) non fa eccezioni per l'amministratore su
+  // UPDATE (solo la SELECT in pagina passa dalla service role, per
+  // mostrare "tutte le lavorazioni di tutti" — vedi lavorazioni/page.tsx):
+  // niente bypass admin neanche qui, sarebbe un controllo applicativo più
+  // permissivo di quello che la scrittura vera consente comunque.
+  const { data: lavorazione } = await supabase.from("lavorazioni_interne").select("assegnato_a, assegnato_da").eq("id", id).maybeSingle();
+  if (!lavorazione) return { errore: "Lavorazione non trovata." };
+  if (lavorazione.assegnato_a !== persona.id && lavorazione.assegnato_da !== persona.id) {
+    return { errore: "Puoi cambiare stato solo alle lavorazioni assegnate a te o da te." };
+  }
+
   const aggiornamento: Record<string, unknown> = { stato: nuovoStato };
   if (nuovoStato === "Fatta") aggiornamento.completato_il = new Date().toISOString();
   else aggiornamento.completato_il = null;
