@@ -88,6 +88,7 @@ export function SelettoreVisibilitaSchede({ materiali }: { materiali: MaterialeM
                 value={ricercaCatalogo}
                 onChange={(e) => setRicercaCatalogo(e.target.value)}
                 placeholder="Cerca..."
+                aria-label="Cerca nel catalogo materiali"
                 className="h-8 w-full rounded-md border bg-background pl-8 pr-2 text-xs"
               />
             </div>
@@ -123,6 +124,7 @@ export function SelettoreVisibilitaSchede({ materiali }: { materiali: MaterialeM
                 value={ricercaSelezionati}
                 onChange={(e) => setRicercaSelezionati(e.target.value)}
                 placeholder="Cerca..."
+                aria-label="Cerca nei materiali selezionati per la Scheda"
                 className="h-8 w-full rounded-md border bg-background pl-8 pr-2 text-xs"
               />
             </div>

@@ -44,6 +44,7 @@ export function MagazzinoVista({ materiali, isAdmin }: { materiali: MaterialeMag
           value={ricerca}
           onChange={(e) => setRicerca(e.target.value)}
           placeholder="Cerca materiale..."
+          aria-label="Cerca materiale"
           className="h-9 w-full rounded-md border bg-background pl-8 pr-2 text-sm"
         />
       </div>

@@ -64,26 +64,38 @@ export function MaterialiBoard({
         pillola arrotondata ovunque") — stesso guscio "pillola" già usato in
         Calendario/navigazione data/rail sidebar, al posto del segmento
         quadrato usato qui prima. */}
-        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+        <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm" role="tablist" aria-label="Vista Materiali">
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "catalogo"}
             onClick={() => setVista("catalogo")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "catalogo" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Catalogo
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "magazzino"}
             onClick={() => setVista("magazzino")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "magazzino" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Magazzino
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "antenne"}
             onClick={() => setVista("antenne")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "antenne" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             Antenne
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "trasferire"}
             onClick={() => setVista("trasferire")}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "trasferire" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
@@ -97,6 +109,9 @@ export function MaterialiBoard({
             )}
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={vista === "schede"}
             onClick={() => setVista("schede")}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "schede" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >

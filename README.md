@@ -5688,3 +5688,82 @@ insensitive nei tre punti di confronto, l'indicatore "mostrati 20 di N" sui coll
 Build/lint puliti (0 errori). Verificato contro i dati reali: paginazione normale di
 3933 righe `clienti_esterni` senza errori, casi rappresentativi del fix virgola-iniziale
 testati a parte (nessun cliente reale oggi ha quella combinazione esatta di campi vuoti).
+
+---
+
+## Audit d'oro — modulo Materiali + Preventivi + Tariffe (2026-09-25)
+
+Sesto modulo dell'audit sistematico. Stessa disciplina delle precedenti.
+
+✅ **Correzioni dal report di audit del modulo Materiali + Preventivi + Tariffe**
+(2026-09-25). Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `scaricaGiacenzaMateriali()`: leggeva la giacenza, calcolava la nuova quantità in
+  JavaScript, poi la scriveva con un update separato — un classico "leggi poi scrivi"
+  senza alcun blocco. Due Schede di Lavoro salvate quasi in contemporanea per lo stesso
+  materiale (scenario reale: due tecnici sul campo che chiudono un intervento nello
+  stesso momento) potevano leggere la stessa giacenza di partenza e perdere uno dei due
+  scarichi in silenzio — magazzino disallineato dalla realtà senza che nessuno se ne
+  accorgesse. Nuova funzione SQL `scarica_giacenza_materiale()` (migrazione 0082) fa
+  lettura+scrittura in un solo `UPDATE...RETURNING`, atomico per costruzione — Postgres
+  serializza gli update concorrenti sulla stessa riga.
+- Pulsanti "Duplica"/toggle sottoscrivibile/toggle pubblica su `RigaTariffa` (usata sia
+  da Tariffe sia dall'archivio "Non sottoscrivibili"): nessuno disabilitava se stesso
+  durante l'azione — un doppio click o due tap ravvicinati su mobile potevano far
+  partire due richieste in parallelo (due tariffe duplicate invece di una, o un toggle
+  "on" seguito a ruota dal suo stesso "off"). Aggiunto un flag `inCorso` condiviso alle
+  tre azioni (sempre alternative tra loro sulla stessa riga).
+
+**Problemi Funzionali**
+- `creaPromozione()`/`aggiornaPromozione()`: nessuna validazione server-side — un valore
+  di sconto negativo (aumenterebbe il prezzo invece di scontarlo) o un intervallo di
+  validità invertito (`da` successivo ad `a`, promozione mai attiva per nessun cliente)
+  venivano accettati in silenzio. Aggiunta la stessa validazione già esistente per i
+  prezzi delle Tariffe.
+- `aggiornaPreventivo()`: `creaPreventivo()`/`eliminaPreventivo()` registrano entrambi
+  una voce di storico, la modifica di una Bozza no — l'unica scrittura sul preventivo
+  senza traccia di chi/quando. Aggiunta.
+- `creaTariffa()`/`aggiornaTariffa()`/`impostaSottoscrivibileTariffa()`/
+  `impostaPubblicaTariffa()`/`duplicaTariffa()`/`creaPromozione()`/`aggiornaPromozione()`/
+  `aggiornaPreventivo()`: controllavano solo `auth.getUser()` (sessione Supabase Auth
+  valida) invece di `getPersonaCorrente()` (Persona ancora attiva) — stessa causa già
+  trovata e corretta più volte in questo gestionale (un accesso condiviso/vecchio ancora
+  autenticato). La RLS su `tariffe`/`promozioni` richiede comunque `is_active_staff()`,
+  quindi non un vero buco d'accesso, solo un controllo applicativo più debole di quello
+  usato ovunque altrove — corretto per coerenza e come seconda barriera.
+
+**Difetti UI/UX**
+- Campo di ricerca senza `aria-label` in 5 componenti (`magazzino-vista.tsx`,
+  `antenne-vista.tsx`, `selettore-visibilita-schede.tsx` — due campi —,
+  `nuovo-preventivo-form.tsx`, `preventivi-board.tsx`).
+  Aggiunto in tutti.
+- Tab vista Materiali (Catalogo/Magazzino/Antenne/Da trasferire/In Scheda di lavoro):
+  nessun `role`/`aria-selected`, indistinguibili per stato da uno screen reader.
+  Aggiunto `role="tablist"`/`role="tab"`/`aria-selected`. Filtro stato Preventivi:
+  aggiunto `aria-pressed`.
+
+**Debito Tecnico** (annotato, non ancora corretto)
+- `materiali_magazzino`/`antenne_inventario`/`getSchedeDaTrasferireAntenne` letti con
+  `.select("*")` senza `.range()` — stesso limite delle 1000 righe già corretto altrove,
+  qui a basso rischio immediato (cataloghi oggi piccoli) ma un candidato a
+  troncamento silenzioso se crescono, incoerente con `preventivi/page.tsx` che pagina
+  esplicitamente per lo stesso motivo.
+- Elenco Tariffe senza alcun campo di ricerca, incoerente con Materiali/Preventivi che
+  ne hanno uno.
+
+Non ancora affrontato in questo giro (richiede una decisione): se restringere
+`creaTariffa()`/`aggiornaTariffa()` e simili a Commerciale/Admin invece che a
+"chiunque sia staff attivo" — la voce di menu "Tariffe" è già visibile solo a
+Commerciale/Admin, ma quello è solo un filtro di UI, non una barriera reale; la
+filosofia già stabilita altrove nel gestionale (migrazioni 0072/0073, "chiunque sia
+staff attivo può operare") rende incerto se sia un vero bug o una scelta coerente — da
+confermare con l'utente prima di restringere un accesso oggi aperto.
+
+Build/lint puliti (0 errori).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0082_scarica_giacenza_atomico.sql`
+— aggiunge la funzione SQL `scarica_giacenza_materiale()`. Finché non è applicata,
+il salvataggio di una Scheda di Lavoro con materiali fallisce silenziosamente nello
+scarico giacenza (l'errore viene solo loggato, non blocca il salvataggio della Scheda
+stessa — vedi il commento nel codice — ma la giacenza non si aggiorna).

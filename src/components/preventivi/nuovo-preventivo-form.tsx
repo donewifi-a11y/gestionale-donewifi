@@ -159,6 +159,7 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
                 value={ricercaCliente}
                 onChange={(e) => setRicercaCliente(e.target.value)}
                 placeholder="Cerca un cliente/Segnalazione esistente (opzionale)…"
+                aria-label="Cerca un cliente o segnalazione esistente"
                 className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
               />
               {risultatiRicerca.length > 0 && (

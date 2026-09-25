@@ -223,6 +223,22 @@ export function RigaTariffa({
   onToggle: () => void;
   onTogglePubblica: () => void;
 }) {
+  // ★ FIX (2026-09-25, audit modulo Tariffe) — nessuno dei tre pulsanti
+  // qui sotto disabilitava se stesso durante l'azione: un doppio click (o
+  // due tap ravvicinati su mobile, connessione lenta) poteva far partire
+  // due richieste in parallelo — due tariffe duplicate invece di una, o un
+  // toggle "on" seguito a ruota dal suo stesso "off" prima che la UI si
+  // fosse aggiornata. Un solo flag basta: le tre azioni sono comunque
+  // sempre alternative tra loro sulla stessa riga (mai due insieme).
+  const [inCorso, setInCorso] = useState(false);
+  async function esegui(azione: () => void | Promise<void>) {
+    setInCorso(true);
+    try {
+      await azione();
+    } finally {
+      setInCorso(false);
+    }
+  }
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md">
       <button onClick={onApri} className="flex min-w-0 flex-1 items-center gap-3 text-left">
@@ -253,9 +269,10 @@ export function RigaTariffa({
           <Button
             size="icon"
             variant="ghost"
+            disabled={inCorso}
             title={t.pubblica ? "Nascondi dalla documentazione inviata al cliente" : "Mostra nella documentazione inviata al cliente"}
             aria-label={t.pubblica ? "Nascondi dalla documentazione inviata al cliente" : "Mostra nella documentazione inviata al cliente"}
-            onClick={onTogglePubblica}
+            onClick={() => esegui(onTogglePubblica)}
           >
             {t.pubblica ? <Eye className="h-3.5 w-3.5" strokeWidth={2.25} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={2.25} />}
           </Button>
@@ -263,13 +280,14 @@ export function RigaTariffa({
         <Button
           size="icon"
           variant="ghost"
+          disabled={inCorso}
           title={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
           aria-label={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
-          onClick={onToggle}
+          onClick={() => esegui(onToggle)}
         >
           {t.attivo ? <Ban className="h-3.5 w-3.5" strokeWidth={2.25} /> : <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />}
         </Button>
-        <Button size="icon" variant="ghost" title="Duplica tariffa" aria-label="Duplica tariffa" onClick={onDuplica}>
+        <Button size="icon" variant="ghost" disabled={inCorso} title="Duplica tariffa" aria-label="Duplica tariffa" onClick={() => esegui(onDuplica)}>
           <Copy className="h-3.5 w-3.5" strokeWidth={2.25} />
         </Button>
       </div>

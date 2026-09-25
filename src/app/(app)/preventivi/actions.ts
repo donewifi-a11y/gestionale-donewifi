@@ -83,10 +83,11 @@ export async function aggiornaPreventivo(
   dati: { clienteNome: string; clienteTelefono: string; clienteEmail: string; tipologiaCliente: "Privato" | "Azienda"; righe: RigaPreventivo[]; note: string }
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX (2026-09-25, audit modulo Preventivi) — `auth.getUser()` invece
+  // di `getPersonaCorrente()`, stessa causa già corretta più volte in
+  // questo gestionale (un accesso condiviso/vecchio ancora autenticato).
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
   // ★ solo una Bozza si può modificare: un preventivo già inviato non deve
   // cambiare sotto i piedi del cliente che lo sta guardando/ha già risposto.
@@ -111,6 +112,18 @@ export async function aggiornaPreventivo(
     })
     .eq("id", id);
   if (error) return { errore: error.message };
+
+  // ★ FIX (2026-09-25, audit modulo Preventivi) — creaPreventivo()/
+  // eliminaPreventivo() registrano entrambi una voce di storico, la
+  // modifica di una Bozza no: chi cambia righe/totale/dati cliente su un
+  // preventivo esistente non lasciava alcuna traccia di chi/quando,
+  // l'unica scrittura sul preventivo senza un corrispondente in storico.
+  await supabase.from("storico").insert({
+    origine: "preventivo",
+    riferimento_id: id,
+    operazione: "Modifica Preventivo",
+    operatore_id: persona.id,
+  });
 
   revalidatePath("/preventivi");
   return { errore: null };

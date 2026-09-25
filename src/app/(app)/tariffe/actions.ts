@@ -20,10 +20,15 @@ function erroreValidazioneTariffa(dati: DatiTariffa): string | null {
 
 export async function creaTariffa(dati: DatiTariffa) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX (2026-09-25, audit modulo Tariffe) — `auth.getUser()` controlla
+  // solo che esista una sessione Supabase Auth valida, non che corrisponda
+  // a una Persona ancora attiva — stessa causa già trovata e corretta più
+  // volte in questo gestionale (un accesso condiviso/vecchio ancora
+  // autenticato). La RLS su `tariffe` (migrazione 0010) richiede comunque
+  // `is_active_staff()`, quindi non è un vero buco d'accesso, solo un
+  // controllo applicativo più debole di quello usato altrove.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
   const erroreValidazione = erroreValidazioneTariffa(dati);
   if (erroreValidazione) return { errore: erroreValidazione };
 
@@ -38,10 +43,8 @@ export async function creaTariffa(dati: DatiTariffa) {
 
 export async function aggiornaTariffa(id: string, dati: DatiTariffa) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
   const erroreValidazione = erroreValidazioneTariffa(dati);
   if (erroreValidazione) return { errore: erroreValidazione };
 
@@ -59,10 +62,8 @@ export async function aggiornaTariffa(id: string, dati: DatiTariffa) {
  * firmati) — si smette solo di proporla ai nuovi clienti. */
 export async function impostaSottoscrivibileTariffa(id: string, attivo: boolean) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const { error } = await supabase.from("tariffe").update({ attivo }).eq("id", id);
   if (error) return { errore: error.message };
@@ -78,10 +79,8 @@ export async function impostaSottoscrivibileTariffa(id: string, attivo: boolean)
  * fuori dal form pubblico (venduta solo su trattativa diretta). */
 export async function impostaPubblicaTariffa(id: string, pubblica: boolean) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const { error } = await supabase.from("tariffe").update({ pubblica }).eq("id", id);
   if (error) return { errore: error.message };
@@ -114,10 +113,8 @@ export async function eliminaTariffa(id: string) {
 /** ★ NUOVA — clona un piano esistente per una variante (es. stagionale), invece di ricompilare tutto da zero. */
 export async function duplicaTariffa(id: string) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const { data: originale, error: erroreLettura } = await supabase.from("tariffe").select("*").eq("id", id).single();
   if (erroreLettura || !originale) return { errore: erroreLettura?.message || "Tariffa non trovata." };
@@ -143,13 +140,24 @@ export async function duplicaTariffa(id: string) {
 
 type DatiPromozione = Pick<Promozione, "nome" | "tipo" | "valore" | "tariffe_ids" | "da" | "a" | "codice">;
 
+// ★ FIX (2026-09-25, audit modulo Tariffe) — nessuna validazione
+// server-side sul valore dello sconto (poteva essere negativo, es. uno
+// sconto che AUMENTA il prezzo) né sull'intervallo di validità (un "da"
+// successivo ad "a" veniva accettato in silenzio, promozione mai attiva
+// per nessun cliente senza alcun avviso del perché).
+function erroreValidazionePromozione(dati: DatiPromozione): string | null {
+  if (dati.tariffe_ids.length === 0) return "Seleziona almeno un piano applicabile.";
+  if (dati.valore != null && (!Number.isFinite(dati.valore) || dati.valore < 0)) return "Il valore dello sconto non può essere negativo.";
+  if (dati.da && dati.a && dati.da > dati.a) return "La data di fine non può precedere la data di inizio.";
+  return null;
+}
+
 export async function creaPromozione(dati: DatiPromozione) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  if (dati.tariffe_ids.length === 0) return { errore: "Seleziona almeno un piano applicabile." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+  const erroreValidazione = erroreValidazionePromozione(dati);
+  if (erroreValidazione) return { errore: erroreValidazione };
 
   const { error } = await supabase.from("promozioni").insert(dati);
   if (error) return { errore: error.message };
@@ -160,11 +168,10 @@ export async function creaPromozione(dati: DatiPromozione) {
 
 export async function aggiornaPromozione(id: string, dati: DatiPromozione) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
-  if (dati.tariffe_ids.length === 0) return { errore: "Seleziona almeno un piano applicabile." };
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
+  const erroreValidazione = erroreValidazionePromozione(dati);
+  if (erroreValidazione) return { errore: erroreValidazione };
 
   const { error } = await supabase.from("promozioni").update(dati).eq("id", id);
   if (error) return { errore: error.message };

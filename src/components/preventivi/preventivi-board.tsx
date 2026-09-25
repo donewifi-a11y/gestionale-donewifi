@@ -90,12 +90,13 @@ export function PreventiviBoard({
             value={ricerca}
             onChange={(e) => setRicerca(e.target.value)}
             placeholder="Cerca cliente, numero..."
+            aria-label="Cerca preventivo per cliente o numero"
             className="h-9 w-56 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
         <div className="flex gap-1">
           {FILTRI_STATO.map((s) => (
-            <Button key={s} size="sm" variant={filtroStato === s ? "default" : "outline"} onClick={() => setFiltroStato(s)}>
+            <Button key={s} size="sm" variant={filtroStato === s ? "default" : "outline"} aria-pressed={filtroStato === s} onClick={() => setFiltroStato(s)}>
               {s}
             </Button>
           ))}

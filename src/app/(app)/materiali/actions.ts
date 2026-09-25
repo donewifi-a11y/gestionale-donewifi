@@ -157,16 +157,25 @@ export async function scaricaGiacenzaMateriali(materiali: { materiale_id: string
     for (const riga of materiali) {
       if (!riga.materiale_id || !riga.quantita) continue;
 
-      const { data: materiale } = await service
-        .from("materiali_magazzino")
-        .select("id, nome, giacenza, soglia_minima, ultimo_avviso_il")
-        .eq("id", riga.materiale_id)
-        .maybeSingle();
-      if (!materiale || materiale.giacenza == null) continue; // non tracciato a magazzino
+      // ★ FIX (2026-09-25, audit modulo Materiali) — leggere la giacenza,
+      // calcolarla in JS, poi scriverla con un update separato era un
+      // classico "leggi poi scrivi" senza alcun blocco: due Schede
+      // salvate quasi in contemporanea per lo stesso materiale possono
+      // leggere la stessa giacenza di partenza e perdere uno dei due
+      // scarichi in silenzio. `scarica_giacenza_materiale()` (migrazione
+      // 0082) fa lettura+scrittura in un solo UPDATE...RETURNING atomico.
+      const { data: righe, error } = await service.rpc("scarica_giacenza_materiale", {
+        materiale_id_param: riga.materiale_id,
+        quantita_param: riga.quantita,
+      });
+      if (error) {
+        console.error("scaricaGiacenzaMateriali — rpc:", error.message);
+        continue;
+      }
+      const materiale = righe?.[0];
+      if (!materiale) continue; // non tracciato a magazzino (giacenza null) o id inesistente
 
-      const nuovaGiacenza = Math.max(0, materiale.giacenza - riga.quantita);
-      await service.from("materiali_magazzino").update({ giacenza: nuovaGiacenza }).eq("id", materiale.id);
-
+      const nuovaGiacenza = materiale.giacenza;
       const sottoSoglia = materiale.soglia_minima != null && nuovaGiacenza <= materiale.soglia_minima;
       const daAvvisare =
         sottoSoglia &&

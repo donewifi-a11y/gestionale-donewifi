@@ -199,6 +199,7 @@ function SelettoreTicketPrenotazione({ antennaId, onFatto }: { antennaId: string
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Numero o cliente..."
+            aria-label="Cerca ticket per numero o cliente"
             className="h-9 w-full rounded-md border bg-background pl-8 pr-2 text-sm"
           />
         </div>
