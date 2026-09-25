@@ -216,6 +216,7 @@ export function ClientiBoard({
           value={ricerca}
           onChange={(e) => setRicerca(e.target.value)}
           placeholder="Cerca cliente o telefono..."
+          aria-label="Cerca cliente o telefono"
           className="h-9 w-64 rounded-md border bg-background pl-8 pr-3 text-sm"
         />
       </div>

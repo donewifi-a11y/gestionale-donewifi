@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getPersonaCorrente } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { MaterialeUsato } from "@/lib/types";
 
@@ -22,10 +23,14 @@ type DatiCliente = {
 // nessun Ticket.
 export async function salvaDatiContrattualiCliente(clienteId: string | null, dati: DatiCliente) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { errore: "Non autenticato." };
+  // ★ FIX (2026-09-25, audit modulo Clienti) — `auth.getUser()` controlla
+  // solo che esista una sessione Supabase Auth valida, non che corrisponda
+  // a una Persona ancora attiva: stessa causa già trovata più volte in
+  // questo gestionale (un accesso condiviso/vecchio ancora autenticato,
+  // vedi i fix su creaTicket()/aggiornaStatoTicket() in tickets/actions.ts)
+  // — `getPersonaCorrente()` è il controllo giusto, usato ovunque altrove.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: "Non autenticato." };
 
   const payload = {
     nome: dati.nome,
@@ -77,6 +82,12 @@ export interface RigaInstallazione {
  * gestionale (fetchTuttiTicket, fetchTicketArchivio...). */
 export async function getInstallazioni(): Promise<RigaInstallazione[]> {
   const supabase = await createClient();
+  // ★ FIX (2026-09-25, audit modulo Clienti) — mancava del tutto un
+  // controllo di autenticazione (a differenza di salvaDatiContrattualiCliente
+  // qui sopra): nome/indirizzo/dati tecnici dei clienti installati erano
+  // leggibili da chiunque chiamasse questa Server Action, autenticato o no.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return [];
 
   const PAGINA = 1000;
   const schede: {
@@ -93,12 +104,17 @@ export async function getInstallazioni(): Promise<RigaInstallazione[]> {
     metodo_pagamento_posa: string | null;
   }[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("schede_lavoro")
       .select("id, ticket_id, creato_il, creato_da, modello_cpe, mac, rssi, snr, materiali, importo_fatturato, metodo_pagamento_posa")
       .eq("tipo", "Nuova installazione")
       .order("creato_il", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    // ★ FIX (2026-09-25, audit modulo Clienti) — stesso bug di
+    // fetchTuttiTicket()/fetchTuttiClientiEsterni(): un errore a metà
+    // paginazione veniva trattato come fine dei risultati, elenco
+    // installazioni troncato in silenzio.
+    if (error) throw new Error(`getInstallazioni: ${error.message}`);
     const pagina = data ?? [];
     schede.push(...pagina);
     if (pagina.length < PAGINA) break;

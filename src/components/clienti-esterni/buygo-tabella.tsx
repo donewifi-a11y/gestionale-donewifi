@@ -53,6 +53,7 @@ export function BuyGoTabella({ clienti }: { clienti: ClienteBuyGo[] }) {
           value={ricerca}
           onChange={(e) => setRicerca(e.target.value)}
           placeholder="Cerca nome, telefono, comune..."
+          aria-label="Cerca nome, telefono, comune"
           className="h-9 w-64 rounded-md border bg-background pl-8 pr-3 text-sm"
         />
       </div>

@@ -40,7 +40,13 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
   const insoluti = fatture.filter((f) => !f.pagata);
   const insolutoTotale = insoluti.reduce((s, f) => s + (Number(f.importo) || 0), 0);
 
-  const indirizzoCompleto = [c.indirizzo, c.numero_civico].filter(Boolean).join(" ") + (c.comune ? `, ${c.comune}` : "");
+  // ★ FIX (2026-09-25, audit modulo Clienti) — con via/civico entrambi
+  // vuoti ma comune valorizzato, la vecchia concatenazione produceva una
+  // stringa con virgola iniziale (es. ", Gressan"), finita sia nel campo
+  // indirizzo precompilato di "Nuovo Ticket" sia in ogni altro punto che
+  // legge `indirizzoCompleto`. `.filter(Boolean)` su entrambi i pezzi
+  // evita la virgola quando uno dei due manca.
+  const indirizzoCompleto = [[c.indirizzo, c.numero_civico].filter(Boolean).join(" "), c.comune].filter(Boolean).join(", ");
   const parametriNuovoTicket = new URLSearchParams({
     cliente: nomeVisualizzato(c),
     ...(c.telefono ? { telefono: c.telefono } : {}),

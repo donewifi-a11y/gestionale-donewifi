@@ -5610,3 +5610,81 @@ Analisi Rete, 2 persone Fatturazione-only interessate).
 — estende `persona_vede_ticket()` e ricrea le policy SELECT/UPDATE su `tickets`. Dopo
 averla applicata, esegui anche la query di verifica in fondo al file (deve restituire
 esattamente una riga per SELECT e una per UPDATE).
+
+---
+
+## Audit d'oro — modulo Clienti + Clienti Esterni (2026-09-25)
+
+Quinto modulo dell'audit sistematico (dopo Ticket, Segnalazioni, Portale/Richiesta Dati/
+Richiesta Cliente, Calendario/Vista Tecnico) — stessa disciplina: report Lead QA/UX/Architect,
+poi correzione immediata dei punti a più alto valore/rischio più basso.
+
+✅ **Correzioni dal report di audit del modulo Clienti + Clienti Esterni** (2026-09-25).
+Applicate le correzioni a più alto valore/rischio più basso:
+
+**Bug Critici**
+- `fetchTuttiClientiEsterni()` (`lib/clienti-esterni.ts`), `fetchTuttiTicket()`
+  (`clienti/page.tsx`), `getFattureCliente()`/`getRiepilogoInsoluti()`
+  (`clienti-esterni/actions.ts`) e `getInstallazioni()` (`clienti/actions.ts`): tutte e
+  cinque ignoravano l'`error` di Supabase a metà paginazione (1000 righe a pagina) —
+  una query fallita a metà veniva trattata come "fine dei risultati" invece che come un
+  errore vero, restituendo un elenco troncato in silenzio. Stesso identico bug che il
+  codice aveva già corretto ripetutamente per il *limite* delle 1000 righe (5+ commenti
+  `★ FIX` lo documentano), mai esteso al caso dell'*errore* — la stessa causa, un ramo
+  diverso. Particolarmente rischioso per `getRiepilogoInsoluti()` (un totale insoluti
+  sottostimato è un dato su cui lo staff decide azioni verso un cliente) e per gli elenchi
+  usati da più pagine contemporaneamente. Tutte e cinque ora sollevano un errore esplicito
+  invece di restituire dati parziali senza segnalarlo.
+- `getContrattiPrecedenti()`: nessun controllo di persona attiva (unica funzione del file
+  a mancarne uno), e un filtro `.or()` costruito interpolando direttamente
+  `codice_gestionale`/`codice_fiscale`/`partita_iva` — dati importati da Aruba, mai
+  validati in scrittura da questo gestionale — senza sanificazione: una virgola o un
+  carattere riservato PostgREST in uno di questi campi avrebbe rotto il filtro o
+  cambiato cosa seleziona (stesso principio già corretto altrove per input diretti
+  dell'utente, qui esteso a dati esterni). Aggiunto il controllo persona e un filtro
+  alfanumerico che scarta silenziosamente un valore sospetto invece di interpolarlo.
+- `indirizzoCompleto` in `clienti-esterni/[id]/page.tsx`: con via/civico entrambi vuoti
+  ma comune valorizzato produceva una stringa con virgola iniziale (es. ", Gressan"),
+  finita nel campo indirizzo precompilato di "Nuovo Ticket". Corretto con un
+  `.filter(Boolean)` su entrambi i pezzi della concatenazione.
+- `salvaDatiContrattualiCliente()`: controllava solo `auth.getUser()` (sessione Supabase
+  Auth valida) invece di `getPersonaCorrente()` (Persona ancora attiva) — stessa identica
+  causa di una classe di bug già trovata e corretta più volte in questo gestionale (un
+  accesso condiviso/vecchio ancora autenticato, vedi i fix su `creaTicket()`/
+  `aggiornaStatoTicket()`). `getInstallazioni()` non aveva invece nessun controllo
+  d'autenticazione: nome/indirizzo/dati tecnici dei clienti installati erano leggibili da
+  chiunque chiamasse la Server Action. Entrambe ora richiedono una Persona attiva.
+
+**Difetti UI/UX**
+- Campo di ricerca senza `aria-label` in tre componenti (`clienti-board.tsx`,
+  `clienti-esterni-board.tsx`, `buygo-tabella.tsx`) — solo un placeholder, invisibile per
+  uno screen reader una volta che il campo contiene testo. Aggiunto in tutti e tre.
+
+**Debito Tecnico** (annotato, non ancora corretto)
+- Confronto CF/PIVA tra fatture e anagrafica case-sensitive in almeno 3 punti
+  (`sincronizzaFattureAruba`, `getRiepilogoInsoluti`, `getClientiBuyGo`) — se Aruba
+  restituisse mai una casistica diversa tra le due tabelle sorgente, una fattura
+  legittima verrebbe scartata/non abbinata in silenzio. Richiede normalizzare il
+  confronto in tutti i punti insieme, non un fix isolato.
+- Elenco clienti in `clienti-esterni-board.tsx` reso come mappa piatta senza
+  paginazione/virtualizzazione — con 3900+ righe (anche dopo il dedup) sono centinaia-
+  migliaia di nodi DOM montati insieme. Nessun sintomo segnalato finora, ma un candidato
+  reale a rallentamenti su dispositivi meno potenti.
+- `getTicketCollegati()`/`getPreventiviCollegati()`: `.limit(20)` senza alcun "mostrati
+  20 di N" — un cliente con più di 20 Ticket/preventivi collegati non ha modo di saperlo
+  dalla scheda.
+- `impostaFatturaInsolutaManuale()`/`impostaRallentato()`/`impostaDataRiattivazionePrevista()`
+  non controllano il reparto (solo "persona attiva") nonostante il commento di
+  quest'ultima parli esplicitamente di "reparto fatturazione" — a differenza di
+  `getElencoInsolutiRallentati()` (la lettura aggregata), che è correttamente ristretta
+  a Fatturazione/Admin. Non corretto in questo giro: la filosofia già stabilita altrove
+  nel gestionale (migrazioni 0072/0073, "chiunque sia staff attivo può operare") rende
+  incerto se sia un vero bug o una scelta coerente — da confermare con l'utente prima di
+  restringere un accesso oggi aperto.
+
+Non ancora affrontati in questo giro (richiedono una decisione o più tempo): la
+paginazione client-side per l'elenco Anagrafica, la normalizzazione CF/PIVA case-
+insensitive nei tre punti di confronto, l'indicatore "mostrati 20 di N" sui collegamenti.
+Build/lint puliti (0 errori). Verificato contro i dati reali: paginazione normale di
+3933 righe `clienti_esterni` senza errori, casi rappresentativi del fix virgola-iniziale
+testati a parte (nessun cliente reale oggi ha quella combinazione esatta di campi vuoti).

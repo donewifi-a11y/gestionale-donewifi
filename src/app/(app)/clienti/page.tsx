@@ -24,11 +24,18 @@ async function fetchTuttiTicket(supabase: Awaited<ReturnType<typeof createClient
   const PAGINA = 1000;
   const tutti: Ticket[] = [];
   for (let offset = 0; ; offset += PAGINA) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tickets")
       .select("*")
       .order("data_creazione", { ascending: false })
       .range(offset, offset + PAGINA - 1);
+    // ★ FIX (2026-09-25, audit modulo Clienti) — stesso bug del commento
+    // sopra ("stesso bug già capitato due volte"), qui una terza volta: un
+    // errore Supabase a metà paginazione veniva trattato come "fine dei
+    // risultati" invece che come un errore vero — un registro clienti
+    // silenziosamente incompleto (calcolato da QUESTI ticket) è peggio di
+    // un errore visibile in pagina.
+    if (error) throw new Error(`fetchTuttiTicket: ${error.message}`);
     const pagina = (data as Ticket[] | null) ?? [];
     tutti.push(...pagina);
     if (pagina.length < PAGINA) break;

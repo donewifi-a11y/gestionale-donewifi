@@ -11,14 +11,23 @@ export async function fetchTuttiClientiEsterni<T>(supabase: Supabase, selectClau
   let offset = 0;
   const tutte: T[] = [];
   for (;;) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("clienti_esterni")
       .select(selectClause)
       .order("id", { ascending: true })
       .range(offset, offset + PAGINA - 1);
-    const righe = (data ?? []) as T[];
-    tutte.push(...righe);
-    if (righe.length < PAGINA) break;
+    // ★ FIX (2026-09-25, audit modulo Clienti) — un errore Supabase a metà
+    // paginazione (query transitoria fallita) lasciava `data` a `null`,
+    // trattato come "pagina vuota = fine dei risultati": la funzione
+    // restituiva un elenco troncato in silenzio, indistinguibile da un
+    // elenco genuinamente più corto. Stesso identico principio già
+    // applicato qui per il limite delle 1000 righe (vedi commento sopra),
+    // mai esteso al caso di un errore vero e proprio — un elenco clienti
+    // (o un conteggio insoluti) silenziosamente incompleto è peggio di un
+    // errore visibile.
+    if (error) throw new Error(`fetchTuttiClientiEsterni: ${error.message}`);
+    tutte.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGINA) break;
     offset += PAGINA;
   }
   return tutte;

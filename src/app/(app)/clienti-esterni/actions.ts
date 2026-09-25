@@ -179,14 +179,33 @@ export async function sincronizzaAnagraficaAruba(): Promise<{ errore: string | n
  * una scheda a sé.
  */
 export async function getContrattiPrecedenti(cliente: ClienteEsterno) {
+  // ★ FIX (2026-09-25, audit modulo Clienti) — mancava il controllo minimo
+  // "persona attiva" già presente in quasi ogni altra funzione di questo
+  // file (difesa in profondità, la RLS su clienti_esterni resta comunque
+  // la barriera vera).
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return [];
+
   const chiaveCf = cliente.codice_fiscale || cliente.partita_iva;
   if (!cliente.codice_gestionale && !chiaveCf) return [];
-  const supabase = await createClient();
 
+  // ★ FIX (2026-09-25, audit modulo Clienti) — codice_gestionale/codice_
+  // fiscale/partita_iva vengono da Aruba (dato esterno, mai validato in
+  // scrittura da questo gestionale) e finivano interpolati senza controlli
+  // dentro una stringa di filtro `.or()`: una virgola o un carattere
+  // riservato PostgREST (`.`, `(`, `)`) in uno di questi campi avrebbe
+  // rotto il filtro o cambiato cosa seleziona — stesso principio già
+  // applicato altrove in questo gestionale (trova-cliente/route.ts) per
+  // dati utente diretti, qui esteso a dati esterni mai sanificati.
+  // Alfanumerico puro è l'unico formato plausibile per questi tre campi:
+  // un valore che non rispetta il pattern viene scartato dal filtro
+  // invece di interpolarlo comunque.
+  const alfanumerico = /^[A-Za-z0-9]+$/;
   const filtri: string[] = [];
-  if (cliente.codice_gestionale) filtri.push(`codice_gestionale.eq.${cliente.codice_gestionale}`);
-  if (cliente.codice_fiscale) filtri.push(`codice_fiscale.eq.${cliente.codice_fiscale}`);
-  if (cliente.partita_iva) filtri.push(`partita_iva.eq.${cliente.partita_iva}`);
+  if (cliente.codice_gestionale && alfanumerico.test(cliente.codice_gestionale)) filtri.push(`codice_gestionale.eq.${cliente.codice_gestionale}`);
+  if (cliente.codice_fiscale && alfanumerico.test(cliente.codice_fiscale)) filtri.push(`codice_fiscale.eq.${cliente.codice_fiscale}`);
+  if (cliente.partita_iva && alfanumerico.test(cliente.partita_iva)) filtri.push(`partita_iva.eq.${cliente.partita_iva}`);
   if (filtri.length === 0) return [];
 
   const { data, error } = await supabase
@@ -384,7 +403,13 @@ export async function getFattureCliente(codiceFiscale: string | null, partitaIva
     let query = supabase.from("fatture_esterne").select("*").order("emissione", { ascending: false });
     query = codiceFiscale ? query.eq("codice_fiscale", codiceFiscale) : query.eq("partita_iva", partitaIva!);
     const { data, error } = await query.range(offset, offset + PAGINA - 1);
-    if (error) console.error("getFattureCliente:", error.message);
+    // ★ FIX (2026-09-25, audit modulo Clienti) — un errore a metà
+    // paginazione veniva solo loggato: la pagina (vuota, per l'errore)
+    // faceva comunque terminare il ciclo come se fosse la fine reale dei
+    // risultati, restituendo un elenco fatture troncato in silenzio —
+    // stesso bug già corretto per il limite delle 1000 righe qui sopra,
+    // mai esteso al caso di un errore vero.
+    if (error) throw new Error(`getFattureCliente: ${error.message}`);
     const pagina = (data as FatturaEsterna[] | null) ?? [];
     tutte.push(...pagina);
     if (pagina.length < PAGINA) break;
@@ -521,7 +546,14 @@ export async function getRiepilogoInsoluti(): Promise<{ totale: number; numeroFa
       .select("importo, codice_fiscale, partita_iva")
       .eq("pagata", false)
       .range(offset, offset + PAGINA - 1);
-    if (error) console.error("getRiepilogoInsoluti:", error.message);
+    // ★ FIX (2026-09-25, audit modulo Clienti) — stesso principio del
+    // commento sopra sulle 1000 righe, esteso al caso di un errore vero:
+    // veniva solo loggato, poi la pagina (vuota) faceva comunque terminare
+    // il ciclo come fine dei risultati — un TOTALE insoluti sottostimato in
+    // silenzio da un errore transitorio, dato finanziario su cui lo staff
+    // decide (es. se rallentare un cliente), troppo rischioso da lasciar
+    // passare come "0 insoluti in più" invece che come errore visibile.
+    if (error) throw new Error(`getRiepilogoInsoluti: ${error.message}`);
     const pagina = data ?? [];
     righe.push(...pagina);
     if (pagina.length < PAGINA) break;
