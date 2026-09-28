@@ -5900,3 +5900,32 @@ Con questo si chiude la prima passata di audit sistematico su tutti i moduli pri
 del gestionale. Build/lint puliti (0 errori). Verificato contro i dati reali: lettura
 `todo_personali`/`conversazioni` di produzione, forma delle righe conforme alle nuove
 verifiche aggiunte.
+
+✅ **MAC della nuova CPE su "Cambio CPE"** (2026-09-28, richiesta esplicita: "nei ticket
+di cambio antenna bisogna mettere la possibilità di inserire il nuovo mac della cpe").
+La Scheda di Lavorazione aveva già i campi "Apparato recuperato"/MAC per l'intervento
+"Recupero Apparati" (un pezzo che rientra a magazzino), ma "Cambio CPE" — un intervento
+distinto già esistente nell'elenco — non mostrava alcun campo: il commento in
+`salvaSchedaLavoro()` diceva già esplicitamente che la riconciliazione lato server
+tratta "Cambio CPE" come un'installazione ("o un Cambio CPE"), mancava solo il modo per
+inserire davvero il MAC.
+
+- Lo stesso blocco (modello CPE + MAC) ora compare anche quando è selezionato "Cambio
+  CPE" da solo, etichette adattate ("MAC nuova CPE" invece di "MAC (se leggibile)") — 
+  nessuna migrazione: riusa le stesse colonne `modello_cpe`/`mac` già scritte per
+  Recupero Apparati, che il server già instrada correttamente come installazione
+  (`riconciliaAntennaInstallata`) non appena l'intervento non è "Recupero Apparati".
+  Si integra da solo con la coda "Da trasferire" e l'avviso al reparto Analisi Rete
+  (`notificaGestionaleAntenne`), che già leggono lo stesso campo `mac`.
+- Se **entrambi** gli interventi sono selezionati insieme (sostituzione vera: ritiro il
+  vecchio, installo il nuovo), il campo unico non può portare due MAC — resta
+  "Apparato recuperato" (comportamento invariato, priorità già esistente lato server),
+  con un avviso che spiega di segnare il MAC del nuovo pezzo a parte (Nota o una
+  Scheda successiva). Superarlo davvero richiederebbe una seconda colonna dedicata —
+  non fatto in questo giro, possibile in un secondo momento se capita spesso in pratica.
+- Applicato a entrambe le Schede di Lavorazione: staff interno
+  (`scheda-lavorazione-form.tsx`) e tecnici esterni via pose.donewifi.it
+  (`scheda-lavorazione-domande.tsx`).
+
+Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa, stesse
+colonne già in produzione.

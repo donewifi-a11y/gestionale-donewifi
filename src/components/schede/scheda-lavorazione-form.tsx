@@ -72,6 +72,20 @@ export function SchedaLavorazioneForm({
   }, [appuntamentoId]);
 
   const recuperoApparati = interventi.includes(INTERVENTO_RECUPERO_APPARATI);
+  // ★ NUOVA (2026-09-28, richiesta esplicita: "nei ticket di cambio antenna
+  // bisogna mettere la possibilità di inserire il nuovo mac della cpe") —
+  // riusa lo stesso blocco/le stesse colonne di "Recupero Apparati" (modello_
+  // cpe/mac), non un campo a sé: la riconciliazione lato server già tratta
+  // "Cambio CPE" come installazione di un pezzo nuovo (vedi il commento su
+  // salvaSchedaLavoro() in calendario/actions.ts, "o un Cambio CPE") — le
+  // mancava solo un modo per lo staff di inserire davvero il MAC. Se
+  // ENTRAMBI gli interventi sono selezionati insieme (sostituzione vera:
+  // ritiro il vecchio, installo il nuovo), il campo unico non può portare
+  // due MAC — resta "Apparato recuperato" (il caso già esistente, priorità
+  // invariata anche lato server), il nuovo MAC installato va segnato a
+  // parte (es. in una Scheda successiva o in Nota).
+  const cambioCpe = interventi.includes("Cambio CPE");
+  const mostraCampiCpe = recuperoApparati || cambioCpe;
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
@@ -102,11 +116,11 @@ export function SchedaLavorazioneForm({
           materiali,
           firmaCliente,
           interventiEseguiti: interventi,
-          // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" è tra gli
-          // interventi selezionati (recuperoApparati), altrimenti restano
-          // vuoti come sempre.
-          modelloCpe: recuperoApparati ? apparatoRecuperato : undefined,
-          mac: recuperoApparati ? macRecuperato : undefined,
+          // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" o "Cambio
+          // CPE" sono tra gli interventi selezionati, altrimenti restano
+          // vuoti come sempre (vedi mostraCampiCpe sopra).
+          modelloCpe: mostraCampiCpe ? apparatoRecuperato : undefined,
+          mac: mostraCampiCpe ? macRecuperato : undefined,
         },
         []
       );
@@ -131,6 +145,9 @@ export function SchedaLavorazioneForm({
     {
       titolo: "Interventi",
       valida: () =>
+        // ★ obbligatorio solo per Recupero Apparati (un pezzo che rientra a
+        // magazzino va identificato) — per il solo Cambio CPE resta
+        // facoltativo, il MAC da solo basta a riconciliare l'inventario.
         recuperoApparati && !apparatoRecuperato ? "Seleziona quale apparato è stato recuperato prima di proseguire." : null,
       contenuto: (
         <div>
@@ -158,11 +175,18 @@ export function SchedaLavorazioneForm({
           selezionato: cosa è stato ritirato e, se leggibile, il suo MAC.
           Riusano modello_cpe/mac di SchedaLavoro, finora scritti solo dalla
           Scheda di Installazione — vedi riconciliaAntennaRecuperata()
-          (materiali/actions.ts). */}
-          {recuperoApparati && (
+          (materiali/actions.ts).
+          ★ ESTESA (2026-09-28, richiesta esplicita: "nei ticket di cambio
+          antenna... inserire il nuovo mac della cpe") — stesso blocco
+          compare anche per "Cambio CPE" da solo (senza Recupero Apparati),
+          etichette adattate: qui il MAC è quello della CPE NUOVA appena
+          installata, non di un pezzo che rientra — lato server finisce
+          comunque nello stesso campo `mac`, riconciliato come installazione
+          (vedi commento in calendario/actions.ts). */}
+          {mostraCampiCpe && (
             <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3">
               <div>
-                <Label htmlFor="apparato-recuperato">Apparato recuperato *</Label>
+                <Label htmlFor="apparato-recuperato">{recuperoApparati ? "Apparato recuperato *" : "Modello nuova CPE (facoltativo)"}</Label>
                 <select
                   id="apparato-recuperato"
                   value={apparatoRecuperato}
@@ -176,7 +200,7 @@ export function SchedaLavorazioneForm({
                 </select>
               </div>
               <div>
-                <Label htmlFor="mac-recuperato">MAC (se leggibile)</Label>
+                <Label htmlFor="mac-recuperato">{recuperoApparati ? "MAC (se leggibile)" : "MAC nuova CPE"}</Label>
                 <input
                   id="mac-recuperato"
                   type="text"
@@ -186,9 +210,17 @@ export function SchedaLavorazioneForm({
                   className={campoClass}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Facoltativo — anche parziale, se l&apos;etichetta è consumata o illeggibile.
+                  {recuperoApparati
+                    ? "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile."
+                    : "Il MAC della CPE appena installata al posto della precedente."}
                 </p>
               </div>
+              {recuperoApparati && cambioCpe && (
+                <p className="text-xs text-warning">
+                  Hai selezionato anche &quot;Cambio CPE&quot;: questo campo registra solo l&apos;apparato ritirato. Se hai installato
+                  subito una CPE nuova, segna il suo MAC in Nota o in una Scheda a parte.
+                </p>
+              )}
             </div>
           )}
         </div>

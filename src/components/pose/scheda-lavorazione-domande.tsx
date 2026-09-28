@@ -59,6 +59,12 @@ export function SchedaLavorazioneDomande({
   }, [appuntamentoId]);
 
   const recuperoApparati = interventi.includes(INTERVENTO_RECUPERO_APPARATI);
+  // ★ NUOVA (2026-09-28, richiesta esplicita: "nei ticket di cambio antenna
+  // bisogna mettere la possibilità di inserire il nuovo mac della cpe") —
+  // stesso gemello di scheda-lavorazione-form.tsx (staff interno), vedi lì
+  // per il commento completo.
+  const cambioCpe = interventi.includes("Cambio CPE");
+  const mostraDomandeCpe = recuperoApparati || cambioCpe;
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
@@ -68,9 +74,10 @@ export function SchedaLavorazioneDomande({
     setErroreInvio("");
     const dati = {
       esito, note, metodoPagamentoPosa: metodoPagamento, materiali, firmaCliente, interventiEseguiti: interventi,
-      // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" è selezionato.
-      modelloCpe: recuperoApparati ? apparatoRecuperato : undefined,
-      mac: recuperoApparati ? macRecuperato : undefined,
+      // ★ NUOVA (2026-09-10) — solo se "Recupero Apparati" o "Cambio CPE"
+      // sono selezionati (vedi mostraDomandeCpe sopra).
+      modelloCpe: mostraDomandeCpe ? apparatoRecuperato : undefined,
+      mac: mostraDomandeCpe ? macRecuperato : undefined,
     };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
@@ -121,20 +128,26 @@ export function SchedaLavorazioneDomande({
     // Apparati" è tra gli interventi scelti sopra. Stessi campi
     // modello_cpe/mac di SchedaLavoro, finora scritti solo dalla Scheda di
     // Installazione — vedi riconciliaAntennaRecuperata() (materiali/actions.ts).
-    ...(recuperoApparati
+    // ★ ESTESA (2026-09-28, richiesta esplicita: "nei ticket di cambio
+    // antenna... inserire il nuovo mac della cpe") — stessa coppia di
+    // domande anche per "Cambio CPE" da solo, testo adattato: qui il MAC è
+    // quello della CPE NUOVA installata, non di un pezzo che rientra.
+    ...(mostraDomandeCpe
       ? ([
           {
-            domanda: "Che apparato hai recuperato?",
+            domanda: recuperoApparati ? "Che apparato hai recuperato?" : "Che apparato hai installato? (facoltativo)",
             categoria: "radio",
             icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
-            valida: () => (apparatoRecuperato ? null : "Scegli l'apparato recuperato prima di continuare."),
+            valida: () => (recuperoApparati && !apparatoRecuperato ? "Scegli l'apparato recuperato prima di continuare." : null),
             contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.cpe} valore={apparatoRecuperato} onChange={setApparatoRecuperato} />,
           },
           {
-            domanda: "Indirizzo MAC?",
+            domanda: recuperoApparati ? "Indirizzo MAC?" : "MAC della nuova CPE?",
             categoria: "radio",
             icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
-            aiuto: "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile.",
+            aiuto: recuperoApparati
+              ? "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile."
+              : "Il MAC della CPE appena installata al posto della precedente.",
             contenuto: (
               <CampoGrande
                 type="text"
