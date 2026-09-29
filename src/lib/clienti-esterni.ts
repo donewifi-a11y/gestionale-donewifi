@@ -33,6 +33,10 @@ export async function fetchTuttiClientiEsterni<T>(supabase: Supabase, selectClau
   return tutte;
 }
 
+function normalizza(v: string | null): string {
+  return (v || "").trim().toLowerCase();
+}
+
 interface ClienteConStato {
   id: number;
   codice_gestionale: string | null;
@@ -40,6 +44,13 @@ interface ClienteConStato {
    * bene usare l'uno o l'altro come discriminante, `attivo` è più spesso già
    * nelle select esistenti. */
   attivo: boolean;
+  /** ★ NUOVA (2026-09-29, bug reale segnalato: "alcuni clienti non li vedo,
+   * come Antonio Villa") — vedi il commento completo su
+   * dedupClientiPerContratto() sotto: servono per accorgersi di un
+   * `codice_gestionale` riciclato tra due persone diverse invece di
+   * fonderle in una sola. */
+  codice_fiscale: string | null;
+  partita_iva: string | null;
 }
 
 /** Tra righe che rappresentano LO STESSO contratto/installazione, sceglie
@@ -74,6 +85,24 @@ function scegliCanonica<T extends ClienteConStato>(righe: T[]): T {
  * id=1114 (attivo=false, importato dopo ma di un contratto già chiuso) — la
  * vecchia regola avrebbe scartato la riga VERA e tenuto quella morta.
  * `scegliCanonica()` ora guarda `attivo` prima dell'`id`.
+ *
+ * ★ FIX (2026-09-29, bug reale segnalato: "alcuni clienti non li vedo, come
+ * Antonio Villa") — raggruppare per solo `codice_gestionale` presumeva che
+ * fosse un identificativo stabile di UN contratto nel tempo. Falso su dati
+ * reali: Aruba lo ricicla per persone completamente diverse una volta che
+ * il contratto precedente si chiude (161 gruppi trovati su una scansione
+ * completa, es. `codice_gestionale=903244` aveva sia "Antonio Villa" — CF
+ * `VLLNTN63A21F205F`, contratto `4F1153` — sia "Edi Trento" — CF
+ * `TRNDEI66M16A326U`, contratto `4F31619` — entrambi genuinamente attivi).
+ * La vecchia regola ne teneva
+ * uno solo (id più alto tra gli attivi) e faceva sparire l'altro da OGNI
+ * lista che passa da qui — Anagrafica, Ricerca globale, Buy&Go, Analytics.
+ * La chiave di raggruppamento ora include anche CF/PIVA normalizzato: righe
+ * con lo stesso `codice_gestionale` si fondono solo se rappresentano anche
+ * la STESSA persona/azienda (stesso CF/PIVA, il vero identificativo
+ * stabile) — un contratto rinnovato più volte dalla stessa persona continua
+ * a fondersi come prima, due persone diverse che si sono trovate lo stesso
+ * numero riciclato non si fondono più.
  */
 export function dedupClientiPerContratto<T extends ClienteConStato>(clienti: T[]): T[] {
   const gruppi = new Map<string, T[]>();
@@ -83,8 +112,9 @@ export function dedupClientiPerContratto<T extends ClienteConStato>(clienti: T[]
       senzaContratto.push(c);
       continue;
     }
-    if (!gruppi.has(c.codice_gestionale)) gruppi.set(c.codice_gestionale, []);
-    gruppi.get(c.codice_gestionale)!.push(c);
+    const chiave = `${c.codice_gestionale}|${normalizza(c.codice_fiscale || c.partita_iva)}`;
+    if (!gruppi.has(chiave)) gruppi.set(chiave, []);
+    gruppi.get(chiave)!.push(c);
   }
   const risultato: T[] = senzaContratto;
   for (const righe of gruppi.values()) risultato.push(scegliCanonica(righe));
@@ -92,15 +122,9 @@ export function dedupClientiPerContratto<T extends ClienteConStato>(clienti: T[]
 }
 
 interface ClienteConIndirizzo extends ClienteConStato {
-  codice_fiscale: string | null;
-  partita_iva: string | null;
   indirizzo: string | null;
   numero_civico: string | null;
   comune: string | null;
-}
-
-function normalizza(v: string | null): string {
-  return (v || "").trim().toLowerCase();
 }
 
 /** Chiave CF/PIVA + indirizzo normalizzato — `null` se manca CF/PIVA o manca

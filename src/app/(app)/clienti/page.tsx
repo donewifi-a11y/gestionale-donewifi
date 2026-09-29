@@ -12,7 +12,10 @@ import type { ClienteAttivo, ClienteEsterno, Tariffa, Ticket } from "@/lib/types
 // era una pagina a sé (clienti-esterni/page.tsx), vedi fusione sotto.
 export const maxDuration = 60;
 
-type ClienteEsternoRidotto = Pick<ClienteEsterno, "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto" | "codice_gestionale">;
+type ClienteEsternoRidotto = Pick<
+  ClienteEsterno,
+  "id" | "telefono" | "attivo" | "profilo_internet" | "id_contratto" | "codice_gestionale" | "codice_fiscale" | "partita_iva"
+>;
 
 // ★ FIX — una `.select()` senza `.range()` è limitata a 1000 righe da
 // Supabase/PostgREST: questa pagina raggruppa TUTTI i ticket per
@@ -62,7 +65,10 @@ export default async function ClientiPage() {
     fetchTuttiTicket(supabase),
     supabase.from("clienti").select("*"),
     supabase.from("tariffe").select("*").order("ordine", { ascending: true }),
-    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(supabase, "id, telefono, attivo, profilo_internet, id_contratto, codice_gestionale").then(
+    fetchTuttiClientiEsterni<ClienteEsternoRidotto>(
+      supabase,
+      "id, telefono, attivo, profilo_internet, id_contratto, codice_gestionale, codice_fiscale, partita_iva"
+    ).then(
       dedupClientiPerContratto
     ),
     getInstallazioni(),

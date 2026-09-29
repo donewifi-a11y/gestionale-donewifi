@@ -5929,3 +5929,38 @@ inserire davvero il MAC.
 
 Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa, stesse
 colonne già in produzione.
+
+✅ **Fix — clienti reali invisibili in ogni lista (bug grave, dati reali)** (2026-09-29,
+segnalato: "nel gestionale alcuni clienti non li vedo, come Antonio Villa"). Causa
+trovata sui dati reali: `dedupClientiPerContratto()` (usata da Anagrafica Clienti,
+Ricerca globale, Buy&Go e Analytics — praticamente ovunque il gestionale mostri o
+conti "i clienti") raggruppava le righe di `clienti_esterni` per solo
+`codice_gestionale`, presumendo fosse un identificativo stabile di UN contratto nel
+tempo (vero per i rinnovi, il caso per cui era stata scritta). Falso su scala: **Aruba
+ricicla il `codice_gestionale` per persone completamente diverse** una volta che il
+contratto precedente si chiude — verificato con una scansione completa: **161 gruppi**
+avevano più clienti genuinamente distinti (CF/PIVA diversi) e genuinamente attivi
+insieme sotto lo stesso `codice_gestionale` (es. proprio "Antonio Villa" — CF
+`VLLNTN63A21F205F`, id 3490 — condivideva il codice `903244` con "Edi Trento" — CF
+`TRNDEI66M16A326U`, id 3493 — due contratti reali, due persone reali, nessun rapporto
+tra loro). La regola di dedup ne teneva uno solo (id più alto tra gli attivi) e faceva
+sparire l'altro da ogni lista, invisibile ma ancora raggiungibile aprendo il suo link
+diretto (`/clienti-esterni/[id]`) se qualcuno lo aveva salvato — da lì la segnalazione
+è arrivata solo ora, nonostante il bug esistesse probabilmente da sempre.
+
+- La chiave di raggruppamento ora include anche il CF/PIVA normalizzato: due righe con
+  lo stesso `codice_gestionale` si fondono solo se rappresentano anche la STESSA
+  persona/azienda — un contratto rinnovato più volte dalla stessa persona continua a
+  fondersi esattamente come prima (nessuna regressione sul caso originale), due persone
+  diverse che si sono trovate lo stesso numero riciclato non si fondono più.
+- Aggiornati i 3 punti che passavano a `dedupClientiPerContratto()` una select ridotta
+  senza CF/PIVA (`clienti/page.tsx`, `ricerca/actions.ts`) — il compilatore TypeScript
+  ha segnalato da solo ogni punto da correggere non appena il tipo `ClienteConStato` ha
+  richiesto i due campi, la rete di sicurezza esatta per cui vale la pena tipizzare
+  bene una funzione condivisa così ampiamente.
+
+Build/lint puliti (0 errori). Verificato contro i dati reali: rieseguita la nuova
+logica su tutte le 3933 righe di produzione — Antonio Villa ed Edi Trento risultano
+entrambi presenti dopo il fix (prima solo uno sopravviveva); il totale deduplicato
+passa da un numero enormemente sottostimato a 3560 righe, ~150 clienti reali tornati
+visibili.
