@@ -6005,3 +6005,24 @@ Prossimo passo: continuare la verifica di completezza sugli altri interventi rap
 (Ripuntamento Antenna, Sostituzione Cavo, Configurazione Router, Riavvio Apparati,
 Problema Alimentazione) e sulle pratiche cliente (Nuova installazione, Trasferimento,
 Disdetta, Cambio IBAN, Cambio Anagrafica, Subentro), un tipo alla volta.
+
+✅ **"Ripuntamento Antenna" — BTS e dati segnale dopo l'intervento** (2026-09-30).
+Stesso identico buco di "Cambio CPE" prima del 28/09: un chip senza alcun campo
+dedicato, nonostante lo scopo di un ripuntamento sia proprio migliorare il segnale (o
+riagganciare una BTS diversa) — nessun modo di registrare il risultato.
+
+- Stesso blocco dati-segnale (BTS agganciata + RSSI/SNR/ping/download/upload,
+  facoltativi) già costruito per "Cambio CPE" ora compare anche per "Ripuntamento
+  Antenna", separato dal blocco apparato/MAC (un ripuntamento non installa né ritira
+  nulla — non ha senso chiedere quale apparato è stato recuperato). Se entrambi gli
+  interventi sono selezionati insieme il blocco compare una sola volta, condiviso.
+- Aggiunto anche il campo "BTS agganciata" (colonna `bts`, già esistente e già scritta
+  da `salvaSchedaLavoro()` per qualunque tipo di Scheda, semplicemente mai raccolta da
+  una Lavorazione tecnica) — utile perché un ripuntamento può risultare in una BTS
+  diversa da quella di partenza.
+- Applicato a entrambe le Schede di Lavorazione (staff interno e tecnici esterni).
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+Prossimo passo: Sostituzione Cavo, Configurazione Router, Riavvio Apparati, Problema
+Alimentazione — poi le pratiche cliente.

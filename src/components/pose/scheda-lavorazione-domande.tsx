@@ -18,10 +18,10 @@ interface BozzaLavorazione {
   metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null; note: string;
   // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati".
   apparatoRecuperato: string; macRecuperato: string;
-  // ★ NUOVA (2026-09-30) — solo per "Cambio CPE", stesso gemello di
-  // scheda-lavorazione-form.tsx (staff interno), vedi lì per il commento
-  // completo.
-  rssiNuovo: string; snrNuovo: string; pingNuovo: string; downloadNuovo: string; uploadNuovo: string;
+  // ★ NUOVA (2026-09-30) — per "Cambio CPE" o "Ripuntamento Antenna",
+  // stesso gemello di scheda-lavorazione-form.tsx (staff interno), vedi lì
+  // per il commento completo.
+  bts: string; rssiNuovo: string; snrNuovo: string; pingNuovo: string; downloadNuovo: string; uploadNuovo: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaLavorazioneForm
@@ -53,6 +53,7 @@ export function SchedaLavorazioneDomande({
   // recuperato e il possibile mac") — vedi domanda dedicata sotto.
   const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
   const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
+  const [bts, setBts] = useState(bozza?.bts ?? "");
   const [rssiNuovo, setRssiNuovo] = useState(bozza?.rssiNuovo ?? "");
   const [snrNuovo, setSnrNuovo] = useState(bozza?.snrNuovo ?? "");
   const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
@@ -74,6 +75,11 @@ export function SchedaLavorazioneDomande({
   // per il commento completo.
   const cambioCpe = interventi.includes("Cambio CPE");
   const mostraDomandeCpe = recuperoApparati || cambioCpe;
+  // ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti i menu
+  // siano logicamente funzionanti e richiedano quello che serve") — stesso
+  // gemello di scheda-lavorazione-form.tsx, vedi lì per il commento completo.
+  const ripuntamento = interventi.includes("Ripuntamento Antenna");
+  const mostraDatiSegnale = cambioCpe || ripuntamento;
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
@@ -84,13 +90,14 @@ export function SchedaLavorazioneDomande({
       note,
       apparatoRecuperato,
       macRecuperato,
+      bts,
       rssiNuovo,
       snrNuovo,
       pingNuovo,
       downloadNuovo,
       uploadNuovo,
     });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, bts, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
 
   async function invia() {
     setErroreInvio("");
@@ -100,13 +107,14 @@ export function SchedaLavorazioneDomande({
       // sono selezionati (vedi mostraDomandeCpe sopra).
       modelloCpe: mostraDomandeCpe ? apparatoRecuperato : undefined,
       mac: mostraDomandeCpe ? macRecuperato : undefined,
-      // ★ NUOVA (2026-09-30) — solo per "Cambio CPE", stesso gemello di
-      // scheda-lavorazione-form.tsx.
-      rssi: cambioCpe ? rssiNuovo : undefined,
-      snr: cambioCpe ? snrNuovo : undefined,
-      pingMs: cambioCpe ? pingNuovo : undefined,
-      downloadMbps: cambioCpe ? downloadNuovo : undefined,
-      uploadMbps: cambioCpe ? uploadNuovo : undefined,
+      // ★ NUOVA (2026-09-30) — per "Cambio CPE" o "Ripuntamento Antenna",
+      // stesso gemello di scheda-lavorazione-form.tsx.
+      bts: mostraDatiSegnale ? bts : undefined,
+      rssi: mostraDatiSegnale ? rssiNuovo : undefined,
+      snr: mostraDatiSegnale ? snrNuovo : undefined,
+      pingMs: mostraDatiSegnale ? pingNuovo : undefined,
+      downloadMbps: mostraDatiSegnale ? downloadNuovo : undefined,
+      uploadMbps: mostraDatiSegnale ? uploadNuovo : undefined,
     };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
@@ -193,14 +201,22 @@ export function SchedaLavorazioneDomande({
     // ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti i
     // menu siano logicamente funzionanti e richiedano quello che serve...
     // per cambio antenna sarebbe da poter inserire il nuovo mac e la nuova
-    // antenna e tutte cose del genere") — solo per "Cambio CPE": stessi
-    // dati tecnici già chiesti da SchedaInstallazioneDomande per un
-    // apparato nuovo, per verificare che il nuovo pezzo funzioni bene
-    // quanto il vecchio.
-    ...(cambioCpe
+    // antenna e tutte cose del genere") — per "Cambio CPE" o "Ripuntamento
+    // Antenna": stessi dati tecnici già chiesti da SchedaInstallazioneDomande
+    // per un apparato nuovo, qui per verificare il risultato dell'intervento
+    // (un pezzo sostituito che funziona bene quanto il vecchio, o un
+    // ripuntamento che ha davvero migliorato il segnale).
+    ...(mostraDatiSegnale
       ? ([
           {
-            domanda: "Segnale RSSI della nuova CPE, in dBm?",
+            domanda: "A quale BTS è agganciata? (facoltativo)",
+            categoria: "radio",
+            icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            contenuto: <CampoGrande type="text" value={bts} onChange={(e) => setBts(e.target.value)} />,
+          },
+          {
+            domanda: "Segnale RSSI, in dBm?",
             categoria: "radio",
             icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
             aiuto: "Facoltativo.",
@@ -208,7 +224,7 @@ export function SchedaLavorazioneDomande({
             contenuto: <CampoGrande type="number" inputMode="numeric" value={rssiNuovo} onChange={(e) => setRssiNuovo(e.target.value)} />,
           },
           {
-            domanda: "Segnale SNR della nuova CPE, in dB?",
+            domanda: "Segnale SNR, in dB?",
             categoria: "radio",
             icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
             aiuto: "Facoltativo.",

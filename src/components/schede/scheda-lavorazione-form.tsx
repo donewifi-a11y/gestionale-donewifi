@@ -26,6 +26,7 @@ interface BozzaLavorazione {
   // antenna e tutte cose del genere") — solo per "Cambio CPE", vedi sotto:
   // stessi campi tecnici già raccolti da SchedaInstallazioneForm per un
   // apparato nuovo, mancavano qui per uno sostituito in una Lavorazione.
+  bts: string;
   rssiNuovo: string;
   snrNuovo: string;
   pingNuovo: string;
@@ -71,7 +72,9 @@ export function SchedaLavorazioneForm({
   // sotto.
   const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
   const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
-  // ★ NUOVA (2026-09-30) — vedi "Cambio CPE" nel passo "Interventi" sotto.
+  // ★ NUOVA (2026-09-30) — vedi "Cambio CPE"/"Ripuntamento Antenna" nel
+  // passo "Interventi" sotto.
+  const [bts, setBts] = useState(bozza?.bts ?? "");
   const [rssiNuovo, setRssiNuovo] = useState(bozza?.rssiNuovo ?? "");
   const [snrNuovo, setSnrNuovo] = useState(bozza?.snrNuovo ?? "");
   const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
@@ -103,6 +106,16 @@ export function SchedaLavorazioneForm({
   // parte (es. in una Scheda successiva o in Nota).
   const cambioCpe = interventi.includes("Cambio CPE");
   const mostraCampiCpe = recuperoApparati || cambioCpe;
+  // ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti i menu
+  // siano logicamente funzionanti e richiedano quello che serve") —
+  // "Ripuntamento Antenna" era un chip senza alcun campo dedicato, stesso
+  // identico buco di "Cambio CPE" prima del 28/09: lo scopo di un
+  // ripuntamento è migliorare il segnale (o riagganciare una BTS diversa),
+  // ma non c'era modo di registrare il risultato. Riusa lo stesso blocco
+  // dati-segnale già costruito per Cambio CPE (stessi campi, stesso senso:
+  // "cosa misuri DOPO l'intervento") invece di duplicarlo.
+  const ripuntamento = interventi.includes("Ripuntamento Antenna");
+  const mostraDatiSegnale = cambioCpe || ripuntamento;
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
@@ -113,13 +126,14 @@ export function SchedaLavorazioneForm({
       note,
       apparatoRecuperato,
       macRecuperato,
+      bts,
       rssiNuovo,
       snrNuovo,
       pingNuovo,
       downloadNuovo,
       uploadNuovo,
     });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, bts, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
 
   function toggleIntervento(nome: string) {
     setInterventi((cur) => (cur.includes(nome) ? cur.filter((i) => i !== nome) : [...cur, nome]));
@@ -151,15 +165,16 @@ export function SchedaLavorazioneForm({
           // vuoti come sempre (vedi mostraCampiCpe sopra).
           modelloCpe: mostraCampiCpe ? apparatoRecuperato : undefined,
           mac: mostraCampiCpe ? macRecuperato : undefined,
-          // ★ NUOVA (2026-09-30) — solo per "Cambio CPE": dati tecnici del
-          // nuovo apparato, per verificare che funzioni bene quanto il
-          // vecchio — stessi campi/stessi range già validati per una Nuova
-          // Installazione (vedi passo "Radio/CPE" sotto).
-          rssi: cambioCpe ? rssiNuovo : undefined,
-          snr: cambioCpe ? snrNuovo : undefined,
-          pingMs: cambioCpe ? pingNuovo : undefined,
-          downloadMbps: cambioCpe ? downloadNuovo : undefined,
-          uploadMbps: cambioCpe ? uploadNuovo : undefined,
+          // ★ NUOVA (2026-09-30) — per "Cambio CPE" o "Ripuntamento
+          // Antenna": dati del segnale dopo l'intervento, per verificarne
+          // il risultato — stessi campi/stessi range già validati per una
+          // Nuova Installazione (vedi passo "Radio/CPE" sotto).
+          bts: mostraDatiSegnale ? bts : undefined,
+          rssi: mostraDatiSegnale ? rssiNuovo : undefined,
+          snr: mostraDatiSegnale ? snrNuovo : undefined,
+          pingMs: mostraDatiSegnale ? pingNuovo : undefined,
+          downloadMbps: mostraDatiSegnale ? downloadNuovo : undefined,
+          uploadMbps: mostraDatiSegnale ? uploadNuovo : undefined,
         },
         []
       );
@@ -191,7 +206,7 @@ export function SchedaLavorazioneForm({
         // ★ NUOVA (2026-09-30) — stessi range già validati per una Nuova
         // Installazione (vedi commento gemello in scheda-installazione-form.tsx):
         // `min`/`max` HTML da soli non bastano su tutte le tastiere mobili.
-        if (cambioCpe) {
+        if (mostraDatiSegnale) {
           if (rssiNuovo.trim() && (Number(rssiNuovo) < -120 || Number(rssiNuovo) > 0)) return "Il segnale RSSI non sembra valido (atteso tra -120 e 0 dBm).";
           if (snrNuovo.trim() && (Number(snrNuovo) < -20 || Number(snrNuovo) > 60)) return "Il segnale SNR non sembra valido.";
           if (pingNuovo.trim() && Number(pingNuovo) < 0) return "Il ping non può essere negativo.";
@@ -272,75 +287,81 @@ export function SchedaLavorazioneForm({
                   subito una CPE nuova, segna il suo MAC in Nota o in una Scheda a parte.
                 </p>
               )}
-              {/* ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che
-              tutti i menu siano logicamente funzionanti e richiedano quello
-              che serve... per cambio antenna sarebbe da poter inserire il
-              nuovo mac e la nuova antenna e tutte cose del genere") — solo
-              per "Cambio CPE": gli stessi dati tecnici già raccolti da
-              SchedaInstallazioneForm per un apparato nuovo, per verificare
-              che il nuovo pezzo funzioni bene quanto il vecchio invece di
-              scoprirlo solo al prossimo reclamo del cliente. Non per
-              Recupero Apparati da solo: lì non si sta installando nulla di
-              nuovo da misurare. */}
-              {cambioCpe && (
-                <div className="grid grid-cols-2 gap-3 border-t pt-3">
-                  <div>
-                    <Label htmlFor="rssi-nuovo">Segnale RSSI (dBm)</Label>
-                    <input
-                      id="rssi-nuovo"
-                      value={rssiNuovo}
-                      onChange={(e) => setRssiNuovo(e.target.value)}
-                      type="number"
-                      min={-120}
-                      max={0}
-                      className={campoClass}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="snr-nuovo">Segnale SNR (dB)</Label>
-                    <input
-                      id="snr-nuovo"
-                      value={snrNuovo}
-                      onChange={(e) => setSnrNuovo(e.target.value)}
-                      type="number"
-                      min={-20}
-                      max={60}
-                      className={campoClass}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ping-nuovo">Ping (ms)</Label>
-                    <input id="ping-nuovo" value={pingNuovo} onChange={(e) => setPingNuovo(e.target.value)} type="number" min={0} max={5000} className={campoClass} />
-                  </div>
-                  <div>
-                    <Label htmlFor="download-nuovo">Download (Mbps)</Label>
-                    <input
-                      id="download-nuovo"
-                      value={downloadNuovo}
-                      onChange={(e) => setDownloadNuovo(e.target.value)}
-                      type="number"
-                      min={0}
-                      max={10000}
-                      className={campoClass}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor="upload-nuovo">Upload (Mbps)</Label>
-                    <input
-                      id="upload-nuovo"
-                      value={uploadNuovo}
-                      onChange={(e) => setUploadNuovo(e.target.value)}
-                      type="number"
-                      min={0}
-                      max={10000}
-                      className={campoClass}
-                    />
-                  </div>
-                  <p className="col-span-2 text-xs text-muted-foreground">
-                    Facoltativi — misurati sulla nuova CPE, per confermare che il segnale sia buono quanto (o meglio di) prima.
-                  </p>
-                </div>
-              )}
+            </div>
+          )}
+          {/* ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti
+          i menu siano logicamente funzionanti e richiedano quello che
+          serve... per cambio antenna sarebbe da poter inserire il nuovo mac
+          e la nuova antenna e tutte cose del genere") — per "Cambio CPE" o
+          "Ripuntamento Antenna": gli stessi dati tecnici già raccolti da
+          SchedaInstallazioneForm per un apparato nuovo, qui per verificare
+          il risultato dell'intervento (un pezzo sostituito che funziona
+          bene quanto il vecchio, o un ripuntamento che ha davvero
+          migliorato il segnale) invece di scoprirlo solo al prossimo
+          reclamo del cliente. Blocco separato da quello sopra (apparato/
+          MAC): un Ripuntamento non installa né ritira nulla, non ha senso
+          scegliere un "apparato recuperato" per quel caso. */}
+          {mostraDatiSegnale && (
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+              <div className="col-span-2">
+                <Label htmlFor="bts-segnale">BTS agganciata (facoltativo)</Label>
+                <input id="bts-segnale" value={bts} onChange={(e) => setBts(e.target.value)} className={campoClass} />
+              </div>
+              <div>
+                <Label htmlFor="rssi-nuovo">Segnale RSSI (dBm)</Label>
+                <input
+                  id="rssi-nuovo"
+                  value={rssiNuovo}
+                  onChange={(e) => setRssiNuovo(e.target.value)}
+                  type="number"
+                  min={-120}
+                  max={0}
+                  className={campoClass}
+                />
+              </div>
+              <div>
+                <Label htmlFor="snr-nuovo">Segnale SNR (dB)</Label>
+                <input
+                  id="snr-nuovo"
+                  value={snrNuovo}
+                  onChange={(e) => setSnrNuovo(e.target.value)}
+                  type="number"
+                  min={-20}
+                  max={60}
+                  className={campoClass}
+                />
+              </div>
+              <div>
+                <Label htmlFor="ping-nuovo">Ping (ms)</Label>
+                <input id="ping-nuovo" value={pingNuovo} onChange={(e) => setPingNuovo(e.target.value)} type="number" min={0} max={5000} className={campoClass} />
+              </div>
+              <div>
+                <Label htmlFor="download-nuovo">Download (Mbps)</Label>
+                <input
+                  id="download-nuovo"
+                  value={downloadNuovo}
+                  onChange={(e) => setDownloadNuovo(e.target.value)}
+                  type="number"
+                  min={0}
+                  max={10000}
+                  className={campoClass}
+                />
+              </div>
+              <div>
+                <Label htmlFor="upload-nuovo">Upload (Mbps)</Label>
+                <input
+                  id="upload-nuovo"
+                  value={uploadNuovo}
+                  onChange={(e) => setUploadNuovo(e.target.value)}
+                  type="number"
+                  min={0}
+                  max={10000}
+                  className={campoClass}
+                />
+              </div>
+              <p className="col-span-2 text-xs text-muted-foreground">
+                Facoltativi — misurati dopo l&apos;intervento, per confermare che il segnale sia buono quanto (o meglio di) prima.
+              </p>
             </div>
           )}
         </div>
