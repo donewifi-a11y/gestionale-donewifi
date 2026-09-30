@@ -20,6 +20,17 @@ interface BozzaLavorazione {
   // sotto.
   apparatoRecuperato: string;
   macRecuperato: string;
+  // ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti i menu
+  // siano logicamente funzionanti e richiedano quello che serve... per
+  // cambio antenna sarebbe da poter inserire il nuovo mac e la nuova
+  // antenna e tutte cose del genere") — solo per "Cambio CPE", vedi sotto:
+  // stessi campi tecnici già raccolti da SchedaInstallazioneForm per un
+  // apparato nuovo, mancavano qui per uno sostituito in una Lavorazione.
+  rssiNuovo: string;
+  snrNuovo: string;
+  pingNuovo: string;
+  downloadNuovo: string;
+  uploadNuovo: string;
 }
 
 const campoClass = "mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm";
@@ -60,6 +71,12 @@ export function SchedaLavorazioneForm({
   // sotto.
   const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
   const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
+  // ★ NUOVA (2026-09-30) — vedi "Cambio CPE" nel passo "Interventi" sotto.
+  const [rssiNuovo, setRssiNuovo] = useState(bozza?.rssiNuovo ?? "");
+  const [snrNuovo, setSnrNuovo] = useState(bozza?.snrNuovo ?? "");
+  const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
+  const [downloadNuovo, setDownloadNuovo] = useState(bozza?.downloadNuovo ?? "");
+  const [uploadNuovo, setUploadNuovo] = useState(bozza?.uploadNuovo ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
@@ -88,8 +105,21 @@ export function SchedaLavorazioneForm({
   const mostraCampiCpe = recuperoApparati || cambioCpe;
 
   useEffect(() => {
-    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato]);
+    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
+      interventi,
+      materiali,
+      esito,
+      metodoPagamento,
+      note,
+      apparatoRecuperato,
+      macRecuperato,
+      rssiNuovo,
+      snrNuovo,
+      pingNuovo,
+      downloadNuovo,
+      uploadNuovo,
+    });
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
 
   function toggleIntervento(nome: string) {
     setInterventi((cur) => (cur.includes(nome) ? cur.filter((i) => i !== nome) : [...cur, nome]));
@@ -121,6 +151,15 @@ export function SchedaLavorazioneForm({
           // vuoti come sempre (vedi mostraCampiCpe sopra).
           modelloCpe: mostraCampiCpe ? apparatoRecuperato : undefined,
           mac: mostraCampiCpe ? macRecuperato : undefined,
+          // ★ NUOVA (2026-09-30) — solo per "Cambio CPE": dati tecnici del
+          // nuovo apparato, per verificare che funzioni bene quanto il
+          // vecchio — stessi campi/stessi range già validati per una Nuova
+          // Installazione (vedi passo "Radio/CPE" sotto).
+          rssi: cambioCpe ? rssiNuovo : undefined,
+          snr: cambioCpe ? snrNuovo : undefined,
+          pingMs: cambioCpe ? pingNuovo : undefined,
+          downloadMbps: cambioCpe ? downloadNuovo : undefined,
+          uploadMbps: cambioCpe ? uploadNuovo : undefined,
         },
         []
       );
@@ -144,11 +183,23 @@ export function SchedaLavorazioneForm({
   const passi: PassoScheda[] = [
     {
       titolo: "Interventi",
-      valida: () =>
+      valida: () => {
         // ★ obbligatorio solo per Recupero Apparati (un pezzo che rientra a
         // magazzino va identificato) — per il solo Cambio CPE resta
         // facoltativo, il MAC da solo basta a riconciliare l'inventario.
-        recuperoApparati && !apparatoRecuperato ? "Seleziona quale apparato è stato recuperato prima di proseguire." : null,
+        if (recuperoApparati && !apparatoRecuperato) return "Seleziona quale apparato è stato recuperato prima di proseguire.";
+        // ★ NUOVA (2026-09-30) — stessi range già validati per una Nuova
+        // Installazione (vedi commento gemello in scheda-installazione-form.tsx):
+        // `min`/`max` HTML da soli non bastano su tutte le tastiere mobili.
+        if (cambioCpe) {
+          if (rssiNuovo.trim() && (Number(rssiNuovo) < -120 || Number(rssiNuovo) > 0)) return "Il segnale RSSI non sembra valido (atteso tra -120 e 0 dBm).";
+          if (snrNuovo.trim() && (Number(snrNuovo) < -20 || Number(snrNuovo) > 60)) return "Il segnale SNR non sembra valido.";
+          if (pingNuovo.trim() && Number(pingNuovo) < 0) return "Il ping non può essere negativo.";
+          if (downloadNuovo.trim() && Number(downloadNuovo) < 0) return "Il download non può essere negativo.";
+          if (uploadNuovo.trim() && Number(uploadNuovo) < 0) return "L'upload non può essere negativo.";
+        }
+        return null;
+      },
       contenuto: (
         <div>
           <Label>Interventi eseguiti (seleziona)</Label>
@@ -220,6 +271,75 @@ export function SchedaLavorazioneForm({
                   Hai selezionato anche &quot;Cambio CPE&quot;: questo campo registra solo l&apos;apparato ritirato. Se hai installato
                   subito una CPE nuova, segna il suo MAC in Nota o in una Scheda a parte.
                 </p>
+              )}
+              {/* ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che
+              tutti i menu siano logicamente funzionanti e richiedano quello
+              che serve... per cambio antenna sarebbe da poter inserire il
+              nuovo mac e la nuova antenna e tutte cose del genere") — solo
+              per "Cambio CPE": gli stessi dati tecnici già raccolti da
+              SchedaInstallazioneForm per un apparato nuovo, per verificare
+              che il nuovo pezzo funzioni bene quanto il vecchio invece di
+              scoprirlo solo al prossimo reclamo del cliente. Non per
+              Recupero Apparati da solo: lì non si sta installando nulla di
+              nuovo da misurare. */}
+              {cambioCpe && (
+                <div className="grid grid-cols-2 gap-3 border-t pt-3">
+                  <div>
+                    <Label htmlFor="rssi-nuovo">Segnale RSSI (dBm)</Label>
+                    <input
+                      id="rssi-nuovo"
+                      value={rssiNuovo}
+                      onChange={(e) => setRssiNuovo(e.target.value)}
+                      type="number"
+                      min={-120}
+                      max={0}
+                      className={campoClass}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="snr-nuovo">Segnale SNR (dB)</Label>
+                    <input
+                      id="snr-nuovo"
+                      value={snrNuovo}
+                      onChange={(e) => setSnrNuovo(e.target.value)}
+                      type="number"
+                      min={-20}
+                      max={60}
+                      className={campoClass}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ping-nuovo">Ping (ms)</Label>
+                    <input id="ping-nuovo" value={pingNuovo} onChange={(e) => setPingNuovo(e.target.value)} type="number" min={0} max={5000} className={campoClass} />
+                  </div>
+                  <div>
+                    <Label htmlFor="download-nuovo">Download (Mbps)</Label>
+                    <input
+                      id="download-nuovo"
+                      value={downloadNuovo}
+                      onChange={(e) => setDownloadNuovo(e.target.value)}
+                      type="number"
+                      min={0}
+                      max={10000}
+                      className={campoClass}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="upload-nuovo">Upload (Mbps)</Label>
+                    <input
+                      id="upload-nuovo"
+                      value={uploadNuovo}
+                      onChange={(e) => setUploadNuovo(e.target.value)}
+                      type="number"
+                      min={0}
+                      max={10000}
+                      className={campoClass}
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    Facoltativi — misurati sulla nuova CPE, per confermare che il segnale sia buono quanto (o meglio di) prima.
+                  </p>
+                </div>
               )}
             </div>
           )}

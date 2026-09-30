@@ -5964,3 +5964,44 @@ logica su tutte le 3933 righe di produzione — Antonio Villa ed Edi Trento risu
 entrambi presenti dopo il fix (prima solo uno sopravviveva); il totale deduplicato
 passa da un numero enormemente sottostimato a 3560 righe, ~150 clienti reali tornati
 visibili.
+
+---
+
+## Verifica completezza funzionale dei moduli (2026-09-30)
+
+Nuovo giro di lavoro, diverso dall'audit bug/sicurezza: richiesta esplicita "verificare
+che tutti i menu siano logicamente funzionanti e richiedano quello che serve" — per
+ogni tipo di ticket/intervento/pratica, chiedersi non solo "il codice funziona senza
+errori?" ma "i campi raccolti bastano davvero a fare il lavoro sul campo?". Esempio di
+partenza dell'utente: "Cambio CPE" (intervento tecnico) doveva poter registrare non
+solo il MAC ma anche i dati tecnici del nuovo apparato.
+
+✅ **"Cambio CPE" — dati tecnici del nuovo apparato** (2026-09-30). Il MAC della nuova
+CPE era stato aggiunto il 28/09, ma mancava ancora un modo di verificare che il nuovo
+apparato funzionasse bene quanto il vecchio — esattamente i dati che una Nuova
+Installazione già raccoglie (RSSI/SNR/ping/download/upload), assenti per un apparato
+sostituito in una Lavorazione tecnica.
+
+- Stesso blocco di campi (con gli stessi range già validati per l'Installazione)
+  compare ora anche per "Cambio CPE", sia nella Scheda per lo staff interno
+  (`scheda-lavorazione-form.tsx`) sia nella versione tecnici esterni via
+  pose.donewifi.it (`scheda-lavorazione-domande.tsx`). Tutti facoltativi — un segnale
+  non misurabile non deve bloccare la chiusura dell'intervento.
+- Nessuna migrazione: `salvaSchedaLavoro()`/`salvaSchedaLavoroEsterno()` scrivevano già
+  `rssi`/`snr`/`ping_ms`/`download_mbps`/`upload_mbps` incondizionatamente per
+  qualunque tipo di Scheda — mancava solo l'interfaccia lato Lavorazione tecnica per
+  raccoglierli quando l'intervento è "Cambio CPE".
+
+**Trovato en passant, non ancora corretto**: la Scheda di Installazione per i tecnici
+esterni (`pose/scheda-installazione-domande.tsx`) chiede RSSI/ping/download/upload ma
+non SNR, a differenza della versione per lo staff interno (`scheda-installazione-form.tsx`,
+che li chiede entrambi) — stessa disciplina "un tipo alla volta": annotato per il
+prossimo giro, non corretto in questo per restare focalizzati sul Cambio CPE.
+
+Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa, stesse
+colonne già scritte incondizionatamente dal server.
+
+Prossimo passo: continuare la verifica di completezza sugli altri interventi rapidi
+(Ripuntamento Antenna, Sostituzione Cavo, Configurazione Router, Riavvio Apparati,
+Problema Alimentazione) e sulle pratiche cliente (Nuova installazione, Trasferimento,
+Disdetta, Cambio IBAN, Cambio Anagrafica, Subentro), un tipo alla volta.

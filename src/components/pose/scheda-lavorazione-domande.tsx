@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wrench, Package, Euro, ClipboardCheck, NotebookText, FileSignature, PackageSearch } from "lucide-react";
+import { Wrench, Package, Euro, ClipboardCheck, NotebookText, FileSignature, PackageSearch, Gauge, Download, Upload } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
@@ -18,6 +18,10 @@ interface BozzaLavorazione {
   metodoPagamento: "Contanti" | "POS" | "In Fattura" | "Gratuito" | null; note: string;
   // ★ NUOVA (2026-09-10) — solo per l'intervento "Recupero Apparati".
   apparatoRecuperato: string; macRecuperato: string;
+  // ★ NUOVA (2026-09-30) — solo per "Cambio CPE", stesso gemello di
+  // scheda-lavorazione-form.tsx (staff interno), vedi lì per il commento
+  // completo.
+  rssiNuovo: string; snrNuovo: string; pingNuovo: string; downloadNuovo: string; uploadNuovo: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaLavorazioneForm
@@ -49,6 +53,11 @@ export function SchedaLavorazioneDomande({
   // recuperato e il possibile mac") — vedi domanda dedicata sotto.
   const [apparatoRecuperato, setApparatoRecuperato] = useState(bozza?.apparatoRecuperato ?? "");
   const [macRecuperato, setMacRecuperato] = useState(bozza?.macRecuperato ?? "");
+  const [rssiNuovo, setRssiNuovo] = useState(bozza?.rssiNuovo ?? "");
+  const [snrNuovo, setSnrNuovo] = useState(bozza?.snrNuovo ?? "");
+  const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
+  const [downloadNuovo, setDownloadNuovo] = useState(bozza?.downloadNuovo ?? "");
+  const [uploadNuovo, setUploadNuovo] = useState(bozza?.uploadNuovo ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
@@ -67,8 +76,21 @@ export function SchedaLavorazioneDomande({
   const mostraDomandeCpe = recuperoApparati || cambioCpe;
 
   useEffect(() => {
-    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, { interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato]);
+    salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
+      interventi,
+      materiali,
+      esito,
+      metodoPagamento,
+      note,
+      apparatoRecuperato,
+      macRecuperato,
+      rssiNuovo,
+      snrNuovo,
+      pingNuovo,
+      downloadNuovo,
+      uploadNuovo,
+    });
+  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
 
   async function invia() {
     setErroreInvio("");
@@ -78,6 +100,13 @@ export function SchedaLavorazioneDomande({
       // sono selezionati (vedi mostraDomandeCpe sopra).
       modelloCpe: mostraDomandeCpe ? apparatoRecuperato : undefined,
       mac: mostraDomandeCpe ? macRecuperato : undefined,
+      // ★ NUOVA (2026-09-30) — solo per "Cambio CPE", stesso gemello di
+      // scheda-lavorazione-form.tsx.
+      rssi: cambioCpe ? rssiNuovo : undefined,
+      snr: cambioCpe ? snrNuovo : undefined,
+      pingMs: cambioCpe ? pingNuovo : undefined,
+      downloadMbps: cambioCpe ? downloadNuovo : undefined,
+      uploadMbps: cambioCpe ? uploadNuovo : undefined,
     };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
@@ -158,6 +187,54 @@ export function SchedaLavorazioneDomande({
                 autoCapitalize="characters"
               />
             ),
+          },
+        ] as Domanda[])
+      : []),
+    // ★ NUOVA (2026-09-30, richiesta esplicita: "verificare che tutti i
+    // menu siano logicamente funzionanti e richiedano quello che serve...
+    // per cambio antenna sarebbe da poter inserire il nuovo mac e la nuova
+    // antenna e tutte cose del genere") — solo per "Cambio CPE": stessi
+    // dati tecnici già chiesti da SchedaInstallazioneDomande per un
+    // apparato nuovo, per verificare che il nuovo pezzo funzioni bene
+    // quanto il vecchio.
+    ...(cambioCpe
+      ? ([
+          {
+            domanda: "Segnale RSSI della nuova CPE, in dBm?",
+            categoria: "radio",
+            icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            valida: () => (rssiNuovo.trim() && (Number(rssiNuovo) < -120 || Number(rssiNuovo) > 0) ? "Il segnale RSSI non sembra valido (atteso tra -120 e 0 dBm)." : null),
+            contenuto: <CampoGrande type="number" inputMode="numeric" value={rssiNuovo} onChange={(e) => setRssiNuovo(e.target.value)} />,
+          },
+          {
+            domanda: "Segnale SNR della nuova CPE, in dB?",
+            categoria: "radio",
+            icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            valida: () => (snrNuovo.trim() && (Number(snrNuovo) < -20 || Number(snrNuovo) > 60) ? "Il segnale SNR non sembra valido." : null),
+            contenuto: <CampoGrande type="number" inputMode="numeric" value={snrNuovo} onChange={(e) => setSnrNuovo(e.target.value)} />,
+          },
+          {
+            domanda: "Ping misurato, in ms?",
+            categoria: "radio",
+            icona: <Gauge className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            contenuto: <CampoGrande type="number" inputMode="numeric" value={pingNuovo} onChange={(e) => setPingNuovo(e.target.value)} />,
+          },
+          {
+            domanda: "Velocità in download, in Mbps?",
+            categoria: "radio",
+            icona: <Download className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            contenuto: <CampoGrande type="number" inputMode="numeric" value={downloadNuovo} onChange={(e) => setDownloadNuovo(e.target.value)} />,
+          },
+          {
+            domanda: "Velocità in upload, in Mbps?",
+            categoria: "radio",
+            icona: <Upload className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo.",
+            contenuto: <CampoGrande type="number" inputMode="numeric" value={uploadNuovo} onChange={(e) => setUploadNuovo(e.target.value)} />,
           },
         ] as Domanda[])
       : []),
