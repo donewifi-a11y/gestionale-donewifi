@@ -379,9 +379,19 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
 
     if (!dati.get("volontaSubentro")) return setErrore("Devi confermare di voler subentrare in questo contratto per procedere.");
 
+    // ★ FIX (2026-09-30, audit funzionale pratiche cliente) — telefono ed
+    // email erano gli unici campi non obbligatori di tutto il modulo pur
+    // essendo l'unico modo di ricontattare il nuovo intestatario per
+    // finalizzare l'attivazione; il CF del privato era facoltativo pur
+    // servendo davvero per la pratica contrattuale (a differenza della
+    // Partita IVA, dove il CF azienda è "se diverso" per un motivo reale).
+    if (!String(dati.get("telefono") || "").trim()) return setErrore("Il telefono è obbligatorio per poter finalizzare l'attivazione.");
+    if (!String(dati.get("email") || "").trim()) return setErrore("L'email è obbligatoria per poter finalizzare l'attivazione.");
+
     if (tipologia === "privato") {
       const cf = String(dati.get("cf") || "").trim();
-      if (cf && !validaCodiceFiscale(cf).valido) return setErrore(validaCodiceFiscale(cf).messaggio);
+      if (!cf) return setErrore("Il Codice Fiscale è obbligatorio.");
+      if (!validaCodiceFiscale(cf).valido) return setErrore(validaCodiceFiscale(cf).messaggio);
     } else {
       const piva = String(dati.get("piva") || "").trim();
       if (piva && !validaPartitaIva(piva).valido) return setErrore(validaPartitaIva(piva).messaggio);
@@ -450,8 +460,8 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
             <Input id="nome" name="nome" required className="mt-1 h-11" />
           </div>
           <div>
-            <Label htmlFor="cf">Codice Fiscale</Label>
-            <Input id="cf" name="cf" className="mt-1 h-11 uppercase" maxLength={16} />
+            <Label htmlFor="cf">Codice Fiscale *</Label>
+            <Input id="cf" name="cf" required className="mt-1 h-11 uppercase" maxLength={16} />
           </div>
         </>
       ) : (
@@ -480,8 +490,8 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Input name="telefono" type="tel" placeholder="Telefono" className="h-11" />
-        <Input name="email" type="email" placeholder="Email" className="h-11" />
+        <Input name="telefono" type="tel" required placeholder="Telefono *" className="h-11" />
+        <Input name="email" type="email" required placeholder="Email *" className="h-11" />
       </div>
 
       <div>

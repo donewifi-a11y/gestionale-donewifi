@@ -6145,3 +6145,28 @@ Build/lint puliti (0 errori). Nessuna migrazione.
 
 Prossimo passo: Subentro (telefono/email non obbligatori nonostante siano essenziali
 per l'attivazione; nessun campo per un indirizzo diverso da quello di installazione).
+
+✅ **"Subentro" — telefono, email e CF obbligatori** (2026-09-30). Erano gli unici campi
+davvero necessari del modulo lasciati facoltativi:
+
+- Telefono ed email erano gli unici recapiti per ricontattare il nuovo intestatario e
+  finalizzare l'attivazione — senza, la pratica arriva incompleta e va rincorsa.
+- Il Codice Fiscale del privato era facoltativo pur servendo davvero per la pratica
+  contrattuale (a differenza del CF azienda per la Partita IVA, dove "se diverso" è
+  legittimo — l'azienda ha già la P.IVA come identificativo principale).
+- Aggiunto `required` sui tre campi lato client + lo stesso controllo in `onSubmit`
+  (lo stesso pattern già in uso per IBAN/mandato SEPA più sopra in questo stesso form).
+
+**Non modificato, verificato come non-buco**: l'indirizzo di installazione non è un
+campo del modulo perché il Subentro presuppone lo stesso punto di installazione già
+esistente (cambia solo l'intestatario del contratto) — se l'indirizzo cambia davvero è
+un Trasferimento, non un Subentro; i due moduli sono già distinti apposta.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+**Giro di verifica completezza funzionale concluso** — tutti e 8 gli interventi rapidi
+di Lavorazione tecnica e tutte le 5 pratiche cliente (incluso Nuova Installazione, già
+completa da prima) sono stati verificati uno per uno, con correzioni solo dove la
+lacuna era reale e rispettando le scelte di prodotto deliberate già esistenti (pose
+minimale, split Cambio Anagrafica/Disdetta tra modulo pubblico e Ticket interno,
+Subentro vs Trasferimento).
