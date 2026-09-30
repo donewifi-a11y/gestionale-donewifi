@@ -35,6 +35,9 @@ interface BozzaLavorazione {
   // ★ NUOVA (2026-09-30) — solo per "Sostituzione Cavo", vedi sotto.
   tipoCavo: string;
   metriCavo: string;
+  // ★ NUOVA (2026-09-30) — solo per "Configurazione Router", vedi sotto.
+  router: string;
+  vlan: string;
 }
 
 const campoClass = "mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm";
@@ -86,6 +89,9 @@ export function SchedaLavorazioneForm({
   // ★ NUOVA (2026-09-30) — vedi "Sostituzione Cavo" nel passo "Interventi" sotto.
   const [tipoCavo, setTipoCavo] = useState(bozza?.tipoCavo ?? "");
   const [metriCavo, setMetriCavo] = useState(bozza?.metriCavo ?? "");
+  // ★ NUOVA (2026-09-30) — vedi "Configurazione Router" nel passo "Interventi" sotto.
+  const [router, setRouter] = useState(bozza?.router ?? "");
+  const [vlan, setVlan] = useState(bozza?.vlan ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
@@ -129,6 +135,13 @@ export function SchedaLavorazioneForm({
   // catalogo (`OPZIONI_INSTALLAZIONE.cavo`) già usati da una Nuova
   // Installazione, mai raccolti da una Lavorazione tecnica.
   const sostituzioneCavo = interventi.includes("Sostituzione Cavo");
+  // ★ NUOVA (2026-09-30, stesso giro di verifica) — "Configurazione Router"
+  // era anch'esso senza campi: quale router e con che VLAN management,
+  // stessi campi/stesso catalogo (`OPZIONI_INSTALLAZIONE.router`) già usati
+  // da una Nuova Installazione — lì obbligatori (si sta installando il
+  // primo router), qui facoltativi (si sta intervenendo su un router già
+  // esistente, non è detto che cambi modello o VLAN).
+  const configurazioneRouter = interventi.includes("Configurazione Router");
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
@@ -147,6 +160,8 @@ export function SchedaLavorazioneForm({
       uploadNuovo,
       tipoCavo,
       metriCavo,
+      router,
+      vlan,
     });
   }, [
     chiaveBozza,
@@ -165,6 +180,8 @@ export function SchedaLavorazioneForm({
     uploadNuovo,
     tipoCavo,
     metriCavo,
+    router,
+    vlan,
   ]);
 
   function toggleIntervento(nome: string) {
@@ -210,6 +227,9 @@ export function SchedaLavorazioneForm({
           // ★ NUOVA (2026-09-30) — solo per "Sostituzione Cavo".
           tipoCavo: sostituzioneCavo ? tipoCavo : undefined,
           metriCavo: sostituzioneCavo ? metriCavo : undefined,
+          // ★ NUOVA (2026-09-30) — solo per "Configurazione Router".
+          router: configurazioneRouter ? router : undefined,
+          vlan: configurazioneRouter ? vlan : undefined,
         },
         []
       );
@@ -420,6 +440,28 @@ export function SchedaLavorazioneForm({
               <div>
                 <Label htmlFor="metri-cavo">Metri posati (facoltativo)</Label>
                 <input id="metri-cavo" value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} type="number" min={0} step={1} className={campoClass} />
+              </div>
+            </div>
+          )}
+          {/* ★ NUOVA (2026-09-30, stesso giro di verifica completezza) —
+          "Configurazione Router" era anch'esso senza campi: stessi campi/
+          stesso catalogo già usati da una Nuova Installazione (`router`,
+          `vlan`), qui facoltativi perché si interviene su un router già
+          esistente, non se ne installa necessariamente uno nuovo. */}
+          {configurazioneRouter && (
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+              <div>
+                <Label htmlFor="router-config">Router (facoltativo)</Label>
+                <select id="router-config" value={router} onChange={(e) => setRouter(e.target.value)} className={campoClass}>
+                  <option value="">-- Non cambiato --</option>
+                  {OPZIONI_INSTALLAZIONE.router.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="vlan-config">VLAN Management (facoltativo)</Label>
+                <input id="vlan-config" value={vlan} onChange={(e) => setVlan(e.target.value)} className={campoClass} />
               </div>
             </div>
           )}

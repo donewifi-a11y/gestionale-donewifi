@@ -6041,3 +6041,29 @@ Build/lint puliti (0 errori). Nessuna migrazione.
 
 Prossimo passo: Configurazione Router, Riavvio Apparati, Problema Alimentazione — poi
 le pratiche cliente.
+
+✅ **"Configurazione Router" — modello e VLAN, solo staff interno** (2026-09-30). Stesso
+identico buco: nessun campo per registrare quale router e con che VLAN management.
+
+- Staff interno (`scheda-lavorazione-form.tsx`): stesso catalogo/stesse colonne già
+  usati da una Nuova Installazione (`OPZIONI_INSTALLAZIONE.router`, `router`/`vlan`) —
+  lì obbligatori (si installa il primo router), qui facoltativi (si interviene su un
+  router già esistente).
+- **Non applicato ai tecnici esterni** (`pose/scheda-lavorazione-domande.tsx`): prima di
+  copiare il pattern ho controllato il precedente della Scheda di Installazione pose, e
+  trovato una revisione esplicita del 26/08 che dice "rimosse VLAN/SNR/Router (giudicate
+  superflue sul campo)" — una scelta di prodotto deliberata per l'app dei tecnici
+  esterni, non un buco da colmare. Rispettata qui, non riportata.
+
+⚠️ **Tensione trovata con quella stessa revisione, da verificare**: il lotto precedente
+("Cambio CPE"/"Ripuntamento Antenna", stesso giorno) ha aggiunto un campo SNR a
+`pose/scheda-lavorazione-domande.tsx` — lo stesso campo che quella revisione del 26/08
+aveva giudicato "superfluo sul campo" e rimosso dalla Scheda di Installazione pose.
+Il contesto è diverso (un intervento breve vs. un'installazione già lunga con molti
+passi, dove un campo in più pesa di più), ma è un giudizio di prodotto che spetta
+all'utente confermare, non qualcosa da decidere da soli in autonomia — segnalato invece
+di correggerlo silenziosamente in un senso o nell'altro.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+Prossimo passo: Riavvio Apparati, Problema Alimentazione — poi le pratiche cliente.
