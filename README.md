@@ -6065,4 +6065,21 @@ più pesa molto di più) — non un'incoerenza da correggere.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
 
-Prossimo passo: Riavvio Apparati, Problema Alimentazione — poi le pratiche cliente.
+✅ **Verifica "Riavvio Apparati"/"Problema Alimentazione" — nessun buco trovato**
+(2026-09-30). A differenza degli interventi precedenti, questi due sono già coperti
+dall'infrastruttura esistente:
+
+- "Problema Alimentazione": un alimentatore/PoE sostituito passa già dal catalogo
+  Materiali della Scheda (`SelettoreMateriali`) — verificato che "Alimentatore" (categoria
+  CPE) e "POE Albentia" esistano già come voci reali del catalogo in produzione.
+- "Riavvio Apparati": un riavvio non ha un dato tecnico proprio da registrare oltre a
+  "ha funzionato o no" (già `esito`) ed eventuali dettagli (già `note`, libera).
+
+Nessuna modifica di codice per questi due — chiuso il giro sugli interventi rapidi di
+Lavorazione tecnica (tutti e 8 verificati: Ripuntamento Antenna, Cambio CPE,
+Sostituzione Cavo, Configurazione Router, Riavvio Apparati, Problema Alimentazione,
+Installazione Nuova — quest'ultima è il caso "Nuova installazione" vero e proprio, già
+completo da prima —, Recupero Apparati — già completo dal 10/09).
+
+Prossimo passo: le pratiche cliente (Nuova installazione già completa; Trasferimento,
+Disdetta, Cambio IBAN, Cambio Anagrafica, Subentro da verificare).
