@@ -134,6 +134,7 @@ function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | 
   const [inCorso, setInCorso] = useState(false);
   const [inviato, setInviato] = useState(false);
   const [errore, setErrore] = useState("");
+  const [intestatarioDiverso, setIntestatarioDiverso] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -142,6 +143,11 @@ function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | 
     const iban = String(dati.get("iban") || "").trim();
     const esito = validaIban(iban);
     if (!esito.valido) return setErrore(esito.messaggio);
+    // ★ FIX (2026-09-30, audit funzionale pratiche cliente) — stesso mandato
+    // SEPA già richiesto dal modulo Subentro per l'addebito IBAN (vedi
+    // FormSubentro sotto): qui mancava del tutto, pur trattandosi dello
+    // stesso identico addebito diretto sullo stesso conto.
+    if (!dati.get("mandatoSepa")) return setErrore("Devi autorizzare il mandato di addebito SEPA per procedere.");
     dati.set("tipo", RICHIESTE_CLIENTE_CONFIG["cambio-iban"].tipo);
     dati.set("nomeCliente", String(dati.get("nome") || ""));
     if (ticketId) dati.set("ticketId", ticketId);
@@ -163,10 +169,24 @@ function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | 
         <Label htmlFor="cf">Codice Fiscale</Label>
         <Input id="cf" name="cf" className="mt-1 h-11 uppercase" maxLength={16} />
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={intestatarioDiverso} onChange={(e) => setIntestatarioDiverso(e.target.checked)} className="h-4 w-4" />
+        Conto intestato ad altra persona
+      </label>
+      {intestatarioDiverso && (
+        <div className="grid grid-cols-2 gap-3">
+          <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-11" />
+          <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
+        </div>
+      )}
       <div>
         <Label htmlFor="iban">Nuovo IBAN *</Label>
         <Input id="iban" name="iban" required placeholder="IT60X0542811101000000123456" className="mt-1 h-11 uppercase" />
       </div>
+      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" name="mandatoSepa" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        Autorizzo Done Wifi ad emettere, per il tramite della propria banca, richieste di incasso sul conto indicato, in conformità al mandato di addebito diretto SEPA.
+      </label>
       <div>
         <Label htmlFor="note">Note (facoltativo)</Label>
         <textarea id="note" name="note" rows={2} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm" />

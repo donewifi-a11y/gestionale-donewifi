@@ -6083,3 +6083,26 @@ completo da prima —, Recupero Apparati — già completo dal 10/09).
 
 Prossimo passo: le pratiche cliente (Nuova installazione già completa; Trasferimento,
 Disdetta, Cambio IBAN, Cambio Anagrafica, Subentro da verificare).
+
+✅ **"Cambio IBAN" — mandato SEPA e intestatario diverso** (2026-09-30). Confrontata
+con l'unica altra pratica che raccoglie un IBAN (Subentro, `FormSubentro` in
+`richiesta-cliente-form.tsx`): stesso identico addebito diretto sullo stesso conto, ma
+mancavano due campi già presenti lì.
+
+- **Mandato SEPA**: Subentro blocca l'invio se manca la spunta di autorizzazione
+  all'addebito diretto; Cambio IBAN non la chiedeva affatto, pur trattandosi dello
+  stesso tipo di autorizzazione bancaria — non un dettaglio opzionale ma un requisito
+  del circuito SDD stesso. Aggiunta la stessa checkbox, stesso testo, stesso blocco lato
+  client se mancante.
+- **Conto intestato ad altra persona**: Subentro permette di indicare nome/CF
+  dell'intestatario del conto se diverso dal cliente (`ibanIntestatarioNome`/
+  `ibanIntestatarioCf`); Cambio IBAN non lo permetteva — un caso reale comune (es. conto
+  cointestato con un familiare) che avrebbe altrimenti richiesto una nota libera o un
+  secondo giro di contatti per chiarire l'intestazione.
+- Nessuna migrazione: la rotta `/api/richiesta-cliente` è già generica — ogni campo
+  stringa non riservato finisce in `dettagli` (JSON), niente colonne dedicate da
+  aggiungere.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+Prossimo passo: Cambio Anagrafica, Trasferimento, Disdetta, Subentro.
