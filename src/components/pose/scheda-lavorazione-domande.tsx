@@ -22,6 +22,12 @@ interface BozzaLavorazione {
   // stesso gemello di scheda-lavorazione-form.tsx (staff interno), vedi lì
   // per il commento completo.
   bts: string; rssiNuovo: string; snrNuovo: string; pingNuovo: string; downloadNuovo: string; uploadNuovo: string;
+  // ★ NUOVA (2026-09-30) — solo "metri", non il tipo di cavo: stessa scelta
+  // già fatta per SchedaInstallazioneDomande (2026-08-26, "il tipo di cavo
+  // non è più una domanda a scelta fissa ma si registra come qualunque
+  // altro materiale") — coerenza con quella semplificazione deliberata,
+  // non riportata qui per un intervento diverso.
+  metriCavo: string;
 }
 
 /** ★ NUOVA (2026-08-26) — equivalente di SchedaLavorazioneForm
@@ -59,6 +65,7 @@ export function SchedaLavorazioneDomande({
   const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
   const [downloadNuovo, setDownloadNuovo] = useState(bozza?.downloadNuovo ?? "");
   const [uploadNuovo, setUploadNuovo] = useState(bozza?.uploadNuovo ?? "");
+  const [metriCavo, setMetriCavo] = useState(bozza?.metriCavo ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   const [tipoClienteTicket, setTipoClienteTicket] = useState<"Privato" | "Business" | null>(null);
   useEffect(() => {
@@ -80,6 +87,9 @@ export function SchedaLavorazioneDomande({
   // gemello di scheda-lavorazione-form.tsx, vedi lì per il commento completo.
   const ripuntamento = interventi.includes("Ripuntamento Antenna");
   const mostraDatiSegnale = cambioCpe || ripuntamento;
+  // ★ NUOVA (2026-09-30, stesso giro di verifica) — vedi il commento
+  // completo in scheda-lavorazione-form.tsx (staff interno).
+  const sostituzioneCavo = interventi.includes("Sostituzione Cavo");
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
@@ -96,8 +106,25 @@ export function SchedaLavorazioneDomande({
       pingNuovo,
       downloadNuovo,
       uploadNuovo,
+      metriCavo,
     });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, bts, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
+  }, [
+    chiaveBozza,
+    interventi,
+    materiali,
+    esito,
+    metodoPagamento,
+    note,
+    apparatoRecuperato,
+    macRecuperato,
+    bts,
+    rssiNuovo,
+    snrNuovo,
+    pingNuovo,
+    downloadNuovo,
+    uploadNuovo,
+    metriCavo,
+  ]);
 
   async function invia() {
     setErroreInvio("");
@@ -115,6 +142,8 @@ export function SchedaLavorazioneDomande({
       pingMs: mostraDatiSegnale ? pingNuovo : undefined,
       downloadMbps: mostraDatiSegnale ? downloadNuovo : undefined,
       uploadMbps: mostraDatiSegnale ? uploadNuovo : undefined,
+      // ★ NUOVA (2026-09-30) — solo per "Sostituzione Cavo".
+      metriCavo: sostituzioneCavo ? metriCavo : undefined,
     };
     setInCorso(true);
     // ★ FIX (2026-08-28, bug reale segnalato: "fermo su salvataggio") —
@@ -251,6 +280,21 @@ export function SchedaLavorazioneDomande({
             icona: <Upload className="h-6 w-6" strokeWidth={2.25} />,
             aiuto: "Facoltativo.",
             contenuto: <CampoGrande type="number" inputMode="numeric" value={uploadNuovo} onChange={(e) => setUploadNuovo(e.target.value)} />,
+          },
+        ] as Domanda[])
+      : []),
+    // ★ NUOVA (2026-09-30, stesso giro di verifica completezza) — solo
+    // "metri", non il tipo di cavo (vedi commento sul campo `metriCavo`
+    // sopra: stessa semplificazione deliberata già fatta per
+    // SchedaInstallazioneDomande).
+    ...(sostituzioneCavo
+      ? ([
+          {
+            domanda: "Quanti metri di cavo, all'incirca?",
+            categoria: "radio",
+            icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
+            aiuto: "Facoltativo — il tipo di cavo lo registri più avanti, tra i materiali usati.",
+            contenuto: <CampoGrande type="number" inputMode="numeric" min="0" placeholder="0" value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} />,
           },
         ] as Domanda[])
       : []),

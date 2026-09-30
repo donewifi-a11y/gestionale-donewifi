@@ -6024,5 +6024,20 @@ riagganciare una BTS diversa) — nessun modo di registrare il risultato.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
 
-Prossimo passo: Sostituzione Cavo, Configurazione Router, Riavvio Apparati, Problema
-Alimentazione — poi le pratiche cliente.
+✅ **"Sostituzione Cavo" — tipo e metri posati** (2026-09-30). Stesso identico buco:
+nessun campo per registrare cosa è stato effettivamente sostituito.
+
+- Staff interno (`scheda-lavorazione-form.tsx`): stesso catalogo/stessa colonna già
+  usati da una Nuova Installazione (`OPZIONI_INSTALLAZIONE.cavo`, `tipo_cavo`/
+  `metri_cavo`) — dropdown tipo cavo + metri posati, entrambi facoltativi.
+- Tecnici esterni (`pose/scheda-lavorazione-domande.tsx`): **solo i metri**, non il
+  tipo — verificato prima di copiare alla cieca il pattern dello staff interno: una
+  revisione del 26/08 aveva già tolto deliberatamente il tipo di cavo come domanda a sé
+  dalla Scheda di Installazione per pose ("si registra come qualunque altro materiale
+  nella domanda 'Hai usato materiali extra?'"), giudicato superfluo sul campo. Stessa
+  scelta rispettata qui invece di reintrodurla per un intervento diverso.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+Prossimo passo: Configurazione Router, Riavvio Apparati, Problema Alimentazione — poi
+le pratiche cliente.

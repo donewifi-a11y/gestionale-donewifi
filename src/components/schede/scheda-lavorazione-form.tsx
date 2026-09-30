@@ -32,6 +32,9 @@ interface BozzaLavorazione {
   pingNuovo: string;
   downloadNuovo: string;
   uploadNuovo: string;
+  // ★ NUOVA (2026-09-30) — solo per "Sostituzione Cavo", vedi sotto.
+  tipoCavo: string;
+  metriCavo: string;
 }
 
 const campoClass = "mt-1 h-11 w-full rounded-md border bg-background px-3 text-base sm:h-9 sm:text-sm";
@@ -80,6 +83,9 @@ export function SchedaLavorazioneForm({
   const [pingNuovo, setPingNuovo] = useState(bozza?.pingNuovo ?? "");
   const [downloadNuovo, setDownloadNuovo] = useState(bozza?.downloadNuovo ?? "");
   const [uploadNuovo, setUploadNuovo] = useState(bozza?.uploadNuovo ?? "");
+  // ★ NUOVA (2026-09-30) — vedi "Sostituzione Cavo" nel passo "Interventi" sotto.
+  const [tipoCavo, setTipoCavo] = useState(bozza?.tipoCavo ?? "");
+  const [metriCavo, setMetriCavo] = useState(bozza?.metriCavo ?? "");
   const [firmaCliente, setFirmaCliente] = useState<FirmaClienteApprovata | null>(null);
   // ★ NUOVA — il tipo cliente arriva dal Ticket collegato, non più scelto
   // a mano nel selettore materiali (vedi selettore-materiali.tsx).
@@ -116,6 +122,13 @@ export function SchedaLavorazioneForm({
   // "cosa misuri DOPO l'intervento") invece di duplicarlo.
   const ripuntamento = interventi.includes("Ripuntamento Antenna");
   const mostraDatiSegnale = cambioCpe || ripuntamento;
+  // ★ NUOVA (2026-09-30, stesso giro di verifica) — "Sostituzione Cavo" era
+  // anch'esso un chip senza campi: che tipo di cavo è stato usato e quanti
+  // metri, dato che serve sia per lo scarico corretto a consuntivo sia per
+  // chi deve prevedere la prossima manutenzione. Stessi campi/stesso
+  // catalogo (`OPZIONI_INSTALLAZIONE.cavo`) già usati da una Nuova
+  // Installazione, mai raccolti da una Lavorazione tecnica.
+  const sostituzioneCavo = interventi.includes("Sostituzione Cavo");
 
   useEffect(() => {
     salvaBozzaScheda<BozzaLavorazione>(chiaveBozza, {
@@ -132,8 +145,27 @@ export function SchedaLavorazioneForm({
       pingNuovo,
       downloadNuovo,
       uploadNuovo,
+      tipoCavo,
+      metriCavo,
     });
-  }, [chiaveBozza, interventi, materiali, esito, metodoPagamento, note, apparatoRecuperato, macRecuperato, bts, rssiNuovo, snrNuovo, pingNuovo, downloadNuovo, uploadNuovo]);
+  }, [
+    chiaveBozza,
+    interventi,
+    materiali,
+    esito,
+    metodoPagamento,
+    note,
+    apparatoRecuperato,
+    macRecuperato,
+    bts,
+    rssiNuovo,
+    snrNuovo,
+    pingNuovo,
+    downloadNuovo,
+    uploadNuovo,
+    tipoCavo,
+    metriCavo,
+  ]);
 
   function toggleIntervento(nome: string) {
     setInterventi((cur) => (cur.includes(nome) ? cur.filter((i) => i !== nome) : [...cur, nome]));
@@ -175,6 +207,9 @@ export function SchedaLavorazioneForm({
           pingMs: mostraDatiSegnale ? pingNuovo : undefined,
           downloadMbps: mostraDatiSegnale ? downloadNuovo : undefined,
           uploadMbps: mostraDatiSegnale ? uploadNuovo : undefined,
+          // ★ NUOVA (2026-09-30) — solo per "Sostituzione Cavo".
+          tipoCavo: sostituzioneCavo ? tipoCavo : undefined,
+          metriCavo: sostituzioneCavo ? metriCavo : undefined,
         },
         []
       );
@@ -213,6 +248,7 @@ export function SchedaLavorazioneForm({
           if (downloadNuovo.trim() && Number(downloadNuovo) < 0) return "Il download non può essere negativo.";
           if (uploadNuovo.trim() && Number(uploadNuovo) < 0) return "L'upload non può essere negativo.";
         }
+        if (sostituzioneCavo && metriCavo.trim() && Number(metriCavo) < 0) return "I metri di cavo non possono essere negativi.";
         return null;
       },
       contenuto: (
@@ -362,6 +398,29 @@ export function SchedaLavorazioneForm({
               <p className="col-span-2 text-xs text-muted-foreground">
                 Facoltativi — misurati dopo l&apos;intervento, per confermare che il segnale sia buono quanto (o meglio di) prima.
               </p>
+            </div>
+          )}
+          {/* ★ NUOVA (2026-09-30, stesso giro di verifica completezza) —
+          "Sostituzione Cavo" era anch'esso senza campi: che tipo di cavo è
+          stato posato e quanti metri, stesso catalogo/stessa colonna già
+          usati da una Nuova Installazione (`OPZIONI_INSTALLAZIONE.cavo`,
+          `tipo_cavo`/`metri_cavo`), mai raccolti da una Lavorazione
+          tecnica. */}
+          {sostituzioneCavo && (
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+              <div>
+                <Label htmlFor="tipo-cavo">Tipo di cavo</Label>
+                <select id="tipo-cavo" value={tipoCavo} onChange={(e) => setTipoCavo(e.target.value)} className={campoClass}>
+                  <option value="" disabled>-- Seleziona tipo --</option>
+                  {OPZIONI_INSTALLAZIONE.cavo.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="metri-cavo">Metri posati (facoltativo)</Label>
+                <input id="metri-cavo" value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} type="number" min={0} step={1} className={campoClass} />
+              </div>
             </div>
           )}
         </div>
