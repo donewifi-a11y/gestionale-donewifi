@@ -6055,14 +6055,13 @@ identico buco: nessun campo per registrare quale router e con che VLAN managemen
   superflue sul campo)" — una scelta di prodotto deliberata per l'app dei tecnici
   esterni, non un buco da colmare. Rispettata qui, non riportata.
 
-⚠️ **Tensione trovata con quella stessa revisione, da verificare**: il lotto precedente
-("Cambio CPE"/"Ripuntamento Antenna", stesso giorno) ha aggiunto un campo SNR a
-`pose/scheda-lavorazione-domande.tsx` — lo stesso campo che quella revisione del 26/08
+**Tensione trovata con quella stessa revisione, verificata con l'utente**: il lotto
+precedente ("Cambio CPE"/"Ripuntamento Antenna", stesso giorno) aveva aggiunto un campo
+SNR a `pose/scheda-lavorazione-domande.tsx` — lo stesso campo che la revisione del 26/08
 aveva giudicato "superfluo sul campo" e rimosso dalla Scheda di Installazione pose.
-Il contesto è diverso (un intervento breve vs. un'installazione già lunga con molti
-passi, dove un campo in più pesa di più), ma è un giudizio di prodotto che spetta
-all'utente confermare, non qualcosa da decidere da soli in autonomia — segnalato invece
-di correggerlo silenziosamente in un senso o nell'altro.
+Confermato con l'utente: resta, il contesto è diverso (un intervento breve di 2-3
+domande in più contro un'installazione già lunga e densa di passaggi, dove un campo in
+più pesa molto di più) — non un'incoerenza da correggere.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
 
