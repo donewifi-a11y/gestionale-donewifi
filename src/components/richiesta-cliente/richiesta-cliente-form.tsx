@@ -321,6 +321,31 @@ function FormTrasferimento({ ticketId, tokenClienteEsterno }: { ticketId: string
         <Label htmlFor="piano">Piano / Interno (facoltativo)</Label>
         <Input id="piano" name="piano" placeholder="Es. 2° piano, interno 4" className="mt-1 h-11" />
       </div>
+      {/* ★ FIX (2026-09-30, audit funzionale pratiche cliente) — mancava un
+      modo di distinguere, prima del sopralluogo, se basta spostare
+      l'antenna già installata o serve una nuova installazione da zero
+      (stesso tipo di segnale già raccolto per "Cambio CPE" nella Scheda
+      tecnica): senza saperlo in anticipo, chi programma il sopralluogo non
+      sa se prevedere materiale nuovo. "Tipo di immobile" aiuta allo stesso
+      modo a prevedere se serviranno permessi condominiali. */}
+      <div>
+        <Label htmlFor="tipoIntervento">Cosa serve nella nuova sede</Label>
+        <select id="tipoIntervento" name="tipoIntervento" defaultValue="" className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm">
+          <option value="" disabled>Seleziona…</option>
+          <option value="Sposto la stessa antenna/router già installati">Sposto la stessa antenna/router già installati</option>
+          <option value="Serve una nuova installazione (nuovo sopralluogo)">Serve una nuova installazione (nuovo sopralluogo)</option>
+          <option value="Non so, valutatelo voi">Non so, valutatelo voi</option>
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="tipoImmobile">Tipo di immobile (facoltativo)</Label>
+        <select id="tipoImmobile" name="tipoImmobile" defaultValue="" className="mt-1 h-11 w-full rounded-lg border bg-background px-3 text-sm">
+          <option value="">Seleziona…</option>
+          <option value="Appartamento in condominio">Appartamento in condominio</option>
+          <option value="Casa indipendente">Casa indipendente</option>
+          <option value="Attività commerciale">Attività commerciale</option>
+        </select>
+      </div>
       <div>
         <Label htmlFor="dataPreferita">Data preferita per il trasferimento (facoltativo)</Label>
         <Input id="dataPreferita" name="dataPreferita" type="date" className="mt-1 h-11" />

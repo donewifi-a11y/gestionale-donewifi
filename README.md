@@ -6106,3 +6106,42 @@ mancavano due campi già presenti lì.
 Build/lint puliti (0 errori). Nessuna migrazione.
 
 Prossimo passo: Cambio Anagrafica, Trasferimento, Disdetta, Subentro.
+
+✅ **Verifica "Cambio Anagrafica"/"Disdetta" — nessun buco trovato** (2026-09-30). Un
+report di ricognizione (agente in background) aveva segnalato entrambe come
+potenzialmente incomplete — verificato sul codice reale prima di agire, e trovato che
+il presunto buco è già coperto altrove, con una separazione deliberata di scopo:
+
+- **Cambio Anagrafica**: la pratica pubblica (`richiesta-cliente-form.tsx`) copre solo
+  telefono/email, come dice il suo stesso testo introduttivo ("comunicaci il nuovo
+  recapito"). Indirizzo e dati di fatturazione — cambiamenti più delicati, che
+  richiedono verifica da parte dello staff — passano invece dal Ticket interno
+  "Cambio Anagrafica" (`campi-ticket.ts`), che ha già i campi `cosa_modificare`
+  (Indirizzo/Telefono/Email/Dati fatturazione) + `nuovo_valore`, con tanto di nota
+  esplicita nel codice che spiega la separazione. Non un buco, una scelta di prodotto.
+- **Disdetta**: nessun form pubblico per motivo/data, corretto per legge (serve una
+  comunicazione scritta tracciabile, Raccomandata A/R o PEC — vedi info del Ticket).
+  Ma motivo e data desiderata sono già raccolti al momento dell'apertura del Ticket
+  interno "Disdetta" (`motivo_disdetta` + `data_desiderata` in `campi-ticket.ts`) — il
+  presunto buco era già chiuso, solo in un punto diverso da quello controllato dal
+  report iniziale.
+
+Nessuna modifica di codice per questi due.
+
+✅ **"Trasferimento" — tipo di intervento e tipo di immobile nella nuova sede**
+(2026-09-30). Stesso tipo di lacuna dell'esempio di partenza (Cambio CPE): mancava un
+modo di segnalare PRIMA del sopralluogo se basta spostare l'antenna/router già
+installati o serve una nuova installazione da zero — chi programma il sopralluogo lo
+scopriva solo sul posto, o doveva dedurlo dalle Note libere.
+
+- Aggiunti due select facoltativi in `FormTrasferimento`: "Cosa serve nella nuova sede"
+  (sposto la stessa antenna / serve nuova installazione / non so) e "Tipo di immobile"
+  (condominio / casa indipendente / attività commerciale, utile per anticipare permessi
+  condominiali).
+- Nessuna migrazione: come Cambio IBAN, la rotta `/api/richiesta-cliente` è generica sui
+  campi extra — finiscono in `dettagli` senza bisogno di colonne dedicate.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+Prossimo passo: Subentro (telefono/email non obbligatori nonostante siano essenziali
+per l'attivazione; nessun campo per un indirizzo diverso da quello di installazione).
