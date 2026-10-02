@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { HardDrive, Trash2, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import { elencaFileMedia, eliminaFileMedia, type FileMedia } from "@/app/(app)/sistema/media-actions";
 
 function formattaDimensione(bytes: number): string {
@@ -37,6 +38,9 @@ export function PuliziaMedia() {
   const [ordine, setOrdine] = useState<Ordine>("dimensione");
   const [inCorsoEliminazione, startEliminazione] = useTransition();
   const toast = useToast();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — confirm() nativo
+  // invece del dialog brandizzato standard.
+  const { confirm: confirmElimina, ConfirmDialog: DialogConfermaElimina } = useConfirm();
 
   async function analizza() {
     setCaricamento(true);
@@ -75,13 +79,13 @@ export function PuliziaMedia() {
     setSelezionati(new Set(orfani.map((f) => f.percorso)));
   }
 
-  function eliminaSelezionati() {
+  async function eliminaSelezionati() {
     const conRiferimento = file.filter((f) => selezionati.has(f.percorso) && f.riferimento);
-    const messaggio =
+    const descrizione =
       conRiferimento.length > 0
         ? `Stai per eliminare ${selezionati.size} file, di cui ${conRiferimento.length} ancora collegati a un Ticket/Scheda/Cliente (es. "${conRiferimento[0].riferimento?.etichetta}") — il collegamento smetterà di funzionare (es. "Vedi contratto"/"Vedi firma" non troverà più il file). Procedere comunque?`
         : `Eliminare ${selezionati.size} file (nessuno risulta collegato a un Ticket/Scheda/Cliente)? L'operazione non si può annullare.`;
-    if (!confirm(messaggio)) return;
+    if (!(await confirmElimina({ titolo: "Eliminare i file selezionati?", descrizione, testoConferma: "Elimina", distruttivo: true }))) return;
 
     startEliminazione(async () => {
       const risultato = await eliminaFileMedia([...selezionati]);
@@ -201,6 +205,7 @@ export function PuliziaMedia() {
           )}
         </>
       )}
+      <DialogConfermaElimina />
     </section>
   );
 }

@@ -300,11 +300,18 @@ export async function cercaMessaggiChat(query: string): Promise<RisultatoRicerca
   const pulita = query.trim();
   if (!personaId || pulita.length < 2) return [];
 
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — `%`/`_` sono jolly nel
+  // pattern LIKE/ILIKE di Postgres: senza escape, cercare un messaggio che
+  // contiene letteralmente un simbolo di percentuale (es. "sconto 10%") dà
+  // risultati più ampi del previsto (il simbolo viene interpretato come
+  // "qualunque sequenza di caratteri" invece che come carattere letterale).
+  const pulitaEscaped = pulita.replace(/[%_]/g, "\\$&");
+
   const { data: messaggi, error } = await supabase
     .from("messaggi_chat")
     .select("id, conversazione_id, mittente_id, testo, creato_il")
     .not("testo", "is", null)
-    .ilike("testo", `%${pulita}%`)
+    .ilike("testo", `%${pulitaEscaped}%`)
     .order("creato_il", { ascending: false })
     .limit(30);
   if (error) {

@@ -30,6 +30,7 @@ import type { RichiestaCliente } from "@/lib/types";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import { CHIAVE_BOZZA_CONTATTO_SUBENTRO, PRATICHE_CON_GATE_CONTRATTO } from "@/lib/richieste-cliente-config";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 
 // ★ NUOVA (2026-09-03, "rivediamo la grafica... deve essere tutta
 // omologata con il sistema attuale" — screenshot di una pratica
@@ -266,6 +267,9 @@ function DettaglioRichiesta({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — confirm() nativo
+  // invece del dialog brandizzato standard.
+  const { confirm: confirmElimina, ConfirmDialog: DialogConfermaElimina } = useConfirm();
   const [inCorso, startTransizione] = useTransition();
   const [inCorsoElimina, startElimina] = useTransition();
   // ★ NUOVA — stesso "copia per campo/copia tutto" già in uso in Segnalazioni
@@ -380,11 +384,14 @@ function DettaglioRichiesta({
   // affatto per gli altri, controllo comunque ripetuto lato server in
   // eliminaRichiestaCliente()): cancellazione vera, pensata per moduli di
   // prova, duplicati o inviati per errore dal cliente.
-  function elimina() {
+  async function elimina() {
     if (
-      !confirm(
-        `Eliminare definitivamente questa richiesta (${richiesta.tipo_richiesta} — ${richiesta.cliente ?? "cliente"})? L'operazione non è reversibile.`
-      )
+      !(await confirmElimina({
+        titolo: "Eliminare la richiesta?",
+        descrizione: `Eliminare definitivamente questa richiesta (${richiesta.tipo_richiesta} — ${richiesta.cliente ?? "cliente"})? L'operazione non è reversibile.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
     )
       return;
     startElimina(async () => {
@@ -659,6 +666,7 @@ function DettaglioRichiesta({
           </button>
         )}
       </div>
+      <DialogConfermaElimina />
     </>
   );
 }

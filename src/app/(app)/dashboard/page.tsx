@@ -8,7 +8,21 @@ import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { DashboardTabs, type TabDashboard } from "@/components/dashboard/dashboard-tabs";
 import { SezioneDashboardReparto } from "@/components/dashboard/sezione-reparto";
 import { coloreReparto, type AreaAccesso } from "@/lib/types";
-import { inizioGiornataItalia, fineGiornataItalia } from "@/lib/data-italia";
+import { inizioGiornataItalia, fineGiornataItalia, dataItaliaStringa } from "@/lib/data-italia";
+
+// ★ FIX (2026-10-02, audit d'oro — regressione) — `inizioGiornataItalia`/
+// `fineGiornataItalia` prendono un offset in giorni RISPETTO AD OGGI, non
+// una data arbitraria: per tradurre `params.da`/`params.a` (una data scelta
+// dall'utente su un <input type="date">) nello stesso sistema serve prima
+// l'offset in giorni da oggi. Entrambe le date sono trattate come
+// mezzanotte UTC puramente per contare i giorni di differenza — un calcolo
+// di calendario, non un istante reale, quindi immune al fuso del processo.
+function offsetGiorniDaOggi(dataStr: string): number {
+  const oggi = dataItaliaStringa();
+  const msOggi = Date.parse(`${oggi}T00:00:00Z`);
+  const msTarget = Date.parse(`${dataStr}T00:00:00Z`);
+  return Math.round((msTarget - msOggi) / 86400000);
+}
 
 // ★ FUSA (2026-09-03, "meno voci di menu possibili" — artifact "Meno Voci
 // nel Menu", confermata) — "Dashboard generale" + una Dashboard a parte per
@@ -96,15 +110,20 @@ export default async function DashboardPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const oraFine = params.a ? new Date(`${params.a}T23:59:59`) : new Date();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — `new Date(\`${params.a}T23:59:59\`)`
+  // senza indicazione di fuso viene interpretato nel fuso DEL PROCESSO (UTC
+  // su Vercel), non in quello italiano con cui l'utente ha scelto la data
+  // sul date-picker: il periodo richiesto risultava shiftato di 1-2 ore,
+  // un Ticket aggiornato a inizio/fine giornata italiana poteva finire
+  // dentro o fuori per errore. Stessa classe di bug già corretta altrove
+  // nello stesso file (vedi oggiInizio/oggiFine sotto) e nel progetto.
+  const oraFine = params.a ? fineGiornataItalia(offsetGiorniDaOggi(params.a)) : new Date();
   let periodoInizio: Date;
   if (params.da) {
-    periodoInizio = new Date(`${params.da}T00:00:00`);
+    periodoInizio = inizioGiornataItalia(offsetGiorniDaOggi(params.da));
   } else {
     const giorni = PERIODI.find((p) => p.chiave === params.periodo)?.giorni ?? 30;
-    periodoInizio = new Date();
-    periodoInizio.setDate(periodoInizio.getDate() - giorni);
-    periodoInizio.setHours(0, 0, 0, 0);
+    periodoInizio = inizioGiornataItalia(-giorni);
   }
   const periodoAttivo = params.da ? "custom" : (params.periodo ?? "30");
 

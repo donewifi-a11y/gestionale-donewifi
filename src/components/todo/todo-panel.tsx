@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ListChecks, X, Plus, Trash2, Pencil, Check } from "lucide-react";
 import { useTodoData } from "@/components/todo/todo-data-context";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { TodoPersonale } from "@/lib/types";
 
 /** ★ ESTRATTO — contenuto dei to-do personali, separato dal "come" viene
@@ -22,6 +23,9 @@ export function TodoPanel({
   variant?: "popup" | "riquadro";
 }) {
   const { todo, aggiungi, completa, modifica, elimina } = useTodoData();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — confirm() nativo
+  // invece del dialog brandizzato standard.
+  const { confirm: confirmEliminaTodo, ConfirmDialog: DialogConfermaEliminaTodo } = useConfirm();
   // ★ FIX — chiudere il pop-up a metà scrittura smontava il componente e
   // perdeva il testo del nuovo to-do senza avviso. Stessa soluzione della
   // chat: bozza salvata in sessionStorage invece di un conferma-prima-di-
@@ -64,10 +68,10 @@ export function TodoPanel({
     setTesto("");
   }
 
-  function onElimina(id: string) {
+  async function onElimina(id: string) {
     // ★ FIX — prima cancellava subito al clic, senza conferma: un tocco di
     // troppo sul cestino perdeva il to-do senza possibilità di annullare.
-    if (!confirm("Eliminare questo to-do?")) return;
+    if (!(await confirmEliminaTodo({ titolo: "Eliminare il to-do?", descrizione: "Eliminare questo to-do?", testoConferma: "Elimina", distruttivo: true }))) return;
     elimina(id);
   }
 
@@ -160,6 +164,7 @@ export function TodoPanel({
         </button>
       </form>
       {errore && <p className="px-3 pb-2 text-[11px] text-critical">{errore}</p>}
+      <DialogConfermaEliminaTodo />
     </div>
   );
 }

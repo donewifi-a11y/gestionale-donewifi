@@ -6444,3 +6444,86 @@ una semplice condizione `WHERE`).
 
 Build/lint puliti (0 errori) su tutto il lotto. Nessuna nuova migrazione (tutte le
 correzioni di questo giro sono solo logica applicativa).
+
+## Audit d'oro — secondo giro: pratiche cliente pubbliche, Dashboard/Archivio/Chat/Todo/Sistema, Materiali/Preventivi/Tariffe/Persone/Lavorazioni (2026-10-02)
+
+Continuazione dello stesso giro di stabilizzazione, su "procedi": tre ricognizioni in
+parallelo sui moduli rimasti (pratiche cliente pubbliche + Insoluti + Rapporti di
+lavoro + pose; Dashboard/Archivio/Chat/Todo/Sistema + Clienti Esterni; Materiali/
+Preventivi/Tariffe + Persone/Team/Lavorazioni Interne, questi ultimi due gruppi già
+auditati il 25/09 — qui solo problemi NUOVI).
+
+🔴 **CRITICO — Pratiche cliente pubbliche: tre controlli legalmente rilevanti
+verificati SOLO lato client** (2026-10-02). `/api/richiesta-cliente` è una rotta
+PUBBLICA (nessun login): `mandatoSepa` (autorizzazione addebito SEPA), `volontaSubentro`
+(dichiarazione di voler assumere un contratto) e `consenso` (privacy) erano controllati
+solo nell'`onSubmit` del form React — mai sulla rotta server. `consenso` e
+`volontaSubentro` erano perfino dentro `CAMPI_RISERVATI`: una POST diretta che li omette
+non genera nemmeno un valore vuoto, viene accettata come se il cliente avesse
+acconsentito/confermato/autorizzato un addebito SDD senza che nessuno dei tre controlli
+fosse mai stato superato. Rischio concreto: un addebito SEPA registrato come autorizzato
+senza un vero mandato raccolto, o dati trattati senza consenso verificabile (GDPR).
+
+- Aggiunta validazione server-side per tutti e tre, con lo stesso principio già
+  applicato su questa rotta a `ticketId`/`praticaId`/`tokenClienteEsterno` (mai fidarsi
+  del client): `consenso` sempre richiesto, `volontaSubentro` solo per tipo "Subentro",
+  `mandatoSepa` per "Cambio IBAN" sempre e per "Subentro" solo se `metodoPagamento === "iban"`.
+
+✅ **Pratiche cliente pubbliche — altri 2 problemi dallo stesso giro** (2026-10-02):
+- CAP di Trasferimento: validato (`^\d{5}$`) solo lato client, ora anche sulla rotta.
+- "Conto intestato ad altra persona" (Cambio IBAN e Subentro): i due campi
+  nome/CF dell'intestatario non erano obbligatori — un cliente poteva spuntare la
+  casella e lasciarli vuoti. Aggiunto `required` su entrambi, in entrambi i form.
+
+✅ **Lavorazioni Interne — stesso bug "tecnico disattivato sparisce", non ancora
+esteso qui** (2026-10-02). Stesso identico problema già risolto in Tickets/Calendario
+lo stesso giorno (vedi sopra), scoperto perché il campo priorità era stato aggiunto
+nello stesso file senza toccare questo aspetto: `persone` ora arriva senza filtro
+attivo/non attivo (risolve nomi di `assegnato_a`/`assegnato_da` anche se disattivati),
+il dropdown "Assegnata a" nel form di creazione resta filtrato ai soli attivi.
+
+✅ **Fuso orario — altri 3 punti con lo stesso bug appena corretto in Dashboard**
+(2026-10-02). Stessa classe di bug (`new Date().setHours(0,0,0,0)` nel fuso del
+PROCESSO invece che in quello italiano), trovata in altri 3 punti dopo il primo fix:
+- `getDatiAnagraficaAruba()` (grafico "Andamento fatturato (6 mesi)"): sia il calcolo
+  "6 mesi fa" sia le etichette dei mesi.
+- Dashboard, filtro "Statistiche per periodo" (intervallo personalizzato e "ultimi N
+  giorni"): un ticket aggiornato a inizio/fine giornata italiana poteva finire dentro o
+  fuori dal periodo per errore.
+- `getCaricoPersona()` (scheda Persona, "completati questo mese").
+Tutti riportati agli stessi helper (`inizioGiornataItalia`/`fineGiornataItalia`/
+`dataItaliaStringa`) già standard nel progetto.
+
+✅ **Todo — completamento/eliminazione silenziosamente persi su un errore** (2026-10-02).
+`completa()`/`elimina()` aggiornavano subito lo stato React (ottimistico) senza aspettare
+né controllare l'esito della scrittura server: se falliva, il to-do spariva/si spuntava
+in UI ma restava invariato nel database, tornando "indietro" in silenzio al refresh
+successivo. Ora aspettano l'esito e, se fallisce, annullano l'aggiornamento ottimistico
+e avvisano con un toast.
+
+✅ **`confirm()` nativo sostituito in altri 4 punti** (2026-10-02): "Riapri" in Archivio,
+elimina to-do, elimina file in Sistema → Pulizia media, elimina richiesta cliente —
+stesso dialog brandizzato (`useConfirm`) già standard nel resto del gestionale.
+
+✅ **Altri due messaggi grezzi/difetti minori corretti** (2026-10-02):
+- `riapriTicket()` (Archivio): errore Postgres grezzo tradotto in un messaggio
+  comprensibile per lo stesso tipo di errore RLS già gestito altrove.
+- Ricerca messaggi Chat: `%`/`_` (jolly SQL LIKE) ora escapati — cercare un messaggio
+  con un simbolo di percentuale letterale non dava più risultati del previsto.
+
+**Non corretto in questo giro** (richiederebbe una nuova interfaccia, contro la
+richiesta esplicita "non dobbiamo aggiungerne di nuove"): `aggiornaPreventivo()` in
+preventivi/actions.ts esiste, verifica correttamente che solo una Bozza sia modificabile
+e scrive su storico, ma non è chiamata da nessuna UI — un operatore che sbaglia un dato
+in una Bozza (incluso il campo scadenza) deve eliminarla e ricrearla da zero. Segnalato
+per una valutazione futura, non implementata un'interfaccia di modifica oggi.
+
+**Verificate solide, nessun problema nuovo**: Materiali, Tariffe, Preventivi (il resto),
+Persone (il resto), Utenti, Tecnici esterni, Insoluti, Rapporti di lavoro, portale pose
+(login con rate limiting, `prendiInCaricoAppuntamentoPose` già previene race condition
+con un UPDATE condizionato, `salvaSchedaLavoroEsterno` già previene schede duplicate da
+invio in coda offline), Clienti/Clienti Esterni (incluso `getStatoTecnicoCliente`,
+appena aggiunta), rotta `/api/richiesta-cliente` per il resto (rate limiting, honeypot,
+IDOR, messaggi grezzi), upload documenti pratiche cliente.
+
+Build/lint puliti (0 errori) su tutto il lotto. Nessuna nuova migrazione.

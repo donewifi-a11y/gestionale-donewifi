@@ -12,6 +12,7 @@ import { urlContratto } from "@/app/(app)/segnalazioni/actions";
 import { RapportinoVista } from "@/components/tickets/rapportino";
 import { RapportiLavoroBoard } from "@/components/rapporti-lavoro/rapporti-lavoro-board";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import type { RapportinoIntervento, Segnalazione, Ticket } from "@/lib/types";
 import type { RigaScheda, RigaRapportino } from "@/app/(app)/rapporti-lavoro/actions";
 
@@ -175,6 +176,9 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
   const [inCorso, startTransizione] = useTransition();
   const [errore, setErrore] = useState("");
   const [rapportino, setRapportino] = useState<RapportinoIntervento | null>(null);
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — confirm() nativo
+  // invece del dialog brandizzato standard.
+  const { confirm: confirmRiapri, ConfirmDialog: DialogConfermaRiapri } = useConfirm();
 
   useEffect(() => {
     if (ticket.stato === "Completato") {
@@ -182,8 +186,15 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
     }
   }, [ticket.id, ticket.stato]);
 
-  function riapri() {
-    if (!confirm(`Riaprire il ticket #${ticket.numero}? Tornerà in "Da gestire".`)) return;
+  async function riapri() {
+    if (
+      !(await confirmRiapri({
+        titolo: "Riaprire il ticket?",
+        descrizione: `Riaprire il ticket #${ticket.numero}? Tornerà in "Da gestire".`,
+        testoConferma: "Riapri",
+      }))
+    )
+      return;
     setErrore("");
     startTransizione(async () => {
       const risultato = await riapriTicket(ticket.id, ticket.stato);
@@ -241,6 +252,7 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
           {errore}
         </p>
       )}
+      <DialogConfermaRiapri />
     </div>
   );
 }

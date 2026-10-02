@@ -254,7 +254,11 @@ function FormNuovaLavorazione({
             className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm disabled:opacity-60"
           >
             {isAdmin ? (
-              persone.map((p) => (
+              // ★ FIX (2026-10-02, audit d'oro — regressione) — `persone`
+              // ora arriva senza filtro attivo/non attivo (vedi page.tsx),
+              // per risolvere i nomi di assegnazioni esistenti; qui è una
+              // NUOVA assegnazione, restano scegliebili solo gli attivi.
+              persone.filter((p) => p.attivo).map((p) => (
                 <option key={p.id} value={p.id}>{p.id === currentPersonaId ? `${p.nome} (io)` : p.nome}</option>
               ))
             ) : (

@@ -173,10 +173,15 @@ function FormCambioIban({ ticketId, tokenClienteEsterno }: { ticketId: string | 
         <input type="checkbox" checked={intestatarioDiverso} onChange={(e) => setIntestatarioDiverso(e.target.checked)} className="h-4 w-4" />
         Conto intestato ad altra persona
       </label>
+      {/* ★ FIX (2026-10-02, audit d'oro — regressione) — nessuno dei due
+      campi era obbligatorio né validato in onSubmit: un cliente poteva
+      spuntare "conto intestato ad altra persona" e lasciarli vuoti,
+      costringendo lo staff a ricontattarlo per sapere chi sia
+      l'intestatario prima di procedere con l'addebito SEPA. */}
       {intestatarioDiverso && (
         <div className="grid grid-cols-2 gap-3">
-          <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-11" />
-          <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
+          <Input name="ibanIntestatarioNome" required placeholder="Nome Cognome intestatario" className="h-11" />
+          <Input name="ibanIntestatarioCf" required placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
         </div>
       )}
       <div>
@@ -512,10 +517,12 @@ function FormSubentro({ ticketId, praticaId }: { ticketId: string | null; pratic
             <input type="checkbox" checked={intestatarioDiverso} onChange={(e) => setIntestatarioDiverso(e.target.checked)} className="h-4 w-4" />
             Conto intestato ad altra persona
           </label>
+          {/* ★ FIX (2026-10-02, audit d'oro — regressione) — stesso
+          problema già corretto in FormCambioIban più sopra. */}
           {intestatarioDiverso && (
             <div className="grid grid-cols-2 gap-3">
-              <Input name="ibanIntestatarioNome" placeholder="Nome Cognome intestatario" className="h-11" />
-              <Input name="ibanIntestatarioCf" placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
+              <Input name="ibanIntestatarioNome" required placeholder="Nome Cognome intestatario" className="h-11" />
+              <Input name="ibanIntestatarioCf" required placeholder="CF intestatario" className="h-11 uppercase" maxLength={16} />
             </div>
           )}
           <div>

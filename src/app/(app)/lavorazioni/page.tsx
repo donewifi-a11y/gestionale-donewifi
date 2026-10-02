@@ -24,7 +24,14 @@ export default async function LavorazioniPage() {
     .select("*")
     .order("creato_il", { ascending: false });
 
-  const { data: persone } = await supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true).order("nome");
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — `.eq("attivo", true)`
+  // faceva "sparire" il nome di chi aveva assegnato/ricevuto una Lavorazione
+  // poi disattivato (card/dettaglio mostravano "?"/"—" sia per assegnato_a
+  // che per assegnato_da) — stesso identico bug già trovato e corretto in
+  // Tickets/Calendario lo stesso giorno, qui non ancora esteso. Il dropdown
+  // "Assegnata a" nel form di creazione (lavorazioni-board.tsx) resta
+  // filtrato ai soli attivi per una NUOVA assegnazione.
+  const { data: persone } = await supabase.from("persone").select("id, nome, attivo, amministratore, reparti").order("nome");
 
   return (
     <div className="mx-auto max-w-5xl">

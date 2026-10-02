@@ -56,6 +56,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errore: "Il nome è obbligatorio." }, { status: 400 });
   }
 
+  // ★ FIX (2026-10-02, audit d'oro — regressione critica) — questa è una
+  // rotta PUBBLICA senza login: `mandatoSepa`/`volontaSubentro`/`consenso`
+  // erano verificati SOLO nell'onSubmit del form React (richiesta-cliente-
+  // form.tsx) — mai qui. `consenso` e `volontaSubentro` sono perfino dentro
+  // CAMPI_RISERVATI, quindi una POST diretta che li omette non genera
+  // nemmeno un valore vuoto in `dettagli`: viene silenziosamente accettata
+  // come se il cliente avesse acconsentito/confermato/autorizzato un
+  // addebito SEPA, quando in realtà nessuno dei tre controlli è mai stato
+  // superato. Stesso principio già applicato su questa stessa rotta a
+  // ticketId/praticaId/tokenClienteEsterno (mai fidarsi del client) — qui
+  // mancava per gli unici tre campi con un vero peso legale/economico
+  // (consenso GDPR, dichiarazione di volontà contrattuale, autorizzazione
+  // bancaria SDD).
+  if (!String(dati.get("consenso") || "")) {
+    return NextResponse.json({ errore: "Devi accettare l'informativa privacy per procedere." }, { status: 400 });
+  }
+  if (tipo === "Subentro" && !String(dati.get("volontaSubentro") || "")) {
+    return NextResponse.json({ errore: "Devi confermare di voler subentrare in questo contratto per procedere." }, { status: 400 });
+  }
+  // ★ Cambio IBAN richiede sempre il mandato SEPA (è l'intero scopo della
+  // pratica); Subentro solo quando il cliente ha scelto l'addebito IBAN
+  // come metodo di pagamento (metodoPagamento === "iban", vedi FormSubentro)
+  // — con "bonifico" non c'è alcun addebito diretto da autorizzare.
+  const richiedeIban = tipo === "Cambio IBAN" || (tipo === "Subentro" && String(dati.get("metodoPagamento") || "") === "iban");
+  if (richiedeIban && !String(dati.get("mandatoSepa") || "")) {
+    return NextResponse.json({ errore: "Devi autorizzare il mandato di addebito SEPA per procedere." }, { status: 400 });
+  }
+
   const ticketId = String(dati.get("ticketId") || "") || null;
   // ★ NUOVA (2026-08) — Subentro, doppio consenso in parallelo: se la
   // pratica è già stata avviata dall'operatore (vedi avviaPraticaSubentro
@@ -87,6 +115,19 @@ export async function POST(request: NextRequest) {
   const clienteEsternoId = tokenClienteEsterno ? verificaTokenClienteEsterno(tokenClienteEsterno) : null;
   if (tokenClienteEsterno && clienteEsternoId === null) {
     return NextResponse.json({ errore: "Il link non è più valido — richiedine uno nuovo." }, { status: 400 });
+  }
+
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — il CAP di Trasferimento
+  // è validato (`^\d{5}$`) solo nell'onSubmit del form React
+  // (richiesta-cliente-form.tsx): una POST diretta può scrivere qualunque
+  // valore in `dettagli.cap`, poi mostrato nel gestionale interno e usato
+  // per "Apri in mappa". Stesso principio già applicato su questa rotta
+  // (mai fidarsi di una validazione solo client) esteso qui.
+  if (tipo === "Trasferimento") {
+    const cap = String(dati.get("cap") || "").trim();
+    if (!/^\d{5}$/.test(cap)) {
+      return NextResponse.json({ errore: "Il CAP deve essere composto da 5 cifre." }, { status: 400 });
+    }
   }
 
   const dettagli: Record<string, string> = {};

@@ -301,10 +301,20 @@ export interface DatiAnagraficaAruba {
  * da dati inseriti a mano — tutte le query paginate con `.range()`
  * (righe potenzialmente oltre le 1000 di default). */
 export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAnagraficaAruba> {
-  const seiMesiFa = new Date();
-  seiMesiFa.setMonth(seiMesiFa.getMonth() - 5);
-  seiMesiFa.setDate(1);
-  seiMesiFa.setHours(0, 0, 0, 0);
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — stesso bug di fuso
+  // orario già corretto in getDatiAmministrazione()/getDatiReparto() sopra
+  // (`new Date().setHours(0,0,0,0)` è mezzanotte nel fuso DEL PROCESSO,
+  // UTC su Vercel, non in quello italiano): qui calcolava "6 mesi fa, primo
+  // del mese" con lo stesso difetto. Costruito direttamente come stringa
+  // "YYYY-MM-01" dal calendario italiano, nessun oggetto Date di mezzo.
+  const [annoOggi, meseOggi] = dataItaliaStringa().split("-").map(Number);
+  let meseSeiFa = meseOggi - 5;
+  let annoSeiFa = annoOggi;
+  while (meseSeiFa <= 0) {
+    meseSeiFa += 12;
+    annoSeiFa -= 1;
+  }
+  const seiMesiFaStr = `${annoSeiFa}-${String(meseSeiFa).padStart(2, "0")}-01`;
 
   async function fetchTutteLeFattureDa(dataIso: string): Promise<{ importo: number | null; pagata: boolean; emissione: string | null }[]> {
     const PAGINA = 1000;
@@ -346,7 +356,7 @@ export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAn
       supabase,
       "id, codice_gestionale, codice_fiscale, partita_iva, attivo, profilo_internet"
     ),
-    fetchTutteLeFattureDa(seiMesiFa.toISOString().slice(0, 10)),
+    fetchTutteLeFattureDa(seiMesiFaStr),
     fetchTutteLeInsolute(),
   ]);
   // ★ FIX (2026-09-17, code review approfondita) — contava le righe uniche
@@ -363,11 +373,21 @@ export async function getDatiAnagraficaAruba(supabase: Supabase): Promise<DatiAn
   const clientiEsterni = dedupClientiPerContratto(clientiEsterniGrezzi);
   const clientiAttivi = clientiEsterni.filter((c) => c.attivo).length;
 
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — `new Date(oggi.getFullYear(),
+  // oggi.getMonth() - i, 1)` con `oggi = new Date()` eredita lo stesso bug
+  // di fuso del blocco sopra. Costruito dal calendario italiano, giorno 15
+  // (mai un bordo di mese) solo per la formattazione dell'etichetta.
   const mesi: { chiave: string; etichetta: string; totale: number }[] = [];
-  const oggi = new Date();
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(oggi.getFullYear(), oggi.getMonth() - i, 1);
-    mesi.push({ chiave: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, etichetta: d.toLocaleDateString("it-IT", { month: "short" }), totale: 0 });
+    let mese = meseOggi - i;
+    let anno = annoOggi;
+    while (mese <= 0) {
+      mese += 12;
+      anno -= 1;
+    }
+    const chiave = `${anno}-${String(mese).padStart(2, "0")}`;
+    const etichetta = new Date(Date.UTC(anno, mese - 1, 15)).toLocaleDateString("it-IT", { month: "short", timeZone: "UTC" });
+    mesi.push({ chiave, etichetta, totale: 0 });
   }
   const mappaMesi = new Map(mesi.map((m) => [m.chiave, m]));
   for (const f of fattureSeiMesi) {

@@ -8,22 +8,23 @@ import {
   eliminaTodoPersonale,
   modificaTodoPersonale,
 } from "@/app/(app)/todo/actions";
+import { useToast } from "@/components/ui/toast";
 import type { TodoPersonale } from "@/lib/types";
 
 interface TodoData {
   todo: TodoPersonale[] | null;
   aggiungi: (testo: string) => Promise<string | null>;
-  completa: (item: TodoPersonale) => void;
+  completa: (item: TodoPersonale) => Promise<void>;
   modifica: (id: string, nuovoTesto: string) => Promise<string | null>;
-  elimina: (id: string) => void;
+  elimina: (id: string) => Promise<void>;
 }
 
 const TodoDataContext = createContext<TodoData>({
   todo: null,
   aggiungi: async () => null,
-  completa: () => {},
+  completa: async () => {},
   modifica: async () => null,
-  elimina: () => {},
+  elimina: async () => {},
 });
 
 /** ★ FIX — riquadro fisso in home e pop-up dalla sidebar sono due istanze
@@ -34,6 +35,7 @@ const TodoDataContext = createContext<TodoData>({
  * da qualunque istanza chiami `completa`/`elimina`/`aggiungi`/`modifica`. */
 export function TodoDataProvider({ personaCorrenteId, children }: { personaCorrenteId: string | null; children: React.ReactNode }) {
   const [todo, setTodo] = useState<TodoPersonale[] | null>(null);
+  const toast = useToast();
 
   const ricarica = useCallback(() => {
     getTodoPersonali().then(setTodo);
@@ -50,11 +52,26 @@ export function TodoDataProvider({ personaCorrenteId, children }: { personaCorre
     return null;
   }, []);
 
-  const completa = useCallback((item: TodoPersonale) => {
-    const nuovoFatto = !item.fatto;
-    setTodo((t) => (t ?? []).map((x) => (x.id === item.id ? { ...x, fatto: nuovoFatto } : x)));
-    completaTodoPersonale(item.id, nuovoFatto);
-  }, []);
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — aggiornava subito lo
+  // stato React (ottimistico) ma non aspettava né controllava l'esito della
+  // scrittura server: se falliva (rete, sessione scaduta, id non più
+  // proprio — completaTodoPersonale() restituisce già un errore esplicito
+  // in quel caso), il to-do restava spuntato/non spuntato in UI ma
+  // invariato nel database, e tornava "indietro" in silenzio al refresh
+  // successivo — senza che l'utente capisse perché. Ora aspetta l'esito e,
+  // se fallisce, annulla l'aggiornamento ottimistico e avvisa.
+  const completa = useCallback(
+    async (item: TodoPersonale) => {
+      const nuovoFatto = !item.fatto;
+      setTodo((t) => (t ?? []).map((x) => (x.id === item.id ? { ...x, fatto: nuovoFatto } : x)));
+      const risultato = await completaTodoPersonale(item.id, nuovoFatto);
+      if (risultato.errore) {
+        setTodo((t) => (t ?? []).map((x) => (x.id === item.id ? { ...x, fatto: item.fatto } : x)));
+        toast(risultato.errore);
+      }
+    },
+    [toast]
+  );
 
   const modifica = useCallback(async (id: string, nuovoTesto: string) => {
     const testoPulito = nuovoTesto.trim();
@@ -64,10 +81,23 @@ export function TodoDataProvider({ personaCorrenteId, children }: { personaCorre
     return risultato.errore;
   }, []);
 
-  const elimina = useCallback((id: string) => {
-    setTodo((t) => (t ?? []).filter((x) => x.id !== id));
-    eliminaTodoPersonale(id);
-  }, []);
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — stesso problema di
+  // completa() sopra: su un fallimento server il to-do spariva dall'UI ma
+  // restava nel database, ricomparendo al refresh successivo senza
+  // spiegazione. Risincronizza da ricarica() invece di tentare di
+  // reinserire la riga a mano (più robusto: niente da ricostruire
+  // sull'ordinamento/posizione originale).
+  const elimina = useCallback(
+    async (id: string) => {
+      setTodo((t) => (t ?? []).filter((x) => x.id !== id));
+      const risultato = await eliminaTodoPersonale(id);
+      if (risultato.errore) {
+        toast(risultato.errore);
+        ricarica();
+      }
+    },
+    [toast, ricarica]
+  );
 
   return <TodoDataContext.Provider value={{ todo, aggiungi, completa, modifica, elimina }}>{children}</TodoDataContext.Provider>;
 }

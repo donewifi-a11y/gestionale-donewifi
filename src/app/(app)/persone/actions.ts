@@ -4,6 +4,7 @@ import { randomInt } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, impostaCookiePersona } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
+import { dataItaliaStringa, inizioGiornataItalia } from "@/lib/data-italia";
 import type { AreaAccesso } from "@/lib/types";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
@@ -352,9 +353,15 @@ export async function getCaricoPersona(id: string): Promise<CaricoPersona> {
   if (erroreAccesso) return { attivi: 0, completatiMese: 0 };
 
   const supabase = await createClient();
-  const inizioMese = new Date();
-  inizioMese.setDate(1);
-  inizioMese.setHours(0, 0, 0, 0);
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — `new Date()` +
+  // `setDate/setHours` calcola "il primo del mese" nel fuso DEL PROCESSO
+  // (UTC su Vercel), non in quello italiano — stessa classe di bug già
+  // trovata e corretta in lib/analytics.ts lo stesso giorno. Nelle prime
+  // 1-2 ore di ogni mese in orario italiano, "completati questo mese" qui
+  // poteva ancora contare il mese appena finito.
+  const oggiStr = dataItaliaStringa();
+  const giorno = Number(oggiStr.slice(8, 10));
+  const inizioMese = inizioGiornataItalia(-(giorno - 1));
 
   const [{ count: attivi }, { count: completatiMese }] = await Promise.all([
     supabase
