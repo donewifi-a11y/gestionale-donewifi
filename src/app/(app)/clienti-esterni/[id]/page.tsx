@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Phone, Mail, MapPin, History, Ticket as TicketIcon, Euro, Plus, FileCheck2, FileSignature } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, History, Ticket as TicketIcon, Euro, Plus, FileCheck2, FileSignature, Radio } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno, getContrattiPrecedenti } from "../actions";
+import { getStoricoProfiloCliente, getFattureCliente, getTicketCollegati, getPreventiviCollegati, getInstallazioniCliente, getPraticheClienteEsterno, getContrattiPrecedenti, getStatoTecnicoCliente } from "../actions";
 import { InstallazioniCliente } from "@/components/clienti-esterni/installazioni-cliente";
+import { StatoTecnicoCliente } from "@/components/clienti-esterni/stato-tecnico-cliente";
 import { NuovaPraticaClienteEsterno } from "@/components/clienti-esterni/nuova-pratica";
 import { StatoCliente } from "@/components/clienti-esterni/stato-cliente";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -26,7 +27,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
 
   const c = cliente as ClienteEsterno;
 
-  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni, pratiche, contrattiPrecedenti] = await Promise.all([
+  const [storico, fatture, ticketCollegati, preventiviCollegati, installazioni, pratiche, contrattiPrecedenti, statoTecnico] = await Promise.all([
     getStoricoProfiloCliente(c.id),
     getFattureCliente(c.codice_fiscale, c.partita_iva),
     getTicketCollegati(c.telefono),
@@ -34,6 +35,7 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
     getInstallazioniCliente(c.telefono),
     getPraticheClienteEsterno(c.id),
     getContrattiPrecedenti(c),
+    getStatoTecnicoCliente(c.telefono),
   ]);
 
   const fatturatoTotale = fatture.reduce((s, f) => s + (Number(f.importo) || 0), 0);
@@ -267,6 +269,14 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
                 </Link>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-2xl border bg-card p-5 shadow-md">
+            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
+              <IconaCategoria icona={Radio} categoria="documento" />
+              Stato tecnico attuale
+            </h2>
+            <StatoTecnicoCliente stato={statoTecnico} />
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">

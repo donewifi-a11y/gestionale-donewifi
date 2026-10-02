@@ -193,6 +193,7 @@ export interface Preventivo {
   righe: RigaPreventivo[];
   totale: number;
   note: string | null;
+  valido_fino_il: string | null;
   stato: StatoPreventivo;
   inviato_il: string | null;
   risposto_il: string | null;
@@ -685,6 +686,13 @@ export interface MaterialeMagazzino {
   /** Evita di ripetere l'avviso ad ogni scheda salvata mentre si resta
    * sotto soglia — non è un timestamp mostrato in UI. */
   ultimo_avviso_il: string | null;
+  /** ★ NUOVA (2026-10-01, audit completezza funzionale) — da chi si
+   * riordina questo materiale. Testo libero, facoltativo. */
+  fornitore: string | null;
+  /** ★ NUOVA (2026-10-01, audit completezza funzionale) — dove si trova
+   * fisicamente (es. "Magazzino sede", "Furgone 2", "Scaffale B3"). Testo
+   * libero, facoltativo. */
+  ubicazione: string | null;
 }
 
 /** ★ NUOVA — stato di un pezzo nell'inventario Antenne (per MAC). */

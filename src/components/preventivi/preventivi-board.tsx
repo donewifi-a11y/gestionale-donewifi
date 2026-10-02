@@ -26,6 +26,16 @@ const COLORE_STATO: Record<StatoPreventivo, string> = {
 
 const FILTRI_STATO: (StatoPreventivo | "Tutti")[] = ["Tutti", "Bozza", "Inviato", "Approvato", "Rifiutato"];
 
+// ★ FIX (2026-10-01, audit completezza funzionale — moduli restanti) —
+// un preventivo "scaduto" ha senso solo mentre è ancora aperto (in attesa
+// di risposta): uno già Approvato/Rifiutato ha già avuto il suo esito,
+// la scadenza non significa più nulla a quel punto.
+function preventivoScaduto(p: Preventivo): boolean {
+  if (p.stato !== "Inviato" && p.stato !== "Bozza") return false;
+  if (!p.valido_fino_il) return false;
+  return new Date(p.valido_fino_il) < new Date(new Date().toDateString());
+}
+
 export function PreventiviBoard({
   preventivi,
   isAdmin,
@@ -141,6 +151,10 @@ export function PreventiviBoard({
                     tono={p.stato === "Approvato" ? "successo" : "critico"}
                     pulsante
                   />
+                ) : preventivoScaduto(p) ? (
+                  <Badge variant="outline" className="border-critical/20 bg-critical/10 text-critical">
+                    Scaduto
+                  </Badge>
                 ) : (
                   <Badge variant="outline" className={COLORE_STATO[p.stato]}>
                     {p.stato}
@@ -275,6 +289,13 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
             )}
             {errore && <p className="text-xs text-critical">{errore}</p>}
           </>
+        )}
+        {preventivo.valido_fino_il && (
+          <p className={`text-xs ${preventivoScaduto(preventivo) ? "font-semibold text-critical" : "text-muted-foreground"}`}>
+            {preventivoScaduto(preventivo) ? "Scaduto il " : "Valido fino al "}
+            {new Date(preventivo.valido_fino_il).toLocaleDateString("it-IT")}
+            {preventivoScaduto(preventivo) && " — verifica che prezzi/condizioni siano ancora validi prima di inviarlo o riconfermarlo."}
+          </p>
         )}
         {preventivo.stato === "Inviato" && (
           <p className="text-xs text-muted-foreground">

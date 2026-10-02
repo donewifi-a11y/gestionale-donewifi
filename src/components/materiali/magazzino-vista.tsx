@@ -97,6 +97,13 @@ function RigaMateriale({ materiale, isAdmin, onModifica }: { materiale: Material
         {materiale.giacenza != null && materiale.soglia_minima != null && (
           <div className="text-xs text-muted-foreground">Avviso sotto {materiale.soglia_minima} {materiale.unita_misura}</div>
         )}
+        {(materiale.ubicazione || materiale.fornitore) && (
+          <div className="text-xs text-muted-foreground">
+            {materiale.ubicazione && `📍 ${materiale.ubicazione}`}
+            {materiale.ubicazione && materiale.fornitore && " · "}
+            {materiale.fornitore && `Fornitore: ${materiale.fornitore}`}
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {materiale.giacenza == null ? (
@@ -124,6 +131,8 @@ function FormGiacenza({ materiale, onFatto }: { materiale: MaterialeMagazzino; o
   const [tracciato, setTracciato] = useState(materiale.giacenza != null);
   const [giacenza, setGiacenza] = useState(materiale.giacenza != null ? String(materiale.giacenza) : "0");
   const [soglia, setSoglia] = useState(materiale.soglia_minima != null ? String(materiale.soglia_minima) : "");
+  const [fornitore, setFornitore] = useState(materiale.fornitore ?? "");
+  const [ubicazione, setUbicazione] = useState(materiale.ubicazione ?? "");
   const [errore, setErrore] = useState("");
 
   function salva() {
@@ -132,7 +141,9 @@ function FormGiacenza({ materiale, onFatto }: { materiale: MaterialeMagazzino; o
       const risultato = await impostaGiacenzaMateriale(
         materiale.id,
         tracciato ? Number(giacenza) || 0 : null,
-        tracciato && soglia.trim() ? Number(soglia) : null
+        tracciato && soglia.trim() ? Number(soglia) : null,
+        fornitore,
+        ubicazione
       );
       if (risultato.errore) return setErrore(risultato.errore);
       toast(`Magazzino di "${materiale.nome}" aggiornato.`, "successo");
@@ -164,6 +175,20 @@ function FormGiacenza({ materiale, onFatto }: { materiale: MaterialeMagazzino; o
             </div>
           </div>
         )}
+        {/* ★ FIX (2026-10-01, audit completezza funzionale — moduli
+        restanti) — indipendenti dal tracciamento della giacenza: utili
+        anche per un materiale non tracciato (si sa comunque dove sta e da
+        chi si riordina). */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="fornitore">Fornitore (facoltativo)</Label>
+            <Input id="fornitore" value={fornitore} onChange={(e) => setFornitore(e.target.value)} placeholder="Es. Albentia" className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="ubicazione">Ubicazione (facoltativa)</Label>
+            <Input id="ubicazione" value={ubicazione} onChange={(e) => setUbicazione(e.target.value)} placeholder="Es. Furgone 2" className="mt-1" />
+          </div>
+        </div>
         {errore && <p className="rounded-lg bg-critical/10 p-2.5 text-sm text-critical">{errore}</p>}
         <Button onClick={salva} disabled={inCorso}>
           {inCorso ? "Salvataggio..." : "Salva"}

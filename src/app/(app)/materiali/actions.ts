@@ -123,14 +123,23 @@ async function verificaAdminMateriali(
   return null;
 }
 
-export async function impostaGiacenzaMateriale(id: string, giacenza: number | null, sogliaMinima: number | null) {
+export async function impostaGiacenzaMateriale(
+  id: string,
+  giacenza: number | null,
+  sogliaMinima: number | null,
+  fornitore?: string | null,
+  ubicazione?: string | null
+) {
   const supabase = await createClient();
   const erroreAccesso = await verificaAdminMateriali(supabase);
   if (erroreAccesso) return { errore: erroreAccesso };
   if (giacenza != null && (!Number.isFinite(giacenza) || giacenza < 0)) return { errore: "La giacenza non può essere negativa." };
   if (sogliaMinima != null && (!Number.isFinite(sogliaMinima) || sogliaMinima < 0)) return { errore: "La soglia non può essere negativa." };
 
-  const { error } = await supabase.from("materiali_magazzino").update({ giacenza, soglia_minima: sogliaMinima }).eq("id", id);
+  const { error } = await supabase
+    .from("materiali_magazzino")
+    .update({ giacenza, soglia_minima: sogliaMinima, fornitore: fornitore?.trim() || null, ubicazione: ubicazione?.trim() || null })
+    .eq("id", id);
   if (error) return { errore: error.message };
 
   revalidatePath("/materiali");

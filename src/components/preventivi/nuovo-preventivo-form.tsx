@@ -23,6 +23,16 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
   const [segnalazioneId, setSegnalazioneId] = useState<string | null>(null);
   const [clienteEsternoId, setClienteEsternoId] = useState<number | null>(null);
   const [note, setNote] = useState("");
+  // ★ FIX (2026-10-01, audit completezza funzionale — moduli restanti) —
+  // nessun campo di scadenza: un preventivo "Inviato" restava aperto a
+  // tempo indeterminato, il cliente poteva approvarlo mesi dopo con
+  // prezzi nel frattempo cambiati. Precompilato a 30 giorni (prassi
+  // comune per un preventivo) ma modificabile o azzerabile.
+  const [validoFinoIl, setValidoFinoIl] = useState(() => {
+    const tra30giorni = new Date();
+    tra30giorni.setDate(tra30giorni.getDate() + 30);
+    return tra30giorni.toISOString().slice(0, 10);
+  });
   const [righe, setRighe] = useState<RigaPreventivo[]>([]);
   const [rigaLiberaDescrizione, setRigaLiberaDescrizione] = useState("");
   const [rigaLiberaPrezzo, setRigaLiberaPrezzo] = useState("");
@@ -117,6 +127,7 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
         clienteEsternoId,
         righe,
         note,
+        validoFinoIl: validoFinoIl || null,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -307,6 +318,12 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
               </div>
             </div>
           )}
+        </div>
+
+        <div>
+          <Label htmlFor="validoFinoIl">Valido fino al (facoltativo)</Label>
+          <Input id="validoFinoIl" type="date" value={validoFinoIl} onChange={(e) => setValidoFinoIl(e.target.value)} className="mt-1" />
+          <p className="mt-1 text-[11px] text-muted-foreground">Oltre questa data il preventivo risulterà scaduto nella lista e per il cliente.</p>
         </div>
 
         <div>

@@ -437,6 +437,63 @@ export async function getTicketCollegati(telefono: string | null) {
   return data ?? [];
 }
 
+export interface StatoTecnicoCliente {
+  bts: string | null;
+  modelloCpe: string | null;
+  mac: string | null;
+  rssi: number | null;
+  snr: number | null;
+  router: string | null;
+  aggiornatoIl: string;
+  ticketNumero: number;
+}
+
+/** ★ NUOVA (2026-10-01, audit completezza funzionale — moduli restanti) —
+ * CPE/BTS/segnale esistevano già (ricchi) solo dentro la Scheda di lavoro
+ * del Ticket, raggiungibile con un click in più da "Installazioni
+ * effettuate" — per un operatore che riceve una chiamata di assistenza e
+ * deve sapere al volo "che CPE/BTS ha questo cliente" è un dato scomodo
+ * da raggiungere. A differenza di getInstallazioniCliente() (solo tipo
+ * "Nuova installazione"), qui serve la Scheda tecnica più RECENTE a
+ * prescindere dal tipo — un Cambio CPE successivo rende obsoleti i dati
+ * dell'installazione originale, è lo stato attuale che conta qui. */
+export async function getStatoTecnicoCliente(telefono: string | null): Promise<StatoTecnicoCliente | null> {
+  if (!telefono) return null;
+  const ultimeCifre = telefono.replace(/\D/g, "").slice(-9);
+  if (ultimeCifre.length < 6) return null;
+
+  const supabase = await createClient();
+  const { data: ticketsCliente } = await supabase.from("tickets").select("id, numero").ilike("telefono", `%${ultimeCifre}%`);
+  const idTicket = (ticketsCliente ?? []).map((t) => t.id);
+  if (idTicket.length === 0) return null;
+
+  const { data: schede, error } = await supabase
+    .from("schede_lavoro")
+    .select("ticket_id, creato_il, bts, modello_cpe, mac, rssi, snr, router")
+    .in("ticket_id", idTicket)
+    .or("bts.not.is.null,modello_cpe.not.is.null,mac.not.is.null,rssi.not.is.null,snr.not.is.null,router.not.is.null")
+    .order("creato_il", { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error("getStatoTecnicoCliente:", error.message);
+    return null;
+  }
+  const scheda = schede?.[0];
+  if (!scheda) return null;
+
+  const ticket = (ticketsCliente ?? []).find((t) => t.id === scheda.ticket_id);
+  return {
+    bts: scheda.bts,
+    modelloCpe: scheda.modello_cpe,
+    mac: scheda.mac,
+    rssi: scheda.rssi,
+    snr: scheda.snr,
+    router: scheda.router,
+    aggiornatoIl: scheda.creato_il,
+    ticketNumero: ticket?.numero ?? 0,
+  };
+}
+
 export interface InstallazioneCliente {
   schedaId: string;
   ticketId: string;

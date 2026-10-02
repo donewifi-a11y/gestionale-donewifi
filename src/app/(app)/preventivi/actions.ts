@@ -31,6 +31,7 @@ export async function creaPreventivo(dati: {
   clienteEsternoId?: number | null;
   righe: RigaPreventivo[];
   note: string;
+  validoFinoIl?: string | null;
 }) {
   const supabase = await createClient();
   const {
@@ -60,6 +61,7 @@ export async function creaPreventivo(dati: {
       // preventivo/nell'email deve essere garantito coerente con esse.
       totale: calcolaTotale(dati.righe),
       note: dati.note || null,
+      valido_fino_il: dati.validoFinoIl || null,
       operatore_id: personaId,
     })
     .select("id, numero")

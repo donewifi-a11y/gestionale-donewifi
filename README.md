@@ -6170,3 +6170,71 @@ completa da prima) sono stati verificati uno per uno, con correzioni solo dove l
 lacuna era reale e rispettando le scelte di prodotto deliberate già esistenti (pose
 minimale, split Cambio Anagrafica/Disdetta tra modulo pubblico e Ticket interno,
 Subentro vs Trasferimento).
+
+## Verifica completezza funzionale — moduli restanti (2026-10-01/02)
+
+Richiesta esplicita: "ora fai un controllo su tutto il resto" — stessa lente dei due
+giri precedenti applicata a Ticket (creazione), Segnalazioni, Preventivi, Materiali/
+Magazzino, Persone/Team/Rapporti di lavoro, Calendario/Appuntamenti, Clienti Esterni,
+Insoluti, Tariffe.
+
+✅ **"Preventivi" — scadenza (`valido_fino_il`)** (2026-10-01). Un preventivo "Inviato"
+restava aperto a tempo indeterminato: il cliente poteva approvarlo mesi dopo con prezzi
+nel frattempo cambiati, senza che il sistema lo segnalasse in alcun modo.
+
+- Nuovo campo facoltativo in creazione, precompilato a 30 giorni (modificabile/
+  azzerabile). Badge "Scaduto" nella lista e nel dettaglio se la data è passata e il
+  preventivo è ancora Bozza/Inviato (non più rilevante una volta Approvato/Rifiutato).
+- Applicato anche al link pubblico di approvazione (`/approva/[token]`): un preventivo
+  scaduto mostra un messaggio invece del pulsante "Approvo", e lo stesso controllo è
+  ripetuto lato server in `/api/approva/[token]` (il blocco solo in UI non basterebbe
+  contro una chiamata diretta alla rotta con lo stesso token). Il rifiuto resta sempre
+  permesso.
+- Migrazione 0083 (`alter table preventivi add column valido_fino_il date`) — **da
+  applicare manualmente** su Supabase, come da prassi di questo progetto.
+
+✅ **"Materiali" — fornitore e ubicazione** (2026-10-01). Un materiale tracciato a
+magazzino aveva solo un contatore di giacenza aggregato: nessun modo di sapere da chi
+si riordina o dove si trova fisicamente (sede/furgone/scaffale).
+
+- Due campi facoltativi, testo libero (niente anagrafica fornitori strutturata, fuori
+  scopo), aggiunti nella stessa scheda "Magazzino" dove già si imposta la giacenza —
+  indipendenti dal tracciamento (utili anche per un materiale non tracciato).
+- Migrazione 0084 (`alter table materiali_magazzino add column fornitore text,
+  add column ubicazione text`) — **da applicare manualmente**.
+
+✅ **"Clienti Esterni" — stato tecnico attuale a colpo d'occhio** (2026-10-02). I dati
+tecnici (CPE/MAC/BTS/RSSI/SNR/router) esistevano già, ricchi, ma solo dentro la Scheda
+di lavoro del Ticket — un operatore che riceve una chiamata di assistenza doveva aprire
+Ticket → Scheda per vederli. Non un dato mancante, un dato scomodo da raggiungere.
+
+- Nuova card "Stato tecnico attuale" in cima alla scheda cliente, con la Scheda di
+  lavoro più RECENTE tra tutti i Ticket del cliente (non solo quelle di tipo "Nuova
+  installazione", a differenza di "Installazioni effettuate" subito sotto) — un Cambio
+  CPE successivo rende obsoleti i dati dell'installazione originale, conta lo stato più
+  aggiornato. Nessuna migrazione: solo una query in più sulle colonne già esistenti di
+  `schede_lavoro`.
+
+**Verificati, nessun buco reale**:
+- **Ticket (creazione)**: già rivisto pesantemente in audit precedenti, nessuna lacuna
+  trovata.
+- **Insoluti**: risponde esattamente allo scopo per cui è nato (elenco + data di
+  riattivazione); l'assenza di un contatore strutturato di solleciti è accettabile per
+  un processo di recupero crediti ancora informale.
+- **Segnalazioni** (lead commerciali, non guasti di rete): nessun campo BTS/copertura
+  strutturato oltre al flag sì/no — lacuna reale ma minore, la copertura va comunque
+  verificata da Analisi Rete a valle in ogni caso.
+
+**Lacune reali ma più grandi di un campo mancante — NON costruite, su scelta esplicita
+dell'utente ("nessuna per ora", da valutare con calma più avanti)**:
+- **Persone/Team**: nessuna gestione di ferie/permessi/assenze né di competenze/
+  specializzazioni — un responsabile assegna le squadre del Calendario senza sapere dal
+  gestionale chi è disponibile o abilitato a cosa.
+- **Materiali**: il tracciamento per numero seriale individuale esiste solo per le
+  antenne (per MAC) — router/CPE restano un contatore aggregato, impossibile sapere
+  quale pezzo specifico è finito da quale cliente.
+- **Tariffe**: velocità in testo libero invece di download/upload separati e
+  interrogabili; nessun campo di durata minima/vincolo di permanenza contrattuale.
+
+Build/lint puliti (0 errori) su tutto il lotto. Due migrazioni create (0083, 0084) in
+attesa di essere applicate manualmente su Supabase.

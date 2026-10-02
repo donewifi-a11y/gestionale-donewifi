@@ -22,7 +22,7 @@ interface RigaTokenApprovazione {
     | "trasferimento_contratto";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
-  preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number } | null;
+  preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number; valido_fino_il: string | null } | null;
   appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
   richieste_clienti: { cliente: string | null; tipo_richiesta: string | null; contratto_pdf_url: string | null; tickets: { numero: number; cliente: string } | null } | null;
 }
@@ -51,7 +51,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select(
-      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale, valido_fino_il), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
     )
     .eq("token", token)
     .maybeSingle();
@@ -78,6 +78,11 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   // variabile resta legato al primo caso implementato (Trasferimento) —
   // `tipo_richiesta` dice di quale pratica si tratta davvero, vedi sotto.
   const trasferimentoContratto = dati?.origine === "trasferimento_contratto" ? dati.richieste_clienti : undefined;
+  // ★ FIX (2026-10-01, audit completezza funzionale — moduli restanti) —
+  // mostrato anche qui (oltre che bloccato lato server in /api/approva),
+  // altrimenti il cliente clicca "Approvo" e scopre solo dopo, dal
+  // messaggio d'errore della chiamata, che il preventivo non è più valido.
+  const preventivoScaduto = !!preventivo?.valido_fino_il && new Date(preventivo.valido_fino_il) < new Date(new Date().toDateString());
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -211,7 +216,17 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
                 <span className="tabular-nums">{formattaValuta(preventivo.totale)}</span>
               </div>
             </div>
-            <ConfermaBottone token={token} tipo="preventivo" />
+            {preventivoScaduto ? (
+              <>
+                <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />
+                <p className="text-sm text-muted-foreground">
+                  Questo preventivo è scaduto il {new Date(preventivo.valido_fino_il!).toLocaleDateString("it-IT")}. Contattaci per
+                  riceverne uno aggiornato.
+                </p>
+              </>
+            ) : (
+              <ConfermaBottone token={token} tipo="preventivo" />
+            )}
           </>
         ) : (
           <>

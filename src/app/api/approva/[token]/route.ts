@@ -36,6 +36,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // migrazione 0047): unico caso con due esiti, il cliente può anche
   // rifiutare esplicitamente invece di limitarsi ad approvare.
   if (riga.origine === "preventivo" && riga.preventivo_id) {
+    // ★ FIX (2026-10-01, audit completezza funzionale — moduli restanti) —
+    // la scadenza di un preventivo (migrazione 0083) va fatta rispettare
+    // anche qui, non solo mostrata nella UI: un rifiuto client-side (vedi
+    // ConfermaPreventivo) non impedirebbe comunque una chiamata diretta a
+    // questa rotta con lo stesso token. Il rifiuto resta sempre permesso
+    // (non c'è motivo di bloccare un cliente che vuole dire di no).
+    if (azione === "approva") {
+      const { data: scadenza } = await supabase.from("preventivi").select("valido_fino_il").eq("id", riga.preventivo_id).maybeSingle();
+      if (scadenza?.valido_fino_il && new Date(scadenza.valido_fino_il) < new Date(new Date().toDateString())) {
+        return NextResponse.json({ errore: "Questo preventivo è scaduto. Contatta Done Wifi per richiederne uno aggiornato." }, { status: 410 });
+      }
+    }
     const adesso = new Date().toISOString();
     const nuovoStato = azione === "rifiuta" ? "Rifiutato" : "Approvato";
     const { data: preventivo, error } = await supabase
