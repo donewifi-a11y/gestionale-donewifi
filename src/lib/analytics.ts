@@ -1,14 +1,32 @@
 import type { createClient } from "@/lib/supabase/server";
 import { fetchTuttiClientiEsterni, dedupClientiPerContratto } from "@/lib/clienti-esterni";
+import { dataItaliaStringa, inizioGiornataItalia, fineGiornataItalia } from "@/lib/data-italia";
 import type { AreaAccesso } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-function inizioMese() {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/** ★ FIX (2026-10-02, audit d'oro — regressione) — `new Date().setHours(0,0,0,0)`
+ * calcola "il primo del mese" nel fuso orario DEL PROCESSO (UTC su Vercel),
+ * non in quello italiano — stessa classe di bug già trovata e corretta
+ * altrove nel progetto (vedi lib/data-italia.ts): nelle prime 1-2 ore di
+ * ogni mese in orario italiano, "il mese corrente" calcolato così è ancora
+ * il mese appena finito — acquisizioni/cessazioni/ricavi di quelle ore
+ * contati nel mese sbagliato, etichetta "mese" sbagliata in Dashboard.
+ * Riusa gli stessi helper già pronti in lib/data-italia.ts invece di
+ * ricalcolare a mano. */
+function inizioMeseItalia() {
+  const oggiStr = dataItaliaStringa();
+  const [annoStr, meseStr, giornoStr] = oggiStr.split("-");
+  const anno = Number(annoStr);
+  const meseIndice = Number(meseStr) - 1;
+  const giorno = Number(giornoStr);
+  const giorniNelMese = new Date(Date.UTC(anno, meseIndice + 1, 0)).getUTCDate();
+  return {
+    inizio: inizioGiornataItalia(-(giorno - 1)),
+    fineMese: fineGiornataItalia(giorniNelMese - giorno),
+    giorniNelMese,
+    etichettaMese: new Date(Date.UTC(anno, meseIndice, 15)).toLocaleDateString("it-IT", { month: "long", year: "numeric", timeZone: "UTC" }),
+  };
 }
 
 const REPARTI_ELENCO: AreaAccesso[] = ["Analisi Rete", "Commerciale", "Fatturazione"];
@@ -63,9 +81,7 @@ async function fetchTuttoPaginato<T>(
  * pensato per il fatturato reale dell'azienda. Il dettaglio "per reparto"
  * resta invece dai Ticket: le fatture non hanno un reparto associato. */
 export async function getDatiAmministrazione(supabase: Supabase) {
-  const inizio = inizioMese();
-  const oggi = new Date();
-  const giorniNelMese = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).getDate();
+  const { inizio, fineMese, giorniNelMese, etichettaMese } = inizioMeseItalia();
 
   const [acquisizioni, completati, ricaviFattureMese, cessazioni] = await Promise.all([
     fetchTuttoPaginato((offset, limite) =>
@@ -100,7 +116,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
         .select("id")
         .eq("sottocategoria", "Disdetta")
         .gte("data_dismissione_disdetta", inizio.toISOString().slice(0, 10))
-        .lte("data_dismissione_disdetta", new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).toISOString().slice(0, 10))
+        .lte("data_dismissione_disdetta", fineMese.toISOString().slice(0, 10))
         .range(offset, offset + limite - 1)
     ),
   ]);
@@ -130,7 +146,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
   const ricaviTotali = ricaviFattureMese;
 
   return {
-    mese: oggi.toLocaleDateString("it-IT", { month: "long", year: "numeric" }),
+    mese: etichettaMese,
     acquisizioniTotali: acquisizioni.length,
     cessazioniTotali: cessazioni.length,
     ricaviTotali,
@@ -146,7 +162,10 @@ export async function getDatiAmministrazione(supabase: Supabase) {
 
 /** Vista sintetica per un singolo reparto (operativo + economico del mese). */
 export async function getDatiReparto(supabase: Supabase, reparto: AreaAccesso) {
-  const inizio = inizioMese();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — stesso bug di fuso
+  // orario di getDatiAmministrazione() sopra (vedi inizioMeseItalia()),
+  // qui serve solo l'inizio mese, non gli altri campi.
+  const { inizio } = inizioMeseItalia();
 
   const [attivi, completatiMese, { data: persone }] = await Promise.all([
     fetchTuttoPaginato((offset, limite) =>

@@ -69,7 +69,21 @@ export default async function TicketsPage() {
     // tickets-board.tsx): un admin/commerciale deve poter compilare la
     // Scheda Installazione/Lavorazione dal Ticket, stesso form già usato in
     // Vista Tecnico, che richiede il catalogo materiali per il selettore.
-    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
+    //
+    // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — il filtro
+    // `.eq("attivo", true)` faceva "sparire" un tecnico disattivato ma
+    // ancora assegnato a un Ticket: trovaPersona()/assegnatario risultava
+    // null ovunque (card Kanban, dettaglio, Note), la UI mostrava il
+    // Ticket come "non assegnato" e un collega poteva "prendere in carico"
+    // — sovrascrivendo senza saperlo l'assegnazione a un ex-dipendente —
+    // invece di vedere chi lo aveva davvero in carico. Stesso identico
+    // principio già applicato a calendario/page.tsx (commento lì:
+    // "persone ora arriva senza filtro attivo/non attivo... serve a
+    // mostrare chi era già assegnato anche se nel frattempo disattivato").
+    // I punti che assegnano un Ticket a una persona NUOVA restano filtrati
+    // a `attivo` dentro tickets-board.tsx, qui serve la lista intera solo
+    // per risolvere nomi/stato di assegnazioni già esistenti.
+    supabase.from("persone").select("id, nome, attivo, amministratore, reparti"),
     supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
     getPersonaCorrenteId(),
     // ★ NUOVA (2026-08-26) — sistema pose.donewifi.it: elenco tecnici esterni

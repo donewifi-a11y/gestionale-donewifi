@@ -99,7 +99,20 @@ export async function aggiornaPersona(
   const password = dati.password.trim();
 
   const service = createServiceClient();
-  const { data: esistente } = await service.from("persone").select("auth_user_id, amministratore, reparti, attivo").eq("id", id).single();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — l'errore di questa
+  // select non veniva controllato: un guasto transitorio (rete/timeout)
+  // lasciava `esistente` a `undefined`, il blocco sotto che scrive su
+  // storico veniva saltato in silenzio e l'aggiornamento della Persona
+  // procedeva comunque (riga sotto) — proprio nel caso raro in cui
+  // l'audit trail serve di più (un cambio di permessi scompariva senza
+  // errore visibile, né nei log server). Loggato, non bloccante: la
+  // modifica dei permessi non deve fallire per un guasto nel solo log.
+  const { data: esistente, error: erroreLettura } = await service
+    .from("persone")
+    .select("auth_user_id, amministratore, reparti, attivo")
+    .eq("id", id)
+    .single();
+  if (erroreLettura) console.error("aggiornaPersona — lettura stato precedente (audit trail saltato):", erroreLettura.message);
 
   const { error } = await service
     .from("persone")

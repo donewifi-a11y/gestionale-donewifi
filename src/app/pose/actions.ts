@@ -445,18 +445,29 @@ export async function getCatalogoMaterialiEsterno(): Promise<MaterialeMagazzino[
 }
 
 /** L'appuntamento, solo se assegnato all'operatore collegato. */
-export async function getAppuntamentoTecnicoEsterno(appuntamentoId: string): Promise<Appuntamento | null> {
+// ★ FIX (2026-10-02, audit d'oro — regressione) — `telefono_cliente`
+// (migrazione 0087) è per costruzione SOLO il fallback usato quando
+// l'appuntamento non ha un Ticket collegato: per la maggioranza degli
+// appuntamenti (quelli nati da un Ticket, il caso più comune) restava
+// sempre null, e questa pagina non recuperava il telefono dal Ticket come
+// fa invece Vista Tecnico (vedi vista-tecnico-board.tsx) — un tecnico
+// esterno su un intervento con Ticket non vedeva mai un numero da
+// chiamare. `tickets(telefono)` sfrutta lo stesso embed via FK già in uso
+// altrove (es. approva/[token]/page.tsx).
+export async function getAppuntamentoTecnicoEsterno(appuntamentoId: string): Promise<(Appuntamento & { telefonoTicket: string | null }) | null> {
   const supabase = await createClient();
   const operatore = await getOperatorePose(supabase);
   if (!operatore) return null;
   const service = createServiceClient();
   const { data } = await service
     .from("appuntamenti")
-    .select("*")
+    .select("*, tickets(telefono)")
     .eq("id", appuntamentoId)
     .eq(colonnaAssegnazione(operatore, "appuntamenti"), operatore.id)
     .maybeSingle();
-  return (data as Appuntamento | null) ?? null;
+  if (!data) return null;
+  const { tickets, ...appuntamento } = data as Appuntamento & { tickets: { telefono: string | null } | null };
+  return { ...appuntamento, telefonoTicket: tickets?.telefono ?? null };
 }
 
 export interface AppuntamentoSquadra extends Appuntamento {

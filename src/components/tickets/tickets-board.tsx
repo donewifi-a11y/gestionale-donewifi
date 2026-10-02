@@ -448,10 +448,16 @@ export function TicketsBoard({
     e.stopPropagation();
     if (ticketInCorso.has(t.id)) return;
     segnaInCorso(t.id, true);
-    const risultato = await assegnaTicket(t.id, currentPersonaId);
+    const risultato = await assegnaTicket(t.id, currentPersonaId, true);
     segnaInCorso(t.id, false);
     if (risultato.errore) {
       toast(risultato.errore);
+      // ★ FIX (2026-10-02, audit d'oro — regressione, race condition) —
+      // l'errore più probabile qui è "preso già da qualcun altro": un
+      // refresh mostra subito a chi è finito davvero, invece di lasciare
+      // la card com'era (ancora "senza nessuno") finché non si ricarica a
+      // mano la pagina.
+      router.refresh();
       return;
     }
     router.refresh();
@@ -681,7 +687,11 @@ export function TicketsBoard({
             className="h-8 rounded-md border-none bg-background/15 px-2 text-xs font-semibold text-background outline-none disabled:opacity-60"
           >
             <option value="" disabled>Assegna a…</option>
-            {persone.map((p) => (
+            {/* ★ FIX (2026-10-02, audit d'oro modulo Tickets) — `persone` ora
+            arriva senza filtro attivo/non attivo (vedi page.tsx) per poter
+            sempre risolvere i nomi di assegnazioni esistenti; qui invece è
+            una NUOVA assegnazione, restano selezionabili solo gli attivi. */}
+            {persone.filter((p) => p.attivo).map((p) => (
               <option key={p.id} value={p.id} className="text-foreground">{p.nome}</option>
             ))}
           </select>
@@ -766,6 +776,13 @@ export function TicketsBoard({
                     <div className="flex flex-col gap-2">
                       {gruppo.ticket.map((t) => {
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
+                        // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — mancava
+                        // qui (a differenza di DettaglioTicket più sotto), quindi un
+                        // Ticket assegnato SOLO a un tecnico esterno risultava
+                        // "senza nessuno" sulla card: niente avatar, e il bottone
+                        // "Prendi in carico" compariva comunque, pronto a
+                        // sovrascrivere un'assegnazione esterna valida al primo clic.
+                        const assegnatarioEsterno = t.tecnico_esterno_id ? tecniciEsterni.find((te) => te.id === t.tecnico_esterno_id) : null;
                         const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
                         const giorni = giorniAperta(t.data_creazione);
                         // ★ NUOVA (2026-08-27, richiesta esplicita: "rivedere il
@@ -959,7 +976,7 @@ export function TicketsBoard({
                             {/* ★ avatar (se già assegnato) visibile a riposo,
                             sostituito dalle azioni solo al passaggio del mouse —
                             non più due cerchi sempre accesi su ogni riga a riposo. */}
-                            {assegnatario && (
+                            {assegnatario ? (
                               <span
                                 title={assegnatario.nome}
                                 className={`absolute right-2.5 top-2 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold transition group-hover:opacity-0 ${
@@ -968,9 +985,18 @@ export function TicketsBoard({
                               >
                                 {iniziali(assegnatario)}
                               </span>
+                            ) : (
+                              assegnatarioEsterno && (
+                                <span
+                                  title={`${assegnatarioEsterno.nome} ${assegnatarioEsterno.cognome ?? ""} (tecnico esterno)`}
+                                  className="absolute right-2.5 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-secondary-foreground transition group-hover:opacity-0"
+                                >
+                                  {assegnatarioEsterno.nome.slice(0, 2).toUpperCase()}
+                                </span>
+                              )
                             )}
                             <div className="absolute right-2 top-1.5 flex translate-x-1 items-center gap-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
-                              {!assegnatario && (
+                              {!assegnatario && !assegnatarioEsterno && (
                                 <button
                                   onClick={(e) => prendiInCarico(t, e)}
                                   disabled={ticketInCorso.has(t.id)}
@@ -1006,7 +1032,14 @@ export function TicketsBoard({
                                     className="max-w-14 truncate border-none bg-transparent text-[10px] font-semibold outline-none disabled:opacity-60"
                                   >
                                     <option value="">Nessuno</option>
-                                    {persone.map((p) => (
+                                    {/* ★ FIX (2026-10-02, audit d'oro modulo
+                                    Tickets) — l'attuale assegnatario resta
+                                    nell'elenco anche se disattivato (altrimenti
+                                    il <select> non avrebbe nessuna opzione che
+                                    combacia con il suo value e sembrerebbe
+                                    "Nessuno"), ma per una riassegnazione restano
+                                    scegliebili solo i colleghi attivi. */}
+                                    {persone.filter((p) => p.attivo || p.id === t.tecnico_assegnato).map((p) => (
                                       <option key={p.id} value={p.id}>{p.nome}</option>
                                     ))}
                                   </select>
@@ -2073,7 +2106,13 @@ export function PianificaAppuntamento({
         </div>
         <select name="tecnico" defaultValue={tecnicoIniziale ?? ticket.tecnico_assegnato ?? ""} className="h-8 rounded-lg border bg-background px-2 text-xs">
           <option value="">Nessun tecnico</option>
-          {persone.map((p) => (
+          {/* ★ FIX (2026-10-02, audit d'oro modulo Tickets) — stesso
+          principio delle altre due select qui sopra: per un NUOVO
+          appuntamento restano scegliebili solo i tecnici attivi, ma il
+          tecnico già assegnato al Ticket resta comunque un'opzione valida
+          anche se nel frattempo disattivato (altrimenti il default non
+          combacerebbe con nessuna opzione). */}
+          {persone.filter((p) => p.attivo || p.id === ticket.tecnico_assegnato).map((p) => (
             <option key={p.id} value={p.id}>{p.nome}</option>
           ))}
         </select>

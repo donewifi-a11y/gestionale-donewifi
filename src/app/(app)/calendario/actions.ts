@@ -88,14 +88,6 @@ async function descrizioneEventoGoogle(
       righe.push(`Ticket #${ticket.numero} — ${ticket.cliente}`);
       if (ticket.telefono) righe.push(`Tel: ${ticket.telefono}`);
     }
-  } else if (dati.telefonoCliente) {
-    // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
-    // migrazione 0087) — senza Ticket (es. Nuova installazione pianificata
-    // prima che esista un Ticket) il numero del cliente, se c'è, veniva
-    // scritto solo sulla riga `appuntamenti.telefono_cliente`, mai riportato
-    // qui — il tecnico lo vede solo aprendo il gestionale, non da Google
-    // Calendar, dove spesso guarda per primo prima di partire.
-    righe.push(`Tel: ${dati.telefonoCliente}`);
     // ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo: "quale
     // antenna mettere") — Analisi Rete può riservare in anticipo
     // un'antenna dell'inventario per questo Ticket (vedi
@@ -104,12 +96,27 @@ async function descrizioneEventoGoogle(
     // Materiali → Antenne, mai nell'appuntamento che porta sul posto —
     // il tecnico doveva ricordarsela a memoria o andare a controllare
     // altrove prima di partire.
+    //
+    // ★ FIX (2026-10-02, audit d'oro — regressione) — questa query era
+    // finita per errore dentro il ramo `else if` (senza Ticket), dove
+    // `dati.ticketId` è sempre vuoto per definizione: filtrava su un
+    // ticket_id vuoto, non trovava mai nulla — codice morto introdotto
+    // nella stessa modifica che ha aggiunto `telefonoCliente`. Rimessa
+    // dentro il ramo giusto, quello con un Ticket vero.
     const { data: antenne } = await supabase
       .from("antenne_inventario")
       .select("tipologia, mac")
       .eq("ticket_id", dati.ticketId)
       .eq("stato", "Prenotata");
     for (const a of antenne ?? []) righe.push(`Antenna riservata: ${a.tipologia} (${a.mac})`);
+  } else if (dati.telefonoCliente) {
+    // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+    // migrazione 0087) — senza Ticket (es. Nuova installazione pianificata
+    // prima che esista un Ticket) il numero del cliente, se c'è, veniva
+    // scritto solo sulla riga `appuntamenti.telefono_cliente`, mai riportato
+    // qui — il tecnico lo vede solo aprendo il gestionale, non da Google
+    // Calendar, dove spesso guarda per primo prima di partire.
+    righe.push(`Tel: ${dati.telefonoCliente}`);
   }
   if (dati.tecnicoId) {
     const { data: tecnico } = await supabase.from("persone").select("nome").eq("id", dati.tecnicoId).maybeSingle();
@@ -258,7 +265,17 @@ export async function creaAppuntamento(dati: {
     creato_da: personaId,
     google_event_id: googleEventId,
   });
-  if (error) return { errore: error.message };
+  if (error) {
+    // ★ FIX (2026-10-02, audit d'oro — regressione) — se l'INSERT fallisce
+    // DOPO che l'evento Google è già stato creato, restava orfano: visibile
+    // su Google Calendar a tutti, senza alcun collegamento nel gestionale e
+    // senza pulizia. Stesso meccanismo "best-effort" già usato per
+    // rimuovere un appuntamento eliminato (eliminaAppuntamento sotto,
+    // status "cancelled" invece di una cancellazione vera) — non deve far
+    // fallire la risposta se anche questa pulizia fallisce.
+    if (googleEventId) await aggiornaEventoCalendario(googleEventId, { status: "cancelled" });
+    return { errore: error.message };
+  }
 
   await notificaTecnicoAppuntamento(
     dati.tecnicoId || null,

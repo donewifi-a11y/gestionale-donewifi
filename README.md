@@ -6329,3 +6329,118 @@ impreciso):
 
 Build/lint puliti (0 errori) su tutto il lotto. Tre nuove migrazioni create (0085, 0086,
 0087) in attesa di essere applicate manualmente su Supabase.
+
+## Audit d'oro — Tickets + Segnalazioni/Calendario/Vista Tecnico + regressioni recenti (2026-10-02)
+
+Richiesta esplicita: "rifacciamo un audit completo dell'operatività e funzionalità. non
+dobbiamo aggiungerne di nuove ma stabilizzare quelle che ci sono e renderlo perfetto,
+senza bug, facile da usare per chiunque" — diverso dai due giri precedenti
+(completezza funzionale): qui si cercano solo bug/usabilità/robustezza, zero nuovi
+campi. Tre ricognizioni in parallelo: modulo Tickets (mai avuto un audit d'oro
+dedicato), Segnalazioni/Calendario/Vista Tecnico (idem), e una verifica di regressione
+mirata su tutto il codice scritto nelle ultime due sessioni (il più recente, mai
+passato da un vero audit bug/sicurezza).
+
+✅ **Tickets — tecnico disattivato/esterno "scompariva" come non assegnato**
+(2026-10-02). `persone` arrivava filtrata a `.eq("attivo", true)`: un Ticket assegnato a
+un tecnico poi disattivato risultava "senza nessuno" ovunque (card Kanban, dettaglio,
+Note) — un collega poteva "Prendere in carico" sovrascrivendo senza saperlo
+un'assegnazione reale. Stesso identico bug, stessa identica soluzione già applicata a
+calendario/page.tsx in un audit precedente, mai estesa qui.
+
+- `persone` ora arriva senza filtro attivo/non attivo (serve a risolvere nomi/stato di
+  assegnazioni esistenti); le 3 select di NUOVA assegnazione (bulk, riassegnazione
+  inline, pianifica appuntamento) restano filtrate ai soli attivi, preservando però
+  l'attuale assegnatario anche se disattivato (altrimenti il valore selezionato non
+  comparirebbe in nessuna opzione).
+- Stesso buco anche per un Ticket assegnato SOLO a un tecnico esterno (mai calcolato
+  `assegnatarioEsterno` nella card Kanban, a differenza del dettaglio): corretto in
+  parallelo.
+- `aggiungiNotaTicket()` usava `getPersonaCorrenteId()` (solo il cookie) invece di
+  `getPersonaCorrente()` (verifica anche `attivo`), unica dimenticanza di un pattern di
+  sicurezza già applicato a ogni altra scrittura dello stesso file — un dipendente
+  disattivato con cookie ancora valido avrebbe visto un errore Postgres grezzo invece di
+  un messaggio comprensibile.
+
+✅ **Tickets — race condition su "prendi in carico"** (2026-10-02). Due tecnici potevano
+prendere in carico lo stesso Ticket non assegnato quasi in contemporanea (la sezione
+"Non assegnati" di Vista Tecnico è visibile a tutto il reparto): l'ultimo vinceva senza
+alcun avviso per l'altro. `assegnaTicket()` ha ora un parametro `soloSeLibero` che
+aggiunge `WHERE tecnico_assegnato IS NULL AND tecnico_esterno_id IS NULL` SOLO per il
+gesto "prendi in carico" (mai per una riassegnazione volontaria): se zero righe vengono
+aggiornate, un messaggio chiaro invece di un successo silenzioso senza effetto reale.
+
+✅ **Calendario — data sbagliata nel form "Modifica Appuntamento" vicino a mezzanotte**
+(2026-10-02). `dataOra.toISOString().slice(0,10)` per la data e `toTimeString()` per
+l'ora: per un appuntamento tra mezzanotte e l'1-2 locale, la data UTC è ancora il giorno
+prima — salvare senza toccare la data lo spostava indietro di un giorno in silenzio.
+Stessa classe di bug già descritta esplicitamente in un commento dello stesso file
+("mai toISOString su una data") ma non applicata qui — corretto riusando `formattaData()`.
+
+✅ **Calendario — evento Google orfano se l'inserimento fallisce** (2026-10-02).
+`creaAppuntamento()` crea l'evento Google PRIMA di scrivere su `appuntamenti`: se
+l'insert falliva dopo, l'evento restava su Google Calendar, visibile a tutti, senza
+alcun collegamento né pulizia. Ora annullato (`status: "cancelled"`, stesso meccanismo
+già usato per un appuntamento eliminato) se l'insert fallisce.
+
+✅ **Segnalazioni — errore Postgres grezzo possibile su un retry di "Trasmetti"**
+(2026-10-02). Se un tentativo precedente crea il Ticket ma fallisce nell'aggiornare lo
+stato della Segnalazione, un secondo tentativo sbatte contro il vincolo
+`tickets_segnalazione_id_unique` (niente duplicati reali, ma messaggio Postgres grezzo).
+Tradotto in un messaggio comprensibile che spiega cosa è successo.
+
+✅ **Vista Tecnico/pose — telefono mai mostrato per gli appuntamenti con Ticket, il caso
+più comune** (2026-10-02). Scoperto verificando la funzionalità appena aggiunta
+(`telefono_cliente`, migrazione 0087): quel campo è per costruzione SOLO il fallback
+per un appuntamento SENZA Ticket — ma Vista Tecnico e pose non recuperavano mai il
+telefono dal Ticket collegato (a differenza di Calendario, che lo fa già correttamente).
+Per la maggioranza degli appuntamenti (quelli nati da un Ticket) il tecnico non vedeva
+MAI un numero da chiamare da quelle due schermate — proprio quelle usate sul campo.
+
+- Vista Tecnico: fallback a `tickets.find(t => t.id === a.ticket_id)?.telefono`, stesso
+  pattern già in uso in Calendario.
+- pose: `getAppuntamentoTecnicoEsterno()` ora fa l'embed `tickets(telefono)` (stesso
+  meccanismo già in uso altrove, es. approva/[token]/page.tsx) e lo espone come
+  `telefonoTicket`, usato con lo stesso fallback.
+- Corretto anche un piccolo codice morto scoperto nello stesso punto:
+  `descrizioneEventoGoogle()` filtrava la query delle antenne riservate su
+  `dati.ticketId` dentro il ramo `else if` (SENZA ticket) — sempre vuoto per
+  definizione, query strutturalmente inutile. Rimessa nel ramo giusto.
+
+✅ **Dashboard — fuso orario sbagliato nel calcolo del mese corrente** (2026-10-02).
+`inizioMese()` usava `new Date().setHours(0,0,0,0)` nel fuso del PROCESSO (UTC su
+Vercel), non in quello italiano — stessa classe di bug già trovata e corretta altrove
+nello stesso progetto (lib/data-italia.ts). Nelle prime 1-2 ore di ogni mese in orario
+italiano, "il mese corrente" calcolato così poteva essere ancora il mese appena finito.
+Sostituito con gli stessi helper (`inizioGiornataItalia`/`fineGiornataItalia`/
+`dataItaliaStringa`) già pronti e usati altrove — stesso fix applicato anche a
+`getDatiReparto()`, stesso identico bug.
+
+✅ **Preventivi — una Bozza mai inviata mostrata come "Scaduto"** (2026-10-02).
+`preventivoScaduto()` includeva anche lo stato "Bozza": una bozza creata con la data di
+default (+30 giorni) e mai inviata al cliente, se rimasta ferma oltre un mese, si
+vedeva col badge rosso "Scaduto" — fuorviante, dato che il cliente non l'ha mai vista.
+Ora solo "Inviato".
+
+✅ **Utenti — log di audit permessi perso silenziosamente su un errore di rete**
+(2026-10-02). La select che legge lo stato precedente della Persona (per calcolare
+cosa è cambiato) non controllava l'errore: un guasto transitorio faceva saltare in
+silenzio tutta la scrittura su storico — proprio nel caso raro in cui l'audit trail
+serve di più. Ora loggato (non bloccante: un guasto nel solo log non deve impedire
+l'aggiornamento dei permessi).
+
+**Verificato come non-rischio reale** (confermato sui dati di produzione, non solo a
+mente): il dedup clienti per CF/PIVA (sessione precedente) avrebbe un punto debole
+teorico se due righe con lo stesso `codice_gestionale` avessero ENTRAMBE CF e PIVA
+nulli — scansione completa delle 3933 righe reali: zero gruppi coinvolti. Nessuna
+modifica necessaria.
+
+**Non corretto in questo giro** (richiederebbe un vincolo a livello DB, più invasivo
+di quanto il resto delle correzioni di oggi): sovrapposizione oraria tecnico non
+atomica (`trovaSovrapposizioneTecnico` legge poi scrive in due query separate — stesso
+tipo di finestra di corsa della razza "prendi in carico" sopra, ma per risolverla
+davvero servirebbe un vincolo di esclusione a livello Postgres sul range orario, non
+una semplice condizione `WHERE`).
+
+Build/lint puliti (0 errori) su tutto il lotto. Nessuna nuova migrazione (tutte le
+correzioni di questo giro sono solo logica applicativa).

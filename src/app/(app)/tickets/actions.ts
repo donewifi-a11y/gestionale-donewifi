@@ -388,7 +388,18 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
 // produzione) — qui in più senza nemmeno la traduzione dell'errore RLS in
 // un messaggio comprensibile (messaggioErroreRls(), già in uso altrove in
 // questo file).
-export async function assegnaTicket(id: string, personaId: string | null) {
+// ★ FIX (2026-10-02, audit d'oro — regressione, race condition) — un
+// `UPDATE` senza alcuna condizione sul valore precedente permetteva a due
+// tecnici di "prendere in carico" lo stesso Ticket non assegnato quasi in
+// contemporanea (scenario reale: la sezione "Non assegnati" di Vista
+// Tecnico è visibile a tutto il reparto): entrambe le richieste avevano
+// successo, l'ultima vinceva senza alcun avviso per l'altro tecnico, che
+// restava con un Ticket in realtà già passato al collega. `soloSeLibero`
+// aggiunge la condizione `WHERE tecnico_assegnato IS NULL AND
+// tecnico_esterno_id IS NULL` SOLO per il gesto "prendi in carico" (mai per
+// una riassegnazione volontaria, che deve sempre poter sovrascrivere) — se
+// zero righe vengono aggiornate, qualcun altro è arrivato prima.
+export async function assegnaTicket(id: string, personaId: string | null, soloSeLibero = false) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
@@ -397,10 +408,15 @@ export async function assegnaTicket(id: string, personaId: string | null) {
   // ★ `tecnico_assegnato` (interno) e `tecnico_esterno_id` (pose.donewifi.it,
   // migrazione 0061) sono alternativi: assegnare a uno staff interno azzera
   // sempre un eventuale tecnico esterno già assegnato, mai entrambi insieme.
-  const { error } = await service.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }).eq("id", id);
+  let query = service.from("tickets").update({ tecnico_assegnato: personaId, tecnico_esterno_id: null }, { count: "exact" }).eq("id", id);
+  if (soloSeLibero) query = query.is("tecnico_assegnato", null).is("tecnico_esterno_id", null);
+  const { error, count } = await query;
   if (error) {
     const messaggioRls = await messaggioErroreRls(supabase, "assegnare il Ticket", error.message, persona);
     return { errore: messaggioRls ?? error.message };
+  }
+  if (soloSeLibero && !count) {
+    return { errore: "Qualcun altro lo ha già preso in carico nel frattempo — aggiorna la pagina." };
   }
 
   await service.from("storico").insert({
@@ -549,15 +565,27 @@ export async function getNoteTicket(ticketId: string) {
 
 export async function aggiungiNotaTicket(ticketId: string, testo: string) {
   const supabase = await createClient();
-  const personaId = await getPersonaCorrenteId();
-  if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
+  // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — usava solo
+  // getPersonaCorrenteId() (legge il cookie, non verifica che la Persona
+  // sia ancora attiva), a differenza di ogni altra scrittura in questo
+  // file (creaTicket/assegnaTicket/aggiornaStatoTicket/...), che usa
+  // getPersonaCorrente() apposta per questo. Un dipendente disattivato con
+  // cookie ancora valido (fino a 1 anno) poteva comunque tentare di
+  // scrivere qui — la RLS l'avrebbe bloccato, ma con un messaggio Postgres
+  // grezzo (vedi sotto) invece che un errore comprensibile.
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
 
   const { data, error } = await supabase
     .from("note_ticket")
-    .insert({ ticket_id: ticketId, autore_id: personaId, testo })
+    .insert({ ticket_id: ticketId, autore_id: persona.id, testo })
     .select("*")
     .single();
-  if (error) return { errore: error.message };
+  if (error) {
+    console.error("aggiungiNotaTicket — insert note_ticket:", error.message);
+    const messaggioRls = await messaggioErroreRls(supabase, "aggiungere la nota", error.message, persona);
+    return { errore: messaggioRls ?? error.message };
+  }
   return { errore: null, nota: data };
 }
 

@@ -31,7 +31,13 @@ const FILTRI_STATO: (StatoPreventivo | "Tutti")[] = ["Tutti", "Bozza", "Inviato"
 // di risposta): uno già Approvato/Rifiutato ha già avuto il suo esito,
 // la scadenza non significa più nulla a quel punto.
 function preventivoScaduto(p: Preventivo): boolean {
-  if (p.stato !== "Inviato" && p.stato !== "Bozza") return false;
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — una Bozza non è mai
+  // stata vista dal cliente (niente link, niente data mostrata): includerla
+  // qui faceva comparire il badge rosso "Scaduto" su una Bozza creata con
+  // la data di default (+30 giorni) e mai inviata, semplicemente perché
+  // rimasta ferma oltre un mese — fuorviante, "scaduto" non ha senso per
+  // qualcosa che non è mai stato proposto a nessuno.
+  if (p.stato !== "Inviato") return false;
   if (!p.valido_fino_il) return false;
   return new Date(p.valido_fino_il) < new Date(new Date().toDateString());
 }

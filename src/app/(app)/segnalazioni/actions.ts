@@ -719,7 +719,19 @@ async function eseguiTrasmissione(
     })
     .select("id, numero")
     .single();
-  if (erroreTicket || !ticket) return { errore: erroreTicket?.message || "Creazione del Ticket non riuscita." };
+  if (erroreTicket || !ticket) {
+    // ★ FIX (2026-10-02, audit d'oro — regressione) — se un precedente
+    // tentativo di "Trasmetti" ha creato il Ticket ma è poi fallito
+    // nell'aggiornare lo stato della Segnalazione (riga sotto), un secondo
+    // tentativo sbatte contro `tickets_segnalazione_id_unique` (migrazione
+    // 0008 — niente duplicati reali, ma il messaggio Postgres grezzo
+    // ("duplicate key value violates unique constraint...") confonderebbe
+    // chi lo vede, che non sa di aver già creato il Ticket al primo giro.
+    if (erroreTicket?.message.includes("tickets_segnalazione_id_unique")) {
+      return { errore: "Il Ticket per questa segnalazione risulta già creato da un tentativo precedente — controlla in Ticket prima di riprovare, o contatta un amministratore." };
+    }
+    return { errore: erroreTicket?.message || "Creazione del Ticket non riuscita." };
+  }
 
   const { error: erroreStato } = await supabase
     .from("segnalazioni")

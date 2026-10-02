@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/status-badge";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -167,6 +168,10 @@ export function CalendarioBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — eliminaNota() usava
+  // confirm() nativo invece del dialog brandizzato già standard nel resto
+  // del gestionale (useConfirm/ConfirmDialog, vedi segnalazioni-board.tsx).
+  const { confirm: confirmEliminaNota, ConfirmDialog: DialogConfermaEliminaNota } = useConfirm();
 
   // ★ "Pianifica appuntamento" dal dettaglio Ticket — apre già il form con
   // il ticket collegato, invece di doverlo ricercare nel menu a tendina.
@@ -209,7 +214,8 @@ export function CalendarioBoard({
   }
 
   async function eliminaNota(id: string) {
-    if (!confirm("Eliminare questo promemoria?")) return;
+    if (!(await confirmEliminaNota({ titolo: "Eliminare il promemoria?", descrizione: "Eliminare questo promemoria? L'operazione non è reversibile.", testoConferma: "Elimina", distruttivo: true })))
+      return;
     const risultato = await eliminaNotaCalendario(id);
     if (risultato.errore) {
       toast(risultato.errore);
@@ -392,6 +398,7 @@ export function CalendarioBoard({
           <FormNuovaNota ticket={ticket} onFatto={() => setNuovaNota(false)} />
         </DialogContent>
       </Dialog>
+      <DialogConfermaEliminaNota />
     </div>
   );
 }
@@ -1219,8 +1226,19 @@ function FormModificaAppuntamento({
   const [inCorso, startTransizione] = useTransition();
   const [eliminazioneInCorso, setEliminazioneInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — eliminaQuesto() usava
+  // confirm() nativo invece del dialog brandizzato standard.
+  const { confirm: confirmEliminaAppuntamento, ConfirmDialog: DialogConfermaEliminaAppuntamento } = useConfirm();
   const dataOra = new Date(appuntamento.data_ora);
-  const dataDefault = dataOra.toISOString().slice(0, 10);
+  // ★ FIX (2026-10-02, audit d'oro Calendario) — `toISOString()` dà la data
+  // in UTC mentre `toTimeString()` dà l'ora in locale: per un appuntamento
+  // tra mezzanotte e l'1-2 locale (CET/CEST) la data UTC è ancora il giorno
+  // prima — il form precompilava una data sbagliata (un giorno indietro)
+  // con l'ora corretta, e salvare senza toccare la data la spostava
+  // indietro in silenzio. formattaData() (sopra) è la stessa funzione già
+  // usata per questo identico motivo nel resto del file — "mai toISOString
+  // su una data", bug già capitato in questo progetto.
+  const dataDefault = formattaData(dataOra);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
   const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? appuntamento.telefono_cliente ?? null;
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(appuntamento.tipo_servizio);
@@ -1287,8 +1305,16 @@ function FormModificaAppuntamento({
   // client (testo esplicito, non un confirm() generico) perché non è
   // reversibile come annullare; il vero controllo (solo admin, niente
   // Scheda già collegata) resta lato server in eliminaAppuntamento().
-  function eliminaQuesto() {
-    if (!confirm(`Eliminare definitivamente l'appuntamento "${appuntamento.titolo}"? L'operazione non si può annullare.`)) return;
+  async function eliminaQuesto() {
+    if (
+      !(await confirmEliminaAppuntamento({
+        titolo: "Eliminare l'appuntamento?",
+        descrizione: `Eliminare definitivamente l'appuntamento "${appuntamento.titolo}"? L'operazione non si può annullare.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
+    )
+      return;
     setEliminazioneInCorso(true);
     startTransizione(async () => {
       const risultato = await eliminaAppuntamento(appuntamento.id);
@@ -1502,6 +1528,7 @@ function FormModificaAppuntamento({
           {eliminazioneInCorso ? "Eliminazione in corso…" : "Elimina appuntamento"}
         </Button>
       )}
+      <DialogConfermaEliminaAppuntamento />
     </>
   );
 }

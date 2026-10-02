@@ -22,6 +22,7 @@ import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazion
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import { COLORE_WHATSAPP } from "@/lib/colori-brand";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import type { Appuntamento, MaterialeMagazzino, Persona, StatoTicket, Ticket } from "@/lib/types";
@@ -384,6 +385,10 @@ export function VistaTecnicoBoard({
   const [notaInCorso, setNotaInCorso] = useState<string | null>(null);
   const [assegnazioneInCorso, setAssegnazioneInCorso] = useState<string | null>(null);
   const toast = useToast();
+  // ★ FIX (2026-10-02, audit d'oro — regressione) — confirm() nativo
+  // invece del dialog brandizzato standard, particolarmente stonato qui:
+  // questa è la schermata usata da smartphone sul campo.
+  const { confirm: confirmEliminaAppuntamento, ConfirmDialog: DialogConfermaEliminaAppuntamento } = useConfirm();
 
   // ★ NUOVA (2026-09-16, bug reale segnalato: "perché i ticket non possono
   // essere chiudersi dall'operatore, tipo anna gaggiolo" — vedi il
@@ -395,10 +400,15 @@ export function VistaTecnicoBoard({
     if (!personaId) return;
     setAssegnazioneInCorso(t.id);
     startAvanza(async () => {
-      const risultato = await assegnaTicket(t.id, personaId);
+      // ★ FIX (2026-10-02, audit d'oro — regressione, race condition) —
+      // questa è esattamente la sezione "Non assegnati nel tuo reparto",
+      // visibile a tutto il reparto: `true` (soloSeLibero) impedisce di
+      // sovrascrivere in silenzio un collega arrivato un istante prima.
+      const risultato = await assegnaTicket(t.id, personaId, true);
       setAssegnazioneInCorso(null);
       if (risultato.errore) {
         toast(risultato.errore);
+        router.refresh();
         return;
       }
       setTicketRapportino({ ...t, tecnico_assegnato: personaId });
@@ -444,8 +454,16 @@ export function VistaTecnicoBoard({
   // qui invece di dover per forza passare dal Calendario.
   const [appuntamentoInEliminazione, setAppuntamentoInEliminazione] = useState<string | null>(null);
 
-  function eliminaQuestoAppuntamento(a: Appuntamento) {
-    if (!confirm(`Eliminare definitivamente l'appuntamento "${a.titolo}"? L'operazione non si può annullare.`)) return;
+  async function eliminaQuestoAppuntamento(a: Appuntamento) {
+    if (
+      !(await confirmEliminaAppuntamento({
+        titolo: "Eliminare l'appuntamento?",
+        descrizione: `Eliminare definitivamente l'appuntamento "${a.titolo}"? L'operazione non si può annullare.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
+    )
+      return;
     setAppuntamentoInEliminazione(a.id);
     startAvanza(async () => {
       const risultato = await eliminaAppuntamento(a.id);
@@ -536,13 +554,20 @@ export function VistaTecnicoBoard({
                   </a>
                 )}
                 {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
-                restanti, migrazione 0087) — senza Ticket collegato (es.
-                Nuova installazione pianificata prima che esista un Ticket)
-                non c'era alcun numero da chiamare da questa schermata. */}
-                {a.telefono_cliente && (
-                  <a href={`tel:${a.telefono_cliente}`} className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary">
+                restanti, migrazione 0087; CORRETTO 2026-10-02, audit d'oro —
+                regressione) — mancava il fallback al telefono del Ticket
+                collegato: `telefono_cliente` è per costruzione sempre null
+                quando c'è un Ticket (vedi creaAppuntamento), quindi per la
+                maggioranza degli appuntamenti (quelli nati da un Ticket, il
+                caso più comune) qui non compariva MAI un numero — proprio le
+                due schermate (questa e pose) dove servirebbe di più. */}
+                {(tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente) && (
+                  <a
+                    href={`tel:${tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente}`}
+                    className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary"
+                  >
                     <Phone className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    {a.telefono_cliente}
+                    {tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente}
                   </a>
                 )}
                 {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
@@ -604,10 +629,13 @@ export function VistaTecnicoBoard({
                   {a.indirizzo}
                 </a>
               )}
-              {a.telefono_cliente && (
-                <a href={`tel:${a.telefono_cliente}`} className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary">
+              {(tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente) && (
+                <a
+                  href={`tel:${tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente}`}
+                  className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary"
+                >
                   <Phone className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  {a.telefono_cliente}
+                  {tickets.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente}
                 </a>
               )}
               {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
@@ -851,6 +879,7 @@ export function VistaTecnicoBoard({
           )}
         </DialogContent>
       </Dialog>
+      <DialogConfermaEliminaAppuntamento />
     </div>
   );
 }

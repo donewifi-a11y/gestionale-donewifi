@@ -60,12 +60,13 @@ export default async function AppuntamentoPosePage({ params }: { params: Promise
             </a>
           )}
           {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
-          restanti, migrazione 0087) — senza Ticket collegato (tipico di una
-          Nuova installazione) non c'era alcun numero da chiamare da qui. */}
-          {appuntamento.telefono_cliente && (
-            <a href={`tel:${appuntamento.telefono_cliente}`} className="flex items-center gap-1.5 font-semibold text-primary">
+          restanti, migrazione 0087; CORRETTO 2026-10-02, audit d'oro —
+          regressione) — mancava il fallback al telefono del Ticket
+          collegato, il caso più comune (vedi getAppuntamentoTecnicoEsterno). */}
+          {(appuntamento.telefonoTicket ?? appuntamento.telefono_cliente) && (
+            <a href={`tel:${appuntamento.telefonoTicket ?? appuntamento.telefono_cliente}`} className="flex items-center gap-1.5 font-semibold text-primary">
               <Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-              {appuntamento.telefono_cliente}
+              {appuntamento.telefonoTicket ?? appuntamento.telefono_cliente}
             </a>
           )}
         </div>
