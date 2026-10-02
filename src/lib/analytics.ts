@@ -67,7 +67,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
   const oggi = new Date();
   const giorniNelMese = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).getDate();
 
-  const [acquisizioni, completati, ricaviFattureMese] = await Promise.all([
+  const [acquisizioni, completati, ricaviFattureMese, cessazioni] = await Promise.all([
     fetchTuttoPaginato((offset, limite) =>
       supabase
         .from("segnalazioni")
@@ -85,6 +85,24 @@ export async function getDatiAmministrazione(supabase: Supabase) {
         .range(offset, offset + limite - 1)
     ),
     sommaImportoFattureDa(supabase, inizio.toISOString().slice(0, 10)),
+    // ★ NUOVA (2026-10-02, audit completezza funzionale — moduli restanti)
+    // — si vedeva solo il lato acquisizioni del mese, mai quante cessazioni
+    // sono state effettivamente eseguite nello stesso periodo: un WISP che
+    // acquisisce 10 clienti ma ne perde 15 nello stesso mese sta
+    // restringendosi, ma "Acquisizioni del mese" da sola lo nasconde.
+    // `data_dismissione_disdetta` (migrazione 0074) è la data in cui il
+    // servizio viene davvero disattivato — più precisa della data di
+    // apertura/chiusura del Ticket di Disdetta, che può precedere di molto
+    // la dismissione vera.
+    fetchTuttoPaginato((offset, limite) =>
+      supabase
+        .from("tickets")
+        .select("id")
+        .eq("sottocategoria", "Disdetta")
+        .gte("data_dismissione_disdetta", inizio.toISOString().slice(0, 10))
+        .lte("data_dismissione_disdetta", new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).toISOString().slice(0, 10))
+        .range(offset, offset + limite - 1)
+    ),
   ]);
 
   const perTipologia: Record<string, number> = { Privato: 0, Azienda: 0, "Non specificato": 0 };
@@ -114,6 +132,7 @@ export async function getDatiAmministrazione(supabase: Supabase) {
   return {
     mese: oggi.toLocaleDateString("it-IT", { month: "long", year: "numeric" }),
     acquisizioniTotali: acquisizioni.length,
+    cessazioniTotali: cessazioni.length,
     ricaviTotali,
     ticketCompletatiTotali: completati.length,
     perTipologia,

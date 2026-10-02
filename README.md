@@ -6238,3 +6238,94 @@ dell'utente ("nessuna per ora", da valutare con calma più avanti)**:
 
 Build/lint puliti (0 errori) su tutto il lotto. Due migrazioni create (0083, 0084) in
 attesa di essere applicate manualmente su Supabase.
+
+✅ **Migrazioni 0083/0084 applicate e verificate** (2026-10-01) — confermato con uno
+script usa-e-getta contro Supabase reale: `preventivi.valido_fino_il` e
+`materiali_magazzino.fornitore`/`ubicazione` esistono e sono interrogabili senza errori.
+
+## Verifica completezza funzionale — secondo giro sui moduli restanti (2026-10-02)
+
+Richiesta esplicita: "altre migliorie" → "continua l'audit funzionale" — esaminati i
+moduli non ancora toccati: Dashboard/Analisi, Archivio, Chat, Todo, Sistema, Utenti,
+Vista Tecnico, Rapporti di lavoro, portale tecnici esterni (pose), Tariffe non
+sottoscrivibili.
+
+**Falso positivo scartato prima di scrivere codice**: sembrava mancare un campo
+"materiali da portare" sugli appuntamenti di Calendario — verificato che il campo Note
+esistente ha già il placeholder "es. portare router di scorta": non un buco, un campo
+dedicato avrebbe solo duplicato lo stesso scopo.
+
+✅ **"Utenti" — log di chi modifica i permessi di un'altra persona** (2026-10-02).
+`aggiornaPersona()` cambiava reparti/amministratore/stato attivo senza lasciare alcuna
+traccia di CHI l'ha fatto — un'escalation privilegi silenziosa (o una disattivazione)
+non si sarebbe potuta ricostruire. Esisteva già un log di "cosa ha fatto questa
+persona" (`getAttivitaPersona`), mai il suo gemello "chi ha modificato questa persona".
+
+- Nuova riga in `storico` (stesso meccanismo già usato ovunque nel gestionale) solo
+  quando qualcosa cambia davvero, con il prima/dopo in chiaro (es. "Amministratore: no →
+  sì").
+- Nuova sezione "Modifiche ai permessi" nella scheda Persona, accanto a "Attività
+  recente".
+- Migrazione 0085 (estende `storico_origine_check` con 'persona') — **da applicare
+  manualmente**.
+
+✅ **"Lavorazioni interne" — priorità** (2026-10-02). Stato (Da fare/In corso/Fatta) ma
+nessuna priorità: un responsabile con più lavorazioni assegnate allo stesso collega non
+poteva segnalare "questa è urgente, le altre quando hai tempo".
+
+- Due soli livelli (Normale/Alta, non una scala a 4-5 valori come i Ticket — contesto
+  diverso, lavoro interno senza SLA clienti). Badge 🔴 su card e dettaglio, menzionato
+  anche nell'avviso in chat se assegnata a qualcun altro.
+- **Verificato come non-buco**: TodoPersonale (i to-do privati) resta deliberatamente
+  senza assegnazione/scadenza — è un "angolo personale" con RLS che impedisce a chiunque
+  altro di vederli, per scelta esplicita di design; l'assegnazione a un collega esiste
+  già, ma in questo modulo SEPARATO (Lavorazioni Interne), non in Todo.
+- Migrazione 0086 (`alter table lavorazioni_interne add column priorita`) — **da
+  applicare manualmente**.
+
+✅ **"Vista Tecnico"/"pose" — telefono cliente sugli appuntamenti senza Ticket**
+(2026-10-02). Un Appuntamento creato senza Ticket collegato (tipico di una Nuova
+installazione pianificata prima che il Ticket esista — il selettore "Ticket collegato"
+in creazione è esplicitamente facoltativo) non aveva alcun numero da chiamare: Vista
+Tecnico/pose leggono il telefono da `tickets.telefono` tramite `ticket_id`, NULL in
+quel caso.
+
+- Nuovo campo `telefono_cliente`, facoltativo, usato SOLO come fallback quando non c'è
+  un Ticket (con Ticket, il numero resta quello letto da lì — fonte più affidabile).
+  Campo in creazione/modifica appuntamento, mostrato solo quando non c'è un Ticket
+  scelto.
+- Aggiunto il link `tel:` cliccabile in Vista Tecnico (entrambe le sezioni, "In
+  ritardo" e "Di oggi"), nella pagina appuntamento del portale pose, e nella descrizione
+  dell'evento Google Calendar (dove un tecnico spesso guarda per primo prima di
+  partire).
+- Migrazione 0087 (`alter table appuntamenti add column telefono_cliente`) — **da
+  applicare manualmente**.
+
+✅ **"Dashboard" — cessazioni del mese** (2026-10-02). Si vedeva solo il lato
+acquisizioni ("Acquisizioni del mese"): un mese con poche acquisizioni ma molte
+cessazioni sembrava comunque normale, nessun modo di accorgersene a colpo d'occhio.
+
+- Nuova KPI "Cessazioni del mese", accanto ad "Acquisizioni del mese" — conta i Ticket
+  di Disdetta con `data_dismissione_disdetta` (la data di dismissione vera, fissata da
+  Fatturazione — migrazione 0074) nel mese corrente, più preciso della data di apertura/
+  chiusura del Ticket.
+- Nessuna migrazione: solo una query in più su una colonna già esistente.
+
+**Verificati, nessun buco reale**: Archivio (ricerca/filtri già completi), Rapporti di
+lavoro (il rapportino già cattura tutto il necessario per fatturare/contestare un
+intervento), Chat interna (già ricca — manca solo una @menzione nei gruppi, lacuna
+minore non corretta).
+
+**Lacune reali più piccole, non corrette in questo giro** (minori o con rischio di dato
+impreciso):
+- **Chat**: nessuna @menzione per richiamare l'attenzione di una persona specifica in un
+  gruppo reparto.
+- **Sistema**: le soglie SLA per priorità non sono configurabili da UI, né esiste un
+  allarme esplicito "ticket fuori SLA" (oggi solo una media storica in Dashboard).
+- **Tariffe non sottoscrivibili**: nessun conteggio di quanti clienti usano ancora una
+  tariffa archiviata — scartato perché `clienti_esterni.profilo_internet` (testo libero
+  da Aruba) non ha un legame affidabile (FK) con `tariffe.nome`: un conteggio per nome
+  rischierebbe di essere silenziosamente impreciso, peggio che non mostrarlo affatto.
+
+Build/lint puliti (0 errori) su tutto il lotto. Tre nuove migrazioni create (0085, 0086,
+0087) in attesa di essere applicate manualmente su Supabase.

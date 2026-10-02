@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, CalendarClock } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarClock, Phone } from "lucide-react";
 import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno, chiUsaPose } from "../../actions";
 import { SchedaDettaglioPose } from "@/components/pose/scheda-dettaglio";
 import { COLORE_SERVIZIO } from "@/lib/types";
@@ -49,10 +49,24 @@ export default async function AppuntamentoPosePage({ params }: { params: Promise
             {new Date(appuntamento.data_ora).toLocaleString("it-IT", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
           </span>
           {appuntamento.indirizzo && (
-            <span className="flex items-start gap-1.5">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(appuntamento.indirizzo)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-1.5 underline-offset-2 hover:underline"
+            >
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
               {appuntamento.indirizzo}
-            </span>
+            </a>
+          )}
+          {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
+          restanti, migrazione 0087) — senza Ticket collegato (tipico di una
+          Nuova installazione) non c'era alcun numero da chiamare da qui. */}
+          {appuntamento.telefono_cliente && (
+            <a href={`tel:${appuntamento.telefono_cliente}`} className="flex items-center gap-1.5 font-semibold text-primary">
+              <Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              {appuntamento.telefono_cliente}
+            </a>
           )}
         </div>
       </div>

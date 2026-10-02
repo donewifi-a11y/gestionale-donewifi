@@ -2,7 +2,7 @@
 
 import { randomInt } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getPersonaCorrente, personaHaAccessoAdmin, impostaCookiePersona } from "@/lib/persona";
+import { getPersonaCorrente, getPersonaCorrenteId, personaHaAccessoAdmin, impostaCookiePersona } from "@/lib/persona";
 import { revalidatePath } from "next/cache";
 import type { AreaAccesso } from "@/lib/types";
 
@@ -99,13 +99,42 @@ export async function aggiornaPersona(
   const password = dati.password.trim();
 
   const service = createServiceClient();
-  const { data: esistente } = await service.from("persone").select("auth_user_id").eq("id", id).single();
+  const { data: esistente } = await service.from("persone").select("auth_user_id, amministratore, reparti, attivo").eq("id", id).single();
 
   const { error } = await service
     .from("persone")
     .update({ nome: dati.nome, email: email || null, amministratore: dati.amministratore, reparti: dati.reparti, attivo: dati.attivo })
     .eq("id", id);
   if (error) return { errore: error.message };
+
+  // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+  // migrazione 0085) — nessuna traccia di CHI cambia permessi/reparto/
+  // stato di un'altra Persona: un'escalation privilegi silenziosa non
+  // lasciava alcun segno. Una riga sola per modifica, solo se qualcosa è
+  // davvero cambiato (evita rumore quando si salva senza toccare nulla).
+  if (esistente) {
+    const cambi: string[] = [];
+    if (esistente.amministratore !== dati.amministratore) {
+      cambi.push(`Amministratore: ${esistente.amministratore ? "sì" : "no"} → ${dati.amministratore ? "sì" : "no"}`);
+    }
+    if (esistente.attivo !== dati.attivo) {
+      cambi.push(`Attivo: ${esistente.attivo ? "sì" : "no"} → ${dati.attivo ? "sì" : "no"}`);
+    }
+    const repartiPrima = [...(esistente.reparti ?? [])].sort().join(", ");
+    const repartiDopo = [...dati.reparti].sort().join(", ");
+    if (repartiPrima !== repartiDopo) {
+      cambi.push(`Reparti: ${repartiPrima || "nessuno"} → ${repartiDopo || "nessuno"}`);
+    }
+    if (cambi.length > 0) {
+      const operatoreId = await getPersonaCorrenteId();
+      await service.from("storico").insert({
+        origine: "persona",
+        riferimento_id: id,
+        operazione: `Permessi modificati: ${cambi.join("; ")}`,
+        operatore_id: operatoreId,
+      });
+    }
+  }
 
   if (password) {
     const { error: errorePwd } = await service.rpc("imposta_password_persona", {
@@ -275,6 +304,27 @@ export async function getAttivitaPersona(id: string): Promise<AttivitaPersona[]>
     .order("data", { ascending: false })
     .limit(10);
   if (error) console.error("getAttivitaPersona:", error.message);
+  return data ?? [];
+}
+
+/** ★ NUOVA (2026-10-02, audit completezza funzionale — moduli restanti) —
+ * il gemello di getAttivitaPersona() sopra: lì si vede cosa ha FATTO questa
+ * persona (operatore_id = id), qui chi ha MODIFICATO questa persona
+ * (riferimento_id = id, scritto da aggiornaPersona() — vedi migrazione
+ * 0085). Due direzioni diverse della stessa tabella storico. */
+export async function getModifichePermessiPersona(id: string): Promise<AttivitaPersona[]> {
+  const erroreAccesso = await verificaAdmin();
+  if (erroreAccesso) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("storico")
+    .select("id, data, origine, operazione, valore_dopo")
+    .eq("origine", "persona")
+    .eq("riferimento_id", id)
+    .order("data", { ascending: false })
+    .limit(10);
+  if (error) console.error("getModifichePermessiPersona:", error.message);
   return data ?? [];
 }
 

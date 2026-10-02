@@ -10,8 +10,8 @@ import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
 import { creaLavorazione, cambiaStatoLavorazione, eliminaLavorazione } from "@/app/(app)/lavorazioni/actions";
-import { CATEGORIE_LAVORAZIONE, STATI_LAVORAZIONE } from "@/lib/types";
-import type { CategoriaLavorazione, LavorazioneInterna, Persona, StatoLavorazione } from "@/lib/types";
+import { CATEGORIE_LAVORAZIONE, STATI_LAVORAZIONE, PRIORITA_LAVORAZIONE } from "@/lib/types";
+import type { CategoriaLavorazione, LavorazioneInterna, Persona, StatoLavorazione, PrioritaLavorazione } from "@/lib/types";
 
 const ICONA_CATEGORIA: Record<CategoriaLavorazione, typeof Wifi> = { Rete: Wifi, Ufficio: Building2 };
 const COLORE_CATEGORIA: Record<CategoriaLavorazione, string> = {
@@ -98,7 +98,10 @@ export function LavorazioniBoard({
                       onKeyDown={(e) => e.key === "Enter" && setAperta(l)}
                       className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
                     >
-                      <div className="mb-1.5 font-semibold">{l.titolo}</div>
+                      <div className="mb-1.5 flex items-center gap-1.5 font-semibold">
+                        {l.priorita === "Alta" && <span title="Priorità alta">🔴</span>}
+                        {l.titolo}
+                      </div>
                       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
                           {assegnatario ? assegnatario.nome.slice(0, 2).toUpperCase() : "?"}
@@ -174,6 +177,7 @@ function FormNuovaLavorazione({
   const [titolo, setTitolo] = useState("");
   const [descrizione, setDescrizione] = useState("");
   const [assegnatoA, setAssegnatoA] = useState(currentPersonaId);
+  const [priorita, setPriorita] = useState<PrioritaLavorazione>("Normale");
   const [errore, setErrore] = useState("");
   const [inCorso, startTransizione] = useTransition();
 
@@ -185,7 +189,7 @@ function FormNuovaLavorazione({
       return;
     }
     startTransizione(async () => {
-      const risultato = await creaLavorazione({ categoria, titolo, descrizione, assegnatoA });
+      const risultato = await creaLavorazione({ categoria, titolo, descrizione, assegnatoA, priorita });
       if (risultato.errore) {
         setErrore(risultato.errore);
         return;
@@ -259,6 +263,27 @@ function FormNuovaLavorazione({
           </select>
           {!isAdmin && <p className="mt-1 text-[11px] text-muted-foreground">Solo un amministratore può assegnarla a qualcun altro.</p>}
         </div>
+        <div>
+          <Label>Priorità</Label>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {PRIORITA_LAVORAZIONE.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriorita(p)}
+                className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                  priorita === p
+                    ? p === "Alta"
+                      ? "border-critical bg-critical/10 text-critical"
+                      : "border-primary bg-primary/10 text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {p === "Alta" ? "🔴 Alta" : p}
+              </button>
+            ))}
+          </div>
+        </div>
         {errore && <p className="text-xs text-critical">{errore}</p>}
         <Button type="submit" disabled={inCorso} className="mt-1 min-h-11">
           {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
@@ -321,7 +346,10 @@ function DettaglioLavorazione({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{lavorazione.titolo}</DialogTitle>
+        <DialogTitle>
+          {lavorazione.priorita === "Alta" && <span title="Priorità alta">🔴 </span>}
+          {lavorazione.titolo}
+        </DialogTitle>
         <DialogDescription>
           <span className={`mr-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${COLORE_CATEGORIA[lavorazione.categoria]}`}>
             <Icona className="h-3 w-3" strokeWidth={2.5} />

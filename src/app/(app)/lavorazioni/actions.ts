@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, ERRORE_PERSONA_MANCANTE } from "@/lib/persona";
 import { inviaMessaggioChatSistemaDiretto } from "@/lib/chat";
 import { revalidatePath } from "next/cache";
-import type { CategoriaLavorazione, StatoLavorazione } from "@/lib/types";
+import type { CategoriaLavorazione, StatoLavorazione, PrioritaLavorazione } from "@/lib/types";
 
 // ★ NUOVA — richiesta esplicita: lavorazioni interne (Rete/Ufficio)
 // assegnabili da un amministratore ad altro staff, vedi migrazione
@@ -18,6 +18,7 @@ export async function creaLavorazione(dati: {
   titolo: string;
   descrizione: string;
   assegnatoA: string;
+  priorita: PrioritaLavorazione;
 }) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
@@ -35,6 +36,7 @@ export async function creaLavorazione(dati: {
     descrizione: dati.descrizione.trim() || null,
     assegnato_a: dati.assegnatoA,
     assegnato_da: persona.id,
+    priorita: dati.priorita,
   };
 
   const client = autoAssegnata ? supabase : createServiceClient();
@@ -48,7 +50,7 @@ export async function creaLavorazione(dati: {
   if (!autoAssegnata) {
     await inviaMessaggioChatSistemaDiretto(
       dati.assegnatoA,
-      `📋 Ti è stata assegnata una nuova lavorazione (${dati.categoria}): "${dati.titolo.trim()}".`
+      `${dati.priorita === "Alta" ? "🔴" : "📋"} Ti è stata assegnata una nuova lavorazione${dati.priorita === "Alta" ? " urgente" : ""} (${dati.categoria}): "${dati.titolo.trim()}".`
     );
   }
 

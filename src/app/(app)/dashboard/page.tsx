@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, Timer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, UserMinus2, Timer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, getDatiReparto, REPARTI_ELENCO } from "@/lib/analytics";
@@ -486,8 +486,13 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
         <h2 className="font-heading text-lg font-bold capitalize">Amministrazione — {dati.mese}</h2>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Kpi icona={UserPlus2} etichetta="Acquisizioni del mese" valore={dati.acquisizioniTotali} colore="text-primary" />
+        {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
+        restanti) — prima si vedeva solo il lato acquisizioni: un mese con
+        poche acquisizioni ma molte cessazioni sembrava comunque "normale".
+        Vedi getDatiAmministrazione() in lib/analytics.ts. */}
+        <Kpi icona={UserMinus2} etichetta="Cessazioni del mese" valore={dati.cessazioniTotali} colore="text-critical" />
         <Kpi icona={Euro} etichetta="Ricavi del mese" valore={`€ ${dati.ricaviTotali.toLocaleString("it-IT")}`} colore="text-success" />
         <Kpi icona={Gauge} etichetta="Ticket completati" valore={dati.ticketCompletatiTotali} colore="text-foreground" />
       </div>

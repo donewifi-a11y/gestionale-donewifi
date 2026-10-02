@@ -529,10 +529,20 @@ export function VistaTecnicoBoard({
                     href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                    className="mb-1.5 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
                   >
                     <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                     {a.indirizzo}
+                  </a>
+                )}
+                {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
+                restanti, migrazione 0087) — senza Ticket collegato (es.
+                Nuova installazione pianificata prima che esista un Ticket)
+                non c'era alcun numero da chiamare da questa schermata. */}
+                {a.telefono_cliente && (
+                  <a href={`tel:${a.telefono_cliente}`} className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary">
+                    <Phone className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    {a.telefono_cliente}
                   </a>
                 )}
                 {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
@@ -588,10 +598,16 @@ export function VistaTecnicoBoard({
                   href={`https://maps.google.com/?q=${encodeURIComponent(a.indirizzo)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+                  className="mb-1.5 flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
                 >
                   <IconaCategoria icona={MapPin} categoria="luogo" dimensione="sm" />
                   {a.indirizzo}
+                </a>
+              )}
+              {a.telefono_cliente && (
+                <a href={`tel:${a.telefono_cliente}`} className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <Phone className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  {a.telefono_cliente}
                 </a>
               )}
               {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}

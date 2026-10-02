@@ -579,7 +579,7 @@ function VistaGiorno({
           key={a.id}
           a={a}
           tecnico={trovaPersona(a.tecnico_id)}
-          telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? null}
+          telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente ?? null}
           onApri={onApri}
           onCambiaStato={onCambiaStato}
         />
@@ -674,7 +674,7 @@ function VistaSettimana({
                   key={a.id}
                   a={a}
                   tecnico={trovaPersona(a.tecnico_id)}
-                  telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? null}
+                  telefono={ticket.find((t) => t.id === a.ticket_id)?.telefono ?? a.telefono_cliente ?? null}
                   onApri={onApri}
                   onCambiaStato={onCambiaStato}
                 />
@@ -1014,6 +1014,7 @@ function FormNuovoAppuntamento({
         ticketId,
         note: String(dati.get("note") || ""),
         tipoServizio,
+        telefonoCliente: String(dati.get("telefonoCliente") || ""),
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1073,6 +1074,15 @@ function FormNuovoAppuntamento({
             ))}
           </select>
         </div>
+        {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
+        restanti, migrazione 0087) — senza un Ticket, Vista Tecnico/pose non
+        avrebbero alcun numero da chiamare per questo appuntamento. */}
+        {!ticketId && (
+          <div>
+            <Label htmlFor="telefonoCliente">Telefono cliente (facoltativo)</Label>
+            <Input id="telefonoCliente" name="telefonoCliente" type="tel" placeholder="Per chi fa il sopralluogo/l'intervento" className="mt-1 bg-background" />
+          </div>
+        )}
 
         <SezioneForm icona={Wrench} titolo="Servizio">
           <SelettoreTipoServizio value={tipoServizio} onChange={setTipoServizio} />
@@ -1212,7 +1222,7 @@ function FormModificaAppuntamento({
   const dataOra = new Date(appuntamento.data_ora);
   const dataDefault = dataOra.toISOString().slice(0, 10);
   const oraDefault = dataOra.toTimeString().slice(0, 5);
-  const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? null;
+  const telefonoCliente = ticket.find((t) => t.id === appuntamento.ticket_id)?.telefono ?? appuntamento.telefono_cliente ?? null;
   const [tipoServizio, setTipoServizio] = useState<TipoServizioAppuntamento>(appuntamento.tipo_servizio);
   // ★ NUOVA (2026-09-14, "controllo completo... a prova di scemo") — stesso
   // motivo del gemello in FormNuovoAppuntamento più sopra: si sta comunque
@@ -1259,6 +1269,7 @@ function FormModificaAppuntamento({
         tecnicoId,
         note: String(dati.get("note") || ""),
         tipoServizio,
+        telefonoCliente: String(dati.get("telefonoCliente") || ""),
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1447,6 +1458,19 @@ function FormModificaAppuntamento({
           </div>
         </SezioneForm>
 
+        {!appuntamento.ticket_id && (
+          <div>
+            <Label htmlFor="telefonoCliente-m">Telefono cliente (facoltativo)</Label>
+            <Input
+              id="telefonoCliente-m"
+              name="telefonoCliente"
+              type="tel"
+              defaultValue={appuntamento.telefono_cliente ?? ""}
+              placeholder="Per chi fa il sopralluogo/l'intervento"
+              className="mt-1"
+            />
+          </div>
+        )}
         <div>
           <Label htmlFor="note-m">Note</Label>
           <Input id="note-m" name="note" defaultValue={appuntamento.note ?? ""} className="mt-1" />

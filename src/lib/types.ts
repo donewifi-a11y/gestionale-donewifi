@@ -318,6 +318,13 @@ export interface Appuntamento {
    * ESTERNO (sistema pose.donewifi.it) — vedi lo stesso commento su
    * `Ticket.tecnico_esterno_id`. */
   tecnico_esterno_id: string | null;
+  /** ★ NUOVA (2026-10-02, audit completezza funzionale — moduli restanti,
+   * migrazione 0087) — fallback usato SOLO quando `ticket_id` è null: con
+   * un Ticket collegato il numero si legge da lì (fonte più affidabile).
+   * Senza, un appuntamento pianificato a mano (es. Nuova installazione
+   * prima che esista un Ticket) non avrebbe altrimenti alcun numero da
+   * chiamare in Vista Tecnico/pose. */
+  telefono_cliente: string | null;
   note: string | null;
   stato: StatoAppuntamento;
   tipo_servizio: TipoServizioAppuntamento;
@@ -569,8 +576,10 @@ export interface TodoPersonale {
 
 export type CategoriaLavorazione = "Rete" | "Ufficio";
 export type StatoLavorazione = "Da fare" | "In corso" | "Fatta";
+export type PrioritaLavorazione = "Normale" | "Alta";
 export const CATEGORIE_LAVORAZIONE: CategoriaLavorazione[] = ["Rete", "Ufficio"];
 export const STATI_LAVORAZIONE: StatoLavorazione[] = ["Da fare", "In corso", "Fatta"];
+export const PRIORITA_LAVORAZIONE: PrioritaLavorazione[] = ["Normale", "Alta"];
 
 /** ★ NUOVA — lavorazioni interne (non pratiche cliente) assegnabili da un
  * amministratore, divise Rete/Ufficio — a differenza di TodoPersonale
@@ -578,7 +587,10 @@ export const STATI_LAVORAZIONE: StatoLavorazione[] = ["Da fare", "In corso", "Fa
  * responsabile e chi l'ha assegnata, e un promemoria automatico se
  * restano ferme (vedi ultimo_promemoria_il). Niente scadenza per scelta
  * esplicita — il promemoria si basa su quanto tempo è ferma, non su una
- * data limite. */
+ * data limite.
+ * ★ ESTESA (2026-10-02, audit completezza funzionale — moduli restanti,
+ * migrazione 0086) — `priorita` per distinguere "urgente" da "quando hai
+ * tempo" quando la stessa persona ha più lavorazioni assegnate insieme. */
 export interface LavorazioneInterna {
   id: string;
   categoria: CategoriaLavorazione;
@@ -587,6 +599,7 @@ export interface LavorazioneInterna {
   assegnato_a: string;
   assegnato_da: string;
   stato: StatoLavorazione;
+  priorita: PrioritaLavorazione;
   creato_il: string;
   completato_il: string | null;
   ultimo_promemoria_il: string | null;

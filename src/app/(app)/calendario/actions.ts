@@ -78,7 +78,7 @@ export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
  */
 async function descrizioneEventoGoogle(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  dati: { ticketId: string; tecnicoId: string; note: string }
+  dati: { ticketId: string; tecnicoId: string; note: string; telefonoCliente?: string | null }
 ): Promise<string | null> {
   const righe: string[] = [];
 
@@ -88,6 +88,14 @@ async function descrizioneEventoGoogle(
       righe.push(`Ticket #${ticket.numero} — ${ticket.cliente}`);
       if (ticket.telefono) righe.push(`Tel: ${ticket.telefono}`);
     }
+  } else if (dati.telefonoCliente) {
+    // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+    // migrazione 0087) — senza Ticket (es. Nuova installazione pianificata
+    // prima che esista un Ticket) il numero del cliente, se c'è, veniva
+    // scritto solo sulla riga `appuntamenti.telefono_cliente`, mai riportato
+    // qui — il tecnico lo vede solo aprendo il gestionale, non da Google
+    // Calendar, dove spesso guarda per primo prima di partire.
+    righe.push(`Tel: ${dati.telefonoCliente}`);
     // ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo: "quale
     // antenna mettere") — Analisi Rete può riservare in anticipo
     // un'antenna dell'inventario per questo Ticket (vedi
@@ -206,6 +214,7 @@ export async function creaAppuntamento(dati: {
   ticketId: string;
   note: string;
   tipoServizio: TipoServizioAppuntamento;
+  telefonoCliente?: string;
 }) {
   const supabase = await createClient();
   const {
@@ -227,7 +236,7 @@ export async function creaAppuntamento(dati: {
   const googleEventId = await creaEventoCalendario({
     titolo: dati.titolo,
     indirizzo: dati.indirizzo || null,
-    note: await descrizioneEventoGoogle(supabase, { ticketId: dati.ticketId, tecnicoId: dati.tecnicoId, note: dati.note }),
+    note: await descrizioneEventoGoogle(supabase, { ticketId: dati.ticketId, tecnicoId: dati.tecnicoId, note: dati.note, telefonoCliente: dati.telefonoCliente }),
     dataOraInizio: dati.dataOra,
     durataMinuti: dati.durataMinuti,
   });
@@ -239,6 +248,11 @@ export async function creaAppuntamento(dati: {
     durata_minuti: dati.durataMinuti,
     tecnico_id: dati.tecnicoId || null,
     ticket_id: dati.ticketId || null,
+    // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+    // migrazione 0087) — ha senso solo SENZA ticket: con un Ticket
+    // collegato il numero si legge da lì, un doppione qui potrebbe
+    // disallinearsi se il cliente lo aggiorna altrove.
+    telefono_cliente: dati.ticketId ? null : dati.telefonoCliente?.trim() || null,
     note: dati.note || null,
     tipo_servizio: dati.tipoServizio,
     creato_da: personaId,
@@ -269,6 +283,7 @@ export async function modificaAppuntamento(
     tecnicoId: string;
     note: string;
     tipoServizio: TipoServizioAppuntamento;
+    telefonoCliente?: string;
   }
 ) {
   const supabase = await createClient();
@@ -304,6 +319,10 @@ export async function modificaAppuntamento(
       tecnico_id: dati.tecnicoId || null,
       note: dati.note || null,
       tipo_servizio: dati.tipoServizio,
+      // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+      // migrazione 0087) — stesso principio di creaAppuntamento(): solo
+      // senza Ticket collegato, altrimenti resta quanto letto da lì.
+      ...(esistente?.ticket_id ? {} : { telefono_cliente: dati.telefonoCliente?.trim() || null }),
     })
     .eq("id", id);
   if (error) return { errore: error.message };
@@ -312,7 +331,12 @@ export async function modificaAppuntamento(
     await aggiornaEventoCalendario(esistente.google_event_id, {
       summary: dati.titolo,
       location: dati.indirizzo,
-      note: await descrizioneEventoGoogle(supabase, { ticketId: esistente.ticket_id ?? "", tecnicoId: dati.tecnicoId, note: dati.note }),
+      note: await descrizioneEventoGoogle(supabase, {
+        ticketId: esistente.ticket_id ?? "",
+        tecnicoId: dati.tecnicoId,
+        note: dati.note,
+        telefonoCliente: dati.telefonoCliente,
+      }),
       dataOraInizio: dati.dataOra,
       durataMinuti: dati.durataMinuti,
     });

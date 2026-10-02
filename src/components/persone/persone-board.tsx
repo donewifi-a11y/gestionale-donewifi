@@ -17,6 +17,7 @@ import {
   eliminaPersona,
   reimpostaPasswordPersona,
   getAttivitaPersona,
+  getModifichePermessiPersona,
   getCaricoPersona,
   type AttivitaPersona,
   type CaricoPersona,
@@ -319,11 +320,13 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
     errore: null,
   });
   const [attivita, setAttivita] = useState<AttivitaPersona[]>([]);
+  const [modifichePermessi, setModifichePermessi] = useState<AttivitaPersona[]>([]);
   const [carico, setCarico] = useState<CaricoPersona | null>(null);
   const eSeStesso = persona.id === currentUserId;
 
   useEffect(() => {
     getAttivitaPersona(persona.id).then(setAttivita);
+    getModifichePermessiPersona(persona.id).then(setModifichePermessi);
     getCaricoPersona(persona.id).then(setCarico);
   }, [persona.id]);
 
@@ -460,6 +463,26 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
                   <span className="text-muted-foreground">{new Date(a.data).toLocaleDateString("it-IT")}</span>{" "}
                   <span className="font-medium">{a.operazione}</span>{" "}
                   <span className="text-muted-foreground">({a.origine})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* ★ FIX (2026-10-02, audit completezza funzionale — moduli
+        restanti, migrazione 0085) — "Attività recente" sopra mostra cosa
+        ha FATTO questa persona; qui, il gemello: chi ha MODIFICATO questa
+        persona (reparti/amministratore/attivo) — prima nessuna traccia. */}
+        {modifichePermessi.length > 0 && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <ShieldAlert className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Modifiche ai permessi
+            </div>
+            <ul className="flex flex-col gap-1.5">
+              {modifichePermessi.map((m) => (
+                <li key={m.id} className="rounded-md border bg-card px-2.5 py-1.5 text-xs">
+                  <span className="text-muted-foreground">{new Date(m.data).toLocaleString("it-IT")}</span> — {m.operazione}
                 </li>
               ))}
             </ul>
