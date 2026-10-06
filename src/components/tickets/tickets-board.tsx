@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UserRound, X, Search, ChevronRight, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check, Clock } from "lucide-react";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -185,6 +185,17 @@ function raggruppaPerCategoria(items: Ticket[]): { chiave: string; sottocategori
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+// ★ NUOVA (2026-10-06, richiesta esplicita: "l'interfaccia dei ticket da
+// prendere in carico è troppo difficile e caotica" — proposta con artifact
+// "Prendi in carico — alternative", opzione B scelta dall'utente) — stesso
+// numero che tempoRelativo() già calcola per "agg. Xh fa", riformulato per
+// la coda "Da assegnare": lì il punto è DA QUANDO aspetta, non quando è
+// stato aggiornato l'ultima volta.
+function attesaDa(dataCreazione: string): string {
+  const rel = tempoRelativo(dataCreazione);
+  return rel === "ora" ? "appena arrivato" : `in attesa da ${rel.replace(/ fa$/, "")}`;
 }
 
 // ★ NUOVA (2026-09-24, richiesta esplicita: "per i ticket di disdetta e
@@ -407,6 +418,27 @@ export function TicketsBoard({
     }
     return mappa;
   }, [appuntamentiProgrammati]);
+
+  // ★ NUOVA (2026-10-06, richiesta esplicita — redesign "Prendi in carico",
+  // opzione B) — i ticket non assegnati (né a staff interno né a un
+  // tecnico esterno) escono dal Kanban e finiscono in una coda dedicata in
+  // cima alla bacheca (vedi JSX sotto): niente più azione nascosta in un
+  // angolo di una card densa, un bottone grande sempre visibile per riga.
+  // Deriva da `filtrati` apposta: rispetta gli stessi filtri già attivi
+  // (reparto/categoria/priorità/ricerca) invece di ignorarli, così la coda
+  // e il Kanban restano sempre coerenti tra loro. Ordinata per priorità e
+  // poi per chi aspetta da più tempo — il punto della coda è proprio quello.
+  const nonAssegnatiCoda = useMemo(
+    () =>
+      filtrati
+        .filter((t) => !t.tecnico_assegnato && !t.tecnico_esterno_id)
+        .sort(
+          (a, b) =>
+            ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita] ||
+            new Date(a.data_creazione).getTime() - new Date(b.data_creazione).getTime()
+        ),
+    [filtrati]
+  );
 
   function trovaPersona(id: string | null) {
     return id ? persone.find((p) => p.id === id) ?? null : null;
@@ -707,9 +739,82 @@ export function TicketsBoard({
         </div>
       )}
 
+      {/* ★ NUOVA (2026-10-06, redesign "Prendi in carico" — richiesta
+      esplicita: "troppo difficile e caotico", proposta con artifact
+      "Prendi in carico — alternative", opzione B scelta dall'utente) —
+      coda dedicata, separata dal Kanban: niente più azione nascosta in un
+      angolo di una card densa, visibile solo al passaggio del mouse (il
+      vecchio bottone-fantasma non funzionava affatto su tablet/touch,
+      senza hover). Una riga, un bottone grande sempre visibile — stesso
+      principio già collaudato in Vista Tecnico per la sezione "Non
+      assegnati". Zero ingombro quando non c'è nulla da assegnare (stesso
+      principio della barra bulk sopra). */}
+      {nonAssegnatiCoda.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-warning/30 bg-warning/5 p-4">
+          <div className="mb-1 flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.4} />
+            </span>
+            <span className="font-heading text-sm font-bold">Da assegnare</span>
+            <span className="rounded-full bg-warning px-2.5 py-0.5 text-xs font-bold text-warning-foreground">{nonAssegnatiCoda.length}</span>
+            <span className="ml-auto text-xs text-muted-foreground">ordinati per priorità e tempo di attesa</span>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            {nonAssegnatiCoda.map((t) => {
+              const colore = coloreReparto(t.reparto);
+              return (
+                <div
+                  key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setAperto(t)}
+                  onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
+                  className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border bg-card p-3 transition hover:border-primary/40 hover:bg-muted/30 sm:flex-nowrap"
+                >
+                  {colore && <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${colore.fascia}`} />}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="truncate font-semibold">{t.cliente}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">#{t.numero}</span>
+                    </div>
+                    {(t.sottocategoria || t.problema) && (
+                      <div className="truncate text-xs text-muted-foreground">{t.categoria} · {t.sottocategoria || t.problema}</div>
+                    )}
+                  </div>
+                  {t.priorita === "Urgente" && (
+                    <span className="shrink-0 rounded-full bg-critical px-2.5 py-0.5 text-[11px] font-bold text-critical-foreground">Urgente</span>
+                  )}
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" strokeWidth={2.3} />
+                    {attesaDa(t.data_creazione)}
+                  </span>
+                  <Button
+                    onClick={(e) => prendiInCarico(t, e)}
+                    disabled={ticketInCorso.has(t.id)}
+                    className="min-h-11 w-full shrink-0 sm:w-auto"
+                  >
+                    {ticketInCorso.has(t.id) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+                    ) : (
+                      <UserPlus className="h-4 w-4" strokeWidth={2.4} />
+                    )}
+                    Prendi in carico
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLONNE.map((col) => {
-          const items = filtrati.filter((t) => col.stati.includes(t.stato));
+          // ★ FIX (2026-10-06, redesign "Prendi in carico", opzione B) — un
+          // ticket non assegnato ora vive SOLO nella coda "Da assegnare"
+          // sopra (vedi nonAssegnatiCoda), mai duplicato anche qui: il
+          // Kanban mostra l'avanzamento di ciò che è già in carico a
+          // qualcuno, la coda il "chi se ne occupa" ancora da decidere.
+          const items = filtrati.filter((t) => col.stati.includes(t.stato) && (t.tecnico_assegnato || t.tecnico_esterno_id));
           return (
             <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
               <div className="mb-1 flex items-center justify-between px-1">
@@ -996,21 +1101,15 @@ export function TicketsBoard({
                               )
                             )}
                             <div className="absolute right-2 top-1.5 flex translate-x-1 items-center gap-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
-                              {!assegnatario && !assegnatarioEsterno && (
-                                <button
-                                  onClick={(e) => prendiInCarico(t, e)}
-                                  disabled={ticketInCorso.has(t.id)}
-                                  title="Prendi in carico"
-                                  aria-label="Prendi in carico"
-                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed bg-card text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-60"
-                                >
-                                  {ticketInCorso.has(t.id) ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} />
-                                  ) : (
-                                    <UserPlus className="h-3 w-3" strokeWidth={2.5} />
-                                  )}
-                                </button>
-                              )}
+                              {/* ★ RIMOSSO (2026-10-06, redesign "Prendi in
+                              carico", opzione B) — il bottone "Prendi in
+                              carico" nascosto in hover, qui, non poteva mai
+                              più comparire (ogni card del Kanban ha ormai
+                              sempre un assegnatario — vedi il filtro su
+                              `items` sopra): i ticket non assegnati vivono
+                              solo nella coda dedicata in cima alla bacheca,
+                              con un bottone grande sempre visibile, mai più
+                              un'icona introvabile al passaggio del mouse. */}
                               {/* ★ NUOVA — riassegna un Ticket già preso senza
                               aprire il dettaglio (vedi riassegnaInline sopra):
                               select "invisibile" (nessun bordo a riposo),

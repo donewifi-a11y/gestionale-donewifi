@@ -6527,3 +6527,35 @@ appena aggiunta), rotta `/api/richiesta-cliente` per il resto (rate limiting, ho
 IDOR, messaggi grezzi), upload documenti pratiche cliente.
 
 Build/lint puliti (0 errori) su tutto il lotto. Nessuna nuova migrazione.
+
+## Redesign "Prendi in carico" — modulo Ticket (2026-10-06)
+
+Richiesta esplicita: "riusciamo a rivedere l'interfaccia dei ticket da prendere in
+carico? Troppo difficile e caotico" — diagnosi sul codice reale (non a occhio): il
+bottone "Prendi in carico" era un'icona nascosta in `opacity-0 group-hover:opacity-100`,
+visibile solo al passaggio del mouse, nello stesso angolo dell'avatar che "spariva"
+all'hover — inutilizzabile da tablet/touch (niente hover). Presentate 4 alternative via
+artifact (canvas con mockup A/B/C/D); scelta l'utente: **opzione B**.
+
+✅ **Coda "Da assegnare" sopra il Kanban, invece del bottone nascosto in hover**
+(2026-10-06). I ticket non assegnati (né a staff interno né a un tecnico esterno)
+escono dal Kanban e finiscono in una coda dedicata in cima alla bacheca — stesso
+principio già collaudato in Vista Tecnico per la sezione "Non assegnati", qui esteso
+alla bacheca Ticket principale che non lo usava.
+
+- Ogni riga: cliente, categoria/sottocategoria, badge "Urgente" se tale, tempo di attesa
+  ("in attesa da 2h"), e un bottone **grande e sempre visibile** ("Prendi in carico",
+  `min-h-11` — la stessa soglia di tocco già standard nel resto del gestionale) — mai
+  più nascosto in hover.
+- Ordinata per priorità poi per chi aspetta da più tempo.
+- Deriva dagli stessi filtri già attivi sulla bacheca (reparto/categoria/priorità/
+  ricerca): coda e Kanban restano sempre coerenti tra loro, non due viste scollegate.
+- Il Kanban ora mostra solo ciò che è già assegnato a qualcuno — niente più
+  duplicazione tra "chi se ne occupa" (la coda) e "a che punto è" (il Kanban). Rimosso
+  il vecchio bottone-fantasma dalla card Kanban: non poteva più comparire (ogni card lì
+  ha ormai sempre un assegnatario), tenerlo sarebbe stato codice morto.
+- Zero ingombro quando non c'è nulla da assegnare (la sezione non si disegna affatto),
+  stesso principio già in uso per la barra delle azioni bulk.
+
+Build/lint puliti (0 errori). Nessuna migrazione — solo riorganizzazione della UI,
+`tecnico_assegnato`/`tecnico_esterno_id` erano già le colonne giuste.
