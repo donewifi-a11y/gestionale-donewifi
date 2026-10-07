@@ -6659,3 +6659,26 @@ soglia delle 4 card ed essere collassato in una sola, nascondendo Ticket distint
   misto, che resta sempre mostrato per intero come prima del redesign.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Fix — la coda "Da assegnare" svuotava "In Verifica" dei ticket Assistenza**
+(2026-10-07, bug reale segnalato: "ci sono i ticket di assistenza che mancano"). Il
+fix precedente ("vedo solo disdetta") aveva corretto il collasso ma non la causa vera:
+`nonAssegnatiCoda` prendeva ogni Ticket non assegnato con `stato !== "Completato"` —
+non solo quelli "Da gestire" (ancora da iniziare), ma anche quelli già avviati ("In
+lavorazione"/"In attesa", colonna "In Verifica") rimasti senza tecnico. Risultato
+verificato sui dati reali: 21 dei 32 Ticket "In Verifica" (tutti "Assistenza", nessuno
+"Disdetta") finivano nella coda in cima invece che nella loro colonna — la colonna
+mostrava solo gli 11 rimasti assegnati, che per puro caso dei dati erano tutti
+"Disdetta": sembrava un collasso sbagliato, ma i Ticket Assistenza erano semplicemente
+spariti dalla colonna, non raggruppati male al suo interno.
+
+- `nonAssegnatiCoda` ora richiede anche `stato === "Da gestire"` — la coda resta per il
+  suo scopo originale (primo smistamento), un Ticket già oltre quel passaggio resta
+  nella sua colonna indipendentemente dall'assegnazione, come prima del redesign.
+- Stessa correzione simmetrica sull'esclusione dei non assegnati dal Kanban: prima
+  valeva per ogni colonna, ora solo per "Da Lavorare" (stato "Da gestire").
+- Verificato di nuovo sui dati reali dopo la correzione: "In Verifica" torna a 32
+  Ticket visibili (18 Disdetta collassati in una card, 14 Assistenza misti mostrati per
+  intero); la coda scende da 21+ a 8 — solo i Ticket davvero nuovi.
+
+Build/lint puliti (0 errori). Nessuna migrazione.

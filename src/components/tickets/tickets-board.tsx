@@ -478,7 +478,19 @@ export function TicketsBoard({
         // (es. chiuso da un flusso che non passa da assegnaTicket, o dato
         // storico) finiva comunque in coda come se andasse ancora preso in
         // carico. La coda ha senso solo per chi non è ancora stato chiuso.
-        .filter((t) => !t.tecnico_assegnato && !t.tecnico_esterno_id && t.stato !== "Completato")
+        //
+        // ★ FIX (2026-10-07, bug reale segnalato: "ci sono i ticket di
+        // assistenza che mancano") — `t.stato !== "Completato"` lasciava
+        // dentro anche i Ticket già avviati ("In lavorazione"/"In attesa",
+        // colonna "In Verifica") ma senza tecnico assegnato: finivano
+        // anche loro nella coda in cima, sparendo dalla colonna "In
+        // Verifica" — che quindi mostrava solo i (pochi) Ticket rimasti
+        // assegnati, in questo caso tutti "Disdetta" per puro caso dei
+        // dati reali. La coda "Da assegnare" ha senso solo per il primo
+        // smistamento (stato "Da gestire", ancora da iniziare): un Ticket
+        // già oltre quel passaggio resta nella sua colonna, assegnato o
+        // no, come prima di questo redesign.
+        .filter((t) => !t.tecnico_assegnato && !t.tecnico_esterno_id && t.stato === "Da gestire")
         .sort(
           (a, b) =>
             ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita] ||
@@ -857,11 +869,21 @@ export function TicketsBoard({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLONNE.map((col) => {
           // ★ FIX (2026-10-06, redesign "Prendi in carico", opzione B) — un
-          // ticket non assegnato ora vive SOLO nella coda "Da assegnare"
-          // sopra (vedi nonAssegnatiCoda), mai duplicato anche qui: il
-          // Kanban mostra l'avanzamento di ciò che è già in carico a
-          // qualcuno, la coda il "chi se ne occupa" ancora da decidere.
-          const items = filtrati.filter((t) => col.stati.includes(t.stato) && (t.tecnico_assegnato || t.tecnico_esterno_id));
+          // ticket non assegnato ANCORA DA INIZIARE ("Da gestire") vive
+          // SOLO nella coda "Da assegnare" sopra (vedi nonAssegnatiCoda),
+          // mai duplicato anche qui.
+          //
+          // ★ FIX (2026-10-07, bug reale segnalato: "ci sono i ticket di
+          // assistenza che mancano") — questa esclusione andava applicata
+          // SOLO alla colonna "Da Lavorare": qui invece escludeva i non
+          // assegnati da OGNI colonna, anche "In Verifica"/"Lavorata" — un
+          // Ticket già avviato ma rimasto senza tecnico (caso raro ma
+          // reale) spariva dalla sua colonna invece di restarci visibile
+          // come prima di questo redesign. Solo "Da gestire" (stesso stato
+          // della coda) resta filtrato.
+          const items = filtrati.filter(
+            (t) => col.stati.includes(t.stato) && (col.stati[0] !== "Da gestire" || t.tecnico_assegnato || t.tecnico_esterno_id)
+          );
           return (
             <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
               <div className="mb-1 flex items-center justify-between px-1">
