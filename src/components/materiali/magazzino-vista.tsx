@@ -90,7 +90,13 @@ function RigaMateriale({ materiale, isAdmin, onModifica }: { materiale: Material
     <button
       onClick={isAdmin ? onModifica : undefined}
       disabled={!isAdmin}
-      className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:enabled:bg-muted/40 disabled:cursor-default"
+      title={isAdmin ? undefined : "Solo un amministratore può modificare la giacenza"}
+      // ★ FIX (2026-10-07, audit d'oro gestionale) — per un non-admin la
+      // riga appariva identica a quella modificabile (stesso hover disattivato
+      // via CSS, nessun indizio visibile eccetto l'assenza della matita):
+      // un operatore senza permessi poteva cliccare più volte pensando che
+      // l'app fosse bloccata. `cursor-not-allowed` + tooltip esplicito.
+      className="flex w-full items-center justify-between gap-3 border-t p-3.5 text-left text-sm transition first:border-t-0 hover:enabled:bg-muted/40 disabled:cursor-not-allowed"
     >
       <div className="min-w-0">
         <div className="font-semibold">{materiale.nome}</div>

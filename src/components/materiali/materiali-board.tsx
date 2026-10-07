@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
+import { useConfirm } from "@/hooks/use-confirm";
 import { creaMateriale, aggiornaMateriale, eliminaMateriale } from "@/app/(app)/materiali/actions";
 import { SelettoreVisibilitaSchede } from "@/components/materiali/selettore-visibilita-schede";
 import { MagazzinoVista } from "@/components/materiali/magazzino-vista";
@@ -169,22 +170,34 @@ export function MaterialiBoard({
                         )}
                       </div>
                       {m.descrizione && <div className="truncate text-xs text-muted-foreground">{m.descrizione}</div>}
-                      <div className="text-xs text-muted-foreground">
-                        {m.comodato_uso ? (
-                          "Comodato d'uso gratuito"
-                        ) : m.attivazione_predefinita ? (
-                          <>{formattaValuta(m.prezzo_unitario)} — prezzo fisso, non ricalcolato</>
-                        ) : (
-                          <>
-                            {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Privato"))} privato · {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Business"))} business
-                            {m.unita_misura !== "pz" && ` / ${m.unita_misura}`}
-                          </>
-                        )}
-                      </div>
                     </div>
-                    {!m.attivo && (
-                      <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivato</span>
-                    )}
+                    {/* ★ FIX (2026-10-07, audit d'oro gestionale) — il prezzo
+                    era una frase lunga in grigio piccolo accanto al nome: un
+                    operatore che vuole solo "quanto costa questo pezzo" doveva
+                    leggere una frase intera invece di un numero a colpo
+                    d'occhio. Ora grande/in grassetto a destra, come in
+                    Preventivi/Tariffe; la spiegazione resta ma più piccola,
+                    sotto al numero principale. */}
+                    <div className="shrink-0 text-right">
+                      {!m.attivo ? (
+                        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Disattivato</span>
+                      ) : m.comodato_uso ? (
+                        <span className="font-mono text-sm font-bold text-success">Gratuito</span>
+                      ) : m.attivazione_predefinita ? (
+                        <>
+                          <div className="font-mono text-sm font-bold">{formattaValuta(m.prezzo_unitario)}</div>
+                          <div className="text-[10px] text-muted-foreground">prezzo fisso</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-mono text-sm font-bold">{formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Privato"))}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            privato · {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, "Business"))} business
+                            {m.unita_misura !== "pz" && ` / ${m.unita_misura}`}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -236,6 +249,11 @@ function FormMateriale({
   const [prezzo, setPrezzo] = useState<string>(materiale?.prezzo_unitario != null ? String(materiale.prezzo_unitario) : "");
   const prezzoNumero = Number(prezzo);
   const anteprima = prezzo && !Number.isNaN(prezzoNumero) && !comodato ? prezzoNumero : null;
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — confirm() nativo sostituito
+  // con useConfirm(), coerente col resto del gestionale — un materiale di
+  // listino può essere referenziato in preventivi passati, l'eliminazione
+  // merita lo stesso trattamento delle altre azioni distruttive.
+  const { confirm: confirmElimina, ConfirmDialog } = useConfirm();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -265,7 +283,9 @@ function FormMateriale({
   }
 
   async function elimina() {
-    if (!materiale || !confirm(`Eliminare il materiale "${materiale.nome}"?`)) return;
+    if (!materiale) return;
+    if (!(await confirmElimina({ titolo: "Eliminare il materiale?", descrizione: `Eliminare il materiale "${materiale.nome}"? Se è referenziato in preventivi o schede passate, l'eliminazione verrà rifiutata.`, testoConferma: "Elimina", distruttivo: true })))
+      return;
     setInCorso(true);
     const risultato = await eliminaMateriale(materiale.id);
     setInCorso(false);
@@ -330,14 +350,18 @@ function FormMateriale({
               onChange={(e) => setAttivazionePredefinita((e.target.value || null) as MaterialeMagazzino["attivazione_predefinita"])}
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
-              <option value="">Nessuna — voce scelta manualmente</option>
-              <option value="Privato">Aggiungi da sola per clienti Privato</option>
-              <option value="Business">Aggiungi da sola per clienti Business</option>
+              {/* ★ FIX (2026-10-07, audit d'oro gestionale) — etichette più
+              dirette: "si aggiunge da sola", non "aggiungi da sola" (che
+              suonava come un'istruzione da eseguire, non come l'effetto
+              automatico del campo). */}
+              <option value="">Nessuna — si sceglie manualmente in Scheda</option>
+              <option value="Privato">Si aggiunge da sola per i clienti Privato</option>
+              <option value="Business">Si aggiunge da sola per i clienti Business</option>
               {/* ★ NUOVA (2026-08-28, richiesta esplicita: "il costo è di 60€
               e non il costo di privato o business") — al posto della riga
               Privato/Business, non insieme, per un Ticket sottocategoria
               Trasferimento. Vedi migrazione 0067 e selettore-materiali.tsx. */}
-              <option value="Trasferimento">Aggiungi da sola per un Trasferimento</option>
+              <option value="Trasferimento">Si aggiunge da sola per un Trasferimento</option>
             </select>
           </div>
         )}
@@ -385,17 +409,24 @@ function FormMateriale({
           <Button type="submit" disabled={inCorso} className="flex-1">
             {inCorso ? "Salvataggio..." : materiale ? "Salva modifiche" : "Aggiungi"}
           </Button>
-          {/* ★ FIX (2026-08-27, trovato in un audit) — eliminaMateriale() ora
-          richiede un amministratore lato server (prima bastava essere
-          staff attivo, l'unica eccezione a "elimina = admin" in tutto il
-          gestionale): il pulsante segue la stessa regola invece di restare
-          visibile a chi poi riceverebbe solo un errore al click. */}
-          {materiale && isAdmin && (
-            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} title="Elimina materiale" aria-label="Elimina materiale">
-              <Trash2 className="h-4 w-4" strokeWidth={2.25} />
-            </Button>
-          )}
         </div>
+        {/* ★ FIX (2026-10-07, audit d'oro gestionale) — l'icona "elimina"
+        affiancata a "Salva modifiche", stesso stile/dimensione: un click
+        sbagliato sul pulsante adiacente rischiava di eliminare un materiale
+        di listino. Spostata in fondo, separata da un bordo, con testo
+        esplicito invece della sola icona.
+        ★ (2026-08-27, trovato in un audit) — eliminaMateriale() richiede un
+        amministratore lato server: il pulsante segue la stessa regola
+        invece di restare visibile a chi poi riceverebbe solo un errore. */}
+        {materiale && isAdmin && (
+          <div className="mt-1 border-t pt-3">
+            <Button type="button" variant="outline" disabled={inCorso} onClick={elimina} className="w-full border-critical/30 text-critical hover:bg-critical/10">
+              <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+              Elimina materiale
+            </Button>
+          </div>
+        )}
+        <ConfirmDialog />
       </form>
     </>
   );

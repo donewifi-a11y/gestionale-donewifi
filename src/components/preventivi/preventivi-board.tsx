@@ -110,12 +110,21 @@ export function PreventiviBoard({
             className="h-9 w-56 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
+        {/* ★ FIX (2026-10-07, audit d'oro gestionale) — i filtri stato non
+        avevano un contatore, a differenza di tab simili altrove nel
+        gestionale (Materiali "Da trasferire", Lavorazioni per categoria):
+        un operatore non sapeva a colpo d'occhio quanti preventivi fossero
+        "in attesa" senza cliccare il filtro. */}
         <div className="flex gap-1">
-          {FILTRI_STATO.map((s) => (
-            <Button key={s} size="sm" variant={filtroStato === s ? "default" : "outline"} aria-pressed={filtroStato === s} onClick={() => setFiltroStato(s)}>
-              {s}
-            </Button>
-          ))}
+          {FILTRI_STATO.map((s) => {
+            const conteggio = s === "Tutti" ? preventivi.length : preventivi.filter((p) => p.stato === s).length;
+            return (
+              <Button key={s} size="sm" variant={filtroStato === s ? "default" : "outline"} aria-pressed={filtroStato === s} onClick={() => setFiltroStato(s)}>
+                {s}
+                {conteggio > 0 && <span className="ml-1 opacity-70">{conteggio}</span>}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
@@ -283,16 +292,27 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
 
         {preventivo.stato === "Bozza" && (
           <>
-            <Button onClick={invia} disabled={inCorsoInvio || !preventivo.cliente_email} className="min-h-11 w-full">
-              {inCorsoInvio ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} /> : <Send className="h-4 w-4" strokeWidth={2.25} />}
-              {inCorsoInvio ? "Invio in corso…" : "Invia per approvazione"}
-            </Button>
+            {/* ★ FIX (2026-10-07, audit d'oro gestionale) — l'avviso "serve
+            un'email" era DOPO il bottone, visivamente identico a un bottone
+            attivo (solo l'opacità ridotta del `disabled`, facile non
+            notare): un operatore che torna giorni dopo su una bozza senza
+            email non capiva perché "non succede nulla" al click. Ora
+            l'avviso precede il bottone, e l'etichetta del bottone stesso
+            cambia quando manca l'email — niente scoperto solo al click. */}
             {!preventivo.cliente_email && (
               <p className="flex items-center gap-1 text-xs text-warning">
                 Serve un&apos;email per inviarlo — aggiungila creando un nuovo preventivo con il cliente collegato.
                 <SuggerimentoCampo testo="Il link di approvazione viene inviato via email: senza un indirizzo collegato al preventivo non c'è modo di recapitarlo al cliente." />
               </p>
             )}
+            <Button onClick={invia} disabled={inCorsoInvio || !preventivo.cliente_email} className="min-h-11 w-full">
+              {inCorsoInvio ? (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+              ) : (
+                <Send className="h-4 w-4" strokeWidth={2.25} />
+              )}
+              {inCorsoInvio ? "Invio in corso…" : !preventivo.cliente_email ? "Manca l'email del cliente" : "Invia per approvazione"}
+            </Button>
             {errore && <p className="text-xs text-critical">{errore}</p>}
           </>
         )}

@@ -6855,3 +6855,38 @@ sopra), poi applicazione modulo per modulo con build/lint a ogni tappa.
   risultato") — ora un "Caricamento…" esplicito finché i dati non arrivano.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Controllo d'oro gestionale — secondo gruppo: Materiali, Preventivi,
+Tariffe, Lavorazioni** (2026-10-07).
+
+- **Materiali**: il prezzo era una frase lunga in grigio piccolo accanto al
+  nome — ora un numero grande/in grassetto a destra della riga, come in
+  Preventivi/Tariffe. "Elimina materiale" non è più affiancato a "Salva
+  modifiche" (rischio di click sbagliato su un materiale di listino) —
+  spostato in fondo, separato, con `useConfirm()` al posto di `confirm()`
+  nativo. Etichette del campo "Attivazione predefinita" più dirette ("si
+  aggiunge da sola" invece di "aggiungi da sola"). Riga disattivata per un
+  non-admin in Magazzino ora con `cursor-not-allowed` + tooltip esplicito
+  invece di sembrare un'app bloccata.
+- **Preventivi**: "Aggiungi da catalogo" era una parete di pulsanti senza
+  ricerca — aggiunto un campo di ricerca che filtra tariffe e materiali
+  insieme. I filtri di stato in bacheca ora mostrano un contatore (come
+  "Da trasferire" in Materiali). Il bottone "Invia per approvazione" quando
+  manca l'email ora lo dice PRIMA del click (avviso spostato sopra il
+  bottone + etichetta del bottone stesso cambiata), non solo con
+  un'opacità ridotta silenziosa.
+- **Tariffe**: "Tariffe non più sottoscrivibili" era un link testuale in
+  fondo pagina — ora anche un bottone visibile in alto accanto ad "Aggiungi
+  Tariffa". L'icona "sospendi" (l'unica delle tre azioni-riga con una
+  conseguenza vera, affiancata a "nascondi"/"duplica") ha ora un colore
+  distinto invece di essere identica alle altre due. L'etichetta del prezzo
+  nel form ora dice se è IVA inclusa o esclusa, invece di restare sempre
+  "Prezzo mensile (€)" qualunque fosse la scelta sotto. "Piani applicabili"
+  nel form Promozione ha "Seleziona tutti/Deseleziona tutti"; `confirm()`
+  nativo sostituito anche qui con `useConfirm()`.
+- **Lavorazioni**: solo priorità "Alta" aveva un indicatore visivo — ora
+  anche "Bassa" (un punto discreto). Il campo "Assegnata a" per un
+  non-admin era un `<select disabled>` con una sola opzione (sembrava un
+  controllo rotto) — ora un testo semplice "Me stesso".
+
+Build/lint puliti (0 errori). Nessuna migrazione.

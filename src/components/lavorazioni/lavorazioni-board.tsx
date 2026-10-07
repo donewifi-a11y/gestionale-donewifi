@@ -98,8 +98,15 @@ export function LavorazioniBoard({
                       onKeyDown={(e) => e.key === "Enter" && setAperta(l)}
                       className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
                     >
+                      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — solo
+                      "Alta" aveva un indicatore visivo (🔴): scorrendo la
+                      board non si distingueva a vista una lavorazione
+                      "Bassa" da una "Normale", bisognava aprire il
+                      dettaglio per saperlo. Un punto discreto per "Bassa"
+                      completa il quadro senza il peso visivo di un'emoji. */}
                       <div className="mb-1.5 flex items-center gap-1.5 font-semibold">
                         {l.priorita === "Alta" && <span title="Priorità alta">🔴</span>}
+                        {l.priorita === "Bassa" && <span title="Priorità bassa" className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />}
                         {l.titolo}
                       </div>
                       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -246,25 +253,29 @@ function FormNuovaLavorazione({
         </div>
         <div>
           <Label htmlFor="assegnatoA">Assegnata a</Label>
-          <select
-            id="assegnatoA"
-            value={assegnatoA}
-            onChange={(e) => setAssegnatoA(e.target.value)}
-            disabled={!isAdmin}
-            className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm disabled:opacity-60"
-          >
-            {isAdmin ? (
-              // ★ FIX (2026-10-02, audit d'oro — regressione) — `persone`
-              // ora arriva senza filtro attivo/non attivo (vedi page.tsx),
-              // per risolvere i nomi di assegnazioni esistenti; qui è una
-              // NUOVA assegnazione, restano scegliebili solo gli attivi.
-              persone.filter((p) => p.attivo).map((p) => (
+          {/* ★ FIX (2026-10-07, audit d'oro gestionale) — per un non-admin
+          questo era un `<select disabled>` con una sola opzione: visivamente
+          un controllo form grigio e inerte, facile scambiare per un errore
+          di caricamento invece che per un campo intenzionalmente bloccato.
+          Testo semplice invece di un finto controllo non funzionante. */}
+          {isAdmin ? (
+            <select
+              id="assegnatoA"
+              value={assegnatoA}
+              onChange={(e) => setAssegnatoA(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm"
+            >
+              {/* ★ FIX (2026-10-02, audit d'oro — regressione) — `persone`
+              ora arriva senza filtro attivo/non attivo (vedi page.tsx),
+              per risolvere i nomi di assegnazioni esistenti; qui è una
+              NUOVA assegnazione, restano scegliebili solo gli attivi. */}
+              {persone.filter((p) => p.attivo).map((p) => (
                 <option key={p.id} value={p.id}>{p.id === currentPersonaId ? `${p.nome} (io)` : p.nome}</option>
-              ))
-            ) : (
-              <option value={currentPersonaId}>Me stesso</option>
-            )}
-          </select>
+              ))}
+            </select>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">Me stesso</p>
+          )}
           {!isAdmin && <p className="mt-1 text-[11px] text-muted-foreground">Solo un amministratore può assegnarla a qualcun altro.</p>}
         </div>
         <div>

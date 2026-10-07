@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, AlertTriangle, Trash2, Copy, Percent, TriangleAlert, Ban, RotateCcw, Archive, Eye, EyeOff, Wifi, Tag } from "lucide-react";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import {
@@ -89,7 +90,23 @@ export function TariffeBoard({ tariffe, promozioni, isAdmin }: { tariffe: Tariff
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "Tariffe non più
+      sottoscrivibili" era un link testuale piccolo in fondo pagina: un
+      operatore che deve riattivare una tariffa sospesa per errore doveva
+      scrollare fino in fondo per notarlo. Ora un bottone visibile qui in
+      alto, accanto a "Aggiungi Tariffa" — il link in fondo resta anche lì
+      per chi scorre tutta la pagina. */}
+      <div className="mb-4 flex items-center justify-between gap-2">
+        {tariffeNonSottoscrivibili.length > 0 ? (
+          <Link href="/tariffe/non-sottoscrivibili">
+            <Button variant="outline">
+              <Archive className="h-4 w-4" strokeWidth={2.25} />
+              Non sottoscrivibili ({tariffeNonSottoscrivibili.length})
+            </Button>
+          </Link>
+        ) : (
+          <span />
+        )}
         <Button onClick={() => setNuova(true)}>
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           Aggiungi Tariffa
@@ -277,6 +294,12 @@ export function RigaTariffa({
             {t.pubblica ? <Eye className="h-3.5 w-3.5" strokeWidth={2.25} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={2.25} />}
           </Button>
         )}
+        {/* ★ FIX (2026-10-07, audit d'oro gestionale) — 3 icone affiancate
+        (occhio/pubblica, divieto/sospendi, copia) distinguibili solo dal
+        tooltip al passaggio del mouse — su schermi piccoli, senza hover,
+        un operatore può scambiare "sospendi" (qui, l'unica delle tre con
+        una conseguenza vera) per "nascondi dalla documentazione". Colore
+        distinto (rosso) solo per questa, invece di 3 bottoni identici. */}
         <Button
           size="icon"
           variant="ghost"
@@ -284,6 +307,7 @@ export function RigaTariffa({
           title={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
           aria-label={t.attivo ? "Rendi non più sottoscrivibile" : "Riattiva (torna sottoscrivibile)"}
           onClick={() => esegui(onToggle)}
+          className={t.attivo ? "text-critical hover:bg-critical/10 hover:text-critical" : undefined}
         >
           {t.attivo ? <Ban className="h-3.5 w-3.5" strokeWidth={2.25} /> : <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />}
         </Button>
@@ -371,7 +395,14 @@ export function FormTariffa({ tariffa, isAdmin = false, onFatto }: { tariffa?: T
             <Input id="velocita" name="velocita" defaultValue={tariffa?.velocita ?? ""} placeholder="Es. 1 Gbps" className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="prezzo_mensile">Prezzo mensile (€)</Label>
+            {/* ★ FIX (2026-10-07, audit d'oro gestionale) — l'etichetta
+            restava sempre "Prezzo mensile (€)" qualunque fosse la scelta
+            IVA inclusa/esclusa poco sotto, che invece cambia il significato
+            del numero qui dentro — un operatore poteva inserire un prezzo
+            pensando fosse lordo senza che il campo lo specificasse, stesso
+            trattamento già in uso in Materiali ("Prezzo finale" vs "Prezzo
+            cliente Privato"). */}
+            <Label htmlFor="prezzo_mensile">Prezzo mensile (€) — {ivaInclusa ? "IVA incl." : "IVA escl."}</Label>
             <Input
               id="prezzo_mensile"
               name="prezzo_mensile"
@@ -485,6 +516,8 @@ function FormPromozione({
   const router = useRouter();
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
+  const pianiRef = useRef<HTMLDivElement>(null);
+  const { confirm: confirmElimina, ConfirmDialog } = useConfirm();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -515,13 +548,25 @@ function FormPromozione({
   }
 
   async function elimina() {
-    if (!promozione || !confirm(`Eliminare la promozione "${promozione.nome}"?`)) return;
+    if (!promozione) return;
+    if (!(await confirmElimina({ titolo: "Eliminare la promozione?", descrizione: `Eliminare la promozione "${promozione.nome}"?`, testoConferma: "Elimina", distruttivo: true }))) return;
     setInCorso(true);
     const risultato = await eliminaPromozione(promozione.id);
     setInCorso(false);
     if (risultato.errore) return setErrore(risultato.errore);
     router.refresh();
     onFatto();
+  }
+
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — "Piani applicabili" era una
+  // lista di checkbox senza "seleziona tutti": con più di 10-15 tariffe,
+  // selezionarle una a una per una promo generale era scomodo. Imperativo
+  // sul DOM (non stato React) perché le checkbox restano non controllate
+  // (`defaultChecked`) — coerente col resto del form.
+  function selezionaTuttiPiani(seleziona: boolean) {
+    pianiRef.current?.querySelectorAll<HTMLInputElement>('input[name="tariffe_ids"]').forEach((el) => {
+      el.checked = seleziona;
+    });
   }
 
   return (
@@ -550,8 +595,16 @@ function FormPromozione({
           </div>
         </div>
         <div>
-          <Label>Piani applicabili *</Label>
-          <div className="mt-1.5 flex flex-col gap-1.5 rounded-md border p-2.5">
+          <div className="flex items-center justify-between">
+            <Label>Piani applicabili *</Label>
+            {tariffe.length > 1 && (
+              <div className="flex gap-2 text-xs font-semibold text-primary">
+                <button type="button" onClick={() => selezionaTuttiPiani(true)} className="hover:underline">Seleziona tutti</button>
+                <button type="button" onClick={() => selezionaTuttiPiani(false)} className="hover:underline">Deseleziona tutti</button>
+              </div>
+            )}
+          </div>
+          <div ref={pianiRef} className="mt-1.5 flex flex-col gap-1.5 rounded-md border p-2.5">
             {tariffe.map((t) => (
               <label key={t.id} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="tariffe_ids" value={t.id} defaultChecked={promozione?.tariffe_ids.includes(t.id)} className="h-4 w-4" />
@@ -592,6 +645,7 @@ function FormPromozione({
           )}
         </div>
       </form>
+      <ConfirmDialog />
     </>
   );
 }

@@ -83,6 +83,15 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
 
   const tariffeVisibili = tariffe.filter((t) => t.tipologia_cliente === "Tutti" || t.tipologia_cliente === tipologiaCliente);
   const tipoPrezzo = tipologiaCliente === "Azienda" ? "Business" : "Privato";
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — "Aggiungi da catalogo"
+  // mostrava TUTTE le tariffe e TUTTI i materiali come una parete di
+  // pulsanti senza ricerca: con un catalogo medio-grande, trovare la voce
+  // giusta richiedeva di scorrere a vista decine di bottoni uguali. Stesso
+  // pattern di ricerca già in uso altrove (Materiali, Antenne).
+  const [ricercaCatalogo, setRicercaCatalogo] = useState("");
+  const testoRicercaCatalogo = ricercaCatalogo.trim().toLowerCase();
+  const tariffeFiltrate = testoRicercaCatalogo ? tariffeVisibili.filter((t) => t.nome.toLowerCase().includes(testoRicercaCatalogo)) : tariffeVisibili;
+  const materialiFiltrati = testoRicercaCatalogo ? materiali.filter((m) => m.nome.toLowerCase().includes(testoRicercaCatalogo)) : materiali;
 
   function aggiungiTariffa(t: Tariffa) {
     if (t.prezzo_mensile == null) return;
@@ -232,11 +241,22 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
 
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Aggiungi da catalogo</p>
+          <div className="relative mb-3">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
+            <input
+              value={ricercaCatalogo}
+              onChange={(e) => setRicercaCatalogo(e.target.value)}
+              placeholder="Cerca tariffa o materiale..."
+              aria-label="Cerca tariffa o materiale"
+              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+            />
+          </div>
           <div className="flex flex-col gap-3">
             <div>
               <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">Tariffe</p>
+              {tariffeFiltrate.length === 0 && <p className="text-xs text-muted-foreground">Nessuna tariffa trovata.</p>}
               <div className="flex flex-wrap gap-1.5">
-                {tariffeVisibili.map((t) => (
+                {tariffeFiltrate.map((t) => (
                   <button
                     key={t.id}
                     type="button"
@@ -251,8 +271,9 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
             </div>
             <div>
               <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">Materiali</p>
+              {materialiFiltrati.length === 0 && <p className="text-xs text-muted-foreground">Nessun materiale trovato.</p>}
               <div className="flex flex-wrap gap-1.5">
-                {materiali.map((m) => (
+                {materialiFiltrati.map((m) => (
                   <button
                     key={m.id}
                     type="button"
