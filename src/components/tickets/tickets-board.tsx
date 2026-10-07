@@ -967,13 +967,17 @@ export function TicketsBoard({
                         sotto condividono la stessa sottocategoria, si dice
                         una volta sola qui invece che ripeterla identica su
                         ogni riga. */}
+                        {/* ★ FIX (2026-10-07, "scritte più visibili") — stesso
+                        trattamento del titolo di sotto-sezione qui sopra: da
+                        grigio chiaro a testo scuro, leggibile quanto il
+                        badge di categoria accanto. */}
                         {gruppo.sottocategoriaComune && (
-                          <span className="min-w-0 truncate text-[10px] font-semibold text-muted-foreground" title={gruppo.sottocategoriaComune}>
+                          <span className="min-w-0 truncate text-[12px] font-bold text-foreground" title={gruppo.sottocategoriaComune}>
                             · {gruppo.sottocategoriaComune}
                           </span>
                         )}
                       </span>
-                      <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
+                      <span className="shrink-0 text-[11px] font-bold tabular-nums text-muted-foreground">{gruppo.ticket.length}</span>
                     </div>
                     {/* ★ gap-3 invece di gap-2 (2026-10-07) — un po' più di
                     respiro tra un sotto-gruppo di sottocategoria e l'altro,
@@ -1004,10 +1008,21 @@ export function TicketsBoard({
                         const mostraEtichettaSotto = !gruppo.sottocategoriaComune && sotto.chiave !== "—";
                         return (
                         <div key={sotto.chiave} className="flex flex-col gap-2">
+                          {/* ★ FIX (2026-10-07, richiesta esplicita: "scritte
+                          più visibili, tipo internet lento e internet
+                          assente... le info a primo colpo devono essere più
+                          visibili") — era un'etichetta grigio chiaro 10px,
+                          quasi illeggibile a primo sguardo nonostante fosse
+                          l'informazione che permette di capire il gruppo
+                          senza aprire ogni card. Ora un vero titolo di
+                          sotto-sezione: testo scuro, più grande, con una
+                          riga divisoria che lo stacca dal gruppo precedente. */}
                           {mostraEtichettaSotto && (
-                            <span className="px-0.5 text-[10px] font-semibold text-muted-foreground/80">
-                              {sotto.chiave} · {sotto.ticket.length}
-                            </span>
+                            <div className="flex items-center gap-2 px-0.5 pt-1">
+                              <span className="text-[12.5px] font-bold text-foreground">{sotto.chiave}</span>
+                              <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">{sotto.ticket.length}</span>
+                              <span aria-hidden className="h-px flex-1 bg-border" />
+                            </div>
                           )}
                           {ticketDaMostrare.map((t) => {
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
@@ -1167,8 +1182,14 @@ export function TicketsBoard({
                                   problema descritto dal cliente fa da
                                   descrizione di ripiego — meglio quello che
                                   restare senza alcun testo sotto il nome. */}
+                                  {/* ★ FIX (2026-10-07, richiesta esplicita:
+                                  "scritte più visibili... le info a primo
+                                  colpo devono essere più visibili") — da
+                                  grigio chiaro 11px a testo scuro 12px: è il
+                                  vero motivo del Ticket, deve leggersi senza
+                                  sforzo quanto il nome del cliente sopra. */}
                                   {(t.sottocategoria || t.problema) && (
-                                    <div className="truncate text-[11px] text-muted-foreground/80">{t.sottocategoria || t.problema}</div>
+                                    <div className="truncate text-[12px] font-medium text-foreground/75">{t.sottocategoria || t.problema}</div>
                                   )}
                               {/* ★ un'unica etichetta di stato (mai più due
                               impilate: prima il segnale operativo, se non

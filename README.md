@@ -6710,4 +6710,21 @@ assegnata, o un Internet lento affollato.
   Internet assente, 11 Intervento in loco, 9 Internet lento), lasciando solo le code
   piccole sempre visibili.
 
+✅ **Fix — etichette di sottocategoria poco leggibili** (2026-10-07, richiesta
+esplicita, con screenshot: "possiamo migliorare l'usabilità e la ui? scritte più
+visibili, tipo internet lento e internet assente. Le info a primo colpo devono
+essere più visibili"). Tre punti dove il testo più importante della card — il vero
+motivo del Ticket — era grigio chiaro 10-11px, quasi illeggibile a colpo d'occhio:
+
+- Titolo di sotto-sezione sottocategoria (es. "Internet lento · 4", vedi fix
+  precedente) — da grigio chiaro 10px a titolo vero: testo scuro 12.5px in
+  grassetto, con una riga divisoria che lo stacca visivamente dal gruppo sopra.
+- Sottocategoria sotto il nome cliente, dentro ogni card — da grigio chiaro 11px a
+  12px testo scuro semi-grassetto, leggibile quanto il nome sopra invece di
+  sparire nello sfondo.
+- Etichetta di categoria omogenea nell'header di gruppo (es. "AMMINISTRATIVA ·
+  Disdetta") — stesso trattamento, per coerenza con gli altri due punti.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
 Build/lint puliti (0 errori). Nessuna migrazione.
