@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,9 @@ import {
   eliminaNotaCalendario,
   getSlotOccupatiProssimi,
   getAntenneRiservatePerTicket,
+  cercaAppuntamenti,
   type SlotOccupato,
+  type RisultatoRicercaAppuntamento,
 } from "@/app/(app)/calendario/actions";
 import { SchedaInstallazioneForm } from "@/components/schede/scheda-installazione-form";
 import { SchedaLavorazioneForm } from "@/components/schede/scheda-lavorazione-form";
@@ -168,6 +170,32 @@ export function CalendarioBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
+  // ★ NUOVA (2026-10-07, audit d'oro gestionale, seguito — "continuiamo da
+  // dove interrotto") — unico modo per trovare "quando ho l'appuntamento di
+  // Mario Rossi" era scorrere Giorno/Settimana/Mese a mano, senza sapere
+  // la data: un'operazione comune (richiamo cliente, verifica
+  // programmazione) resa inutilmente lenta. Cerca su titolo/indirizzo
+  // SENZA limite di data (vedi cercaAppuntamenti()); un click su un
+  // risultato porta alla Vista Giorno di quella data.
+  const [ricercaTesto, setRicercaTesto] = useState("");
+  const [risultatiRicerca, setRisultatiRicerca] = useState<RisultatoRicercaAppuntamento[]>([]);
+  const [ricercaAperta, setRicercaAperta] = useState(false);
+  const timerRicerca = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (timerRicerca.current) clearTimeout(timerRicerca.current);
+    if (ricercaTesto.trim().length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- azzera i risultati quando la query torna troppo corta, non derivabile durante il render (dipende dal testo digitato nell'effetto precedente) — stesso pattern di nuovo-preventivo-form.tsx.
+      setRisultatiRicerca([]);
+      return;
+    }
+    timerRicerca.current = setTimeout(async () => {
+      const risultati = await cercaAppuntamenti(ricercaTesto);
+      setRisultatiRicerca(risultati);
+    }, 300);
+    return () => {
+      if (timerRicerca.current) clearTimeout(timerRicerca.current);
+    };
+  }, [ricercaTesto]);
   // ★ FIX (2026-10-02, audit d'oro — regressione) — eliminaNota() usava
   // confirm() nativo invece del dialog brandizzato già standard nel resto
   // del gestionale (useConfirm/ConfirmDialog, vedi segnalazioni-board.tsx).
@@ -259,6 +287,52 @@ export function CalendarioBoard({
           <Link href={`/calendario?vista=${vista}&data=${oggi}`} className="ml-1 rounded-full border bg-card px-3 py-1.5 text-xs font-bold shadow-sm transition hover:bg-muted">
             Oggi
           </Link>
+        </div>
+
+        {/* ★ NUOVA (2026-10-07, audit d'oro gestionale, seguito) — vedi il
+        commento su `ricercaTesto` sopra: trovare "quando ho l'appuntamento
+        di Mario Rossi" senza sapere la data era possibile solo scorrendo
+        Giorno/Settimana/Mese a mano. */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" strokeWidth={2.5} />
+          <input
+            value={ricercaTesto}
+            onChange={(e) => {
+              setRicercaTesto(e.target.value);
+              setRicercaAperta(true);
+            }}
+            onFocus={() => setRicercaAperta(true)}
+            onBlur={() => setTimeout(() => setRicercaAperta(false), 150)}
+            placeholder="Cerca cliente o indirizzo..."
+            aria-label="Cerca appuntamento per cliente o indirizzo"
+            className="h-9 w-48 rounded-full border bg-background pl-8 pr-3 text-xs shadow-sm sm:w-64"
+          />
+          {ricercaAperta && ricercaTesto.trim().length >= 2 && (
+            <div className="absolute z-20 mt-1 w-full min-w-64 rounded-lg border bg-popover shadow-lg">
+              {risultatiRicerca.length === 0 ? (
+                <p className="p-3 text-center text-xs text-muted-foreground">Nessun appuntamento trovato.</p>
+              ) : (
+                risultatiRicerca.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/calendario?vista=giorno&data=${formattaData(new Date(r.data_ora))}`}
+                    className="flex flex-col gap-0.5 border-b px-3 py-2 text-left text-xs last:border-0 hover:bg-accent"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-semibold">{r.titolo}</span>
+                      {r.stato !== "Programmato" && (
+                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{r.stato}</span>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {new Date(r.data_ora).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {r.indirizzo && ` · ${r.indirizzo}`}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -427,16 +501,16 @@ function RigaAppuntamento({
     // non apribile, `disabled` sotto) appariva identica a una "Programmato"
     // — stesso colore, nessun `cursor-not-allowed` esplicito — senza alcun
     // modo di capire perché il tap non produce effetto.
+    // ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — "non apribile"
+    // non è più vero: ora si apre anche un appuntamento chiuso, in sola
+    // lettura (vedi FormModificaAppuntamento) — resta solo l'opacità
+    // ridotta come indizio visivo "non più attivo", non più `disabled`.
     <div className={`flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm ${a.stato !== "Programmato" ? "opacity-60" : ""}`}>
       <div className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-accent py-1.5 text-accent-foreground">
         <Clock className="h-3 w-3" strokeWidth={2.5} />
         <span className="text-xs font-bold">{ora}</span>
       </div>
-      <button
-        onClick={() => a.stato === "Programmato" && onApri(a)}
-        className="min-w-0 flex-1 text-left disabled:cursor-default"
-        disabled={a.stato !== "Programmato"}
-      >
+      <button onClick={() => onApri(a)} className="min-w-0 flex-1 text-left">
         <div className="mb-0.5 flex items-center gap-1.5">
           <span title={a.titolo} className="truncate font-semibold">{a.titolo}</span>
           <StatusBadge status={a.tipo_servizio} className="shrink-0 text-[10px]" />
@@ -764,7 +838,10 @@ function VistaMese({
               key: `a-${a.id}`,
               testo: `${new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} ${a.titolo}`,
               classe: a.stato === "Completato" ? "border-l-success bg-success/10 text-success opacity-70" : "border-l-primary bg-muted/60",
-              appuntamento: a.stato === "Programmato" ? a : undefined,
+              // ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — ora
+              // apribile anche se "Completato" (si apre in sola lettura,
+              // vedi FormModificaAppuntamento), non solo "Programmato".
+              appuntamento: a,
             })),
             ...eventiGiorno.map((e): Riga => ({
               key: `e-${e.id}`,
@@ -1230,6 +1307,17 @@ function FormNuovoAppuntamento({
   );
 }
 
+/** ★ NUOVA (2026-10-07) — riga etichetta/valore per il riepilogo in sola
+ * lettura di un appuntamento chiuso, vedi FormModificaAppuntamento sotto. */
+function CampoSolaLettura({ etichetta, valore }: { etichetta: string; valore: string }) {
+  return (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{etichetta}</div>
+      <div className="font-medium">{valore}</div>
+    </div>
+  );
+}
+
 function FormModificaAppuntamento({
   appuntamento,
   persone,
@@ -1351,6 +1439,47 @@ function FormModificaAppuntamento({
       router.refresh();
       onFatto();
     });
+  }
+
+  // ★ FIX (2026-10-07, audit d'oro gestionale, seguito — "continuiamo da
+  // dove interrotto") — un appuntamento "Completato"/"Annullato" non era
+  // più apribile dal Calendario (card disabilitata, vedi onApri più sopra):
+  // per verificare un dettaglio (es. l'indirizzo esatto per un reclamo
+  // successivo) bisognava risalire al Ticket collegato, se lo si trovava.
+  // Qui sotto un riepilogo in sola lettura invece del form di modifica
+  // completo (niente slot occupati/antenne/eliminazione — nessuno di
+  // questi ha senso su un appuntamento ormai chiuso).
+  if (appuntamento.stato !== "Programmato") {
+    const tecnicoNome = persone.find((p) => p.id === appuntamento.tecnico_id)?.nome;
+    const ticketCollegato = ticket.find((t) => t.id === appuntamento.ticket_id);
+    return (
+      <>
+        <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b bg-popover px-4 pt-4 pb-3">
+          <DialogTitle>{appuntamento.titolo}</DialogTitle>
+          <DialogDescription>
+            {appuntamento.stato === "Completato" ? "Appuntamento completato — sola lettura." : "Appuntamento annullato — sola lettura."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 text-sm">
+          <CampoSolaLettura etichetta="Quando" valore={`${dataDefault.split("-").reverse().join("/")} alle ${oraDefault}`} />
+          <CampoSolaLettura etichetta="Servizio" valore={appuntamento.tipo_servizio} />
+          {appuntamento.indirizzo && <CampoSolaLettura etichetta="Indirizzo" valore={appuntamento.indirizzo} />}
+          {telefonoCliente && <CampoSolaLettura etichetta="Telefono" valore={telefonoCliente} />}
+          {tecnicoNome && <CampoSolaLettura etichetta="Tecnico" valore={tecnicoNome} />}
+          {appuntamento.note && <CampoSolaLettura etichetta="Note" valore={appuntamento.note} />}
+          {ticketCollegato && (
+            <p className="text-xs text-muted-foreground">
+              Collegato al Ticket #{ticketCollegato.numero} ({ticketCollegato.cliente}) — la Scheda di lavoro, se compilata, è consultabile da lì.
+            </p>
+          )}
+        </div>
+        <div className="mt-2 flex justify-end">
+          <Button type="button" variant="outline" onClick={onFatto}>
+            Chiudi
+          </Button>
+        </div>
+      </>
+    );
   }
 
   return (

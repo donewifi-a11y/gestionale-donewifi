@@ -62,6 +62,45 @@ export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
   return data ?? [];
 }
 
+export interface RisultatoRicercaAppuntamento {
+  id: string;
+  titolo: string;
+  data_ora: string;
+  indirizzo: string | null;
+  stato: StatoAppuntamento;
+}
+
+/** ★ NUOVA (2026-10-07, audit d'oro gestionale, seguito — "continuiamo da
+ * dove interrotto") — unico modo per trovare "quando ho l'appuntamento di
+ * Mario Rossi" era scorrere il Calendario settimana per settimana o mese
+ * per mese: nessuna ricerca testuale, a differenza di Ticket/Segnalazioni.
+ * Cerca su titolo/indirizzo (il titolo porta già il nome cliente per gli
+ * appuntamenti nati da un Ticket, vedi titoloAppuntamento() in lib/types.ts)
+ * SENZA alcun limite di data — il punto è proprio trovarne uno fuori dal
+ * periodo visualizzato in quel momento. Limite di righe, non di tempo.
+ */
+export async function cercaAppuntamenti(testo: string): Promise<RisultatoRicercaAppuntamento[]> {
+  const query = testo.trim();
+  if (query.length < 2) return [];
+  // ★ FIX — stesso trattamento già in uso in chat/actions.ts
+  // (cercaMessaggiChat): `%`/`_` sono caratteri speciali di LIKE/ILIKE,
+  // senza escape un utente che cerca "50%" o "via_x" otterrebbe un
+  // pattern-match inatteso invece di un testo letterale.
+  const queryEscaped = query.replace(/[%_]/g, "\\$&");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("appuntamenti")
+    .select("id, titolo, data_ora, indirizzo, stato")
+    .or(`titolo.ilike.%${queryEscaped}%,indirizzo.ilike.%${queryEscaped}%`)
+    .order("data_ora", { ascending: false })
+    .limit(20);
+  if (error) {
+    console.error("cercaAppuntamenti:", error.message);
+    return [];
+  }
+  return (data as RisultatoRicercaAppuntamento[]) ?? [];
+}
+
 /**
  * ★ NUOVA (2026-09-03, "rivedere completamente il calendario e come si vede
  * come titolo sia su google che sul calendario del gestionale" — chiarito

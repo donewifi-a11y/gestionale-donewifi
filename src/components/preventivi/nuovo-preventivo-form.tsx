@@ -234,7 +234,17 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
             <div>
               <Label htmlFor="clienteEmail">Email</Label>
               <Input id="clienteEmail" type="email" value={clienteEmail} onChange={(e) => setClienteEmail(e.target.value)} className="mt-1" />
-              <p className="mt-1 text-[11px] text-muted-foreground">Serve per poterlo inviare in approvazione.</p>
+              {/* ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — la
+              validazione HTML5 (`type="email"`) scatta solo al submit,
+              magari giorni dopo: un'email senza "@" scritta per errore
+              restava silenziosa finché non si tentava di inviare il
+              preventivo. Avviso immediato mentre si scrive, oltre alla nota
+              che già c'era. */}
+              {clienteEmail.trim() && !clienteEmail.includes("@") ? (
+                <p className="mt-1 text-[11px] text-warning">Non sembra un indirizzo email valido.</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">Serve per poterlo inviare in approvazione.</p>
+              )}
             </div>
           </div>
         </div>
@@ -310,7 +320,16 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
         </div>
 
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Voci del preventivo</p>
+          {/* ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — il totale
+          era visibile solo in fondo alla lista voci: con un preventivo con
+          molte righe, bisognava scorrere fino in fondo per vederlo dopo
+          ogni aggiunta dal catalogo sopra. Ora anche qui, accanto al
+          titolo della sezione — niente barra fissa (rischiava di
+          sovrapporsi alla sidebar), solo visibile senza dover scorrere. */}
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Voci del preventivo</p>
+            {righe.length > 0 && <span className="font-mono text-sm font-bold tabular-nums">{formattaValuta(totale)}</span>}
+          </div>
           {righe.length === 0 ? (
             <p className="text-sm text-muted-foreground">Ancora nessuna voce — aggiungine dal catalogo sopra.</p>
           ) : (

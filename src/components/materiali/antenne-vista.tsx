@@ -46,10 +46,13 @@ export function AntenneVista({ antenne, isAdmin, puoPrenotare }: { antenne: Ante
 
   return (
     <div>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Raggruppate per tipologia. Il tecnico di Analisi Rete prenota un pezzo Disponibile per un Ticket futuro; alla
-        Scheda di Installazione salvata il MAC compilato si aggancia da solo e passa a Installata.
-      </p>
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — frase unica
+      densa, linguaggio da sviluppatore ("si aggancia da solo"): spezzata in
+      due passaggi brevi, più facili da scorrere al volo. */}
+      <ul className="mb-3 list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
+        <li>Un tecnico di Analisi Rete prenota un pezzo Disponibile per un Ticket futuro.</li>
+        <li>Quando la Scheda di Installazione viene salvata con il MAC compilato, il pezzo passa da solo a Installata.</li>
+      </ul>
 
       {tipologieOrdine.map((tipologia) => {
         const voci = gruppi.get(tipologia) ?? [];

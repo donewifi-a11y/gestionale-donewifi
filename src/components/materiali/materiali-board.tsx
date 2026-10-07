@@ -126,6 +126,20 @@ export function MaterialiBoard({
           </Button>
         )}
       </div>
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale, seguito — "continuiamo da
+      dove interrotto") — le 5 tab non spiegavano a cosa servisse ciascuna
+      (es. "In Scheda di lavoro" è ambiguo: non un elenco di schede, ma un
+      editor di visibilità). Prima ogni vista aveva una propria riga
+      d'istruzione in piccolo grigio, incoerente tra una vista e l'altra —
+      una sola riga fissa qui, sempre nello stesso punto, più leggibile di
+      un paragrafo sommerso dentro ogni vista. */}
+      <p className="mb-4 text-xs text-muted-foreground">
+        {vista === "catalogo" && "Il listino: nome, prezzo e come si comporta nelle Schede di Installazione/Lavorazione."}
+        {vista === "magazzino" && "Giacenza fisica di ogni materiale, con avviso quando scende sotto la soglia minima."}
+        {vista === "antenne" && "Inventario per MAC: quali antenne sono installate, dove, e quali sono ancora in magazzino."}
+        {vista === "trasferire" && "Antenne recuperate da una disdetta, in attesa di essere girate al gestionale esterno."}
+        {vista === "schede" && "Quali materiali compaiono come scelta nella Scheda di Installazione/Lavorazione Tecnica."}
+      </p>
 
       {vista === "schede" ? (
         <SelettoreVisibilitaSchede materiali={materiali} />

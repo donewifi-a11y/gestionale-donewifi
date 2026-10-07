@@ -6987,3 +6987,48 @@ Calendario apribili direttamente, avviso "non assegnati" in cima a Vista
 Tecnico, limite temporale di default in Archivio, `confirm()` nativo
 sostituito ovunque fosse rimasto. Ticket (già rivisto in testa a questa
 stessa giornata) escluso dall'audit.
+
+## Controllo d'oro gestionale — seguito (2026-10-07, richiesta esplicita: "ripartiamo da dove iniziato")
+
+Ripresi i punti esplicitamente rimandati nei 4 gruppi precedenti ("non
+toccato in questo giro"):
+
+✅ **Materiali** — le 5 tab non spiegavano a cosa servisse ciascuna vista
+(es. "In Scheda di lavoro" è un editor di visibilità, non un elenco di
+schede); prima ogni vista aveva una propria riga d'istruzione incoerente
+tra loro. Ora una riga fissa sotto le tab, sempre nello stesso punto.
+L'istruzione di "Antenne" (una frase densa, linguaggio da sviluppatore —
+"si aggancia da solo") spezzata in due passaggi brevi puntati.
+
+✅ **Preventivi** — il totale era visibile solo in fondo alla lista voci:
+con molte righe bisognava scorrere ogni volta dopo un'aggiunta dal
+catalogo. Ora anche in cima alla sezione "Voci del preventivo" (niente
+barra fissa — avrebbe rischiato di sovrapporsi alla sidebar). L'email del
+cliente ora avvisa subito se manca la "@", non solo al tentativo di invio
+giorni dopo.
+
+✅ **Calendario**:
+- **Ricerca per cliente/indirizzo** — prima assente, l'unico modo di
+  trovare "quando ho l'appuntamento di Mario Rossi" era scorrere
+  Giorno/Settimana/Mese a mano. Nuova `cercaAppuntamenti()`
+  (`calendario/actions.ts`) cerca su titolo/indirizzo SENZA limite di
+  data (il punto è trovarne uno fuori dal periodo visualizzato), con
+  l'escape dei caratteri speciali LIKE già in uso in Chat. Verificato sui
+  dati reali: una ricerca per "Pavetto" trova 8 appuntamenti su un arco
+  di 2 mesi, stati misti (Programmato/Completato/Annullato).
+- **Appuntamenti chiusi non più consultabili** — un appuntamento
+  "Completato"/"Annullato" non si apriva più dal Calendario (card
+  disabilitata): per un dettaglio (es. l'indirizzo esatto per un reclamo
+  successivo) bisognava risalire al Ticket collegato, se lo si trovava.
+  Ora si apre comunque, in un riepilogo in sola lettura (niente slot
+  occupati/antenne/eliminazione — nessuno ha senso su un appuntamento
+  chiuso) invece del form di modifica completo.
+
+**Non toccato anche in questo giro** (richiederebbe un redesign più ampio
+del flusso di chiusura su pose.donewifi.it, non solo di un componente):
+unificare il rapportino di chiusura Ticket (form classico multi-campo) con
+il wizard "una domanda alla volta" usato per chiudere un Appuntamento.
+
+Build/lint puliti (0 errori, verificato con `npm run build` senza pipe che
+mascherasse l'exit code). Verificato sui dati reali (ricerca Calendario).
+Nessuna migrazione.
