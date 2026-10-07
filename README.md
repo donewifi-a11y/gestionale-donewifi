@@ -6727,4 +6727,30 @@ motivo del Ticket — era grigio chiaro 10-11px, quasi illeggibile a colpo d'occ
 
 Build/lint puliti (0 errori). Nessuna migrazione.
 
-Build/lint puliti (0 errori). Nessuna migrazione.
+✅ **Audit — verifica completa del redesign "gruppi per sottocategoria" e
+"scritte più visibili"** (2026-10-07, richiesta esplicita: "fai un audit sulla
+parte fatta e verificala completamente e proponi migliorie"). Rilette la logica
+e verificati sui dati reali 3 problemi, corretti tutti:
+
+- **Regressione introdotta nello stesso giorno — niente modo di richiudere un
+  sotto-gruppo aperto.** Tolta la cliccabilità dell'header di categoria (giusto,
+  era proprio il bug che impediva il collasso di "Assistenza"), ma il bottone
+  "Mostra altri" spariva una volta espanso senza che nulla lo sostituisse: un
+  sotto-gruppo aperto restava aperto per tutta la sessione. Ora lo stesso
+  bottone resta, cambia solo testo ("Mostra meno ←") e richiude.
+- **Striscia colorata d'età fuorviante sui Ticket già chiusi.** `coloreEta()`
+  misura l'età dalla creazione, non da quanto il Ticket è fermo — su un Ticket
+  "Completato" è un segnale sbagliato: nato 64 giorni fa ma chiuso oggi appare
+  "critico" come se fosse bloccato. Verificato sui dati reali: 22 dei 25 Ticket
+  nella colonna "Lavorata" mostravano un bordo rosso/ambra pur essendo già
+  chiusi. La barra ora si applica solo ai Ticket ancora aperti
+  (`stato !== "Completato" && stato !== "Annullato"`).
+- **Sotto-gruppo "senza sottocategoria" senza etichetta quando la categoria è
+  mista.** Es. "Assistenza" in "In Verifica" (6 Ticket senza sottocategoria) e
+  in "Lavorata" (19 Ticket) collassavano senza alcuna etichetta sopra la card
+  superstite, a differenza dei gruppi vicini ("Internet lento" ecc.) — sembrava
+  orfana. Ora mostra "Senza sottocategoria" come le altre.
+
+Build/lint puliti (0 errori). Verificato di nuovo sui dati reali dopo la
+correzione (22/25 Ticket "Lavorata" tornano a bordo neutro; entrambi i
+sotto-gruppi "—" trovati ora etichettati). Nessuna migrazione.

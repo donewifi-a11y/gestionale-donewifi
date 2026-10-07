@@ -1003,9 +1003,17 @@ export function TicketsBoard({
                         // ★ l'etichetta di sottocategoria si mostra solo se
                         // la categoria è mista (altrimenti è già scritta una
                         // volta sola nell'intestazione sopra, via
-                        // sottocategoriaComune) e solo se c'è davvero una
-                        // sottocategoria (mai "—" in etichetta).
-                        const mostraEtichettaSotto = !gruppo.sottocategoriaComune && sotto.chiave !== "—";
+                        // sottocategoriaComune).
+                        // ★ FIX (2026-10-07, audit della stessa giornata) —
+                        // prima il sotto-gruppo "—" (nessuna sottocategoria)
+                        // non mostrava etichetta: se collassato, la card
+                        // superstite compariva senza alcun titolo sopra,
+                        // come orfana rispetto ai gruppi vicini ("Internet
+                        // lento", "Internet assente" ecc.) che invece ce
+                        // l'hanno. Ora anche "—" ha un'etichetta, solo con un
+                        // testo leggibile al posto del trattino.
+                        const mostraEtichettaSotto = !gruppo.sottocategoriaComune;
+                        const etichettaSotto = sotto.chiave === "—" ? "Senza sottocategoria" : sotto.chiave;
                         return (
                         <div key={sotto.chiave} className="flex flex-col gap-2">
                           {/* ★ FIX (2026-10-07, richiesta esplicita: "scritte
@@ -1019,7 +1027,7 @@ export function TicketsBoard({
                           riga divisoria che lo stacca dal gruppo precedente. */}
                           {mostraEtichettaSotto && (
                             <div className="flex items-center gap-2 px-0.5 pt-1">
-                              <span className="text-[12.5px] font-bold text-foreground">{sotto.chiave}</span>
+                              <span className="text-[12.5px] font-bold text-foreground">{etichettaSotto}</span>
                               <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">{sotto.ticket.length}</span>
                               <span aria-hidden className="h-px flex-1 bg-border" />
                             </div>
@@ -1099,6 +1107,18 @@ export function TicketsBoard({
                           segnale = { testo: `Ferma da ${giorni}g`, tono: giorni >= 10 ? "critico" : "avviso" };
                         }
                         const colore = coloreReparto(t.reparto);
+                        // ★ FIX (2026-10-07, audit della stessa giornata) —
+                        // coloreEta(giorni) misura l'età DALLA CREAZIONE, non
+                        // da quanto il Ticket è fermo: su un Ticket chiuso
+                        // ("Completato"/"Annullato", colonna "Lavorata") è
+                        // fuorviante, perché un Ticket nato 60 giorni fa e
+                        // chiuso ieri appare "critico" quanto uno davvero
+                        // bloccato. Verificato sui dati reali: 22 dei 25
+                        // Ticket in "Lavorata" mostravano un bordo
+                        // rosso/ambra pur essendo già chiusi. La barra resta
+                        // solo sui Ticket ancora aperti, dove l'età è
+                        // davvero un segnale di quanto aspettano.
+                        const etaChiusa = t.stato === "Completato" || t.stato === "Annullato";
                         return (
                           <div
                             key={t.id}
@@ -1113,7 +1133,7 @@ export function TicketsBoard({
                             // trovare il più vecchio senza leggere ogni data
                             // — utile soprattutto nei gruppi affollati che
                             // restano espansi (opzione B appena sopra).
-                            className={`group relative flex cursor-pointer items-start gap-1.5 rounded-lg border border-l-4 bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30 ${coloreEta(giorni)}`}
+                            className={`group relative flex cursor-pointer items-start gap-1.5 rounded-lg border border-l-4 bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30 ${etaChiusa ? "border-l-transparent" : coloreEta(giorni)}`}
                           >
                             {/* ★ NUOVA — checkbox di selezione (proposta ③,
                             azioni bulk): elemento vero del flex, non
@@ -1351,14 +1371,23 @@ export function TicketsBoard({
                           sotto-gruppo mostrando tutti i Ticket invece del
                           solo primo; resta allineata al resto delle card
                           (non un link minuscolo in testa) per essere facile
-                          da toccare quanto il resto della colonna. */}
-                          {collassabileSotto && !espansoSotto && (
+                          da toccare quanto il resto della colonna.
+                          ★ FIX (2026-10-07, audit della stessa giornata) —
+                          prima dello split per sottocategoria, l'intestazione
+                          del gruppo era cliccabile e fungeva da interruttore
+                          nei due sensi; tolta la cliccabilità dell'header (va
+                          bene, era il bug "non collassa Assistenza" di
+                          prima), restava senza un modo per richiudere un
+                          sotto-gruppo aperto — una volta espanso, ci restava
+                          per tutta la sessione. Ora un bottone equivalente
+                          compare anche da aperto. */}
+                          {collassabileSotto && (
                             <button
                               type="button"
                               onClick={() => alternaGruppo(chiaveSotto)}
                               className="rounded-lg border border-dashed bg-card py-2 text-center text-xs font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/5"
                             >
-                              Mostra altri {sotto.ticket.length - 1} ticket →
+                              {espansoSotto ? "Mostra meno ←" : `Mostra altri ${sotto.ticket.length - 1} ticket →`}
                             </button>
                           )}
                         </div>
