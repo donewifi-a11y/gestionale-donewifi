@@ -6754,3 +6754,38 @@ e verificati sui dati reali 3 problemi, corretti tutti:
 Build/lint puliti (0 errori). Verificato di nuovo sui dati reali dopo la
 correzione (22/25 Ticket "Lavorata" tornano a bordo neutro; entrambi i
 sotto-gruppi "—" trovati ora etichettati). Nessuna migrazione.
+
+✅ **Fix — appuntamenti "fantasma" ancora visibili su pose.donewifi.it dopo
+la chiusura del Ticket** (2026-10-07, richiesta esplicita: "verificare che
+tutti i ticket aperti che devono avere una lavorazione da parte della squadra
+in loco siano poi presenti in pose.donewifi.it"). Verificando questo (nessun
+Ticket aperto risultato invisibile a pose — l'assegnazione a un tecnico
+esterno o un appuntamento collegato bastano sempre), trovato il problema
+opposto: un Ticket con un appuntamento "Programmato" collegato (intervento in
+loco, installazione...) può essere chiuso in almeno 3 modi — `aggiornaStatoTicket`
+(Kanban/Vista Tecnico, "Avanza stato"), `completaTicketConRapportino` e la sua
+versione pose — senza mai passare dalla Scheda di Lavoro legata
+all'appuntamento stesso, l'unico punto che lo segna "Completato". L'appuntamento
+restava "Programmato" per sempre.
+
+- Verificato sui dati reali: 11 appuntamenti "Programmato" il cui Ticket
+  collegato era già "Completato" (uno chiuso lo stesso giorno). 7 degli 11
+  senza nessun tecnico assegnato — visibili su pose a QUALUNQUE tecnico come
+  lavoro "da assegnare", un lavoro già finito che qualcuno avrebbe potuto
+  prendere in carico per niente.
+- Nuovo `chiudiAppuntamentiApertiDelTicket()` (`lib/chiudi-appuntamenti-ticket.ts`):
+  chiamato da tutti e 3 i punti di chiusura, annulla (non "Completa" — nessuna
+  Scheda è mai stata compilata per quell'appuntamento, sarebbe scorretto
+  dichiararlo "fatto") ogni appuntamento "Programmato" ancora collegato al
+  Ticket appena chiuso.
+- Corregge solo le chiusure future: le 11 righe già storte restano da
+  sistemare a mano (query pronta sotto, non applicata da sola per non
+  scrivere sul database di produzione senza una verifica diretta):
+  ```sql
+  update appuntamenti set stato = 'Annullato'
+  where stato = 'Programmato'
+    and ticket_id in (select id from tickets where stato in ('Completato','Annullato'));
+  ```
+
+Build/lint puliti (0 errori). Nessuna migrazione (nessuna modifica di schema,
+solo logica applicativa).

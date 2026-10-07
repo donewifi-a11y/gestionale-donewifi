@@ -12,6 +12,7 @@ import { notificaSuTuttiICanali } from "@/lib/notifiche-interne";
 import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type RapportinoIntervento, type StatoTicket, type Ticket } from "@/lib/types";
 import { dataItaliaStringa } from "@/lib/data-italia";
 import { validaEmail, validaTelefono } from "@/lib/validazione";
+import { chiudiAppuntamentiApertiDelTicket } from "@/lib/chiudi-appuntamenti-ticket";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -358,6 +359,15 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
     .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
     .eq("id", id);
   if (error) return { errore: error.message };
+
+  // ★ FIX (2026-10-07, bug reale verificato sui dati di produzione — vedi
+  // chiudi-appuntamenti-ticket.ts per il commento completo) — un Ticket
+  // chiuso da qui (Kanban/Vista Tecnico, "Avanza stato") poteva lasciare un
+  // appuntamento "Programmato" collegato per sempre fantasma su
+  // pose.donewifi.it.
+  if (statoNuovo === "Completato" || statoNuovo === "Annullato") {
+    await chiudiAppuntamentiApertiDelTicket(service, id);
+  }
 
   await supabase.from("storico").insert({
     origine: "ticket",
@@ -732,6 +742,12 @@ export async function completaTicketConRapportino(
     const messaggioRls = await messaggioErroreRls(supabase, "chiudere questo Ticket", erroreStato.message, persona);
     return { errore: messaggioRls ?? erroreStato.message };
   }
+
+  // ★ FIX (2026-10-07, bug reale verificato sui dati di produzione — vedi
+  // chiudi-appuntamenti-ticket.ts per il commento completo) — questa è
+  // un'altra via di chiusura che bypassa la Scheda di Lavoro legata a un
+  // eventuale appuntamento, lasciandolo "Programmato" per sempre.
+  await chiudiAppuntamentiApertiDelTicket(service, ticketId);
 
   await supabase.from("storico").insert({
     origine: "ticket",

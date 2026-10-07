@@ -13,6 +13,7 @@ import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntenn
 import { revalidatePath } from "next/cache";
 import type { DatiSchedaLavoro, ContestoClienteTicket } from "@/app/(app)/calendario/actions";
 import type { Appuntamento, MaterialeMagazzino, StatoTicket, Ticket, TipoServizioAppuntamento } from "@/lib/types";
+import { chiudiAppuntamentiApertiDelTicket } from "@/lib/chiudi-appuntamenti-ticket";
 
 // ============================================================
 // pose.donewifi.it — sistema per i tecnici esterni, ORA anche per lo
@@ -406,6 +407,14 @@ export async function completaTicketConRapportinoEsterno(
     .update({ stato: "Completato", aggiornato_il: new Date().toISOString(), importo_fatturato: importo })
     .eq("id", ticketId);
   if (erroreStato) return { errore: erroreStato.message };
+
+  // ★ FIX (2026-10-07, bug reale verificato sui dati di produzione — vedi
+  // chiudi-appuntamenti-ticket.ts per il commento completo) — questo
+  // Ticket è stato chiuso con il rapportino rapido (assegnazione diretta,
+  // non tramite appuntamento/Scheda di Lavoro): se aveva anche un
+  // appuntamento "Programmato" collegato (es. nato dal calendario), restava
+  // fantasma su pose per sempre.
+  await chiudiAppuntamentiApertiDelTicket(service, ticketId);
 
   // ★ `storico.operatore_id` è `references persone(id)` — un tecnico
   // esterno non può comparire lì (violerebbe la FK): resta null, il nome
