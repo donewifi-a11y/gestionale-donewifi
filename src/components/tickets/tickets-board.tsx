@@ -899,7 +899,21 @@ export function TicketsBoard({
                   // mostrando solo il primo (già il più prioritario, non un
                   // Ticket a caso) finché non lo si riapre.
                   const chiaveGruppo = `${col.titolo}::${gruppo.chiave}::${gruppo.sottocategoriaComune ?? "misto"}`;
-                  const collassabile = gruppo.ticket.length > SOGLIA_COLLASSO_GRUPPO;
+                  // ★ FIX (2026-10-07, bug reale segnalato: "mi sembrano
+                  // spariti i ticket, vedo solo disdetta") — raggruppaPerCategoria()
+                  // raggruppa per sola `categoria` (Assistenza/Amministrativa/
+                  // Commerciale): un gruppo "Assistenza" misto (Internet
+                  // lento + assente + intervento in loco + altro — problemi
+                  // DAVVERO diversi, non ripetizioni) poteva superare la
+                  // soglia ed essere collassato in una sola card, nascondendo
+                  // Ticket genuinamente distinti — verificato sui dati reali:
+                  // 14 Ticket "Assistenza" misti in "In Verifica" collassati
+                  // insieme, mentre il caso che doveva collassare davvero
+                  // (18 "Disdetta", tutti uguali) è solo una parte del
+                  // problema. Il collasso ha senso SOLO quando il gruppo è
+                  // già omogeneo (`sottocategoriaComune` valorizzato, vedi
+                  // raggruppaPerCategoria sopra) — mai su un gruppo misto.
+                  const collassabile = !!gruppo.sottocategoriaComune && gruppo.ticket.length > SOGLIA_COLLASSO_GRUPPO;
                   const espanso = gruppiEspansi.has(chiaveGruppo);
                   const ticketDaMostrare = collassabile && !espanso ? gruppo.ticket.slice(0, 1) : gruppo.ticket;
                   return (

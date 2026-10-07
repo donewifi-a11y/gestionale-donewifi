@@ -6642,3 +6642,20 @@ scelta): vista a lista/tabella in alternativa al Kanban — resta un'idea per il
 il problema dovesse ripresentarsi anche dopo B+C.
 
 Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa e UI.
+
+✅ **Fix — il collasso nascondeva ticket diversi, non solo i doppioni** (2026-10-07, bug
+reale segnalato: "mi sembrano spariti i ticket, vedo solo disdetta"). `raggruppaPerCategoria()`
+raggruppa per sola `categoria` (Assistenza/Amministrativa/Commerciale), non per
+sottocategoria: un gruppo "Assistenza" misto — Internet lento + Internet assente +
+Intervento in loco, problemi davvero diversi, non ripetizioni — poteva superare la
+soglia delle 4 card ed essere collassato in una sola, nascondendo Ticket distinti.
+
+- Verificato sui dati reali prima di correggere: in "In Verifica" un gruppo "Assistenza"
+  da 14 Ticket (sottocategorie miste) risultava collassato insieme al vero bersaglio del
+  redesign (18 "Disdetta", tutti uguali) — l'effetto netto nascondeva più varietà di
+  quanta ne mostrasse.
+- Il collasso ora scatta SOLO quando il gruppo è già omogeneo (`sottocategoriaComune`
+  valorizzato — tutti i Ticket condividono la stessa sottocategoria): mai su un gruppo
+  misto, che resta sempre mostrato per intero come prima del redesign.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
