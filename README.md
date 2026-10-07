@@ -6778,14 +6778,12 @@ restava "Programmato" per sempre.
   Scheda è mai stata compilata per quell'appuntamento, sarebbe scorretto
   dichiararlo "fatto") ogni appuntamento "Programmato" ancora collegato al
   Ticket appena chiuso.
-- Corregge solo le chiusure future: le 11 righe già storte restano da
-  sistemare a mano (query pronta sotto, non applicata da sola per non
-  scrivere sul database di produzione senza una verifica diretta):
-  ```sql
-  update appuntamenti set stato = 'Annullato'
-  where stato = 'Programmato'
-    and ticket_id in (select id from tickets where stato in ('Completato','Annullato'));
-  ```
+- Le 11 righe già storte in produzione corrette direttamente (richiesta
+  esplicita: "procedi tu alle modifiche su supabase") con uno script
+  usa-e-getta: rilette un'ultima volta appena prima di scrivere (nessuna
+  query cieca — solo gli id già individuati, con un `.eq("stato",
+  "Programmato")` di ricontrollo finale), tutti e 11 portati ad "Annullato",
+  verificato subito dopo che nessuno fosse rimasto "Programmato".
 
 Build/lint puliti (0 errori). Nessuna migrazione (nessuna modifica di schema,
-solo logica applicativa).
+solo logica applicativa + una correzione una tantum sui dati esistenti).
