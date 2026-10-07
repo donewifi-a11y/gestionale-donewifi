@@ -54,6 +54,19 @@ interface RigaLavorazione {
 export function RapportiLavoroBoard({ schede, rapportini, isAdmin }: { schede: RigaScheda[]; rapportini: RigaRapportino[]; isAdmin: boolean }) {
   const [vista, setVista] = useState<Vista>("installazioni");
   const [ricerca, setRicerca] = useState("");
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — questo tab (secondo
+  // dell'Archivio) aveva una ricerca testuale propria ma NESSUN filtro
+  // data, a differenza del tab "Ticket e Segnalazioni" accanto: un
+  // operatore che imposta un periodo lì e passa qui si ritrovava senza
+  // filtro data e con la ricerca azzerata — due logiche diverse nella
+  // stessa pagina. Stesso pattern Da/A, stesso default "ultimi 3 mesi".
+  const treMesiFa = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const [dataDa, setDataDa] = useState(treMesiFa);
+  const [dataA, setDataA] = useState("");
   const [aperta, setAperta] = useState<string | null>(null);
 
   const installazioni = useMemo(() => schede.filter((s) => s.tipo === "Nuova installazione"), [schede]);
@@ -73,17 +86,28 @@ export function RapportiLavoroBoard({ schede, rapportini, isAdmin }: { schede: R
     return [...daSchede, ...daRapportini].sort((a, b) => new Date(b.creatoIl).getTime() - new Date(a.creatoIl).getTime());
   }, [schede, rapportini]);
 
+  const daMs = dataDa ? new Date(dataDa).getTime() : null;
+  const aMs = dataA ? new Date(`${dataA}T23:59:59`).getTime() : null;
+  function dentroPeriodo(dataIso: string): boolean {
+    const t = new Date(dataIso).getTime();
+    return (daMs === null || t >= daMs) && (aMs === null || t <= aMs);
+  }
+
   const installazioniFiltrate = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
-    if (!testo) return installazioni;
-    return installazioni.filter((s) => s.ticket?.cliente.toLowerCase().includes(testo) || String(s.ticket?.numero ?? "").includes(testo));
-  }, [installazioni, ricerca]);
+    return installazioni.filter(
+      (s) => (!testo || s.ticket?.cliente.toLowerCase().includes(testo) || String(s.ticket?.numero ?? "").includes(testo)) && dentroPeriodo(s.creato_il)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dentroPeriodo/daMs/aMs dipendono solo da dataDa/dataA, già in deps
+  }, [installazioni, ricerca, dataDa, dataA]);
 
   const lavorazioniFiltrate = useMemo(() => {
     const testo = ricerca.trim().toLowerCase();
-    if (!testo) return lavorazioni;
-    return lavorazioni.filter((r) => (r.cliente ?? "").toLowerCase().includes(testo) || String(r.ticketNumero ?? "").includes(testo));
-  }, [lavorazioni, ricerca]);
+    return lavorazioni.filter(
+      (r) => (!testo || (r.cliente ?? "").toLowerCase().includes(testo) || String(r.ticketNumero ?? "").includes(testo)) && dentroPeriodo(r.creatoIl)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dentroPeriodo/daMs/aMs dipendono solo da dataDa/dataA, già in deps
+  }, [lavorazioni, ricerca, dataDa, dataA]);
 
   return (
     <div>
@@ -115,6 +139,19 @@ export function RapportiLavoroBoard({ schede, rapportini, isAdmin }: { schede: R
             className="h-9 w-56 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Da
+          <input type="date" value={dataDa} onChange={(e) => setDataDa(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm" />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          A
+          <input type="date" value={dataA} onChange={(e) => setDataA(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm" />
+        </label>
+        {(dataDa || dataA) && (
+          <button type="button" onClick={() => { setDataDa(""); setDataA(""); }} className="text-xs font-semibold text-primary hover:underline">
+            Mostra tutto lo storico
+          </button>
+        )}
       </div>
 
       {vista === "installazioni" ? (

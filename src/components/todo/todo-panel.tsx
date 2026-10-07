@@ -232,16 +232,22 @@ function RigaTodo({
         {item.fatto && <span className="text-[10px] leading-none">✓</span>}
       </button>
       <span className={`flex-1 break-words text-xs ${item.fatto ? "text-muted-foreground line-through" : ""}`}>{item.testo}</span>
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — questi due bottoni
+      erano invisibili (`opacity-0`) finché non si passava il mouse sulla
+      riga: su schermi touch (tablet), dove non esiste un vero hover, non
+      c'era modo di farli comparire. Ora sempre leggermente visibili
+      (opacity-40) invece che nascosti del tutto, piena opacità su hover
+      come prima. */}
       <button
         onClick={onAvviaModifica}
-        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition hover:text-primary group-hover:opacity-100"
+        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-40 transition hover:text-primary hover:opacity-100 group-hover:opacity-100"
         aria-label="Modifica"
       >
         <Pencil className="h-3 w-3" strokeWidth={2.25} />
       </button>
       <button
         onClick={onElimina}
-        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition hover:text-critical group-hover:opacity-100"
+        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-40 transition hover:text-critical hover:opacity-100 group-hover:opacity-100"
         aria-label="Elimina"
       >
         <Trash2 className="h-3 w-3" strokeWidth={2.25} />

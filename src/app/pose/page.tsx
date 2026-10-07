@@ -6,6 +6,15 @@ import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
 import { PrendiInCaricoButton } from "@/components/pose/prendi-in-carico-button";
 import { inizioGiornataItalia } from "@/lib/data-italia";
 
+// ★ FIX (2026-10-07, audit d'oro gestionale) — vedi il commento sulla card
+// Ticket più sotto: traduzione in linguaggio naturale invece dello stato
+// grezzo del database, per restare coerenti con il resto della pagina.
+const STATO_INTERVENTO_LEGGIBILE: Record<string, string> = {
+  "Da gestire": "Da iniziare",
+  "In lavorazione": "In corso",
+  "In attesa": "In attesa",
+};
+
 // ★ NUOVA (2026-08-26) — dashboard di pose.donewifi.it: solo ciò che è
 // assegnato AL tecnico collegato, niente sidebar/mondi del gestionale
 // interno (proprio il punto della richiesta: "non passare dal gestionale").
@@ -185,7 +194,15 @@ export default async function PosePage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-muted-foreground">#{t.numero}</span>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{t.stato}</span>
+                {/* ★ FIX (2026-10-07, audit d'oro gestionale) — questa
+                etichetta era lo stato grezzo del database ("Da gestire",
+                "In lavorazione"), mentre le altre sezioni della stessa
+                pagina parlano in frasi naturali ("In ritardo — rapporto non
+                ancora fatto", "Da assegnare"): un registro diverso nella
+                stessa schermata. */}
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {STATO_INTERVENTO_LEGGIBILE[t.stato] ?? t.stato}
+                </span>
               </div>
               <p className="text-base font-semibold">{t.cliente}</p>
               {t.indirizzo && (

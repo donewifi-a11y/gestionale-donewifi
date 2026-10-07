@@ -121,14 +121,21 @@ export function DomandaWizard({
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-popover/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl gap-3">
+          {/* ★ FIX (2026-10-07, audit d'oro gestionale) — stessa identica
+          icona (ChevronLeft) sia per "torna alla domanda precedente" sia,
+          sulla prima domanda, per "annulla ed esci dal flusso" — l'unica
+          differenza era l'aria-label, non visibile a schermo. Sulla prima
+          domanda il bottone ora mostra anche il testo "Annulla", non solo
+          l'icona, così la differenza di comportamento si vede. */}
           <button
             type="button"
             onClick={indietro}
             disabled={inCorso}
             aria-label={indice === 0 ? "Annulla" : "Domanda precedente"}
-            className="flex h-16 w-20 shrink-0 items-center justify-center rounded-2xl border-2 border-border bg-background text-foreground disabled:opacity-60"
+            className="flex h-16 w-20 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-border bg-background text-foreground disabled:opacity-60"
           >
             <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
+            {indice === 0 && <span className="text-[10px] font-bold uppercase tracking-wide">Annulla</span>}
           </button>
           <button
             type="button"

@@ -6918,3 +6918,54 @@ nel Calendario (richiede un nuovo fetch server oltre il periodo visualizzato)
 e riapertura in sola lettura di un appuntamento già Completato/Annullato.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Controllo d'oro gestionale — quarto e ultimo gruppo: Archivio, Chat,
+Todo, Sistema, pose.donewifi.it** (2026-10-07). Chat, Sistema e pose erano
+già molto maturi (bozze non perse, wizard progressivo, gestione offline) —
+solo attriti di dettaglio residui in pose; Archivio aveva invece un problema
+strutturale reale.
+
+- **Archivio**: caricava (in modo sicuro, paginato) TUTTA la storia
+  dell'attività senza alcun limite temporale di default — con mesi/anni di
+  attività, ogni apertura avrebbe reso migliaia di righe anche solo per
+  cercare "il ticket di ieri". Filtro data ora pre-impostato agli ultimi 3
+  mesi, con un click su "Mostra tutto lo storico" per rimuoverlo. Verificato
+  sui dati reali: con l'attività attuale (69 ticket chiusi, 3 segnalazioni,
+  tutti negli ultimi 3 mesi) il filtro di default non nasconde nulla oggi —
+  pronto per quando l'archivio crescerà. Il secondo tab "Schede e
+  Rapportini" aveva una ricerca testuale propria ma NESSUN filtro data,
+  diverso dal primo tab nella stessa pagina — ora stesso filtro Da/A, stesso
+  default. "Problema / Note" (testo libero, spesso lungo) era schiacciato
+  nella stessa griglia stretta di campi corti come "Priorità" — ora su una
+  riga propria a tutta larghezza.
+- **Todo**: i pulsanti modifica/elimina erano invisibili (`opacity-0`) finché
+  non si passava il mouse sulla riga — su tablet, senza hover, non c'era
+  modo di farli comparire. Ora sempre leggermente visibili.
+- **pose.donewifi.it**: il bottone "indietro" del wizard aveva la stessa
+  icona sia per tornare alla domanda precedente sia, sulla prima domanda,
+  per annullare l'intero inserimento — ora mostra anche il testo "Annulla"
+  in quel caso. Le card "Interventi da chiudere" mostravano lo stato grezzo
+  del database ("Da gestire") mentre il resto della pagina parla in frasi
+  naturali ("In ritardo — rapporto non ancora fatto") — tradotto ("Da
+  iniziare", "In corso").
+
+**Non toccato in questo giro** (richiederebbe un redesign più ampio,
+segnalato solo come possibile lavoro futuro): unificare il rapportino di
+chiusura Ticket (form classico multi-campo) con il wizard "una domanda alla
+volta" usato per chiudere un Appuntamento — stessa attività, due logiche di
+compilazione diverse nella stessa app.
+
+Build/lint puliti (0 errori). Verificato sui dati reali (Archivio). Nessuna
+migrazione.
+
+---
+
+**Riepilogo controllo d'oro gestionale (2026-10-07)**: 4 gruppi di moduli
+auditati in parallelo, ~45 punti di attrito trovati, i più rilevanti
+corretti modulo per modulo con build/lint a ogni tappa — sezioni Dashboard
+collassabili, prezzo materiali leggibile a colpo d'occhio, ricerca nel
+catalogo Preventivi, telefono sempre visibile in Segnalazioni, chip
+Calendario apribili direttamente, avviso "non assegnati" in cima a Vista
+Tecnico, limite temporale di default in Archivio, `confirm()` nativo
+sostituito ovunque fosse rimasto. Ticket (già rivisto in testa a questa
+stessa giornata) escluso dall'audit.

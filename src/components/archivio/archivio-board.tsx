@@ -44,7 +44,18 @@ export function ArchivioBoard({
 }) {
   const [vista, setVista] = useState<VistaArchivio>("ticket");
   const [ricerca, setRicerca] = useState("");
-  const [dataDa, setDataDa] = useState("");
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — l'Archivio carica (in modo
+  // sicuro, paginato) TUTTA la storia dell'attività fin dall'inizio, senza
+  // alcun limite temporale di default: dopo 1-2 anni, ogni apertura della
+  // pagina avrebbe dovuto rendere migliaia di righe anche per cercare "il
+  // ticket di ieri". Filtro data pre-impostato agli ultimi 3 mesi — un
+  // click su "Mostra tutto" (sotto) lo azzera per chi cerca più indietro.
+  const treMesiFa = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const [dataDa, setDataDa] = useState(treMesiFa);
   const [dataA, setDataA] = useState("");
   const [aperto, setAperto] = useState<string | null>(null);
 
@@ -112,10 +123,13 @@ export function ArchivioBoard({
         </label>
         {(dataDa || dataA) && (
           <Button size="sm" variant="ghost" onClick={() => { setDataDa(""); setDataA(""); }}>
-            Azzera date
+            Mostra tutto lo storico
           </Button>
         )}
       </div>
+      {dataDa === treMesiFa && !dataA && (
+        <p className="-mt-2 mb-4 text-[11px] text-muted-foreground">Mostrando solo gli ultimi 3 mesi — &quot;Mostra tutto lo storico&quot; per rimuovere il limite.</p>
+      )}
 
       {filtrate.length === 0 && <StatoVuoto icona={Archive} titolo="Nessun risultato con questi filtri." />}
 
@@ -219,12 +233,19 @@ function DettaglioTicket({ ticket }: { ticket: Ticket }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "Problema / Note" è un
+      campo di testo libero, spesso lungo, schiacciato nella stessa griglia
+      stretta a 2-3 colonne di campi corti come "Priorità" — difficile da
+      leggere tutto d'un fiato. Ora su una riga propria a tutta larghezza,
+      fuori dalla griglia. */}
       <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
         <Campo etichetta="Categoria" valore={ticket.categoria} />
         <Campo etichetta="Reparto" valore={ticket.reparto} />
         <Campo etichetta="Priorità" valore={ticket.priorita} />
         <Campo etichetta="Telefono" valore={ticket.telefono || "—"} />
         <Campo etichetta="Indirizzo" valore={ticket.indirizzo || "—"} />
+      </div>
+      <div className="text-xs">
         <Campo etichetta="Problema / Note" valore={ticket.problema || "—"} />
       </div>
 
