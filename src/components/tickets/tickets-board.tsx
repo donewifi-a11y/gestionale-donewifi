@@ -185,6 +185,32 @@ function raggruppaPerCategoria(items: Ticket[]): { chiave: string; sottocategori
   });
 }
 
+// ★ NUOVA (2026-10-07, bug reale segnalato: "non c'è possibilità di
+// collassare i ticket assistenza" — seguito diretto del redesign "Home
+// Ticket" di sopra) — raggruppaPerCategoria() raggruppa solo per
+// categoria: un gruppo "Assistenza" misto (Internet lento + Internet
+// assente + Intervento in loco — sottocategorie diverse) non collassava
+// mai, perché il collasso richiede un gruppo omogeneo e lì non lo è MAI a
+// livello di categoria. Qui si scende di un gradino: dentro ciascun
+// gruppo-categoria, un'ulteriore suddivisione per sottocategoria rende
+// OGNI sotto-gruppo omogeneo per costruzione — "Internet lento" può
+// collassare per conto suo anche se "Assistenza" nel suo insieme resta
+// mista. I Ticket senza sottocategoria (chiave "—") restano un unico
+// sotto-gruppo a parte, non mischiati con quelli che ne hanno una.
+function raggruppaPerSottocategoria(items: Ticket[]): { chiave: string; ticket: Ticket[] }[] {
+  const gruppi: { chiave: string; ticket: Ticket[] }[] = [];
+  const indice = new Map<string, number>();
+  for (const t of items) {
+    const chiave = t.sottocategoria || "—";
+    if (!indice.has(chiave)) {
+      indice.set(chiave, gruppi.length);
+      gruppi.push({ chiave, ticket: [] });
+    }
+    gruppi[indice.get(chiave)!].ticket.push(t);
+  }
+  return gruppi;
+}
+
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
@@ -914,44 +940,21 @@ export function TicketsBoard({
                   // stesso grigio) — coloreGruppo() assegna una tinta fissa
                   // e stabile per stringa, non un giudizio di reparto/stato.
                   const coloreG = coloreGruppo(gruppo.chiave);
-                  // ★ NUOVA (2026-10-07, redesign "Home Ticket", opzione B)
-                  // — vedi gruppiEspansi sopra: un gruppo affollato (es. 11
-                  // "Disdetta" dello stesso tecnico, il caso reale che ha
-                  // fatto scattare questo redesign) si chiude da solo,
-                  // mostrando solo il primo (già il più prioritario, non un
-                  // Ticket a caso) finché non lo si riapre.
-                  const chiaveGruppo = `${col.titolo}::${gruppo.chiave}::${gruppo.sottocategoriaComune ?? "misto"}`;
-                  // ★ FIX (2026-10-07, bug reale segnalato: "mi sembrano
-                  // spariti i ticket, vedo solo disdetta") — raggruppaPerCategoria()
-                  // raggruppa per sola `categoria` (Assistenza/Amministrativa/
-                  // Commerciale): un gruppo "Assistenza" misto (Internet
-                  // lento + assente + intervento in loco + altro — problemi
-                  // DAVVERO diversi, non ripetizioni) poteva superare la
-                  // soglia ed essere collassato in una sola card, nascondendo
-                  // Ticket genuinamente distinti — verificato sui dati reali:
-                  // 14 Ticket "Assistenza" misti in "In Verifica" collassati
-                  // insieme, mentre il caso che doveva collassare davvero
-                  // (18 "Disdetta", tutti uguali) è solo una parte del
-                  // problema. Il collasso ha senso SOLO quando il gruppo è
-                  // già omogeneo (`sottocategoriaComune` valorizzato, vedi
-                  // raggruppaPerCategoria sopra) — mai su un gruppo misto.
-                  const collassabile = !!gruppo.sottocategoriaComune && gruppo.ticket.length > SOGLIA_COLLASSO_GRUPPO;
-                  const espanso = gruppiEspansi.has(chiaveGruppo);
-                  const ticketDaMostrare = collassabile && !espanso ? gruppo.ticket.slice(0, 1) : gruppo.ticket;
                   return (
                   <div key={gruppo.chiave}>
                     {/* ★ l'etichetta di categoria/sottocategoria si scrive una
                     volta per gruppo invece che su ogni card — vedi
                     raggruppaPerCategoria() sopra. Il numero a destra è un
                     dato che prima non c'era da nessuna parte: quanti Ticket
-                    sono fermi allo stesso identico passaggio. Cliccabile per
-                    comprimere/riaprire quando il gruppo è affollato. */}
-                    <button
-                      type="button"
-                      onClick={() => collassabile && alternaGruppo(chiaveGruppo)}
-                      disabled={!collassabile}
-                      className="mb-1 flex w-full items-center justify-between gap-2 text-left disabled:cursor-default"
-                    >
+                    sono fermi allo stesso identico passaggio.
+                    ★ FIX (2026-10-07, bug reale segnalato: "non c'è
+                    possibilità di collassare i ticket assistenza") — il
+                    collasso non vive più qui (a livello di categoria, dove
+                    un gruppo misto come "Assistenza" non è mai omogeneo e
+                    quindi non collassava mai): vedi raggruppaPerSottocategoria()
+                    e il ciclo più sotto, un livello più preciso. Questa
+                    intestazione torna a essere solo informativa. */}
+                    <div className="mb-1 flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span
                           className={`min-w-0 shrink-0 truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${coloreG.sfondo} ${coloreG.testo}`}
@@ -970,23 +973,43 @@ export function TicketsBoard({
                           </span>
                         )}
                       </span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        <span className="text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
-                        {collassabile &&
-                          (espanso ? (
-                            <ChevronRight className="h-3 w-3 -rotate-90 text-muted-foreground/70" strokeWidth={2.5} />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 rotate-90 text-muted-foreground/70" strokeWidth={2.5} />
-                          ))}
-                      </span>
-                    </button>
-                    {/* ★ gap-2 invece di gap-1.5 (2026-09-15, "alleggerire il
-                    colpo visivo") — un po' più di respiro tra le card, ora
-                    che i segnali sono chip strette invece di righe intere:
-                    prima la densità serviva a compensare le righe lunghe,
-                    ora affollerebbe solo lo spazio senza motivo. */}
-                    <div className="flex flex-col gap-2">
-                      {ticketDaMostrare.map((t) => {
+                      <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
+                    </div>
+                    {/* ★ gap-3 invece di gap-2 (2026-10-07) — un po' più di
+                    respiro tra un sotto-gruppo di sottocategoria e l'altro,
+                    per non confonderli con lo spazio normale tra le card
+                    dentro lo stesso sotto-gruppo (quello resta gap-2, vedi
+                    sotto). */}
+                    <div className="flex flex-col gap-3">
+                      {raggruppaPerSottocategoria(gruppo.ticket).map((sotto) => {
+                        // ★ NUOVA (2026-10-07, bug reale segnalato: "non c'è
+                        // possibilità di collassare i ticket assistenza") —
+                        // ogni sotto-gruppo (stessa sottocategoria, o nessuna
+                        // — chiave "—") è per costruzione omogeneo: può
+                        // collassare da solo anche se la categoria nel suo
+                        // insieme resta mista (es. "Internet lento" collassa
+                        // per conto suo dentro "Assistenza", senza aspettare
+                        // che TUTTA "Assistenza" lo sia). Chiave per
+                        // colonna+categoria+sottocategoria, come il resto di
+                        // gruppiEspansi.
+                        const chiaveSotto = `${col.titolo}::${gruppo.chiave}::${sotto.chiave}`;
+                        const collassabileSotto = sotto.ticket.length > SOGLIA_COLLASSO_GRUPPO;
+                        const espansoSotto = gruppiEspansi.has(chiaveSotto);
+                        const ticketDaMostrare = collassabileSotto && !espansoSotto ? sotto.ticket.slice(0, 1) : sotto.ticket;
+                        // ★ l'etichetta di sottocategoria si mostra solo se
+                        // la categoria è mista (altrimenti è già scritta una
+                        // volta sola nell'intestazione sopra, via
+                        // sottocategoriaComune) e solo se c'è davvero una
+                        // sottocategoria (mai "—" in etichetta).
+                        const mostraEtichettaSotto = !gruppo.sottocategoriaComune && sotto.chiave !== "—";
+                        return (
+                        <div key={sotto.chiave} className="flex flex-col gap-2">
+                          {mostraEtichettaSotto && (
+                            <span className="px-0.5 text-[10px] font-semibold text-muted-foreground/80">
+                              {sotto.chiave} · {sotto.ticket.length}
+                            </span>
+                          )}
+                          {ticketDaMostrare.map((t) => {
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
                         // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — mancava
                         // qui (a differenza di DettaglioTicket più sotto), quindi un
@@ -1299,22 +1322,27 @@ export function TicketsBoard({
                               )}
                             </div>
                           </div>
+                          );
+                          })}
+                          {/* ★ NUOVA (2026-10-07, redesign "Home Ticket",
+                          opzione B — ora per sotto-gruppo di sottocategoria
+                          invece che per intera categoria) — riapre il
+                          sotto-gruppo mostrando tutti i Ticket invece del
+                          solo primo; resta allineata al resto delle card
+                          (non un link minuscolo in testa) per essere facile
+                          da toccare quanto il resto della colonna. */}
+                          {collassabileSotto && !espansoSotto && (
+                            <button
+                              type="button"
+                              onClick={() => alternaGruppo(chiaveSotto)}
+                              className="rounded-lg border border-dashed bg-card py-2 text-center text-xs font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/5"
+                            >
+                              Mostra altri {sotto.ticket.length - 1} ticket →
+                            </button>
+                          )}
+                        </div>
                         );
                       })}
-                      {/* ★ NUOVA (2026-10-07, redesign "Home Ticket",
-                      opzione B) — riapre il gruppo mostrando tutti i Ticket
-                      invece del solo primo; resta allineata al resto delle
-                      card (non un link minuscolo in testa) per essere
-                      facile da toccare quanto il resto della colonna. */}
-                      {collassabile && !espanso && (
-                        <button
-                          type="button"
-                          onClick={() => alternaGruppo(chiaveGruppo)}
-                          className="rounded-lg border border-dashed bg-card py-2 text-center text-xs font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/5"
-                        >
-                          Mostra altri {gruppo.ticket.length - 1} ticket →
-                        </button>
-                      )}
                     </div>
                   </div>
                   );

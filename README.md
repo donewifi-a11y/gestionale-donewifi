@@ -6682,3 +6682,32 @@ spariti dalla colonna, non raggruppati male al suo interno.
   intero); la coda scende da 21+ a 8 — solo i Ticket davvero nuovi.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Fix — gruppi misti ("Assistenza") senza possibilità di collassare**
+(2026-10-07, bug reale segnalato: "non c'è possibilità di collassare i ticket
+assistenza. Non riusciamo ad avere un'interfaccia più pulita"). Il fix precedente
+("vedo solo disdetta") era corretto ma lasciava un effetto collaterale: il collasso
+richiede un gruppo omogeneo per categoria, quindi un gruppo "Assistenza" misto (più
+sottocategorie diverse insieme) non può MAI collassare, anche quando al suo interno
+ci sono sotto-cluster davvero ripetitivi — es. 6 Ticket senza sottocategoria
+assegnata, o un Internet lento affollato.
+
+- Nuova `raggruppaPerSottocategoria()` in `tickets-board.tsx`: dentro ciascun
+  gruppo-categoria, un'ulteriore suddivisione per sottocategoria (chiave "—" per i
+  Ticket senza una). Ogni sotto-gruppo è omogeneo per costruzione e può collassare
+  per conto proprio, indipendentemente dal fatto che la categoria nel suo insieme
+  resti mista.
+- Il collasso/espansione (`gruppiEspansi`, `alternaGruppo`) ora vive a livello di
+  sotto-gruppo (chiave colonna+categoria+sottocategoria) invece che di sola
+  categoria; l'intestazione di categoria torna a essere solo informativa (non più
+  cliccabile — il collasso che contava era quello sbagliato).
+- Verificato sui dati reali: in "In Verifica" il gruppo "Assistenza" (14 Ticket,
+  misto) ora mostra "Internet lento" (4) e "Internet assente" (3) per intero — sotto
+  soglia — ma collassa a 1 card + bottone il sotto-gruppo senza sottocategoria (6
+  Ticket); il gruppo "Disdetta" (18, omogeneo) resta collassato come prima. In
+  "Lavorata" (63 Ticket "Assistenza" misti) il beneficio è ancora più marcato: 4
+  sotto-gruppi su 7 superano la soglia e collassano (19 senza sottocategoria, 17
+  Internet assente, 11 Intervento in loco, 9 Internet lento), lasciando solo le code
+  piccole sempre visibili.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
