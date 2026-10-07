@@ -6559,3 +6559,17 @@ alla bacheca Ticket principale che non lo usava.
 
 Build/lint puliti (0 errori). Nessuna migrazione — solo riorganizzazione della UI,
 `tecnico_assegnato`/`tecnico_esterno_id` erano già le colonne giuste.
+
+✅ **Fix — ticket già chiusi mostrati nella coda "Da assegnare"** (2026-10-07, bug reale
+segnalato: "nei ticket figurano dei ticket chiusi ancora da prendere in carico, in
+verità sono già chiusi"). `nonAssegnatiCoda` filtrava solo "nessun assegnatario", non
+"ancora aperto": un Ticket già `stato = "Completato"` ma senza `tecnico_assegnato`
+registrato (chiuso da un flusso che non passa da `assegnaTicket()`, o dato storico)
+finiva comunque in coda come se andasse ancora preso in carico.
+
+- Verificato sui dati reali prima di correggere: 10+ Ticket "Completato" senza
+  assegnatario in produzione (es. #220 Jean Bonin, #218 Rollet Anais — gli stessi visti
+  nello screenshot segnalato).
+- Aggiunta la condizione `t.stato !== "Completato"` al filtro della coda.
+
+Build/lint puliti (0 errori). Nessuna migrazione.

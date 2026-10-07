@@ -431,7 +431,14 @@ export function TicketsBoard({
   const nonAssegnatiCoda = useMemo(
     () =>
       filtrati
-        .filter((t) => !t.tecnico_assegnato && !t.tecnico_esterno_id)
+        // ★ FIX (2026-10-07, bug reale segnalato: "figurano ticket chiusi
+        // ancora da prendere in carico, in verità sono già chiusi") —
+        // filtrava solo per "nessun assegnatario", non per "ancora aperto":
+        // un Ticket già "Completato" ma senza tecnico_assegnato registrato
+        // (es. chiuso da un flusso che non passa da assegnaTicket, o dato
+        // storico) finiva comunque in coda come se andasse ancora preso in
+        // carico. La coda ha senso solo per chi non è ancora stato chiuso.
+        .filter((t) => !t.tecnico_assegnato && !t.tecnico_esterno_id && t.stato !== "Completato")
         .sort(
           (a, b) =>
             ORDINE_PRIORITA[a.priorita] - ORDINE_PRIORITA[b.priorita] ||
