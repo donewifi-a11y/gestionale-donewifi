@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { StatoVuoto } from "@/components/ui/stato-vuoto";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   creaPersona,
   aggiornaPersona,
@@ -213,22 +214,25 @@ function SelettoreAccesso({ amministratore = false, reparti = [] }: { amministra
         />
         Amministratore (vede e gestisce tutto)
       </label>
-      <div className={`mt-2 flex flex-col gap-1.5 ${isAdmin ? "opacity-40" : ""}`}>
-        <p className="text-xs text-muted-foreground">Reparti (se non amministratore)</p>
-        {REPARTI.map((r) => (
-          <label key={r} className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="reparti"
-              value={r}
-              defaultChecked={reparti.includes(r)}
-              disabled={isAdmin}
-              className="h-4 w-4"
-            />
-            {r}
-          </label>
-        ))}
-      </div>
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — prima i reparti
+      restavano visibili ma sfumati/disattivati quando "Amministratore" era
+      spuntato: l'unico indizio che non contassero più era l'opacità al
+      40%, facile da non notare — un utente poco attento poteva continuare
+      a pensare di doverli scegliere. Nascosti del tutto, con una riga che
+      spiega perché, invece di un controllo visibile ma inerte. */}
+      {isAdmin ? (
+        <p className="mt-2 text-xs text-muted-foreground">Un amministratore ha accesso a tutti i reparti automaticamente.</p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-1.5">
+          <p className="text-xs text-muted-foreground">Reparti</p>
+          {REPARTI.map((r) => (
+            <label key={r} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="reparti" value={r} defaultChecked={reparti.includes(r)} className="h-4 w-4" />
+              {r}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -319,8 +323,19 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
     password: null,
     errore: null,
   });
-  const [attivita, setAttivita] = useState<AttivitaPersona[]>([]);
-  const [modifichePermessi, setModifichePermessi] = useState<AttivitaPersona[]>([]);
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — confirm() nativo del
+  // browser al posto del Dialog di conferma già in stile in tutto il resto
+  // del gestionale (es. eliminaVista sopra) — stonava per un'azione
+  // distruttiva importante come eliminare una Persona.
+  const { confirm: confirmElimina, ConfirmDialog: DialogConfermaElimina } = useConfirm();
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — `null` iniziale distingue
+  // "ancora in caricamento" da "caricato, nessun risultato" (prima erano
+  // entrambi `[]`): senza questa distinzione, tra l'apertura del pannello e
+  // l'arrivo dei dati la sezione spariva del tutto in silenzio, facile
+  // scambiare per "questa persona non ha storico" invece che "sta ancora
+  // arrivando".
+  const [attivita, setAttivita] = useState<AttivitaPersona[] | null>(null);
+  const [modifichePermessi, setModifichePermessi] = useState<AttivitaPersona[] | null>(null);
   const [carico, setCarico] = useState<CaricoPersona | null>(null);
   const eSeStesso = persona.id === currentUserId;
 
@@ -336,8 +351,16 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
     setReset({ inCorso: false, password: risultato.password, errore: risultato.errore, avviso: risultato.avviso });
   }
 
-  function onElimina() {
-    if (!confirm(`Eliminare definitivamente ${persona.nome}? Non si può annullare. Se ha già Ticket o attività collegate, non sarà possibile — disattivala invece.`)) return;
+  async function onElimina() {
+    if (
+      !(await confirmElimina({
+        titolo: "Eliminare la persona?",
+        descrizione: `Eliminare definitivamente ${persona.nome}? Non si può annullare. Se ha già Ticket o attività collegate, non sarà possibile — disattivala invece.`,
+        testoConferma: "Elimina",
+        distruttivo: true,
+      }))
+    )
+      return;
     setErrore("");
     startEliminazione(async () => {
       const risultato = await eliminaPersona(persona.id);
@@ -451,7 +474,9 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
           </div>
         )}
 
-        {attivita.length > 0 && (
+        {attivita === null ? (
+          <p className="text-xs text-muted-foreground">Caricamento attività…</p>
+        ) : attivita.length > 0 && (
           <div>
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Clock className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -473,7 +498,9 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
         restanti, migrazione 0085) — "Attività recente" sopra mostra cosa
         ha FATTO questa persona; qui, il gemello: chi ha MODIFICATO questa
         persona (reparti/amministratore/attivo) — prima nessuna traccia. */}
-        {modifichePermessi.length > 0 && (
+        {modifichePermessi === null ? (
+          <p className="text-xs text-muted-foreground">Caricamento modifiche ai permessi…</p>
+        ) : modifichePermessi.length > 0 && (
           <div>
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <ShieldAlert className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -514,6 +541,7 @@ function FormModificaPersona({ persona, currentUserId, onFatto }: { persona: Per
           </p>
         </div>
       )}
+      <DialogConfermaElimina />
     </>
   );
 }

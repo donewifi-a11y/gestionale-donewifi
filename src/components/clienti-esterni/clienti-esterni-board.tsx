@@ -81,25 +81,29 @@ export function ClientiEsterniBoard({
 
   return (
     <div>
-      <div className="mb-5 flex gap-1.5 rounded-xl bg-muted/60 p-1">
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — questo selettore
+      "Anagrafica/Buy&Go" aveva uno stile diverso (segmento su sfondo pieno)
+      da quello usato per il selettore ESTERNO "Clienti/Installazioni/
+      Anagrafica" in clienti-board.tsx (pillola con bordo) — due selettori
+      impilati, stesso concetto, stile diverso, confondono su "dove sono".
+      Uniformato alla pillola-con-bordo usata ovunque altro nel gestionale. */}
+      <div className="mb-5 flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm" style={{ width: "fit-content" }}>
         <button
           onClick={() => setVista("anagrafica")}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
-            vista === "anagrafica" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "anagrafica" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
         >
           Anagrafica
         </button>
         <button
           onClick={() => setVista("buygo")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${
-            vista === "buygo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "buygo" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
         >
           <Zap className="h-3.5 w-3.5" strokeWidth={2.5} />
           Buy&amp;Go
           {clientiBuyGo.length > 0 && (
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-primary">{clientiBuyGo.length}</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${vista === "buygo" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+              {clientiBuyGo.length}
+            </span>
           )}
         </button>
       </div>
@@ -159,22 +163,33 @@ export function ClientiEsterniBoard({
               <RefreshCw className={`h-3.5 w-3.5 ${inCorsoAnagrafica ? "animate-spin" : ""}`} strokeWidth={2.25} />
               {inCorsoAnagrafica ? "Sincronizzo..." : "Sincronizza anagrafica"}
             </Button>
-            <Button size="sm" variant="outline" onClick={sincronizzaFatture} disabled={inCorsoFatture} title="Può richiedere fino a un minuto — migliaia di righe da scaricare.">
-              <FileText className={`h-3.5 w-3.5 ${inCorsoFatture ? "animate-pulse" : ""}`} strokeWidth={2.25} />
-              {inCorsoFatture ? "Sincronizzo fatture… (fino a 1 minuto)" : "Sincronizza fatture"}
-            </Button>
+            {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "può richiedere
+            fino a un minuto" era solo nel `title` (tooltip al passaggio del
+            mouse): un operatore che preme e non vede nulla per 30-40
+            secondi poteva pensare l'app bloccata. Ora sempre leggibile
+            sotto il bottone, non solo scoperta per caso con l'hover;
+            `animate-spin` al posto di `animate-pulse` — un'icona che gira è
+            un'indicazione di avanzamento più chiara di una che pulsa. */}
+            <div className="flex flex-col items-start gap-1">
+              <Button size="sm" variant="outline" onClick={sincronizzaFatture} disabled={inCorsoFatture}>
+                <FileText className={`h-3.5 w-3.5 ${inCorsoFatture ? "animate-spin" : ""}`} strokeWidth={2.25} />
+                {inCorsoFatture ? "Sincronizzo fatture…" : "Sincronizza fatture"}
+              </Button>
+              <span className="text-[10px] text-muted-foreground">Può richiedere fino a un minuto</span>
+            </div>
           </div>
         )}
       </div>
 
-      {/* ★ FIX — richiesta esplicita (audit grafico completo): una
-      sincronizzazione riuscita restava sempre grigia/neutra, mai verde
-      come il resto dei successi nel gestionale (toast, badge di stato) —
-      solo l'errore aveva un colore (giallo). */}
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — un errore vero (es.
+      credenziali Aruba scadute) usava lo stesso colore "warning" (giallo)
+      di un semplice avviso, mentre nel resto del gestionale (Persone,
+      Clienti, Materiali...) un errore è sempre "critical" (rosso): sembrava
+      visivamente un avviso minore, non un problema da segnalare subito. */}
       {esito && (
         <p
           className={`mb-4 rounded-lg p-2.5 text-sm ${
-            esitoErrore ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
+            esitoErrore ? "bg-critical/10 text-critical" : "bg-success/10 text-success"
           }`}
         >
           {esito}

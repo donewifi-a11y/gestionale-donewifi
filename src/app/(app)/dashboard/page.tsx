@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, UserMinus2, Timer, Users2, Database, ReceiptText, Percent, FileStack } from "lucide-react";
+import { Gauge, TriangleAlert, Clock, CalendarCheck2, TrendingUp, TrendingDown, Minus, Euro, UserPlus2, UserMinus2, Timer, Users2, Database, ReceiptText, Percent, FileStack, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonaCorrente, personaHaAccessoAdmin, personaVedeReparto } from "@/lib/persona";
 import { getDatiAmministrazione, getStatistichePeriodo, getDatiAnagraficaAruba, getTotaliGeneraliAruba, getConfrontoFatturatoPeriodo, getDatiReparto, REPARTI_ELENCO } from "@/lib/analytics";
@@ -338,13 +338,24 @@ function SezionePeriodo({
               {p.etichetta}
             </Link>
           ))}
+          {/* ★ FIX (2026-10-07, audit d'oro gestionale — richiesta esplicita:
+          "renderlo più facile") — "Da"/"A" prima erano solo attributi
+          `name`, mai scritti a schermo: un utente poteva non capire a cosa
+          servissero i due campi data, né che va premuto "Applica" dopo
+          averli scelti (nessun autosubmit). Etichette visibili + bottone
+          più leggibile invece della sola pillola minuscola. */}
           <form className="flex items-center gap-1.5">
-            <input type="date" name="da" defaultValue={da} className="h-7 rounded-md border bg-background px-2 text-xs" />
-            <span className="text-xs text-muted-foreground">–</span>
-            <input type="date" name="a" defaultValue={a} className="h-7 rounded-md border bg-background px-2 text-xs" />
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              Da
+              <input type="date" name="da" defaultValue={da} className="h-8 rounded-md border bg-background px-2 text-xs" />
+            </label>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              a
+              <input type="date" name="a" defaultValue={a} className="h-8 rounded-md border bg-background px-2 text-xs" />
+            </label>
             <button
               type="submit"
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              className={`h-8 rounded-full px-3.5 text-xs font-bold transition ${
                 periodoAttivo === "custom" ? "bg-primary text-primary-foreground" : "border bg-card text-muted-foreground hover:bg-muted/60"
               }`}
             >
@@ -397,8 +408,16 @@ function SezionePeriodo({
                     <td className="py-2 text-right tabular-nums">{d.aperti}</td>
                     <td className="py-2 text-right tabular-nums">{d.completati}</td>
                     <td className="py-2 text-right tabular-nums text-critical">{d.urgenti || ""}</td>
-                    <td className="py-2 text-right tabular-nums" title={`basato su ${d.slaCampione} ticket`}>
+                    {/* ★ FIX (2026-10-07, audit d'oro gestionale) — il campione
+                    ("basato su N ticket") era solo nel `title` (tooltip al
+                    passaggio del mouse): su tablet/touch, dove gran parte
+                    dello staff lavora, quel dato era semplicemente
+                    irraggiungibile — uno SLA calcolato su 2 ticket poteva
+                    sembrare attendibile quanto uno su 200. Ora visibile
+                    sempre, come già fatto per lo SLA per priorità poco sotto. */}
+                    <td className="py-2 text-right tabular-nums">
                       {fmtSla(d.slaOreMedia)}
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">· {d.slaCampione}t</span>
                     </td>
                   </tr>
                 );
@@ -498,12 +517,21 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
   const maxCompletatiReparto = Math.max(1, ...Object.values(dati.completatiPerReparto));
   const maxTipologia = Math.max(1, ...Object.values(dati.perTipologia));
 
+  // ★ FIX (2026-10-07, audit d'oro gestionale — richiesta esplicita: "renderlo
+  // più facile, user friendly") — questa sezione (e le due successive,
+  // Anagrafica Aruba/Totali generali) stava sempre tutta aperta sotto i KPI
+  // principali: chi apre la Dashboard solo per "quanti ticket urgenti ho
+  // oggi" doveva comunque scorrere oltre blocchi di statistiche che magari
+  // non guarda mai. <details> nativo invece di uno stato client — niente
+  // JS in più su una pagina server-rendered, resta apribile da tastiera e
+  // comprensibile anche senza stile.
   return (
-    <div className="mt-8 border-t pt-8">
-      <div className="mb-4 flex items-center gap-2">
+    <details className="group mt-8 border-t pt-8" open>
+      <summary className="mb-4 flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <TrendingUp className="h-4 w-4 text-primary" strokeWidth={2.5} />
         <h2 className="font-heading text-lg font-bold capitalize">Amministrazione — {dati.mese}</h2>
-      </div>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" strokeWidth={2.5} />
+      </summary>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Kpi icona={UserPlus2} etichetta="Acquisizioni del mese" valore={dati.acquisizioniTotali} colore="text-primary" />
@@ -571,7 +599,7 @@ function SezioneAmministrazione({ dati }: { dati: NonNullable<Awaited<ReturnType
           ))}
         </Pannello>
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -579,26 +607,36 @@ function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType
   const maxAndamento = Math.max(1, ...dati.andamentoFatturato.map((m) => m.totale));
   const maxProfili = Math.max(1, ...dati.distribuzioneProfili.map((p) => p.conteggio));
 
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — stesso trattamento
+  // collassabile di SezioneAmministrazione qui sopra, vedi quel commento.
   return (
-    <div className="mt-8 border-t pt-8 print:break-before-page">
-      <div className="mb-4 flex items-center gap-2">
+    <details className="group mt-8 border-t pt-8 print:break-before-page" open>
+      <summary className="mb-4 flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <Database className="h-4 w-4 text-primary" strokeWidth={2.5} />
         <h2 className="font-heading text-lg font-bold">Anagrafica Clienti (Aruba)</h2>
-      </div>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" strokeWidth={2.5} />
+      </summary>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Kpi icona={Users2} etichetta="Clienti attivi" valore={dati.clientiAttivi} colore="text-primary" />
+        {/* ★ FIX (2026-10-07, audit d'oro gestionale) — stesse card KPI del
+        blocco in cima alla Dashboard (quelle sono link, queste no): un
+        utente che ha imparato "le card si cliccano" lì sopra le proverebbe
+        a cliccare anche qui senza risultato. Tutte e 3 portano alla stessa
+        pagina di dettaglio, dove questi stessi dati sono consultabili. */}
+        <Kpi icona={Users2} etichetta="Clienti attivi" valore={dati.clientiAttivi} colore="text-primary" href="/clienti-esterni" />
         <Kpi
           icona={ReceiptText}
           etichetta="Fatture insolute"
           valore={dati.fattureInsolute.numero}
           colore={dati.fattureInsolute.numero > 0 ? "text-critical" : "text-foreground"}
+          href="/clienti-esterni"
         />
         <Kpi
           icona={Euro}
           etichetta="Importo insoluto"
           valore={`€ ${dati.fattureInsolute.totale.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`}
           colore={dati.fattureInsolute.totale > 0 ? "text-critical" : "text-foreground"}
+          href="/clienti-esterni"
         />
       </div>
 
@@ -629,7 +667,7 @@ function SezioneAnagraficaAruba({ dati }: { dati: NonNullable<Awaited<ReturnType
           <BarraRiga key={p.nome} etichetta={p.nome} conteggio={p.conteggio} max={maxProfili} colore="bg-primary" />
         ))}
       </Pannello>
-    </div>
+    </details>
   );
 }
 
@@ -637,12 +675,15 @@ function SezioneTotaliGenerali({ dati }: { dati: NonNullable<Awaited<ReturnType<
   const fmtEuro = (v: number) => `€ ${v.toLocaleString("it-IT", { maximumFractionDigits: 0 })}`;
   const fmtPercento = (v: number) => `${v.toFixed(1)}%`;
 
+  // ★ FIX (2026-10-07, audit d'oro gestionale) — stesso trattamento
+  // collassabile di SezioneAmministrazione sopra, vedi quel commento.
   return (
-    <div className="mt-8 border-t pt-8 print:break-before-page">
-      <div className="mb-4 flex items-center gap-2">
+    <details className="group mt-8 border-t pt-8 print:break-before-page" open>
+      <summary className="mb-4 flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <FileStack className="h-4 w-4 text-primary" strokeWidth={2.5} />
         <h2 className="font-heading text-lg font-bold">Totali generali</h2>
-      </div>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition group-open:rotate-180" strokeWidth={2.5} />
+      </summary>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Kpi icona={Euro} etichetta="Fatturato storico totale" valore={fmtEuro(dati.fatturatoTotale)} colore="text-success" />
@@ -666,7 +707,7 @@ function SezioneTotaliGenerali({ dati }: { dati: NonNullable<Awaited<ReturnType<
         <Kpi icona={Euro} etichetta="Valore medio fattura" valore={fmtEuro(dati.valoreMedioFattura)} colore="text-foreground" />
         <Kpi icona={Euro} etichetta="Ricavo medio/cliente al mese" valore={fmtEuro(dati.arpuMensile)} colore="text-success" />
       </div>
-    </div>
+    </details>
   );
 }
 

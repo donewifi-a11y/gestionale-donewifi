@@ -160,11 +160,16 @@ export function ClientiBoard({
         >
           Clienti
         </button>
+        {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "Installazioni (N)"
+        da solo non dice se N sono le installazioni fatte, quelle in
+        programma, o gli appuntamenti di installazione a calendario (un
+        oggetto diverso, altrove nel gestionale) — title esplicito. */}
         <button
           onClick={() => setVista("installazioni")}
+          title="Installazioni già effettuate, con i dati dalla Scheda di lavoro"
           className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${vista === "installazioni" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
         >
-          Installazioni ({installazioni.length})
+          Installazioni effettuate ({installazioni.length})
         </button>
         {anagrafica && (
           <button
@@ -221,7 +226,22 @@ export function ClientiBoard({
         />
       </div>
 
-      {filtrati.length === 0 && <StatoVuoto icona={Users2} titolo="Nessun cliente trovato." />}
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — questa vista è costruita
+      raggruppando i Ticket (vedi `clienti` sopra): un cliente regolare che
+      non ha mai aperto un Ticket non ci comparirà MAI, anche se è attivo e
+      pagante in Anagrafica — un operatore che lo cerca qui per nome lo
+      trova "introvabile" senza sapere che deve guardare in un'altra tab. */}
+      {filtrati.length === 0 && ricerca.trim() && anagrafica ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed p-10 text-center text-muted-foreground">
+          <Users2 className="h-8 w-8 text-muted-foreground/60" strokeWidth={1.75} />
+          <p className="text-sm">Nessun ticket per &quot;{ricerca.trim()}&quot; — questa vista mostra solo chi ha almeno un ticket.</p>
+          <Button size="sm" variant="outline" onClick={() => setVista("anagrafica")}>
+            Cerca in Anagrafica
+          </Button>
+        </div>
+      ) : (
+        filtrati.length === 0 && <StatoVuoto icona={Users2} titolo="Nessun cliente trovato." />
+      )}
 
       <div className="flex flex-col gap-2">
         {filtrati.map((c) => {
@@ -229,9 +249,13 @@ export function ClientiBoard({
           const giorni = giorniAllaScadenza(c.dati?.scadenza_contratto ?? null);
           return (
             <div key={c.chiave} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {/* ★ FIX (2026-10-07, audit d'oro gestionale) — fino a 4
+              badge+chevron affiancati al nome potevano affastellarsi su
+              schermi medi; flex-wrap lascia che le pillole secondarie
+              vadano a capo invece di schiacciarsi tutte sulla stessa riga. */}
               <button
                 onClick={() => setAperto(espanso ? null : c.chiave)}
-                className="flex w-full items-center gap-3 p-3 text-left text-sm"
+                className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 p-3 text-left text-sm"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
                   {c.nome.slice(0, 2).toUpperCase()}
@@ -266,6 +290,26 @@ export function ClientiBoard({
                     <AlertTriangle className="h-3 w-3" strokeWidth={2.5} />
                     {giorni < 0 ? "Contratto scaduto" : `Scade tra ${giorni}gg`}
                   </Badge>
+                )}
+                {/* ★ FIX (2026-10-07, audit d'oro gestionale) — prima i Dati
+                contrattuali erano modificabili solo dopo aver espanso la
+                riga: minimo 2 click per un'azione comune ("aggiorna la
+                scadenza contratto mentre il cliente è al telefono"). Icona
+                diretta anche a riga chiusa, con stopPropagation per non far
+                anche espandere/collassare la riga allo stesso click. */}
+                {puoModificare && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModifica(c);
+                    }}
+                    title="Modifica dati contrattuali"
+                    aria-label="Modifica dati contrattuali"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-primary"
+                  >
+                    <FileEdit className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </button>
                 )}
                 <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition ${espanso ? "rotate-180" : ""}`} strokeWidth={2.25} />
               </button>

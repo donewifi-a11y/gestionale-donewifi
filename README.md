@@ -6787,3 +6787,71 @@ restava "Programmato" per sempre.
 
 Build/lint puliti (0 errori). Nessuna migrazione (nessuna modifica di schema,
 solo logica applicativa + una correzione una tantum sui dati esistenti).
+
+## Controllo d'oro gestionale — usabilità (2026-10-07)
+
+Richiesta esplicita: "migliorare tutto il gestionale per renderlo più facile,
+user friendly e molto semplice". Audit in 4 gruppi paralleli su tutti i
+moduli (Ticket escluso, appena rivisto in questa stessa giornata — vedi
+sopra), poi applicazione modulo per modulo con build/lint a ogni tappa.
+
+✅ **Dashboard** (`src/app/(app)/dashboard/page.tsx`):
+- Le sezioni "Amministrazione"/"Anagrafica Clienti (Aruba)"/"Totali generali"
+  sotto i KPI principali erano sempre tutte aperte: chi voleva solo "quanti
+  ticket urgenti ho oggi" doveva comunque scorrere oltre blocchi di
+  statistiche che magari non guarda mai. Ora collassabili (`<details>`
+  nativo, nessun JS in più su una pagina server-rendered), aperte di default
+  per non nascondere nulla rispetto a prima.
+- Il filtro periodo "custom" aveva due `<input type="date">` senza etichette
+  visibili ("da"/"a" erano solo attributi `name`) — aggiunte etichette "Da"/
+  "a" a schermo, bottone "Applica" più leggibile.
+- Lo SLA medio per reparto mostrava il campione ("basato su N ticket") solo
+  nel tooltip — irraggiungibile su tablet/touch. Ora visibile sempre, come
+  già faceva lo SLA per priorità poco sotto.
+- Le card KPI di Amministrazione/Anagrafica Aruba (Clienti attivi, Fatture
+  insolute, Importo insoluto) non erano link, a differenza delle card
+  identiche in cima alla pagina — un utente che ha imparato "si cliccano"
+  lì sopra le avrebbe provate anche qui senza risultato. Ora portano a
+  `/clienti-esterni`.
+
+✅ **Clienti** (`src/components/clienti/clienti-board.tsx`):
+- La vista "Clienti" è costruita raggruppando i Ticket: un cliente senza
+  Ticket non vi compare mai, anche se attivo in Anagrafica — una ricerca
+  senza risultati ora lo spiega esplicitamente con un bottone "Cerca in
+  Anagrafica" invece del generico "Nessun cliente trovato".
+- "Dati contrattuali" erano modificabili solo dopo aver espanso la riga
+  (minimo 2 click per un'azione comune) — icona di modifica diretta anche a
+  riga chiusa.
+- Badge affiancati (ticket/attivi/scadenza) potevano affastellarsi su schermi
+  medi — ora vanno a capo (`flex-wrap`) invece di schiacciarsi.
+- Tab "Installazioni (N)" rinominata "Installazioni effettuate (N)" + title,
+  per non confonderla con appuntamenti di installazione a calendario.
+
+✅ **Anagrafica Clienti / Clienti Esterni** (`clienti-esterni-board.tsx`):
+- Selettore "Anagrafica/Buy&Go" aveva uno stile diverso (segmento pieno) dal
+  selettore "Clienti/Installazioni/Anagrafica" esterno (pillola con bordo) —
+  due selettori impilati, stile diverso, confondevano su "dove sono". Ora
+  uniformati.
+- Un errore di sincronizzazione (es. credenziali Aruba scadute) usava lo
+  stesso colore "warning" (giallo) di un avviso minore invece di "critical"
+  (rosso) come ovunque altro nel gestionale.
+- "Può richiedere fino a un minuto" per la sincronizzazione fatture era solo
+  nel tooltip — ora sempre leggibile sotto il bottone; icona `animate-spin`
+  invece di `animate-pulse`, più leggibile come indicazione di avanzamento.
+- La data "aggiornati il" nella scheda cliente (sincronizzazione di QUEL
+  cliente) e "ultima sincronizzazione" nella board (massimo su tutti) erano
+  due numeri diversi con lo stesso nome — wording ora esplicito su quale
+  delle due sia.
+
+✅ **Persone** (`src/components/persone/persone-board.tsx`):
+- Nel form "reparti" restavano visibili ma sfumati al 40% quando
+  "Amministratore" era spuntato — unico indizio che non contassero più,
+  facile da non notare. Ora nascosti del tutto con una riga che spiega
+  perché, invece di un controllo visibile ma inerte.
+- Eliminazione Persona usava `confirm()` nativo del browser — sostituito con
+  `useConfirm()`, coerente con il resto del gestionale.
+- "Attività recente"/"Modifiche ai permessi" sparivano in silenzio durante
+  il caricamento (stato iniziale `[]`, indistinguibile da "nessun
+  risultato") — ora un "Caricamento…" esplicito finché i dati non arrivano.
+
+Build/lint puliti (0 errori). Nessuna migrazione.

@@ -77,7 +77,13 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Non attivo</span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Dati importati dall&apos;anagrafica Aruba — aggiornati il {new Date(c.aggiornato_il).toLocaleString("it-IT")}.</p>
+            {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "aggiornati il"
+            qui è la data di sincronizzazione di QUESTO cliente, diversa
+            dalla "ultima sincronizzazione" mostrata nella board (quella è
+            il massimo su tutti i clienti) — due date con lo stesso nome in
+            due pagine della stessa sezione potevano confondere su quale
+            fosse "la più fresca". Wording esplicito su a cosa si riferisce. */}
+            <p className="text-sm text-muted-foreground">Dati importati dall&apos;anagrafica Aruba — questo cliente aggiornato il {new Date(c.aggiornato_il).toLocaleString("it-IT")}.</p>
           </div>
         </div>
         <Link
