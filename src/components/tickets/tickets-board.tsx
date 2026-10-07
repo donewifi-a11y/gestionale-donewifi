@@ -290,6 +290,10 @@ export function TicketsBoard({
     aggiornaVisteSalvate({ elenco: visteSalvate.elenco.filter((x) => x.id !== v.id) });
   }
   const [aperto, setAperto] = useState<Ticket | null>(null);
+  // ★ NUOVA (2026-10-07, redesign "Ticket doppi", opzione B) — il Ticket
+  // il cui badge "Cliente tornato" è stato cliccato: apre il pannello con
+  // l'elenco di tutti i Ticket dello stesso cliente (vedi JSX sotto).
+  const [clienteTornatoAperto, setClienteTornatoAperto] = useState<Ticket | null>(null);
   // ★ NUOVA — sollevato qui (la Scheda si apre in un Dialog centrale
   // separato dal Sheet di dettaglio Ticket, non più annidato dentro):
   // DettaglioTicket conosce già l'appuntamento collegato, lo passa su con
@@ -931,7 +935,7 @@ export function TicketsBoard({
                         // "Pianificato", non un allarme — lo stesso principio
                         // dell'artifact ("un solo colore per il vero
                         // allarme"), applicato fino in fondo.
-                        let segnale: { testo: string; tono: "critico" | "avviso" | "neutro"; pulsante?: boolean } | null = null;
+                        let segnale: { testo: string; tono: "critico" | "avviso" | "neutro"; pulsante?: boolean; cliccabile?: boolean } | null = null;
                         if (t.priorita === "Urgente") {
                           segnale = { testo: "Urgente", tono: "critico" };
                         } else if (altriTicketStessoCliente.length > 0) {
@@ -939,7 +943,20 @@ export function TicketsBoard({
                           // un cliente tornato più volte per Assistenza,
                           // segnale di insoddisfazione più concreto di un
                           // ticket semplicemente "fermo da giorni".
-                          segnale = { testo: `Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, tono: "neutro" };
+                          //
+                          // ★ ESTESA (2026-10-07, richiesta esplicita: "si
+                          // stanno creando spesso ticket doppi o più ticket
+                          // dello stesso cliente... sarebbe da trovare la
+                          // possibilità di unificarli" — proposta con
+                          // artifact "Ticket doppi — alternative", opzione
+                          // B scelta dall'utente) — il segnale era solo
+                          // testo, un fatto da notare senza poterci fare
+                          // nulla. `cliccabile` lo rende un bottone che apre
+                          // l'elenco di tutti i Ticket dello stesso cliente
+                          // (vedi clienteTornatoAperto sotto), con un "Apri"
+                          // diretto per ciascuno invece di dover ricercare i
+                          // numeri citati uno a uno.
+                          segnale = { testo: `Cliente tornato — anche #${altriTicketStessoCliente.join(", #")}`, tono: "neutro", cliccabile: true };
                         } else if (t.confermato_cliente_il && entroOreDa(t.confermato_cliente_il, 48)) {
                           segnale = { testo: "✓ Cliente ha confermato l'intervento", tono: "neutro", pulsante: true };
                         } else if (!t.tecnico_assegnato && !t.tecnico_esterno_id && entroOreDa(t.data_creazione, 2)) {
@@ -1036,6 +1053,17 @@ export function TicketsBoard({
                                 {segnale ? (
                                   segnale.pulsante ? (
                                     <SegnalePulsante testo={segnale.testo} tono="successo" pulsante />
+                                  ) : segnale.cliccabile ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setClienteTornatoAperto(t);
+                                      }}
+                                      className="inline-flex min-w-0 max-w-[65%] items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 font-semibold text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+                                    >
+                                      <span className="truncate">{segnale.testo}</span>
+                                    </button>
                                   ) : (
                                     <span
                                       className={`inline-flex min-w-0 max-w-[65%] items-center rounded-full px-1.5 py-0.5 font-semibold ${
@@ -1256,6 +1284,58 @@ export function TicketsBoard({
                   onAnnulla={() => setSchedaAperta(null)}
                   onSalvato={chiudiSchedaSalvata}
                 />
+              );
+            })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ★ NUOVA (2026-10-07, redesign "Ticket doppi", opzione B scelta
+      dall'utente) — l'elenco di tutti i Ticket dello stesso cliente
+      (stesso telefono), aperto dal badge "Cliente tornato" reso cliccabile
+      sopra. Niente fusione: solo un "Apri" diretto per ciascuno, invece di
+      dover ricercare a mano i numeri citati nel testo del segnale. */}
+      <Dialog open={!!clienteTornatoAperto} onOpenChange={(v) => !v && setClienteTornatoAperto(null)}>
+        <DialogContent className="sm:max-w-md">
+          {clienteTornatoAperto &&
+            (() => {
+              const correlati = tickets
+                .filter((x) => normalizzaTelefono(x.telefono) === normalizzaTelefono(clienteTornatoAperto.telefono))
+                .sort((a, b) => new Date(b.aggiornato_il).getTime() - new Date(a.aggiornato_il).getTime());
+              return (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>{clienteTornatoAperto.cliente}</DialogTitle>
+                    <DialogDescription>Stesso telefono su {correlati.length} Ticket</DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-2">
+                    {correlati.map((x) => (
+                      <div
+                        key={x.id}
+                        className={`flex items-center gap-3 rounded-lg border p-2.5 ${x.id === clienteTornatoAperto.id ? "border-primary/40 bg-primary/5" : ""}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">
+                            Ticket #{x.numero} {x.id === clienteTornatoAperto.id && <span className="text-xs font-normal text-muted-foreground">(questo)</span>}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {x.sottocategoria || x.problema || x.categoria} · {x.stato} · agg. {tempoRelativo(x.aggiornato_il)}
+                          </p>
+                        </div>
+                        {x.id !== clienteTornatoAperto.id && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setClienteTornatoAperto(null);
+                              setAperto(x);
+                            }}
+                          >
+                            Apri
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
               );
             })()}
         </DialogContent>

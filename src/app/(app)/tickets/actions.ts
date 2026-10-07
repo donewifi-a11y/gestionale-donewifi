@@ -493,6 +493,45 @@ export interface ClienteEsistente {
   indirizzo: string | null;
 }
 
+export interface TicketApertoDuplicato {
+  id: string;
+  numero: number;
+  cliente: string;
+  categoria: string;
+  sottocategoria: string | null;
+  problema: string | null;
+  stato: StatoTicket;
+  aggiornato_il: string;
+}
+
+/** ★ NUOVA (2026-10-07, richiesta esplicita: "si stanno creando spesso
+ * ticket doppi o più ticket dello stesso cliente" — proposta con artifact
+ * "Ticket doppi — alternative", opzione A scelta dall'utente: prevenzione
+ * alla creazione invece di una fusione a posteriori) — chiamata dal form
+ * "Nuovo Ticket" appena il telefono inserito combacia con un Ticket ancora
+ * aperto, per avvisare PRIMA che il doppio nasca invece di scoprirlo dopo.
+ * Stessa normalizzazione (ultime 9 cifre) già usata per lo stesso scopo in
+ * tickets-board.tsx (segnale "Cliente tornato") — qui serve lato server
+ * perché va interrogata mentre si compila il form, non sui Ticket già
+ * caricati in bacheca. */
+export async function cercaTicketApertiPerTelefono(telefono: string): Promise<TicketApertoDuplicato[]> {
+  const cifre = telefono.replace(/\D/g, "").slice(-9);
+  if (cifre.length < 6) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("id, numero, cliente, categoria, sottocategoria, problema, stato, aggiornato_il")
+    .ilike("telefono", `%${cifre}%`)
+    .not("stato", "in", "(Completato,Annullato)")
+    .order("aggiornato_il", { ascending: false })
+    .limit(5);
+  if (error) {
+    console.error("cercaTicketApertiPerTelefono:", error.message);
+    return [];
+  }
+  return (data as TicketApertoDuplicato[]) ?? [];
+}
+
 // ★ ex cercaAnagraficaSuFoglio() del vecchio gestionale — di nuovo vero
 // dopo l'importazione dell'anagrafica Aruba: cerca prima lì (dati più
 // affidabili, aggiornati centralmente) e completa con i Ticket già

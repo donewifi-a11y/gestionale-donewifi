@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
-import { creaTicket, cercaClientiEsistenti, listaNomiTariffeAttive, type ClienteEsistente } from "../actions";
+import { creaTicket, cercaClientiEsistenti, cercaTicketApertiPerTelefono, listaNomiTariffeAttive, type ClienteEsistente, type TicketApertoDuplicato } from "../actions";
 import { validaEmail, validaTelefono } from "@/lib/validazione";
+import { tempoRelativo } from "@/lib/tempo-relativo";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORIE_TICKET, REPARTI, SOTTOCATEGORIE_TICKET, REPARTO_PER_CATEGORIA_TICKET } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
@@ -69,6 +70,35 @@ export default function NuovoTicketPage() {
   // form. Se il caricamento fallisce o il catalogo è vuoto, il campo tiene
   // comunque la lista statica di fallback definita in campi-ticket.ts.
   const [nomiTariffe, setNomiTariffe] = useState<string[] | null>(null);
+  // ★ NUOVA (2026-10-07, richiesta esplicita: "si stanno creando spesso
+  // ticket doppi" — proposta con artifact "Ticket doppi — alternative",
+  // opzione A: prevenire alla creazione invece di fondere a posteriori) —
+  // appena il telefono combacia con un Ticket ancora aperto, un avviso
+  // (non bloccante) lo mostra subito, con un link diretto per aprirlo
+  // invece di crearne un secondo per la stessa richiesta.
+  const [ticketDuplicati, setTicketDuplicati] = useState<TicketApertoDuplicato[]>([]);
+  const [avvisoDuplicatoIgnorato, setAvvisoDuplicatoIgnorato] = useState(false);
+  const timeoutDuplicatiRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generazioneDuplicatiRef = useRef(0);
+
+  function onCambiaTelefono(v: string) {
+    setTelefono(v);
+    setAvvisoDuplicatoIgnorato(false);
+    if (timeoutDuplicatiRef.current) clearTimeout(timeoutDuplicatiRef.current);
+    if (v.replace(/\D/g, "").length < 6) {
+      generazioneDuplicatiRef.current++;
+      setTicketDuplicati([]);
+      return;
+    }
+    const generazione = ++generazioneDuplicatiRef.current;
+    timeoutDuplicatiRef.current = setTimeout(async () => {
+      const risultati = await cercaTicketApertiPerTelefono(v);
+      // ★ stesso principio di onCambiaCliente() sopra: scarta una risposta
+      // superata da una ricerca più recente (rete lenta + digitazione veloce).
+      if (generazione !== generazioneDuplicatiRef.current) return;
+      setTicketDuplicati(risultati);
+    }, 400);
+  }
 
   const configExtra = sottocategoria ? CONFIG_SOTTOCATEGORIE[sottocategoria] : undefined;
 
@@ -98,7 +128,7 @@ export default function NuovoTicketPage() {
 
   function scegliCliente(c: ClienteEsistente) {
     setCliente(c.cliente);
-    if (c.telefono) setTelefono(c.telefono);
+    if (c.telefono) onCambiaTelefono(c.telefono);
     if (c.email) setEmail(c.email);
     if (c.indirizzo) setIndirizzo(c.indirizzo);
     setSuggerimentiCliente([]);
@@ -246,13 +276,51 @@ export default function NuovoTicketPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="telefono">Telefono</Label>
-            <Input id="telefono" name="telefono" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="mt-1" />
+            <Input id="telefono" name="telefono" type="tel" value={telefono} onChange={(e) => onCambiaTelefono(e.target.value)} className="mt-1" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
           </div>
         </div>
+
+        {ticketDuplicati.length > 0 && !avvisoDuplicatoIgnorato && (
+          <div className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/5 p-3.5">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
+                <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.4} />
+              </span>
+              <div>
+                <p className="text-sm font-bold">
+                  {ticketDuplicati.length === 1 ? "C'è già un Ticket aperto per questo numero" : `Ci sono già ${ticketDuplicati.length} Ticket aperti per questo numero`}
+                </p>
+                <p className="text-xs text-muted-foreground">Lo stesso telefono compare su un Ticket non ancora chiuso — potrebbe essere la stessa richiesta.</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              {ticketDuplicati.map((t) => (
+                <div key={t.id} className="flex items-center gap-3 rounded-lg border border-warning/30 bg-card p-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      Ticket #{t.numero} <span className="font-mono text-xs font-normal text-muted-foreground">— {t.cliente}</span>
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t.sottocategoria || t.problema || t.categoria} · {t.stato} · aggiornato {tempoRelativo(t.aggiornato_il)}
+                    </p>
+                  </div>
+                  <Link href={`/tickets?aperto=${t.id}`}>
+                    <Button type="button" size="sm">
+                      Apri
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setAvvisoDuplicatoIgnorato(true)}>
+              Non è lo stesso — crea comunque un nuovo Ticket
+            </Button>
+          </div>
+        )}
 
         <div>
           <Label htmlFor="indirizzo">Indirizzo</Label>

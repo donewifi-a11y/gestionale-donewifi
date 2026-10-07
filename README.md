@@ -6573,3 +6573,42 @@ finiva comunque in coda come se andasse ancora preso in carico.
 - Aggiunta la condizione `t.stato !== "Completato"` al filtro della coda.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Ticket doppi — avviso alla creazione + "Cliente tornato" cliccabile (2026-10-07)
+
+Richiesta esplicita: "si stanno creando spesso ticket doppi o più ticket dello stesso
+cliente... sarebbe da trovare la possibilità di unificarli". Ricerca su come i migliori
+CRM/helpdesk (Zendesk, Freshdesk, Intercom) affrontano il problema nel 2026, poi 4
+alternative via artifact, dalla prevenzione alla fusione vera. Scelte dall'utente:
+**opzione A** (avviso alla creazione) e **opzione B** (il segnale "Cliente tornato" già
+esistente reso cliccabile) — la fusione vera (opzione C) rimandata: più pesante da
+costruire bene (storico, allegati, eventuale migrazione), da valutare solo se dopo A+B
+restano comunque parecchi doppi da sistemare a mano.
+
+✅ **A — Avviso (non bloccante) se il telefono combacia con un Ticket già aperto**
+(2026-10-07). Appena il telefono inserito in "Nuovo Ticket" combacia con un Ticket non
+ancora chiuso (stato diverso da Completato/Annullato), un avviso mostra il Ticket
+trovato con due scelte: "Apri" quello esistente, o "Crea comunque" per dismissare
+l'avviso e procedere — mai un blocco, solo un promemoria prima di duplicare.
+
+- Nuova azione `cercaTicketApertiPerTelefono()` (tickets/actions.ts), stessa
+  normalizzazione (ultime 9 cifre) già usata per lo stesso scopo nel segnale "Cliente
+  tornato" di tickets-board.tsx.
+- Applicato sia al form completo `/tickets/nuovo` sia al percorso rapido di Vista
+  Tecnico (`NuovoTicketTecnico`) — altra fonte comune di doppi, un tecnico che crea al
+  volo sul campo.
+- Stesso pattern "generazione" già in uso per `cercaClientiEsistenti()`: una risposta
+  di rete lenta e superata non sovrascrive un risultato più recente.
+
+✅ **B — Il segnale "Cliente tornato" diventa un'azione, non solo un'informazione**
+(2026-10-07). Il badge che il Kanban già calcolava (stesso telefono su più Ticket) era
+solo testo — ora è un bottone che apre un pannello con l'elenco di tutti i Ticket dello
+stesso cliente (per qualunque reparto, non solo Analisi Rete) e un "Apri" diretto per
+ciascuno, invece di dover ricercare a mano i numeri citati nel testo del segnale.
+Nessuna fusione di dati: stessa tabella, stessa cronologia, solo più facile da
+raggiungere.
+
+Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa e UI.
+
+Prossimo passo, se resta comunque un problema dopo A+B: opzione C (unisci due Ticket in
+uno, stile Zendesk/Freshdesk) — non costruita in questo giro.

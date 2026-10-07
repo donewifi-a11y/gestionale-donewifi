@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, MessageCircle, MapPin, Clock, Check, ChevronRight, Send, CheckCircle2, FilePlus2, Building2, Wrench, Info, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,8 @@ import { telefonoIntl } from "@/lib/telefono";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { IndirizzoAutocomplete } from "@/components/condivisi/indirizzo-autocomplete";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
-import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket, assegnaTicket } from "@/app/(app)/tickets/actions";
+import { aggiornaStatoTicket, aggiungiNotaTicket, creaTicket, assegnaTicket, cercaTicketApertiPerTelefono, type TicketApertoDuplicato } from "@/app/(app)/tickets/actions";
+import { tempoRelativo } from "@/lib/tempo-relativo";
 import { createClient } from "@/lib/supabase/client";
 import { eliminaAppuntamento } from "@/app/(app)/calendario/actions";
 import { RapportinoForm } from "@/components/tickets/rapportino";
@@ -82,6 +83,31 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState("");
   const [ticketCreato, setTicketCreato] = useState<Ticket | null>(null);
+  // ★ NUOVA (2026-10-07, richiesta esplicita: "si stanno creando spesso
+  // ticket doppi" — stesso avviso già aggiunto al form completo /tickets/
+  // nuovo, esteso qui perché il percorso rapido di Vista Tecnico è un'altra
+  // fonte comune di duplicati (un tecnico sul campo crea al volo). */
+  const [ticketDuplicati, setTicketDuplicati] = useState<TicketApertoDuplicato[]>([]);
+  const [avvisoDuplicatoIgnorato, setAvvisoDuplicatoIgnorato] = useState(false);
+  const timeoutDuplicatiRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generazioneDuplicatiRef = useRef(0);
+
+  function onCambiaTelefono(v: string) {
+    setTelefono(v);
+    setAvvisoDuplicatoIgnorato(false);
+    if (timeoutDuplicatiRef.current) clearTimeout(timeoutDuplicatiRef.current);
+    if (v.replace(/\D/g, "").length < 6) {
+      generazioneDuplicatiRef.current++;
+      setTicketDuplicati([]);
+      return;
+    }
+    const generazione = ++generazioneDuplicatiRef.current;
+    timeoutDuplicatiRef.current = setTimeout(async () => {
+      const risultati = await cercaTicketApertiPerTelefono(v);
+      if (generazione !== generazioneDuplicatiRef.current) return;
+      setTicketDuplicati(risultati);
+    }, 400);
+  }
 
   function chiudi() {
     setAperto(false);
@@ -94,6 +120,8 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
     setFileExtraCampo(null);
     setErrore("");
     setTicketCreato(null);
+    setTicketDuplicati([]);
+    setAvvisoDuplicatoIgnorato(false);
   }
 
   function scegliTipo(t: TipoRichiestaRapida) {
@@ -250,8 +278,32 @@ function NuovoTicketTecnico({ personaId, persone }: { personaId: string; persone
               </div>
               <div>
                 <Label htmlFor="vt-telefono">Telefono</Label>
-                <Input id="vt-telefono" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="mt-1" />
+                <Input id="vt-telefono" type="tel" value={telefono} onChange={(e) => onCambiaTelefono(e.target.value)} className="mt-1" />
               </div>
+              {ticketDuplicati.length > 0 && !avvisoDuplicatoIgnorato && (
+                <div className="flex flex-col gap-2.5 rounded-xl border border-warning/40 bg-warning/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" strokeWidth={2.4} />
+                    <p className="text-xs font-semibold">
+                      {ticketDuplicati.length === 1 ? "C'è già un Ticket aperto per questo numero" : `Ci sono già ${ticketDuplicati.length} Ticket aperti per questo numero`}
+                    </p>
+                  </div>
+                  {ticketDuplicati.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2 rounded-lg border border-warning/30 bg-card p-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold">Ticket #{t.numero} — {t.cliente}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{t.sottocategoria || t.problema || t.categoria} · aggiornato {tempoRelativo(t.aggiornato_il)}</p>
+                      </div>
+                      <Button type="button" size="sm" onClick={() => { chiudi(); router.push(`/tickets?aperto=${t.id}`); }}>
+                        Apri
+                      </Button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setAvvisoDuplicatoIgnorato(true)} className="self-start text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline">
+                    Non è lo stesso — crea comunque
+                  </button>
+                </div>
+              )}
               <div>
                 <Label htmlFor="vt-indirizzo">Indirizzo</Label>
                 <IndirizzoAutocomplete id="vt-indirizzo" name="indirizzo" value={indirizzo} onChange={setIndirizzo} className="mt-1" />
