@@ -6884,10 +6884,28 @@ Tariffe, Lavorazioni** (2026-10-07).
   "Prezzo mensile (€)" qualunque fosse la scelta sotto. "Piani applicabili"
   nel form Promozione ha "Seleziona tutti/Deseleziona tutti"; `confirm()`
   nativo sostituito anche qui con `useConfirm()`.
-- **Lavorazioni**: solo priorità "Alta" aveva un indicatore visivo — ora
-  anche "Bassa" (un punto discreto). Il campo "Assegnata a" per un
-  non-admin era un `<select disabled>` con una sola opzione (sembrava un
-  controllo rotto) — ora un testo semplice "Me stesso".
+- **Lavorazioni**: il campo "Assegnata a" per un non-admin era un
+  `<select disabled>` con una sola opzione (sembrava un controllo rotto) —
+  ora un testo semplice "Me stesso".
+
+Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Fix — deploy Vercel rotto, errore TypeScript in Lavorazioni**
+(2026-10-07, segnalato dall'utente con lo screenshot dell'email di Vercel:
+"Production deployment failed"). Il commit precedente aveva aggiunto un
+confronto `l.priorita === "Bassa"` in `lavorazioni-board.tsx` per
+distinguere a vista una lavorazione a bassa priorità — ma `PrioritaLavorazione`
+(`lib/types.ts`) vale solo `"Normale" | "Alta"`, **non** ha mai avuto
+"Bassa" (quella è una priorità dei Ticket, non delle Lavorazioni — confuse
+tra loro durante l'audit). TypeScript lo blocca giustamente come confronto
+impossibile, e questo ha fatto fallire 3 deploy di fila su Vercel (commit
+`85f2ff5`, `1bf080f`, `592c521` — il codice di questi ultimi due era
+corretto, hanno solo ereditato l'errore dal primo). In locale il problema
+era sfuggito perché il controllo di build era stato lanciato con `| tail`,
+che maschera il vero codice di uscita di `npm run build` con quello di
+`tail` — un falso "successo". Rimosso il confronto impossibile; verificato
+con `npm run build` senza alcuna pipe di mezzo (`EXIT CODE: 0` controllato
+esplicitamente) prima di pushare di nuovo.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
 

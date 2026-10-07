@@ -98,15 +98,8 @@ export function LavorazioniBoard({
                       onKeyDown={(e) => e.key === "Enter" && setAperta(l)}
                       className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
                     >
-                      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — solo
-                      "Alta" aveva un indicatore visivo (🔴): scorrendo la
-                      board non si distingueva a vista una lavorazione
-                      "Bassa" da una "Normale", bisognava aprire il
-                      dettaglio per saperlo. Un punto discreto per "Bassa"
-                      completa il quadro senza il peso visivo di un'emoji. */}
                       <div className="mb-1.5 flex items-center gap-1.5 font-semibold">
                         {l.priorita === "Alta" && <span title="Priorità alta">🔴</span>}
-                        {l.priorita === "Bassa" && <span title="Priorità bassa" className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />}
                         {l.titolo}
                       </div>
                       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
