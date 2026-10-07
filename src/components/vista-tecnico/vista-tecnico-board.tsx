@@ -559,6 +559,22 @@ export function VistaTecnicoBoard({
         </section>
       )}
 
+      {/* ★ FIX (2026-10-07, audit d'oro gestionale) — "Non assegnati nel tuo
+      reparto" (Ticket di cui nessuno si sta occupando, potenzialmente più
+      urgenti) stava sempre in fondo alla pagina, dopo Appuntamenti/I miei
+      Ticket/Completati oggi: in una giornata piena, un tecnico doveva
+      scorrere parecchio prima di accorgersi che ce n'erano. Un avviso qui
+      in cima, con link diretto, invece di scoprirlo solo scorrendo tutto. */}
+      {ticketsNonAssegnati.length > 0 && (
+        <a
+          href="#non-assegnati"
+          className="flex items-center gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm font-semibold text-warning"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+          {ticketsNonAssegnati.length} ticket non assegnat{ticketsNonAssegnati.length > 1 ? "i" : "o"} nel tuo reparto — vai alla sezione ↓
+        </a>
+      )}
+
       {appuntamentiInRitardo.length > 0 && (
         <section>
           <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-critical">
@@ -710,7 +726,14 @@ export function VistaTecnicoBoard({
         {tickets.length === 0 && <StatoVuoto icona={CheckCircle2} titolo="Nessun ticket assegnato." compatto />}
         <div className="flex flex-col gap-3">
           {tickets.map((t) => {
-            const puoAvanzare = SEQUENZA_STATO.indexOf(t.stato) < SEQUENZA_STATO.length - 1;
+            const idxStato = SEQUENZA_STATO.indexOf(t.stato);
+            const puoAvanzare = idxStato < SEQUENZA_STATO.length - 1;
+            // ★ FIX (2026-10-07, audit d'oro gestionale) — il bottone
+            // mostrava solo "Avanza", senza dire a quale stato: un tecnico
+            // non esperto non sapeva che premendolo su "Da gestire" lo
+            // stava portando a "In lavorazione" finché non lo vedeva scritto
+            // dopo il refresh — nessuna anteprima dell'azione.
+            const prossimoStato = puoAvanzare ? SEQUENZA_STATO[idxStato + 1] : null;
             return (
               <div key={t.id} className="rounded-2xl border bg-card p-4 shadow-md">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -764,7 +787,7 @@ export function VistaTecnicoBoard({
                         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
                       ) : (
                         <>
-                          Avanza
+                          Passa a &quot;{prossimoStato}&quot;
                           <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
                         </>
                       )}
@@ -798,7 +821,7 @@ export function VistaTecnicoBoard({
       non ancora tuo si nota subito come diverso (bordo/badge rossi) — non
       un altro dei "miei" tra gli altri. */}
       {ticketsNonAssegnati.length > 0 && (
-        <section>
+        <section id="non-assegnati">
           <h2 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-critical">
             <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.5} />
             Non assegnati nel tuo reparto ({ticketsNonAssegnati.length})

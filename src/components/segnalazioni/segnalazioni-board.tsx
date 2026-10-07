@@ -391,7 +391,15 @@ export function SegnalazioniBoard({
             // il nome, stesso ruolo della sottocategoria sulla card Ticket.
             // Restano nel tooltip solo tipologia cliente e telefono, quelli
             // davvero secondari.
-            const dettagliTooltip = [s.tipologia_cliente, s.telefono].filter(Boolean).join(" · ");
+            // ★ FIX (2026-10-07, audit d'oro gestionale) — il telefono era
+            // SOLO nel tooltip (hover del mouse): su tablet, dove si lavora
+            // spesso in campo/ufficio senza mouse, un tap-and-hold per
+            // vederlo è poco intuitivo e spesso irraggiungibile — un
+            // operatore che scorre la bacheca e vuole solo chiamare il
+            // cliente doveva aprire l'intero pannello. Ora sempre visibile
+            // sulla card; resta nel tooltip solo la tipologia cliente, meno
+            // urgente da vedere al volo.
+            const dettagliTooltip = s.tipologia_cliente || "";
             return (
               <Tooltip key={s.id}>
                 <TooltipTrigger asChild>
@@ -417,7 +425,15 @@ export function SegnalazioniBoard({
                       <span className="min-w-0 truncate font-semibold">{s.nome}</span>
                       <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{s.numero}</span>
                     </div>
-                    <div className="mb-1 truncate text-[11px] text-muted-foreground/80">{s.comune}</div>
+                    <div className="mb-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground/80">
+                      <span className="truncate">{s.comune}</span>
+                      {s.telefono && (
+                        <>
+                          <span className="shrink-0">·</span>
+                          <span className="shrink-0">{s.telefono}</span>
+                        </>
+                      )}
+                    </div>
                     {/* ★ un'unica etichetta di stato (mai testo tipologia/
                     telefono qui) più l'ultimo aggiornamento, sempre presente. */}
                     {(segnale || s.copertura !== "si") && (

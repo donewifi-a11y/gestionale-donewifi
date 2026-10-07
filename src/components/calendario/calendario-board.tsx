@@ -302,7 +302,7 @@ export function CalendarioBoard({
         />
       )}
       {vista === "mese" && (
-        <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} eventiGoogle={eventiGoogle} />
+        <VistaMese dataRiferimento={dataRif} appuntamenti={appuntamenti} note={note} eventiGoogle={eventiGoogle} onApri={setModifica} />
       )}
 
       {/* ★ NUOVA — richiesta esplicita: "visuale centrale" anche qui, non più
@@ -704,11 +704,18 @@ function VistaMese({
   appuntamenti,
   note,
   eventiGoogle,
+  onApri,
 }: {
   dataRiferimento: Date;
   appuntamenti: Appuntamento[];
   note: NotaCalendario[];
   eventiGoogle: EventoGoogleCalendario[];
+  /** ★ FIX (2026-10-07, audit d'oro gestionale) — prima ogni cella era
+   * SOLO un link alla Vista Giorno: aprire un singolo appuntamento già
+   * visibile nel chip del mese richiedeva comunque 2 passaggi (apri il
+   * giorno, trova la riga, apri quella). I chip appuntamento ora aprono
+   * direttamente il dettaglio, senza lasciare la Vista Mese. */
+  onApri: (a: Appuntamento) => void;
 }) {
   const primoDelMese = new Date(dataRiferimento.getFullYear(), dataRiferimento.getMonth(), 1);
   const inizioGriglia = lunediSettimana(primoDelMese);
@@ -750,13 +757,14 @@ function VistaMese({
           const apptGiorno = (appuntamentiPerGiorno.get(chiave) ?? []).filter((a) => a.stato !== "Annullato");
           const eventiGiorno = eventiPerGiorno.get(chiave) ?? [];
           const totaleRighe = noteGiorno.length + apptGiorno.length + eventiGiorno.length;
-          type Riga = { key: string; testo: string; classe: string };
+          type Riga = { key: string; testo: string; classe: string; appuntamento?: Appuntamento };
           const righe: Riga[] = [
             ...noteGiorno.map((n): Riga => ({ key: `n-${n.id}`, testo: `📌 ${n.testo}`, classe: "border-l-warning bg-warning/10 text-warning" })),
             ...apptGiorno.map((a): Riga => ({
               key: `a-${a.id}`,
               testo: `${new Date(a.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} ${a.titolo}`,
               classe: a.stato === "Completato" ? "border-l-success bg-success/10 text-success opacity-70" : "border-l-primary bg-muted/60",
+              appuntamento: a.stato === "Programmato" ? a : undefined,
             })),
             ...eventiGiorno.map((e): Riga => ({
               key: `e-${e.id}`,
@@ -780,11 +788,27 @@ function VistaMese({
                 {d.getDate()}
               </span>
               <div className="flex flex-col gap-0.5">
-                {righe.map((r) => (
-                  <span key={r.key} title={r.testo} className={`truncate rounded border-l-2 px-1 py-0.5 text-[9.5px] leading-tight font-semibold ${r.classe}`}>
-                    {r.testo}
-                  </span>
-                ))}
+                {righe.map((r) =>
+                  r.appuntamento ? (
+                    <button
+                      key={r.key}
+                      type="button"
+                      title={r.testo}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onApri(r.appuntamento!);
+                      }}
+                      className={`truncate rounded border-l-2 px-1 py-0.5 text-left text-[9.5px] leading-tight font-semibold transition hover:brightness-95 ${r.classe}`}
+                    >
+                      {r.testo}
+                    </button>
+                  ) : (
+                    <span key={r.key} title={r.testo} className={`truncate rounded border-l-2 px-1 py-0.5 text-[9.5px] leading-tight font-semibold ${r.classe}`}>
+                      {r.testo}
+                    </span>
+                  )
+                )}
                 {totaleRighe > MAX_RIGHE_CELLA && (
                   <span className="px-1 text-[9.5px] font-semibold text-muted-foreground">+{totaleRighe - MAX_RIGHE_CELLA} altri</span>
                 )}

@@ -6890,3 +6890,31 @@ Tariffe, Lavorazioni** (2026-10-07).
   controllo rotto) — ora un testo semplice "Me stesso".
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Controllo d'oro gestionale — terzo gruppo: Segnalazioni, Calendario,
+Vista Tecnico** (2026-10-07). Questi tre moduli erano già stati oggetto di
+più round di audit precedenti (toast, Drawer uniformati, barra azione
+unica) — pochi attriti residui reali trovati:
+
+- **Segnalazioni**: il telefono del cliente era visibile SOLO nel tooltip al
+  passaggio del mouse — su tablet (dove si lavora spesso in campo/ufficio
+  senza mouse) irraggiungibile. Ora sempre visibile sulla card, accanto al
+  comune; il tooltip resta solo per la tipologia cliente.
+- **Calendario**: i chip evento nella Vista Mese erano racchiusi in un
+  unico Link alla Vista Giorno — aprire un singolo appuntamento già
+  visibile nel chip richiedeva comunque 2 passaggi. Ora ogni chip
+  appuntamento (stato "Programmato") apre direttamente il dettaglio senza
+  lasciare la Vista Mese.
+- **Vista Tecnico**: il bottone "Avanza" non diceva a quale stato stesse per
+  passare il Ticket — ora "Passa a "In lavorazione"" ecc., esplicito. La
+  sezione "Non assegnati nel tuo reparto" (potenzialmente più urgente)
+  stava sempre in fondo pagina, dopo Appuntamenti/I miei Ticket/Completati
+  — ora un avviso in cima con link diretto (`#non-assegnati`) invece di
+  scoprirla solo scorrendo tutto.
+
+**Non toccati in questo giro** (richiederebbero una modifica più ampia,
+segnalati solo come possibile lavoro futuro): ricerca per cliente/indirizzo
+nel Calendario (richiede un nuovo fetch server oltre il periodo visualizzato)
+e riapertura in sola lettura di un appuntamento già Completato/Annullato.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
