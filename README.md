@@ -6612,3 +6612,33 @@ Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa e U
 
 Prossimo passo, se resta comunque un problema dopo A+B: opzione C (unisci due Ticket in
 uno, stile Zendesk/Freshdesk) — non costruita in questo giro.
+
+## Redesign "Home Ticket" — gruppi pieghevoli + barra d'età (2026-10-07)
+
+Richiesta esplicita, con screenshot alla mano: "sono troppo caotici" — la colonna "In
+Verifica" aveva 11 Ticket "Disdetta" quasi identici (stesso tecnico, distinguibili solo
+da una data minuscola), il vero problema non era il Kanban in sé ma i gruppi affollati
+di card uguali. Presentate 3 direzioni via artifact (vista a lista ordinabile, gruppi
+pieghevoli, chip+barra d'età); scelte insieme dall'utente **opzione B + opzione C**.
+
+✅ **B — Gruppi affollati chiusi per difetto** (2026-10-07). Un gruppo (stessa
+categoria/sottocategoria in una colonna) con più di 4 Ticket si presenta chiuso,
+mostrando solo il primo — già il più prioritario, dato che `filtrati` è già ordinato per
+priorità: mai il caso peggiore nascosto da un gruppo chiuso. Un click sull'intestazione
+(ora un bottone, prima solo testo) o sul link "Mostra altri N ticket →" lo riapre;
+richiudibile cliccando di nuovo l'intestazione. Stato per colonna+categoria+
+sottocategoria (non per singolo Ticket), così resta stabile anche se la lista sotto
+cambia dopo un refresh.
+
+✅ **C — Barra colorata a sinistra in base all'età** (2026-10-07). Ogni card ha ora un
+bordo sinistro più spesso che si scurisce con quanto è ferma (`coloreEta()`): neutro
+sotto i 7 giorni, giallo-arancio da 7, rosso da 14 — l'occhio trova il più vecchio dentro
+un gruppo espanso senza dover leggere ogni singola data. Stesse soglie di colore già
+usate nel segnale testuale "Ferma da Xg" (avviso/critico), solo estese con un gradino
+intermedio per la sola barra.
+
+**Non costruita in questo giro** (era l'opzione A del primo round di proposte, non
+scelta): vista a lista/tabella in alternativa al Kanban — resta un'idea per il futuro se
+il problema dovesse ripresentarsi anche dopo B+C.
+
+Build/lint puliti (0 errori). Nessuna migrazione — solo logica applicativa e UI.

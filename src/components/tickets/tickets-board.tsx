@@ -84,6 +84,9 @@ export const SEQUENZA_STATO: StatoTicket[] = ["Da gestire", "In lavorazione", "I
 // ★ le colonne mostrano prima i casi Urgenti: la priorità non si perde
 // nello scroll di una colonna lunga.
 const ORDINE_PRIORITA: Record<PrioritaTicket, number> = { Urgente: 0, Normale: 1, Bassa: 2 };
+// ★ NUOVA (2026-10-07, redesign "Home Ticket", opzione B) — oltre questa
+// soglia un gruppo si presenta chiuso per difetto (vedi gruppiEspansi).
+const SOGLIA_COLLASSO_GRUPPO = 4;
 
 /**
  * ★ NUOVA (2026-09-04, richiesta esplicita: "mi piace il sistema di
@@ -185,6 +188,21 @@ function raggruppaPerCategoria(items: Ticket[]): { chiave: string; sottocategori
 function giorniAperta(data: string) {
   const ms = Date.now() - new Date(data).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+// ★ NUOVA (2026-10-07, richiesta esplicita: "la home dei ticket è troppo
+// caotica" — proposta con artifact "Home Ticket — redesign", opzioni B+C
+// scelte insieme dall'utente) — striscia colorata a sinistra della card
+// che si scurisce con l'età: in una colonna con tanti ticket simili
+// (es. 11 "Disdetta" dello stesso tecnico) l'occhio trova il più vecchio
+// senza dover leggere ogni singola data. Soglie allineate a quelle già
+// usate per il segnale testuale "Ferma da Xg" (avviso da 5g, critico da
+// 10g) qui estese con un gradino intermedio per una transizione più
+// graduale sulla sola barra (il testo "Ferma da" resta a 2 soli livelli).
+function coloreEta(giorni: number): string {
+  if (giorni >= 14) return "border-l-critical";
+  if (giorni >= 7) return "border-l-warning";
+  return "border-l-transparent";
 }
 
 // ★ NUOVA (2026-10-06, richiesta esplicita: "l'interfaccia dei ticket da
@@ -294,6 +312,24 @@ export function TicketsBoard({
   // il cui badge "Cliente tornato" è stato cliccato: apre il pannello con
   // l'elenco di tutti i Ticket dello stesso cliente (vedi JSX sotto).
   const [clienteTornatoAperto, setClienteTornatoAperto] = useState<Ticket | null>(null);
+  // ★ NUOVA (2026-10-07, richiesta esplicita: "la home dei ticket è troppo
+  // caotica" — proposta con artifact "Home Ticket — redesign", opzione B)
+  // — un gruppo (stessa categoria/sottocategoria in una colonna) con più
+  // di SOGLIA_COLLASSO_GRUPPO Ticket si presenta chiuso per difetto,
+  // mostrando solo il primo (il più prioritario, `filtrati` è già
+  // ordinato per priorità — mai il caso peggiore nascosto da un gruppo
+  // chiuso): un click sull'intestazione lo riapre. Chiave per
+  // colonna+categoria+sottocategoria, non per singolo Ticket, così
+  // l'apertura resta stabile anche se la lista sottostante cambia.
+  const [gruppiEspansi, setGruppiEspansi] = useState<Set<string>>(new Set());
+  function alternaGruppo(chiave: string) {
+    setGruppiEspansi((cur) => {
+      const nuovo = new Set(cur);
+      if (nuovo.has(chiave)) nuovo.delete(chiave);
+      else nuovo.add(chiave);
+      return nuovo;
+    });
+  }
   // ★ NUOVA — sollevato qui (la Scheda si apre in un Dialog centrale
   // separato dal Sheet di dettaglio Ticket, non più annidato dentro):
   // DettaglioTicket conosce già l'appuntamento collegato, lo passa su con
@@ -856,14 +892,30 @@ export function TicketsBoard({
                   // stesso grigio) — coloreGruppo() assegna una tinta fissa
                   // e stabile per stringa, non un giudizio di reparto/stato.
                   const coloreG = coloreGruppo(gruppo.chiave);
+                  // ★ NUOVA (2026-10-07, redesign "Home Ticket", opzione B)
+                  // — vedi gruppiEspansi sopra: un gruppo affollato (es. 11
+                  // "Disdetta" dello stesso tecnico, il caso reale che ha
+                  // fatto scattare questo redesign) si chiude da solo,
+                  // mostrando solo il primo (già il più prioritario, non un
+                  // Ticket a caso) finché non lo si riapre.
+                  const chiaveGruppo = `${col.titolo}::${gruppo.chiave}::${gruppo.sottocategoriaComune ?? "misto"}`;
+                  const collassabile = gruppo.ticket.length > SOGLIA_COLLASSO_GRUPPO;
+                  const espanso = gruppiEspansi.has(chiaveGruppo);
+                  const ticketDaMostrare = collassabile && !espanso ? gruppo.ticket.slice(0, 1) : gruppo.ticket;
                   return (
                   <div key={gruppo.chiave}>
                     {/* ★ l'etichetta di categoria/sottocategoria si scrive una
                     volta per gruppo invece che su ogni card — vedi
                     raggruppaPerCategoria() sopra. Il numero a destra è un
                     dato che prima non c'era da nessuna parte: quanti Ticket
-                    sono fermi allo stesso identico passaggio. */}
-                    <div className="mb-1 flex items-center justify-between gap-2">
+                    sono fermi allo stesso identico passaggio. Cliccabile per
+                    comprimere/riaprire quando il gruppo è affollato. */}
+                    <button
+                      type="button"
+                      onClick={() => collassabile && alternaGruppo(chiaveGruppo)}
+                      disabled={!collassabile}
+                      className="mb-1 flex w-full items-center justify-between gap-2 text-left disabled:cursor-default"
+                    >
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span
                           className={`min-w-0 shrink-0 truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${coloreG.sfondo} ${coloreG.testo}`}
@@ -882,15 +934,23 @@ export function TicketsBoard({
                           </span>
                         )}
                       </span>
-                      <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
-                    </div>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="text-[10px] font-bold tabular-nums text-muted-foreground/70">{gruppo.ticket.length}</span>
+                        {collassabile &&
+                          (espanso ? (
+                            <ChevronRight className="h-3 w-3 -rotate-90 text-muted-foreground/70" strokeWidth={2.5} />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 rotate-90 text-muted-foreground/70" strokeWidth={2.5} />
+                          ))}
+                      </span>
+                    </button>
                     {/* ★ gap-2 invece di gap-1.5 (2026-09-15, "alleggerire il
                     colpo visivo") — un po' più di respiro tra le card, ora
                     che i segnali sono chip strette invece di righe intere:
                     prima la densità serviva a compensare le righe lunghe,
                     ora affollerebbe solo lo spazio senza motivo. */}
                     <div className="flex flex-col gap-2">
-                      {gruppo.ticket.map((t) => {
+                      {ticketDaMostrare.map((t) => {
                         const assegnatario = trovaPersona(t.tecnico_assegnato);
                         // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — mancava
                         // qui (a differenza di DettaglioTicket più sotto), quindi un
@@ -972,7 +1032,14 @@ export function TicketsBoard({
                             tabIndex={0}
                             onClick={() => setAperto(t)}
                             onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
-                            className="group relative flex cursor-pointer items-start gap-1.5 rounded-lg border bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30"
+                            // ★ NUOVA (2026-10-07, redesign "Home Ticket",
+                            // opzione C) — border-l-4 invece del solito
+                            // border-l-1: una striscia a sinistra che si
+                            // scurisce con l'età (vedi coloreEta sopra), per
+                            // trovare il più vecchio senza leggere ogni data
+                            // — utile soprattutto nei gruppi affollati che
+                            // restano espansi (opzione B appena sopra).
+                            className={`group relative flex cursor-pointer items-start gap-1.5 rounded-lg border border-l-4 bg-card p-2.5 pr-9 text-left text-sm transition hover:border-primary/40 hover:bg-muted/30 ${coloreEta(giorni)}`}
                           >
                             {/* ★ NUOVA — checkbox di selezione (proposta ③,
                             azioni bulk): elemento vero del flex, non
@@ -1198,6 +1265,20 @@ export function TicketsBoard({
                           </div>
                         );
                       })}
+                      {/* ★ NUOVA (2026-10-07, redesign "Home Ticket",
+                      opzione B) — riapre il gruppo mostrando tutti i Ticket
+                      invece del solo primo; resta allineata al resto delle
+                      card (non un link minuscolo in testa) per essere
+                      facile da toccare quanto il resto della colonna. */}
+                      {collassabile && !espanso && (
+                        <button
+                          type="button"
+                          onClick={() => alternaGruppo(chiaveGruppo)}
+                          className="rounded-lg border border-dashed bg-card py-2 text-center text-xs font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/5"
+                        >
+                          Mostra altri {gruppo.ticket.length - 1} ticket →
+                        </button>
+                      )}
                     </div>
                   </div>
                   );
