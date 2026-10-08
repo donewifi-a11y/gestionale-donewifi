@@ -2159,8 +2159,13 @@ function DettaglioTicket({
         con un riepilogo di una riga quando chiusa — aperta per difetto
         solo su un Ticket ancora da completare (dove "Segna come
         completato" e le pratiche pendenti contano), chiusa su uno già
-        chiuso (dove è solo consultazione occasionale). */}
-        <details className="group" open={ticket.stato !== "Completato"}>
+        chiuso o annullato (dove è solo consultazione occasionale).
+        ★ FIX (2026-10-08, trovato rileggendo questa stessa modifica) —
+        la prima versione testava solo `!== "Completato"`: un Ticket
+        "Annullato" (altrettanto definitivo — nessuna azione pendente,
+        stesso caso d'uso "solo consultazione" di uno Completato) restava
+        aperto di default, incoerente con l'intento dichiarato qui sopra. */}
+        <details className="group" open={ticket.stato !== "Completato" && ticket.stato !== "Annullato"}>
           <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
             <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
             <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Documenti e pratiche</span>

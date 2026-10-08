@@ -49,6 +49,14 @@ function descrizioneStorico(v: VoceStoricoTicket, persone: Persona[], tecniciEst
       return v.valore_dopo ? `Assegnato a ${nomePersona(v.valore_dopo)}` : "Assegnazione rimossa";
     case "Assegnazione Tecnico Esterno":
       return v.valore_dopo ? `Assegnato a ${nomeEsterno(v.valore_dopo)} (tecnico esterno)` : "Assegnazione rimossa";
+    // ★ FIX (2026-10-08, trovato verificando sui dati reali subito dopo
+    // aver costruito questa stessa cronologia) — "Creato da Segnalazione"
+    // (scritto quando un Ticket nasce dalla trasmissione di una
+    // Segnalazione, vedi tickets/actions.ts) cadeva nel caso `default`
+    // sotto, mostrando solo "Segnalazione #20" senza contesto — sembrava
+    // un cambio di stato con un lato mancante.
+    case "Creato da Segnalazione":
+      return `Aperto da ${v.valore_dopo}`;
     default:
       return [v.valore_prima, v.valore_dopo].filter(Boolean).join(" → ") || v.operazione;
   }
@@ -128,7 +136,19 @@ export function SezioneNoteTicket({
                 </span>
                 <span className="flex-1">
                   {descrizioneStorico(v.voce, persone, tecniciEsterni)}
-                  <span className="text-muted-foreground/70"> — {trovaPersona(v.voce.operatore_id)?.nome || "sistema"}</span>
+                  {/* ★ FIX (2026-10-08, trovato verificando sui dati reali)
+                  — "— sistema" era scritto ogni volta che `operatore_id`
+                  era null, ma non è sempre vero: un Ticket completato da
+                  pose.donewifi.it ha `operatore_id` null per costruzione
+                  (un tecnico esterno non può essere referenziato dalla FK
+                  verso `persone`) pur avendo un nome vero, già scritto
+                  dentro il testo stesso ("Completato (tecnico esterno:
+                  Mario Rossi)", vedi pose/actions.ts) — "— sistema"
+                  accanto a un nome vero era fuorviante. Ora il trattino
+                  compare solo quando c'è davvero una persona da nominare. */}
+                  {trovaPersona(v.voce.operatore_id) && (
+                    <span className="text-muted-foreground/70"> — {trovaPersona(v.voce.operatore_id)!.nome}</span>
+                  )}
                 </span>
                 <span className="shrink-0 text-[10.5px] text-muted-foreground/60">
                   {new Date(v.data).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}

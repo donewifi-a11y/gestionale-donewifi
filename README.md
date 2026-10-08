@@ -7103,3 +7103,28 @@ complessità di layout non giustificata):
 
 Build/lint puliti (0 errori, verificato con `npm run build` senza pipe).
 Verificato sui dati reali. Nessuna migrazione.
+
+✅ **Fix — 3 difetti trovati riverificando la cronologia unificata appena
+costruita** (2026-10-08, richiesta esplicita: "possiamo ancora migliorare
+il funzionamento?"):
+
+- La sezione "Documenti e pratiche" restava aperta di default anche su un
+  Ticket "Annullato" (testava solo `!== "Completato"`) — altrettanto
+  definitivo di uno Completato, stesso caso d'uso "solo consultazione".
+  Ora collassa su entrambi.
+- "Creato da Segnalazione" (scritto quando un Ticket nasce dalla
+  trasmissione di una Segnalazione) cadeva nel caso generico, mostrando
+  solo "Segnalazione #20" senza contesto — sembrava un cambio di stato con
+  un lato mancante. Ora "Aperto da Segnalazione #20".
+- Il trattino "— sistema" compariva ogni volta che `operatore_id` era
+  null, ma non è sempre vero "nessuno": un Ticket completato da
+  pose.donewifi.it ha `operatore_id` null per costruzione (un tecnico
+  esterno non può essere referenziato dalla FK verso `persone`) pur avendo
+  un nome vero già scritto nel testo stesso ("Completato (tecnico
+  esterno: Mario Rossi)", vedi pose/actions.ts) — "— sistema" accanto a un
+  nome vero era fuorviante. Verificato sui dati reali: 0 casi già in
+  produzione (nessun Ticket ancora chiuso così), ma il percorso di codice
+  esiste e si sarebbe presentato alla prima chiusura da pose. Il trattino
+  ora compare solo quando c'è davvero una persona interna da nominare.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
