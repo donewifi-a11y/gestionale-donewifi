@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UserRound, X, Search, ChevronRight, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check, Clock } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check, Clock, FileText } from "lucide-react";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/status-badge";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
   aggiornaStatoTicket,
@@ -18,6 +19,8 @@ import {
   assegnaTicketTecnicoEsterno,
   aggiungiNotaTicket,
   getNoteTicket,
+  getStoricoTicket,
+  type VoceStoricoTicket,
   inviaEmailApprovazioneTicket,
   inviaEmailPraticaCliente,
   cambiaRepartoTicket,
@@ -1608,6 +1611,13 @@ function DettaglioTicket({
   const [note, setNote] = useState<NotaTicket[]>([]);
   const [notaTesto, setNotaTesto] = useState("");
   const [erroreNota, setErroreNota] = useState("");
+  // ★ NUOVA (2026-10-08, richiesta esplicita: "vorrei che le modifiche al
+  // ticket, gli aggiornamenti fossero visibili come il messaggio di
+  // apertura del ticket") — ogni cambio stato/reparto/assegnazione viene
+  // già scritto in `storico`, mai letto finora da nessuna pagina. Vedi
+  // attivitaUnificata più sotto, dove si unisce a `note` e al Ticket stesso
+  // in un'unica cronologia.
+  const [storico, setStorico] = useState<VoceStoricoTicket[]>([]);
   // ★ se la sottocategoria del Ticket corrisponde a una delle 5 pratiche
   // pubbliche (vedi PRATICA_PER_SOTTOCATEGORIA), il pannello "Invia una
   // pratica al cliente" parte già su quella invece che vuoto — i due
@@ -1901,6 +1911,7 @@ function DettaglioTicket({
 
   useEffect(() => {
     getNoteTicket(ticket.id).then(setNote);
+    getStoricoTicket(ticket.id).then(setStorico);
   }, [ticket.id]);
 
   function inviaNota() {
@@ -1960,6 +1971,26 @@ function DettaglioTicket({
           {ticket.sottocategoria && ` · ${ticket.sottocategoria}`}
         </DialogDescription>
       </DialogHeader>
+      {/* ★ NUOVA (2026-10-08, richiesta esplicita: "semplificare
+      l'interfaccia per renderla più user friendly" — proposta con
+      artifact, opzione A scelta come parte della combinazione
+      consigliata) — fascia di riepilogo che resta visibile mentre si
+      scorre il resto del pannello (non sticky in senso stretto — il
+      pannello intero scorre sotto l'intestazione già sticky sopra — ma
+      posizionata subito sotto, sempre la prima cosa che si vede): stato
+      e assegnatario senza dover risalire in cima o cercarli più sotto. */}
+      <div className="-mx-4 flex items-center gap-2.5 border-b bg-muted/30 px-4 py-2">
+        <StatusBadge status={ticket.stato} className="shrink-0 text-[11px]" />
+        {(assegnatario || assegnatarioEsterno) && (
+          <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+              {assegnatarioEsterno ? assegnatarioEsterno.nome.slice(0, 2).toUpperCase() : iniziali(assegnatario!)}
+            </span>
+            <span className="truncate">{assegnatarioEsterno ? `${assegnatarioEsterno.nome} ${assegnatarioEsterno.cognome ?? ""}`.trim() : assegnatario!.nome}</span>
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[11px] text-muted-foreground/70">agg. {tempoRelativo(ticket.aggiornato_il)}</span>
+      </div>
       {/* ★ FIX (2026-09-18, richiesta esplicita dopo uno screenshot:
       "dove vedi completato è attaccato alla riga") — l'intestazione sopra
       è sticky con un bordo in fondo (`border-b`), ma questo contenuto non
@@ -2119,6 +2150,26 @@ function DettaglioTicket({
 
         <div className="h-px bg-border" />
 
+        {/* ★ NUOVA (2026-10-08, richiesta esplicita: "semplificare
+        l'interfaccia per renderla più user friendly" — proposta con
+        artifact, opzione B scelta come parte della combinazione
+        consigliata) — questa sezione (moduli ricevuti, pratiche pubbliche,
+        Subentro/Disdetta, Scheda/Rapportino) è quella che allunga di più
+        il pannello quando un Ticket ha una pratica attiva. Collassabile,
+        con un riepilogo di una riga quando chiusa — aperta per difetto
+        solo su un Ticket ancora da completare (dove "Segna come
+        completato" e le pratiche pendenti contano), chiusa su uno già
+        chiuso (dove è solo consultazione occasionale). */}
+        <details className="group" open={ticket.stato !== "Completato"}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Documenti e pratiche</span>
+            <span className="text-[11px] font-semibold text-muted-foreground/70">
+              {numeroDocumenti > 0 ? `${numeroDocumenti} ricevut${numeroDocumenti > 1 ? "i" : "o"}` : "nessuno ricevuto"}
+            </span>
+            <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition group-open:rotate-180" strokeWidth={2.5} />
+          </summary>
+          <div className="mt-3">
         <SezioneDocumentiTicket
           ticket={ticket}
           numeroDocumenti={numeroDocumenti}
@@ -2185,12 +2236,17 @@ function DettaglioTicket({
             requestAnimationFrame(() => document.getElementById(`ticket-stato-${ticket.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
           }}
         />
+          </div>
+        </details>
 
         <div className="h-px bg-border" />
 
         <SezioneNoteTicket
+          ticket={ticket}
           note={note}
+          storico={storico}
           persone={persone}
+          tecniciEsterni={tecniciEsterni}
           notaTesto={notaTesto}
           setNotaTesto={setNotaTesto}
           inviaNota={inviaNota}

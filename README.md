@@ -7066,3 +7066,40 @@ concluso**: tutti i punti trovati nell'audit iniziale sui 4 gruppi di
 moduli, inclusi quelli esplicitamente rimandati per lavoro successivo,
 sono stati applicati. Unica eccezione volontaria: Ticket, già rivisto a
 sé in testa al 2026-10-07, mai incluso nell'audit.
+
+## Dettaglio Ticket — cronologia unificata + pannello più semplice (2026-10-08)
+
+Richiesta esplicita, con proposte via artifact (3 alternative confrontate):
+"vorrei che le modifiche al ticket, gli aggiornamenti fossero visibili come
+il messaggio di apertura del ticket" + "vorrei che si semplificasse
+l'interfaccia per renderla più user friendly".
+
+✅ **Cronologia unificata** — ogni cambio stato/reparto/assegnazione viene
+già scritto nella tabella `storico` (vedi `aggiornaStatoTicket`/
+`cambiaRepartoTicket`/`assegnaTicket` in `tickets/actions.ts`), ma nessuna
+pagina lo leggeva mai: il dato c'era, semplicemente non veniva mai
+mostrato. Nuova `getStoricoTicket()` + `SezioneNoteTicket` estesa a fondere
+in un'unica cronologia ordinata: il messaggio di apertura (il `problema`
+scritto alla creazione), ogni voce di `storico` (tradotta in frase
+leggibile — "Stato cambiato: Da gestire → In lavorazione", "Assegnato a
+Giulia Allasia"...) e le Note, esattamente come richiesto — nello stesso
+flusso, non un'altra lista a parte. Verificato sui dati reali: il Ticket
+#41 (13 voci di storico + 2 note) mostra la sequenza corretta, dal
+messaggio di apertura fino all'ultima nota.
+
+✅ **Pannello più semplice** — proposte 3 alternative con artifact (A:
+fascia di riepilogo fissa, B: sezioni a fisarmonica, C: due colonne),
+consigliata e applicata la combinazione A+B, scartata C (drawer più largo,
+complessità di layout non giustificata):
+- **A** — una fascia sottile sotto l'intestazione (stato + assegnatario +
+  ultimo aggiornamento) resta la prima cosa visibile scorrendo il resto
+  del pannello: non serve più risalire in cima per "a che punto siamo".
+- **B** — "Documenti e pratiche" (la sezione che allunga di più il
+  pannello quando c'è una pratica attiva: Disdetta, Subentro, Scheda/
+  Rapportino) è ora collassabile con un riepilogo di una riga ("3
+  ricevuti"/"nessuno ricevuto") — aperta per difetto solo su un Ticket
+  ancora da completare (dove conta), chiusa su uno già chiuso (dove è solo
+  consultazione occasionale).
+
+Build/lint puliti (0 errori, verificato con `npm run build` senza pipe).
+Verificato sui dati reali. Nessuna migrazione.

@@ -612,6 +612,34 @@ export async function getNoteTicket(ticketId: string) {
   return data;
 }
 
+export interface VoceStoricoTicket {
+  id: string;
+  data: string;
+  operazione: string;
+  valore_prima: string | null;
+  valore_dopo: string | null;
+  operatore_id: string | null;
+}
+
+/** ★ NUOVA (2026-10-08, richiesta esplicita: "vorrei che le modifiche al
+ * ticket, gli aggiornamenti fossero visibili come il messaggio di apertura
+ * del ticket") — ogni cambio stato/reparto/assegnazione viene già scritto
+ * in `storico` (vedi aggiornaStatoTicket/cambiaRepartoTicket/assegnaTicket
+ * sopra) ma finora nessuna pagina lo leggeva mai per un Ticket: il dato
+ * c'era, semplicemente non veniva mai mostrato. Letta qui, unita alle Note
+ * in un'unica cronologia in DettaglioTicket (vedi tickets-board.tsx). */
+export async function getStoricoTicket(ticketId: string): Promise<VoceStoricoTicket[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("storico")
+    .select("id, data, operazione, valore_prima, valore_dopo, operatore_id")
+    .eq("origine", "ticket")
+    .eq("riferimento_id", ticketId)
+    .order("data", { ascending: true });
+  if (error) return [];
+  return data;
+}
+
 export async function aggiungiNotaTicket(ticketId: string, testo: string) {
   const supabase = await createClient();
   // ★ FIX (2026-10-02, audit d'oro modulo Tickets) — usava solo
