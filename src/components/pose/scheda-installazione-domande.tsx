@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, LocateFixed, Camera, X, Building2, Ruler, Radio, Router, Cpu, Gauge, Download, Upload, Package, Euro, NotebookText, FileSignature } from "lucide-react";
+import { MapPin, LocateFixed, Camera, Building2, Ruler, Radio, Router, Cpu, Gauge, Download, Upload, Package, Euro, NotebookText, FileSignature } from "lucide-react";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { DomandaWizard, type Domanda } from "@/components/pose/domanda-wizard";
-import { TileScelta, CampoGrande, AreaGrande } from "@/components/pose/tile-scelta";
+import { TileScelta, CampoGrande, AreaGrande, FotoInputMulti } from "@/components/pose/tile-scelta";
 import { salvaSchedaLavoroEsterno, getTipologiaClientePerAppuntamentoEsterno } from "@/app/pose/actions";
 import type { FirmaClienteApprovata } from "@/app/(app)/calendario/actions";
 import { leggiBozzaScheda, salvaBozzaScheda, cancellaBozzaScheda } from "@/lib/bozza-scheda";
@@ -25,7 +25,7 @@ interface BozzaInstallazione {
  * (schede/scheda-installazione-form.tsx) per pose.donewifi.it, ma "una
  * domanda alla volta" invece di 5 passi con più campi ciascuno (Opzione A,
  * scelta esplicitamente tra 3 proposte con artifact). Componente a sé
- * invece di generalizzare l'originale — vedi rapportino-form.tsx.
+ * invece di generalizzare l'originale.
  *
  * ★ RIVISTA (2026-08-26, revisione domanda-per-domanda via artifact) —
  * rimosse VLAN/SNR/Router (giudicate superflue sul campo), rimossa la
@@ -365,51 +365,5 @@ export function SchedaInstallazioneDomande({
   );
 }
 
-/** ★ NUOVA (2026-08-26, revisione via artifact) — sostituisce il vecchio
- * FotoInput a scatto singolo: più foto in un colpo solo (dalla fotocamera
- * o dalla galleria), ognuna rimovibile prima di inviare. */
-function FotoInputMulti({ value, onChange, etichetta }: { value: File[]; onChange: (f: File[]) => void; etichetta: string }) {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <label className="flex h-20 cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-background px-5 text-center text-[15px] font-bold text-muted-foreground">
-        <Camera className="h-5 w-5 shrink-0" strokeWidth={2.25} />
-        <span className="truncate">{value.length > 0 ? `${value.length} foto — aggiungine altre` : etichetta}</span>
-        {/* ★ FIX (2026-08-28, richiesta esplicita: "o le scatto sul
-        momento o le pesco dalla galleria") — `capture="environment"` apre
-        la fotocamera direttamente su gran parte dei browser mobile,
-        saltando la scelta nativa "Fotocamera / Libreria foto" che il
-        commento sopra descriveva ma che questo attributo impediva di
-        vedere. Tolto: `accept="image/*"` da solo basta a far comparire
-        entrambe le opzioni. */}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            const nuovi = Array.from(e.target.files ?? []);
-            if (nuovi.length) onChange([...value, ...nuovi]);
-            e.target.value = "";
-          }}
-        />
-      </label>
-      {value.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {value.map((f, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-sm font-semibold">
-              <span className="truncate">{f.name}</span>
-              <button
-                type="button"
-                onClick={() => onChange(value.filter((_, j) => j !== i))}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-critical"
-                aria-label="Rimuovi foto"
-              >
-                <X className="h-4 w-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// ★ FotoInputMulti spostata in tile-scelta.tsx (2026-10-08) — condivisa
+// anche dal wizard di chiusura Ticket (rapportino-domande.tsx), vedi lì.

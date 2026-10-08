@@ -7032,3 +7032,37 @@ il wizard "una domanda alla volta" usato per chiudere un Appuntamento.
 Build/lint puliti (0 errori, verificato con `npm run build` senza pipe che
 mascherasse l'exit code). Verificato sui dati reali (ricerca Calendario).
 Nessuna migrazione.
+
+✅ **Controllo d'oro gestionale — ultimo punto rimandato: wizard unificato
+per chiudere un Ticket su pose.donewifi.it** (2026-10-08, richiesta
+esplicita: "procedi"). Chiudere un Ticket assegnato direttamente (non
+tramite appuntamento/Scheda di Lavoro) usava `RapportinoFormEsterno`, un
+form classico con 5 campi tutti sulla stessa schermata — l'unico dei due
+flussi di chiusura su pose a NON usare il motore "una domanda alla volta"
+(`DomandaWizard`), introdotto esplicitamente per essere più semplice "per
+persone non più giovani". Stesso tecnico, stesso turno, due logiche di
+compilazione diverse per due attività quasi identiche.
+
+- Nuova `RapportinoDomande` (`components/pose/rapportino-domande.tsx`) —
+  stesse 5 domande (esito, lavori svolti, materiali, importo fatturato,
+  foto) ma una alla volta, stessa bozza salvata in locale delle Schede
+  (`leggiBozzaScheda`/`salvaBozzaScheda`), stesso try/catch sul salvataggio
+  foto già corretto nel form originale.
+- `FotoInputMulti` (prima privata dentro `scheda-installazione-domande.tsx`)
+  spostata in `tile-scelta.tsx`, condivisa invece di duplicata: stesso
+  identico bisogno — "più foto in un colpo solo, ognuna rimovibile prima
+  di inviare".
+- `RapportinoFormEsterno` (`rapportino-form.tsx`) rimossa — nessuna pagina
+  la usa più (`interventi/[id]/page.tsx` → `intervento-dettaglio.tsx` ora
+  apre `RapportinoDomande`), niente file morti lasciati come "riferimento".
+
+Build/lint puliti (0 errori, verificato con `npm run build` senza pipe).
+Nessuna migrazione.
+
+---
+
+**Il controllo d'oro gestionale di questi due giorni (2026-10-07/08) è
+concluso**: tutti i punti trovati nell'audit iniziale sui 4 gruppi di
+moduli, inclusi quelli esplicitamente rimandati per lavoro successivo,
+sono stati applicati. Unica eccezione volontaria: Ticket, già rivisto a
+sé in testa al 2026-10-07, mai incluso nell'audit.

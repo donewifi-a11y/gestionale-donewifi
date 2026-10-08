@@ -116,7 +116,7 @@ export function DomandaWizard({
       )}
 
       {/* ★ spazio vuoto per non far finire l'ultimo contenuto sotto la
-      barra fissa qui sotto (stesso principio già in rapportino-form.tsx). */}
+      barra fissa qui sotto. */}
       <div className="h-16" aria-hidden />
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-popover/95 px-4 py-3 backdrop-blur">

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { RapportinoFormEsterno } from "@/components/pose/rapportino-form";
+import { RapportinoDomande } from "@/components/pose/rapportino-domande";
 import type { Ticket } from "@/lib/types";
 
 export function InterventoDettaglio({ ticket }: { ticket: Ticket }) {
@@ -23,11 +23,12 @@ export function InterventoDettaglio({ ticket }: { ticket: Ticket }) {
   }
 
   return (
-    <RapportinoFormEsterno
+    <RapportinoDomande
       ticketId={ticket.id}
       ticketNumero={ticket.numero}
       statoVecchio={ticket.stato}
       onSalvato={() => setSalvato(true)}
+      onAnnulla={() => router.push("/pose")}
     />
   );
 }
