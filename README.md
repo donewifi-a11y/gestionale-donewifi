@@ -7128,3 +7128,48 @@ il funzionamento?"):
   ora compare solo quando c'è davvero una persona interna da nominare.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Controllo d'oro — pose.donewifi.it (2026-10-09)
+
+Richiesta esplicita, seguito diretto della verifica di ieri sull'appuntamento
+rimasto aperto per 2 mesi ("Installazione Annalisa Martinod"): riletto tutto
+il modulo pose (login, home, calendario squadra, i due wizard Scheda,
+il wizard Rapportino, la coda offline, l'autenticazione tecnico esterno).
+
+✅ **Trovata la causa reale per cui quell'appuntamento è rimasto invisibile**
+— `note` dell'appuntamento (dove per un appuntamento senza Ticket collegato
+finisce spesso l'unica informazione di contatto, come in questo caso —
+"tel: 348...") non veniva **mai mostrato** nella pagina di dettaglio su
+pose: un tecnico assegnato a un appuntamento così non aveva alcun modo di
+vedere il numero da chiamare. Ora sempre visibile quando c'è.
+
+✅ **Fix — stato grezzo del database su una seconda pagina**. La home di
+pose traduce già lo stato in linguaggio naturale ("Da iniziare" invece di
+"Da gestire", fix del 2026-10-07), ma la pagina di dettaglio di un Ticket
+(`interventi/[id]`) mostrava ancora lo stato grezzo — stessa incoerenza
+già corretta una volta, dimenticata in questa seconda pagina. La mappa di
+traduzione (`STATO_INTERVENTO_LEGGIBILE`) è stata spostata in
+`lib/pose-categorie.ts`, condivisa invece di duplicata, per non
+disallinearsi di nuovo.
+
+✅ **Fix minore — bottone "Esci" senza etichetta per lettori di schermo**
+(icona sola, nessun `aria-label`).
+
+**Verificato e confermato a posto** (nessun problema trovato): autenticazione
+tecnico esterno (cookie HMAC-firmato, stesso schema di persona.ts),
+caricamento foto (signed upload URL, mai nel corpo della Server Action),
+coda offline (IndexedDB, niente doppie Schede sui riprovi), validazione
+firma cliente facoltativa ovunque come da richiesta esplicita precedente.
+Verificata anche l'assenza di foto nel wizard "Lavorazione tecnica" — non
+è una lacuna, è coerente con l'equivalente staff interno (nessuna Scheda
+di Lavorazione, né interna né pose, supporta foto: solo le Installazioni).
+
+**Non toccato in questo giro** (gap noto, non una lacuna introdotta ora):
+il wizard di chiusura Ticket (`rapportino-domande.tsx`) non ha una coda
+offline come i due wizard Scheda — se la connessione cade proprio
+all'invio, il testo resta salvato in bozza locale ma le foto andrebbero
+ricaricate. Comportamento invariato rispetto al form che sostituiva
+(mai l'aveva avuta); generalizzare la coda offline per includerlo
+richiederebbe un lavoro a sé.
+
+Build/lint puliti (0 errori). Nessuna migrazione.

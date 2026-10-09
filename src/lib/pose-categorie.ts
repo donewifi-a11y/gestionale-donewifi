@@ -27,3 +27,16 @@ export const CATEGORIE_DOMANDA: Record<CategoriaDomanda, StileCategoria> = {
   firma: { etichetta: "Firma", testo: "#5E2FD1", sfondo: "#F1EBFF", da: "#7C4DFF", a: "#B08CFF" },
   gps: { etichetta: "Posizione", testo: "#1848C7", sfondo: "#E4ECFF", da: "#2D6CFF", a: "#00D68F" },
 };
+
+// ★ NUOVA (2026-10-09, controllo d'oro pose.donewifi.it) — spostata qui da
+// app/pose/page.tsx, dove viveva isolata: la card di dettaglio di un
+// Ticket (interventi/[id]/page.tsx) mostrava ancora lo stato grezzo del
+// database ("Da gestire", "In lavorazione") mentre la home, corretta il
+// 2026-10-07, traduce già in linguaggio naturale — stessa incoerenza di
+// registro già corretta una volta, dimenticata in questa seconda pagina.
+// Condivisa invece di duplicata, così non si disallineano di nuovo.
+export const STATO_INTERVENTO_LEGGIBILE: Record<string, string> = {
+  "Da gestire": "Da iniziare",
+  "In lavorazione": "In corso",
+  "In attesa": "In attesa",
+};

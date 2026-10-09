@@ -4,6 +4,11 @@ import { ArrowLeft, MapPin, Phone, Mail, FileText } from "lucide-react";
 import { getTicketTecnicoEsterno, chiUsaPose } from "../../actions";
 import { InterventoDettaglio } from "@/components/pose/intervento-dettaglio";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
+// ★ FIX (2026-10-09, controllo d'oro pose.donewifi.it) — la home (2026-10-07)
+// già traduce lo stato in linguaggio naturale ("Da iniziare" invece di "Da
+// gestire"); questa pagina di dettaglio mostrava ancora lo stato grezzo del
+// database, stessa incoerenza già corretta una volta e dimenticata qui.
+import { STATO_INTERVENTO_LEGGIBILE } from "@/lib/pose-categorie";
 
 // ★ FIX (2026-09-02) — stesso motivo di appuntamenti/[id]/page.tsx:
 // completaTicketConRapportinoEsterno() fa upload foto + più passaggi in
@@ -32,7 +37,9 @@ export default async function InterventoPoseDetailPage({ params }: { params: Pro
       <div className="rounded-xl border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-xs text-muted-foreground">#{ticket.numero}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{ticket.stato}</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+            {STATO_INTERVENTO_LEGGIBILE[ticket.stato] ?? ticket.stato}
+          </span>
         </div>
         <p className="mt-1 text-lg font-bold">{ticket.cliente}</p>
         <div className="mt-2 flex flex-col gap-1.5 text-sm">

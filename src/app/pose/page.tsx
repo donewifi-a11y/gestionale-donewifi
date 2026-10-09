@@ -5,15 +5,10 @@ import { getInterventiTecnicoEsterno } from "./actions";
 import { LogoutTecnicoEsternoButton } from "@/components/pose/logout-button";
 import { PrendiInCaricoButton } from "@/components/pose/prendi-in-carico-button";
 import { inizioGiornataItalia } from "@/lib/data-italia";
-
-// ★ FIX (2026-10-07, audit d'oro gestionale) — vedi il commento sulla card
-// Ticket più sotto: traduzione in linguaggio naturale invece dello stato
-// grezzo del database, per restare coerenti con il resto della pagina.
-const STATO_INTERVENTO_LEGGIBILE: Record<string, string> = {
-  "Da gestire": "Da iniziare",
-  "In lavorazione": "In corso",
-  "In attesa": "In attesa",
-};
+// ★ FIX (2026-10-09, controllo d'oro pose.donewifi.it) — spostata in
+// lib/pose-categorie.ts, condivisa con interventi/[id]/page.tsx che aveva
+// la stessa incoerenza (stato grezzo mai tradotto) — vedi quel file.
+import { STATO_INTERVENTO_LEGGIBILE } from "@/lib/pose-categorie";
 
 // ★ NUOVA (2026-08-26) — dashboard di pose.donewifi.it: solo ciò che è
 // assegnato AL tecnico collegato, niente sidebar/mondi del gestionale

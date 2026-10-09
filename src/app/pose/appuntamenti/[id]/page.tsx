@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, CalendarClock, Phone } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarClock, Phone, StickyNote } from "lucide-react";
 import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno, chiUsaPose } from "../../actions";
 import { SchedaDettaglioPose } from "@/components/pose/scheda-dettaglio";
 import { COLORE_SERVIZIO } from "@/lib/types";
@@ -70,6 +70,24 @@ export default async function AppuntamentoPosePage({ params }: { params: Promise
             </a>
           )}
         </div>
+        {/* ★ FIX (2026-10-09, controllo d'oro pose.donewifi.it — trovato
+        verificando perché un appuntamento reale, "Installazione Annalisa
+        Martinod", è rimasto "Programmato" per oltre 2 mesi) — `note` non
+        veniva mai mostrato su questa pagina: per un appuntamento senza
+        Ticket collegato (creato direttamente sul calendario, come quello
+        trovato) è spesso l'UNICO posto dove finisce un'informazione come
+        il telefono del cliente — in quel caso proprio lì, scritto a mano
+        ("tel: 348...") invece che nel campo telefono dedicato, e quindi
+        invisibile al tecnico assegnato. Ora sempre visibile quando c'è. */}
+        {appuntamento.note && (
+          <div className="mt-3 border-t pt-3 text-sm">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+              <StickyNote className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              Note
+            </p>
+            <p className="mt-1 whitespace-pre-wrap">{appuntamento.note}</p>
+          </div>
+        )}
       </div>
 
       {completato ? (

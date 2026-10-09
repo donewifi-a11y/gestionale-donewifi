@@ -22,6 +22,8 @@ export function LogoutTecnicoEsternoButton() {
           router.refresh();
         })
       }
+      title="Esci"
+      aria-label="Esci"
       className="h-11 w-11 p-0"
     >
       <LogOut className="h-5 w-5" strokeWidth={2.25} />
