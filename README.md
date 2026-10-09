@@ -7173,3 +7173,28 @@ ricaricate. Comportamento invariato rispetto al form che sostituiva
 richiederebbe un lavoro a sé.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+✅ **Fix — Fatturazione non vedeva le installazioni completate** (2026-10-09,
+bug reale segnalato: "l'utente antonietta non vede il cliente marcarini, la
+posa"). Verificato: Antonietta Favre è staff interno con un solo reparto,
+"Fatturazione"; il Ticket #29 "Alessandro Marcarini" (installazione
+completata il 2026-10-05) è reparto "Analisi Rete", sottocategoria
+"Pianificazione installazione" — `persona_vede_ticket()` (RLS, migrazione
+0081) nasconde a chi è solo Fatturazione ogni Ticket fuori dal proprio
+reparto, con un'unica eccezione già esistente: i Ticket di Disdetta
+("per i ticket di disdetta e ritiro, gli stessi devono rimanere visibili
+e editabili anche dal reparto fatturazione" — richiesta di mesi fa). La
+stessa eccezione non era mai stata estesa alle installazioni, pur essendo
+lo stesso identico bisogno (Fatturazione deve vedere una posa per
+fatturarla).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0088_installazioni_visibili_fatturazione.sql`
+— estende la whitelist di sottocategorie di `persona_vede_ticket()` da
+"Disdetta" (sola) a "Disdetta" + "Pianificazione installazione" + "Nuovo
+contratto" (le due sottocategorie di nuova attivazione, scelta esplicita
+dell'utente). Aggiornata anche `repartiTabDelTicket()` lato client
+(tickets-board.tsx), lo stesso gemello già esteso per la Disdetta in
+precedenza, altrimenti il Ticket sarebbe tornato visibile da RLS ma
+assente dalla tab "Fatturazione".
+
+Build/lint puliti (0 errori).

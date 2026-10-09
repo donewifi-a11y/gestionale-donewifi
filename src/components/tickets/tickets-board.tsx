@@ -254,8 +254,17 @@ function attesaDa(dataCreazione: string): string {
 // qui serve applicarla anche alla tab per reparto appena aggiunta,
 // altrimenti un Ticket tornato visibile dal database sparirebbe comunque
 // dalla tab "Fatturazione" perché il suo `reparto` è ormai "Analisi Rete".
+// ★ ESTESA (2026-10-09, bug reale segnalato: "l'utente antonietta non vede
+// il cliente marcarini, la posa" — vedi migrazione 0088 per il commento
+// completo) — stessa lacuna della Disdetta, mai estesa alle installazioni:
+// un Ticket "Pianificazione installazione"/"Nuovo contratto" (reparto
+// "Analisi Rete") sarebbe tornato visibile da RLS a chi è solo
+// Fatturazione, ma restava comunque invisibile qui, nella tab per reparto.
+const SOTTOCATEGORIE_VISIBILI_FATTURAZIONE = ["Disdetta", "Pianificazione installazione", "Nuovo contratto"];
 function repartiTabDelTicket(t: Ticket): string[] {
-  if (t.sottocategoria === "Disdetta" && t.reparto !== "Fatturazione") return [t.reparto, "Fatturazione"];
+  if (t.sottocategoria && SOTTOCATEGORIE_VISIBILI_FATTURAZIONE.includes(t.sottocategoria) && t.reparto !== "Fatturazione") {
+    return [t.reparto, "Fatturazione"];
+  }
   return [t.reparto];
 }
 
