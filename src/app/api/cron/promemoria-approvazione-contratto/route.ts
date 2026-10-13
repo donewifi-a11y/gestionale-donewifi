@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
   const nonAutorizzato = verificaRichiestaCron(request);
   if (nonAutorizzato) return nonAutorizzato;
 
+  // ★ NUOVA — richiesta esplicita: i messaggi di promemoria qui sotto ora
+  // includono il link diretto alla pratica (stesso meccanismo di
+  // api/richiesta-cliente/route.ts — TestoMessaggio in chat-panel.tsx
+  // rende cliccabile qualunque URL http(s) nel testo).
+  const origine = "https://gestione.donewifi.it";
   const service = createServiceClient();
   const sogliaInvio = new Date(Date.now() - SOGLIA_PRIMO_PROMEMORIA_ORE * 60 * 60 * 1000).toISOString();
 
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
     const giorni = Math.floor((Date.now() - new Date(s.contratto_inviato_approvazione_il as string).getTime()) / (1000 * 60 * 60 * 24));
     await inviaMessaggioChatSistema(
       "Commerciale",
-      `⏳ Contratto in attesa di approvazione da ${giorni} giorni: ${s.nome} (Segnalazione #${s.numero}). Valuta se risollecitare il cliente.`
+      `⏳ Contratto in attesa di approvazione da ${giorni} giorni: ${s.nome} (Segnalazione #${s.numero}). Valuta se risollecitare il cliente.\n\n${origine}/segnalazioni?aperto=${s.id}`
     );
     await service.from("segnalazioni").update({ ultimo_promemoria_approvazione_il: new Date().toISOString() }).eq("id", s.id);
   }
@@ -70,7 +75,7 @@ export async function GET(request: NextRequest) {
     const giorni = Math.floor((Date.now() - new Date(p.contratto_inviato_approvazione_il as string).getTime()) / (1000 * 60 * 60 * 24));
     await inviaMessaggioChatSistema(
       "Commerciale",
-      `⏳ Contratto di ${p.tipo_richiesta} in attesa di approvazione da ${giorni} giorni: ${p.cliente ?? "cliente"}. Valuta se risollecitare.`
+      `⏳ Contratto di ${p.tipo_richiesta} in attesa di approvazione da ${giorni} giorni: ${p.cliente ?? "cliente"}. Valuta se risollecitare.\n\n${origine}/richieste-clienti?aperto=${p.id}`
     );
     await service.from("richieste_clienti").update({ ultimo_promemoria_approvazione_il: new Date().toISOString() }).eq("id", p.id);
   }

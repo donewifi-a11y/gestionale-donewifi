@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
   // pratica se ne accorge da dove lavora già ogni giorno.
   await inviaMessaggioChatSistema(
     "Commerciale",
-    `📋 Nuovi dati ricevuti da ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Verifica i documenti e procedi con il contratto.`
+    `📋 Nuovi dati ricevuti da ${segnalazione.nome} (Segnalazione #${segnalazione.numero}). Verifica i documenti e procedi con il contratto.\n\n${request.nextUrl.origin}/segnalazioni?aperto=${segnalazioneId}`
   );
 
   // ★ NUOVA (2026-08) — richiesta esplicita: stesso evento, anche via email

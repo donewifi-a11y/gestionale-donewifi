@@ -57,6 +57,15 @@ function destinatarioNotificaInterna(reparto: AreaAccesso): string {
  * principale). */
 export async function notificaSuTuttiICanali(n: NotificaInterna): Promise<void> {
   const { oggetto, corpoHtml, corpoTesto } = emailAvvisoInterno(n.emailTitolo, n.emailCorpoHtml, n.emailCorpoTesto, n.emailLink);
+  // ★ NUOVA — richiesta esplicita: "cliccando si possa andare direttamente
+  // alla segnalazione o ticket" — `emailLink` esisteva già su ogni
+  // chiamata (serve al pulsante nell'email) ma non arrivava mai nel testo
+  // Chat: ogni notifica passata da qui restava testo semplice, non
+  // cliccabile, anche quando il link era già disponibile. Appeso qui in un
+  // solo punto invece che in ogni chiamante: TestoMessaggio in
+  // chat-panel.tsx riconosce da solo qualunque URL http(s) nel testo e lo
+  // rende cliccabile.
+  const chatTestoConLink = `${n.chatTesto}\n\n${n.emailLink}`;
   // ★ FIX (2026-09-02, "di nuovo il problema" — "Errore imprevisto durante
   // il salvataggio" riproducibile per una Nuova installazione via pose,
   // anche da browser mai aperti prima) — i 3 canali sono indipendenti (nessuno
@@ -70,7 +79,7 @@ export async function notificaSuTuttiICanali(n: NotificaInterna): Promise<void> 
   // mai un errore, vedi sopra) ma dimezza abbondantemente il tempo reale.
   await Promise.all([
     inviaNotificaTelegram(n.reparto, n.telegramHtml),
-    inviaMessaggioChatSistema(n.reparto, n.chatTesto),
+    inviaMessaggioChatSistema(n.reparto, chatTestoConLink),
     inviaEmail({ a: destinatarioNotificaInterna(n.reparto), oggetto, corpoHtml, corpoTesto, reparto: n.reparto }),
   ]);
 }

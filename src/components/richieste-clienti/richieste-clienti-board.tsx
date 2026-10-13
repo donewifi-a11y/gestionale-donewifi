@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Ticket as TicketIcon, Trash2, Loader2, Users2, FileText, MapPin, Phone, CreditCard, Clock, Check, Send, Upload } from "lucide-react";
 import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -124,6 +124,19 @@ export function RichiesteClientiBoard({
   const [ricerca, setRicerca] = useState("");
   const [fTipo, setFTipo] = useState("");
   const [aperta, setAperta] = useState<RichiestaCliente | null>(null);
+  const searchParams = useSearchParams();
+
+  // ★ NUOVA — apre direttamente una pratica via ?aperto=<id>, stesso
+  // meccanismo già in uso in tickets-board.tsx/segnalazioni-board.tsx: i
+  // link cliccabili nella Chat interna/Telegram/email di una notifica
+  // (es. promemoria-approvazione-contratto) ora possono puntare qui.
+  useEffect(() => {
+    const id = searchParams.get("aperto");
+    if (!id) return;
+    const trovata = richieste.find((r) => r.id === id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizza con l'URL (?aperto=id), stesso caso di tickets-board.tsx.
+    if (trovata) setAperta(trovata);
+  }, [searchParams, richieste]);
 
   const tipi = useMemo(() => Array.from(new Set(richieste.map((r) => r.tipo_richiesta))), [richieste]);
 

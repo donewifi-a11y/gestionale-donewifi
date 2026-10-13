@@ -7244,3 +7244,43 @@ univoco anti-doppione, RLS speculare a quella già in vigore su
 produzione.
 
 Build/lint puliti (0 errori).
+
+## Link diretto dalle notifiche in Chat interna (2026-10-13)
+
+Richiesta esplicita: *"quando in chat arriva la segnalazione che sono
+arrivati documenti, è stata aperta una pratica o altro, cliccando si possa
+andare direttamente alla segnalazione o ticket, a quello che viene
+segnalato"*.
+
+La Chat interna (vedi `chat-panel.tsx`) riconosce già da tempo qualunque URL
+`http(s)://` dentro il testo di un messaggio e lo rende cliccabile
+("apri →") — ma solo due dei tanti punti che generano queste notifiche
+automatiche ("Sistema") lo sfruttavano davvero (richiesta-cliente,
+apertura Ticket da Portale). Tutti gli altri scrivevano solo testo semplice,
+niente cliccabile, anche quando l'id della pratica era già disponibile.
+
+✅ **Fix centrale** — `notificaSuTuttiICanali()` (il fan-out condiviso
+usato da quasi ogni evento: nuova Segnalazione, contratto inviato per
+approvazione, Ticket creato dopo approvazione cliente, materiali/preventivi,
+ecc.) riceveva già un `emailLink` per il pulsante nell'email ma non lo
+passava mai al testo della Chat. Ora lo appende in un solo punto: ogni
+chiamante esistente (e futuro) ottiene il link cliccabile senza bisogno di
+toccarlo uno per uno.
+
+✅ **Fix mirato — "documenti arrivati"** (`api/richiesta-dati/route.ts`,
+il caso descritto alla lettera dall'utente): aggiunto il link diretto alla
+Segnalazione, stesso schema già in uso nel gemello "gold standard"
+(`api/richiesta-cliente/route.ts`).
+
+✅ **Fix mirato — promemoria contratto in attesa** (cron giornaliero
+`promemoria-approvazione-contratto`): aggiunto il link sia per le
+Segnalazioni che per le pratiche di Subentro/Trasferimento/Cambio
+IBAN/Cambio Anagrafica.
+
+✅ **Nuovo deep-link `?aperto=<id>`** sulla pagina Gestione Cliente
+(`richieste-clienti-board.tsx`) — esisteva già su Ticket e Segnalazioni ma
+non qui, quindi il link del promemoria sopra non aveva una pagina pronta ad
+aprirsi sulla pratica giusta. Stesso meccanismo copiato identico
+(`useSearchParams` + `useEffect`, usato anche dalla ricerca globale).
+
+Build/lint puliti (0 errori). Nessuna migrazione.
