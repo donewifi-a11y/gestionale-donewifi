@@ -2355,6 +2355,7 @@ function DettagliExtra({ sottocategoria, dettagli }: { sottocategoria: string; d
 export function PianificaAppuntamento({
   ticket,
   persone,
+  tecniciEsterni = [],
   tipoServizioIniziale = "Lavorazione tecnica",
   apertaSubito = false,
   tecnicoIniziale,
@@ -2362,6 +2363,13 @@ export function PianificaAppuntamento({
 }: {
   ticket: Ticket;
   persone: Persona[];
+  /** ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+   * simultanea... in cui sono presenti diverse squadre") — serve per poter
+   * aggiungere anche tecnici esterni alla squadra extra, non solo staff
+   * interno. Facoltativo con default `[]` per non rompere l'altro punto da
+   * cui parte questo componente (vista-tecnico-board.tsx), che non ha
+   * ancora questa prop a disposizione. */
+  tecniciEsterni?: { id: string; nome: string; cognome: string | null }[];
   tipoServizioIniziale?: TipoServizioAppuntamento;
   apertaSubito?: boolean;
   tecnicoIniziale?: string;
@@ -2397,6 +2405,22 @@ export function PianificaAppuntamento({
   // sull'indirizzo del Ticket (vedi stimaComuneDaIndirizzo()), resta un
   // testo libero modificabile prima di "Assegna e fissa".
   const [comune, setComune] = useState(() => stimaComuneDaIndirizzo(ticket.indirizzo));
+  // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea, in cui sono presenti diverse squadre e... far vedere alla
+  // squadra l'intervento") — il campo "tecnico" sotto resta il PRIMO
+  // assegnatario (nessuna rottura di quanto già c'era); questo è chi altro
+  // partecipa, oltre a lui. Stringa "interno:<id>"/"esterno:<id>" invece
+  // di un oggetto — più comodo come valore di una checkbox HTML.
+  const [tecnicoPrimario, setTecnicoPrimario] = useState(tecnicoIniziale ?? ticket.tecnico_assegnato ?? "");
+  const [squadraSelezionata, setSquadraSelezionata] = useState<Set<string>>(new Set());
+  function alternaSquadra(chiave: string) {
+    setSquadraSelezionata((cur) => {
+      const nuovo = new Set(cur);
+      if (nuovo.has(chiave)) nuovo.delete(chiave);
+      else nuovo.add(chiave);
+      return nuovo;
+    });
+  }
 
   useEffect(() => {
     if (aperto) getSlotOccupatiProssimi().then(setSlot);
@@ -2430,10 +2454,14 @@ export function PianificaAppuntamento({
         indirizzo: ticket.indirizzo || "",
         dataOra: new Date(`${data}T${ora}`).toISOString(),
         durataMinuti: Number(dati.get("durata") || 60),
-        tecnicoId: String(dati.get("tecnico") || ""),
+        tecnicoId: tecnicoPrimario,
         ticketId: ticket.id,
         note: "",
         tipoServizio,
+        squadraExtra: Array.from(squadraSelezionata).map((chiave) => {
+          const [tipo, id] = chiave.split(":");
+          return { tipo: tipo as "interno" | "esterno", id };
+        }),
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -2491,7 +2519,16 @@ export function PianificaAppuntamento({
               </span>{" "}
               {items
                 .map((s) => {
-                  const tecnico = persone.find((p) => p.id === s.tecnico_id)?.nome;
+                  // ★ ESTESA (2026-10-13) — prima risolveva solo il nome di
+                  // un tecnico interno: `SlotOccupato` ora porta anche
+                  // `tecnico_esterno_id` (vedi calendario/actions.ts),
+                  // necessario comunque per gli impegni da squadra.
+                  const tecnico =
+                    persone.find((p) => p.id === s.tecnico_id)?.nome ??
+                    (() => {
+                      const t = tecniciEsterni.find((te) => te.id === s.tecnico_esterno_id);
+                      return t ? `${t.nome} ${t.cognome ?? ""}`.trim() : undefined;
+                    })();
                   const ora = new Date(s.data_ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
                   return `${ora}${tecnico ? ` (${tecnico})` : ""}`;
                 })
@@ -2555,7 +2592,21 @@ export function PianificaAppuntamento({
             <option value="120">2 ore</option>
           </select>
         </div>
-        <select name="tecnico" defaultValue={tecnicoIniziale ?? ticket.tecnico_assegnato ?? ""} className="h-8 rounded-lg border bg-background px-2 text-xs">
+        <select
+          name="tecnico"
+          value={tecnicoPrimario}
+          onChange={(e) => {
+            setTecnicoPrimario(e.target.value);
+            // ★ chi diventa il primo assegnatario esce dalla squadra extra
+            // (se c'era) — non avrebbe senso comparire due volte.
+            setSquadraSelezionata((cur) => {
+              const nuovo = new Set(cur);
+              nuovo.delete(`interno:${e.target.value}`);
+              return nuovo;
+            });
+          }}
+          className="h-8 rounded-lg border bg-background px-2 text-xs"
+        >
           <option value="">Nessun tecnico</option>
           {/* ★ FIX (2026-10-02, audit d'oro modulo Tickets) — stesso
           principio delle altre due select qui sopra: per un NUOVO
@@ -2567,6 +2618,34 @@ export function PianificaAppuntamento({
             <option key={p.id} value={p.id}>{p.nome}</option>
           ))}
         </select>
+
+        {/* ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+        simultanea, in cui sono presenti diverse squadre") — persone in
+        più oltre al primo assegnatario sopra, stesso intervento: utile
+        quando serve mandare due tecnici insieme (es. un'installazione
+        complessa) — vedi migrazione 0089 (appuntamento_squadra). Esclude
+        chi è già il primo assegnatario, per non proporlo due volte. */}
+        {(persone.filter((p) => p.attivo && p.id !== tecnicoPrimario).length > 0 || tecniciEsterni.length > 0) && (
+          <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground">Squadra aggiuntiva (facoltativa)</span>
+            <div className="flex max-h-28 flex-col gap-1 overflow-y-auto">
+              {persone
+                .filter((p) => p.attivo && p.id !== tecnicoPrimario)
+                .map((p) => (
+                  <label key={p.id} className="flex items-center gap-1.5 text-xs">
+                    <input type="checkbox" checked={squadraSelezionata.has(`interno:${p.id}`)} onChange={() => alternaSquadra(`interno:${p.id}`)} className="h-3.5 w-3.5" />
+                    {p.nome}
+                  </label>
+                ))}
+              {tecniciEsterni.map((t) => (
+                <label key={t.id} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" checked={squadraSelezionata.has(`esterno:${t.id}`)} onChange={() => alternaSquadra(`esterno:${t.id}`)} className="h-3.5 w-3.5" />
+                  {t.nome} {t.cognome ?? ""} <span className="text-muted-foreground">(esterno)</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         {errore && <p className="text-xs text-critical">{errore}</p>}
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={inCorso} className="min-h-11 flex-1">

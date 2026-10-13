@@ -7198,3 +7198,49 @@ precedenza, altrimenti il Ticket sarebbe tornato visibile da RLS ma
 assente dalla tab "Fatturazione".
 
 Build/lint puliti (0 errori).
+
+## Appuntamenti in simultanea con più squadre (2026-10-13)
+
+Richiesta esplicita: *"dobbiamo dare la possibilità di creare appuntamenti in
+simultanea, in cui sono presenti diverse squadre e mettere la possibilità di
+far vedere alla squadra l'intervento"* — partita dallo screenshot del
+pannello "Pianifica appuntamento" nel Ticket, dove un conflitto d'orario
+bloccava di fatto la possibilità di mandare più persone sullo stesso
+intervento.
+
+✅ **Nuova tabella `appuntamento_squadra`** — scelta di design deliberata:
+non si toccano `tecnico_id`/`tecnico_esterno_id` su `appuntamenti` (restano
+il PRIMO assegnatario, letti da decine di punti del codice già esistenti —
+zero rischio di rotture su codice invariato, stesso principio già seguito
+per la pianificazione installazione/disdetta). La nuova tabella aggiunge
+solo i membri EXTRA: 0 o più persone interne/tecnici esterni in più, oltre
+al primo. "Far vedere alla squadra l'intervento" = ogni membro extra ha la
+stessa visibilità e la stessa possibilità di completare la Scheda di Lavoro
+del primo assegnatario.
+
+✅ **Checkbox "Squadra aggiuntiva (facoltativa)"** aggiunta in tre punti:
+pannello "Pianifica appuntamento" nel Ticket (`sezione-assegnazione.tsx` /
+`tickets-board.tsx`, con anche i tecnici esterni), e sia il form "Nuovo
+appuntamento" che "Modifica appuntamento" nel Calendario generale
+(`calendario-board.tsx`, solo personale interno — qui non esisteva già un
+elenco di tecnici esterni da offrire).
+
+✅ **Controllo sovrapposizione orari estesa alla squadra** — "Slot già
+occupati" ora controlla anche i membri extra, non solo il primo assegnatario,
+sia nel pannello Ticket che nel Calendario.
+
+✅ **Visibilità estesa ovunque un tecnico vede "i suoi" appuntamenti**:
+Vista Tecnico interna (nuova query su `appuntamento_squadra` unita a quella
+esistente), Calendario squadra e area tecnico esterno di pose.donewifi.it
+(`getCalendarioSquadra`, `getInterventiTecnicoEsterno`,
+`getAppuntamentoTecnicoEsterno`, `salvaSchedaLavoroEsterno` — il controllo
+di proprietà di quest'ultima ora accetta anche chi è in squadra, non solo
+il primo assegnatario).
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0089_squadra_appuntamento.sql`
+— crea `appuntamento_squadra` (vincolo "una sola persona per riga", indice
+univoco anti-doppione, RLS speculare a quella già in vigore su
+`appuntamenti`). Senza applicarla la funzionalità non è attiva in
+produzione.
+
+Build/lint puliti (0 errori).

@@ -242,6 +242,7 @@ export function SezioneAssegnazioneTicket({
       <PianificaAppuntamento
         ticket={ticket}
         persone={persone}
+        tecniciEsterni={tecniciEsterni}
         tipoServizioIniziale={
           tipoServizioDaTicket(ticket.categoria, ticket.sottocategoria) === "Nuova installazione" || ticket.segnalazione_id
             ? "Nuova installazione"

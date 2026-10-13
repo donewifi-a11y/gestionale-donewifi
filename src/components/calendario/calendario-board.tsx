@@ -25,6 +25,7 @@ import {
   eliminaNotaCalendario,
   getSlotOccupatiProssimi,
   getAntenneRiservatePerTicket,
+  getSquadraAppuntamento,
   cercaAppuntamenti,
   type SlotOccupato,
   type RisultatoRicercaAppuntamento,
@@ -1028,6 +1029,19 @@ function FormNuovoAppuntamento({
   const [comune, setComune] = useState("");
   const [comuneApplicato, setComuneApplicato] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
+  // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea, in cui sono presenti diverse squadre") — stesso principio
+  // del gemello in tickets-board.tsx (PianificaAppuntamento), vedi lì per
+  // il commento completo.
+  const [squadraSelezionata, setSquadraSelezionata] = useState<Set<string>>(new Set());
+  function alternaSquadra(id: string) {
+    setSquadraSelezionata((cur) => {
+      const nuovo = new Set(cur);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
   // ★ FIX (2026-09-18, audit modulo Calendario/Vista Tecnico) — il campo
   // Titolo era un input non controllato con una `key` che ne forzava il
   // remount ad ogni cambio di tipoServizio/tipoIntervento/comuneApplicato/
@@ -1123,6 +1137,7 @@ function FormNuovoAppuntamento({
         note: String(dati.get("note") || ""),
         tipoServizio,
         telefonoCliente: String(dati.get("telefonoCliente") || ""),
+        squadraExtra: Array.from(squadraSelezionata).map((id) => ({ tipo: "interno" as const, id })),
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1271,7 +1286,16 @@ function FormNuovoAppuntamento({
             <select
               id="tecnico"
               value={tecnicoId}
-              onChange={(e) => setTecnicoId(e.target.value)}
+              onChange={(e) => {
+                setTecnicoId(e.target.value);
+                // ★ chi diventa il primo assegnatario esce dalla squadra
+                // extra (se c'era) — non avrebbe senso comparire due volte.
+                setSquadraSelezionata((cur) => {
+                  const nuovo = new Set(cur);
+                  nuovo.delete(e.target.value);
+                  return nuovo;
+                });
+              }}
               className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
               <option value="">Da assegnare</option>
@@ -1286,6 +1310,27 @@ function FormNuovoAppuntamento({
             </select>
             <div className="mt-1"><AvvisoTecnicoMancante tecnicoId={tecnicoId} /></div>
           </div>
+
+          {/* ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+          simultanea, in cui sono presenti diverse squadre") — persone in
+          più oltre al Tecnico sopra, stesso intervento — utile per
+          un'installazione complessa che serve mandare due tecnici
+          insieme. Esclude chi è già il primo assegnatario. */}
+          {persone.filter((p) => p.attivo && p.id !== tecnicoId).length > 0 && (
+            <div className="mt-3">
+              <Label>Squadra aggiuntiva (facoltativa)</Label>
+              <div className="mt-1 flex max-h-32 flex-col gap-1 overflow-y-auto rounded-md border bg-background p-2">
+                {persone
+                  .filter((p) => p.attivo && p.id !== tecnicoId)
+                  .map((p) => (
+                    <label key={p.id} className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" checked={squadraSelezionata.has(p.id)} onChange={() => alternaSquadra(p.id)} className="h-3.5 w-3.5" />
+                      {p.nome}
+                    </label>
+                  ))}
+              </div>
+            </div>
+          )}
         </SezioneForm>
 
         <div>
@@ -1371,6 +1416,24 @@ function FormModificaAppuntamento({
     getAntenneRiservatePerTicket(appuntamento.ticket_id).then(setAntenneRiservate);
   }, [appuntamento.ticket_id]);
   const [tecnicoId, setTecnicoId] = useState(appuntamento.tecnico_id ?? "");
+  // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea, in cui sono presenti diverse squadre") — precaricata dalla
+  // squadra già salvata (vedi migrazione 0089/getSquadraAppuntamento()),
+  // stesso principio di slotModifica/antenneRiservate appena sopra.
+  const [squadraSelezionata, setSquadraSelezionata] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getSquadraAppuntamento(appuntamento.id).then((membri) => {
+      setSquadraSelezionata(new Set(membri.filter((m) => m.tipo === "interno").map((m) => m.id)));
+    });
+  }, [appuntamento.id]);
+  function alternaSquadraModifica(id: string) {
+    setSquadraSelezionata((cur) => {
+      const nuovo = new Set(cur);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
   // ★ NUOVA — richiesta esplicita "a prova di scemo": il Titolo è generato
   // in automatico quando l'appuntamento nasce da un Ticket (categoria +
   // sottocategoria + cliente, vedi PianificaAppuntamento in
@@ -1400,6 +1463,7 @@ function FormModificaAppuntamento({
         note: String(dati.get("note") || ""),
         tipoServizio,
         telefonoCliente: String(dati.get("telefonoCliente") || ""),
+        squadraExtra: Array.from(squadraSelezionata).map((id) => ({ tipo: "interno" as const, id })),
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1634,6 +1698,26 @@ function FormModificaAppuntamento({
               ))}
             </select>
             <div className="mt-1"><AvvisoTecnicoMancante tecnicoId={tecnicoId} /></div>
+            {persone.filter((p) => p.attivo && p.id !== tecnicoId).length > 0 && (
+              <div className="mt-3">
+                <Label>Squadra aggiuntiva (facoltativa)</Label>
+                <div className="mt-1 flex max-h-32 flex-col gap-1 overflow-y-auto rounded-md border bg-background p-2">
+                  {persone
+                    .filter((p) => p.attivo && p.id !== tecnicoId)
+                    .map((p) => (
+                      <label key={p.id} className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={squadraSelezionata.has(p.id)}
+                          onChange={() => alternaSquadraModifica(p.id)}
+                          className="h-3.5 w-3.5"
+                        />
+                        {p.nome}
+                      </label>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </SezioneForm>
 

@@ -236,7 +236,7 @@ export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEs
   const colonnaTickets = colonnaAssegnazione(operatore, "tickets");
   const colonnaAppuntamenti = colonnaAssegnazione(operatore, "appuntamenti");
 
-  const [{ data: tickets }, { data: appuntamenti }, { data: appuntamentiNonAssegnati }] = await Promise.all([
+  const [{ data: tickets }, { data: appuntamenti }, { data: appuntamentiNonAssegnati }, { data: squadraRighe }] = await Promise.all([
     service
       .from("tickets")
       .select("*")
@@ -256,12 +256,32 @@ export async function getInterventiTecnicoEsterno(): Promise<InterventiTecnicoEs
       .is("tecnico_esterno_id", null)
       .eq("stato", "Programmato")
       .order("data_ora", { ascending: true }),
+    // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+    // simultanea... far vedere alla squadra l'intervento") — prima questa
+    // pagina mostrava solo gli appuntamenti dove l'operatore è il PRIMO
+    // assegnatario: un membro extra della squadra (vedi migrazione 0089)
+    // non vedeva l'intervento da nessuna parte su pose, pur essendoci
+    // davvero. `appuntamenti(*)` risolve subito la riga appuntamento
+    // collegata invece di un secondo giro di query.
+    service.from("appuntamento_squadra").select("appuntamenti(*)").eq(colonnaAppuntamenti, operatore.id),
   ]);
+
+  // ★ la FK appuntamento_squadra→appuntamenti è sempre un oggetto singolo o
+  // null (mai un array), stesso ragionamento già applicato altrove per gli
+  // embed 1:1 — filtra anche "Programmato" qui (la query sopra non può
+  // filtrare su una colonna della tabella collegata senza un join esplicito).
+  const appuntamentiDaSquadra = ((squadraRighe ?? []) as unknown as { appuntamenti: Appuntamento | null }[])
+    .map((r) => r.appuntamenti)
+    .filter((a): a is Appuntamento => !!a && a.stato === "Programmato");
+
+  const mappaAppuntamenti = new Map<string, Appuntamento>();
+  for (const a of [...((appuntamenti as Appuntamento[] | null) ?? []), ...appuntamentiDaSquadra]) mappaAppuntamenti.set(a.id, a);
+  const appuntamentiUniti = Array.from(mappaAppuntamenti.values()).sort((a, b) => a.data_ora.localeCompare(b.data_ora));
 
   return {
     tecnico: { id: operatore.id, nome: operatore.nome, tipo: operatore.tipo },
     tickets: (tickets as Ticket[]) ?? [],
-    appuntamenti: (appuntamenti as Appuntamento[]) ?? [],
+    appuntamenti: appuntamentiUniti,
     appuntamentiNonAssegnati: (appuntamentiNonAssegnati as Appuntamento[]) ?? [],
   };
 }
@@ -468,14 +488,22 @@ export async function getAppuntamentoTecnicoEsterno(appuntamentoId: string): Pro
   const operatore = await getOperatorePose(supabase);
   if (!operatore) return null;
   const service = createServiceClient();
-  const { data } = await service
-    .from("appuntamenti")
-    .select("*, tickets(telefono)")
-    .eq("id", appuntamentoId)
-    .eq(colonnaAssegnazione(operatore, "appuntamenti"), operatore.id)
-    .maybeSingle();
+  const colonna = colonnaAssegnazione(operatore, "appuntamenti");
+  // ★ ESTESA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea... far vedere alla squadra l'intervento") — prima
+  // l'appartenenza si verificava SOLO nella query stessa (filtro sulla
+  // colonna del primo assegnatario): un membro extra della squadra (vedi
+  // migrazione 0089) avrebbe ricevuto "non trovato" aprendo un intervento
+  // in cui è davvero coinvolto. Niente più filtro nella query — letto
+  // prima, verificata l'appartenenza dopo, su entrambe le fonti.
+  const [{ data }, { data: inSquadra }] = await Promise.all([
+    service.from("appuntamenti").select("*, tickets(telefono)").eq("id", appuntamentoId).maybeSingle(),
+    service.from("appuntamento_squadra").select("id").eq("appuntamento_id", appuntamentoId).eq(colonna, operatore.id).maybeSingle(),
+  ]);
   if (!data) return null;
   const { tickets, ...appuntamento } = data as Appuntamento & { tickets: { telefono: string | null } | null };
+  const sonoAssegnato = (appuntamento as unknown as Record<string, unknown>)[colonna] === operatore.id || !!inSquadra;
+  if (!sonoAssegnato) return null;
   return { ...appuntamento, telefonoTicket: tickets?.telefono ?? null };
 }
 
@@ -486,6 +514,10 @@ export interface AppuntamentoSquadra extends Appuntamento {
   assegnatoEsterno: boolean;
   /** true se questo appuntamento è del tecnico collegato (evidenziato in UI). */
   mio: boolean;
+  /** ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+   * simultanea... far vedere alla squadra l'intervento") — nomi dei membri
+   * extra, oltre al primo assegnatario (`assegnatoA`). */
+  squadraExtra: string[];
 }
 
 /**
@@ -519,8 +551,29 @@ export async function getCalendarioSquadra(giorni: number = 14): Promise<Appunta
   const righe = (appuntamenti as Appuntamento[] | null) ?? [];
   if (righe.length === 0) return [];
 
-  const idPersone = Array.from(new Set(righe.map((a) => a.tecnico_id).filter((v): v is string => !!v)));
-  const idEsterni = Array.from(new Set(righe.map((a) => a.tecnico_esterno_id).filter((v): v is string => !!v)));
+  // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea... far vedere alla squadra l'intervento") — ogni membro
+  // extra, oltre al primo assegnatario, vedi migrazione 0089.
+  const { data: squadraRighe } = await service
+    .from("appuntamento_squadra")
+    .select("appuntamento_id, tecnico_id, tecnico_esterno_id")
+    .in(
+      "appuntamento_id",
+      righe.map((a) => a.id)
+    );
+  const squadraPerAppuntamento = new Map<string, { tecnico_id: string | null; tecnico_esterno_id: string | null }[]>();
+  for (const r of squadraRighe ?? []) {
+    const lista = squadraPerAppuntamento.get(r.appuntamento_id) ?? [];
+    lista.push({ tecnico_id: r.tecnico_id, tecnico_esterno_id: r.tecnico_esterno_id });
+    squadraPerAppuntamento.set(r.appuntamento_id, lista);
+  }
+
+  const idPersone = Array.from(
+    new Set([...righe.map((a) => a.tecnico_id), ...(squadraRighe ?? []).map((r) => r.tecnico_id)].filter((v): v is string => !!v))
+  );
+  const idEsterni = Array.from(
+    new Set([...righe.map((a) => a.tecnico_esterno_id), ...(squadraRighe ?? []).map((r) => r.tecnico_esterno_id)].filter((v): v is string => !!v))
+  );
 
   const [{ data: persone }, { data: esterni }] = await Promise.all([
     idPersone.length ? service.from("persone").select("id, nome").in("id", idPersone) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
@@ -531,12 +584,17 @@ export async function getCalendarioSquadra(giorni: number = 14): Promise<Appunta
   const mappaPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]));
   const mappaEsterni = new Map((esterni ?? []).map((t) => [t.id, [t.nome, t.cognome].filter(Boolean).join(" ")]));
 
-  return righe.map((a) => ({
-    ...a,
-    assegnatoA: a.tecnico_id ? (mappaPersone.get(a.tecnico_id) ?? "Staff interno") : a.tecnico_esterno_id ? (mappaEsterni.get(a.tecnico_esterno_id) ?? "Tecnico esterno") : null,
-    assegnatoEsterno: !!a.tecnico_esterno_id,
-    mio: operatore.tipo === "tecnico_esterno" ? a.tecnico_esterno_id === operatore.id : a.tecnico_id === operatore.id,
-  }));
+  return righe.map((a) => {
+    const squadra = squadraPerAppuntamento.get(a.id) ?? [];
+    const sonoInSquadra = squadra.some((m) => (operatore.tipo === "tecnico_esterno" ? m.tecnico_esterno_id === operatore.id : m.tecnico_id === operatore.id));
+    return {
+      ...a,
+      assegnatoA: a.tecnico_id ? (mappaPersone.get(a.tecnico_id) ?? "Staff interno") : a.tecnico_esterno_id ? (mappaEsterni.get(a.tecnico_esterno_id) ?? "Tecnico esterno") : null,
+      assegnatoEsterno: !!a.tecnico_esterno_id,
+      mio: (operatore.tipo === "tecnico_esterno" ? a.tecnico_esterno_id === operatore.id : a.tecnico_id === operatore.id) || sonoInSquadra,
+      squadraExtra: squadra.map((m) => (m.tecnico_id ? (mappaPersone.get(m.tecnico_id) ?? "Staff interno") : (mappaEsterni.get(m.tecnico_esterno_id!) ?? "Tecnico esterno"))),
+    };
+  });
 }
 
 /**
@@ -598,8 +656,18 @@ export async function salvaSchedaLavoroEsterno(
     .single();
   if (!appuntamento) return { errore: "Appuntamento non trovato." };
   const idAssegnatoAppuntamento = operatore.tipo === "tecnico_esterno" ? appuntamento.tecnico_esterno_id : appuntamento.tecnico_id;
+  // ★ ESTESA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea... far vedere alla squadra l'intervento") — prima solo il
+  // PRIMO assegnatario poteva completare la Scheda: un membro extra della
+  // squadra (vedi migrazione 0089), pur vedendo ora l'intervento (vedi
+  // getAppuntamentoTecnicoEsterno/getInterventiTecnicoEsterno sopra), si
+  // sarebbe sentito rifiutare il salvataggio al momento di chiuderlo —
+  // utile soprattutto se è lui, non il primo assegnatario, a restare fino
+  // alla fine e a compilare la Scheda.
   if (idAssegnatoAppuntamento !== operatore.id) {
-    return { errore: "Questo appuntamento non risulta assegnato a te." };
+    const colonna = colonnaAssegnazione(operatore, "appuntamenti");
+    const { data: inSquadra } = await service.from("appuntamento_squadra").select("id").eq("appuntamento_id", appuntamentoId).eq(colonna, operatore.id).maybeSingle();
+    if (!inSquadra) return { errore: "Questo appuntamento non risulta assegnato a te." };
   }
 
   // ★ ESTESO (2026-08-28, "bypassare... con otp agli amministratori") —

@@ -40,43 +40,62 @@ export default async function VistaTecnicoPage() {
     .order("data_creazione", { ascending: false });
   if (repartiFiltro) queryNonAssegnati = queryNonAssegnati.in("reparto", repartiFiltro);
 
-  const [{ data: appuntamenti }, { data: tickets }, { data: ticketsNonAssegnati }, { data: completatiOggi }, { data: materiali }, { data: persone }] = await Promise.all([
-    // ★ FIX (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
-    // le installazioni da fare rapporto di lavoro quando non completate",
-    // estesa qui dopo aver trovato lo stesso problema anche lato interno —
-    // vedi il commento gemello in app/pose/actions.ts) — prima il filtro
-    // `.gte(oggi)` faceva sparire dal tutto un appuntamento "Programmato"
-    // con una data ormai passata (mai completato: intervento saltato,
-    // rimandato, o semplicemente non chiuso quel giorno). Trovati 5
-    // appuntamenti reali già in questa condizione, invisibili ovunque
-    // (nessun Ticket collegato a cui appoggiarsi). Tolto il limite
-    // inferiore: VistaTecnicoBoard divide "In ritardo" da "Di oggi" invece
-    // di lasciarli mescolati — vedi lì.
-    supabase
-      .from("appuntamenti")
-      .select("*")
-      .eq("tecnico_id", personaId ?? "")
-      .eq("stato", "Programmato")
-      .lte("data_ora", oraFine.toISOString())
-      .order("data_ora", { ascending: true }),
-    supabase
-      .from("tickets")
-      .select("*")
-      .eq("tecnico_assegnato", personaId ?? "")
-      .not("stato", "in", "(Completato,Annullato)")
-      .order("data_creazione", { ascending: false }),
-    queryNonAssegnati,
-    supabase
-      .from("tickets")
-      .select("*")
-      .eq("tecnico_assegnato", personaId ?? "")
-      .eq("stato", "Completato")
-      .gte("aggiornato_il", oraInizio.toISOString())
-      .lte("aggiornato_il", oraFine.toISOString())
-      .order("aggiornato_il", { ascending: false }),
-    supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
-    supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
-  ]);
+  const [{ data: appuntamenti }, { data: tickets }, { data: ticketsNonAssegnati }, { data: completatiOggi }, { data: materiali }, { data: persone }, { data: squadraRighe }] =
+    await Promise.all([
+      // ★ FIX (2026-08-28, richiesta esplicita: "una sezione in cui ci sono
+      // le installazioni da fare rapporto di lavoro quando non completate",
+      // estesa qui dopo aver trovato lo stesso problema anche lato interno —
+      // vedi il commento gemello in app/pose/actions.ts) — prima il filtro
+      // `.gte(oggi)` faceva sparire dal tutto un appuntamento "Programmato"
+      // con una data ormai passata (mai completato: intervento saltato,
+      // rimandato, o semplicemente non chiuso quel giorno). Trovati 5
+      // appuntamenti reali già in questa condizione, invisibili ovunque
+      // (nessun Ticket collegato a cui appoggiarsi). Tolto il limite
+      // inferiore: VistaTecnicoBoard divide "In ritardo" da "Di oggi" invece
+      // di lasciarli mescolati — vedi lì.
+      supabase
+        .from("appuntamenti")
+        .select("*")
+        .eq("tecnico_id", personaId ?? "")
+        .eq("stato", "Programmato")
+        .lte("data_ora", oraFine.toISOString())
+        .order("data_ora", { ascending: true }),
+      supabase
+        .from("tickets")
+        .select("*")
+        .eq("tecnico_assegnato", personaId ?? "")
+        .not("stato", "in", "(Completato,Annullato)")
+        .order("data_creazione", { ascending: false }),
+      queryNonAssegnati,
+      supabase
+        .from("tickets")
+        .select("*")
+        .eq("tecnico_assegnato", personaId ?? "")
+        .eq("stato", "Completato")
+        .gte("aggiornato_il", oraInizio.toISOString())
+        .lte("aggiornato_il", oraFine.toISOString())
+        .order("aggiornato_il", { ascending: false }),
+      supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
+      supabase.from("persone").select("id, nome, attivo, amministratore, reparti").eq("attivo", true),
+      // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+      // simultanea... far vedere alla squadra l'intervento") — prima questa
+      // pagina mostrava solo gli appuntamenti dove la persona è il PRIMO
+      // assegnatario (`tecnico_id`): un membro extra della squadra (vedi
+      // migrazione 0089) non vedeva l'intervento da nessuna parte in Vista
+      // Tecnico, pur essendoci davvero.
+      supabase.from("appuntamento_squadra").select("appuntamenti(*)").eq("tecnico_id", personaId ?? ""),
+    ]);
+
+  // ★ la FK appuntamento_squadra→appuntamenti è sempre un oggetto singolo o
+  // null (mai un array, stesso ragionamento applicato altrove per gli embed
+  // 1:1) — stesso filtro "Programmato"/entro oggi già applicato sopra, la
+  // query sopra non può filtrarlo su una colonna della tabella collegata.
+  const appuntamentiDaSquadra = ((squadraRighe ?? []) as unknown as { appuntamenti: Appuntamento | null }[])
+    .map((r) => r.appuntamenti)
+    .filter((a): a is Appuntamento => !!a && a.stato === "Programmato" && a.data_ora <= oraFine.toISOString());
+  const mappaAppuntamenti = new Map<string, Appuntamento>();
+  for (const a of [...((appuntamenti as Appuntamento[] | null) ?? []), ...appuntamentiDaSquadra]) mappaAppuntamenti.set(a.id, a);
+  const appuntamentiUniti = Array.from(mappaAppuntamenti.values()).sort((a, b) => a.data_ora.localeCompare(b.data_ora));
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -97,7 +116,7 @@ export default async function VistaTecnicoPage() {
         </div>
       ) : (
         <VistaTecnicoBoard
-          appuntamenti={(appuntamenti as Appuntamento[]) ?? []}
+          appuntamenti={appuntamentiUniti}
           tickets={(tickets as Ticket[]) ?? []}
           ticketsNonAssegnati={(ticketsNonAssegnati as Ticket[]) ?? []}
           completatiOggi={(completatiOggi as Ticket[]) ?? []}

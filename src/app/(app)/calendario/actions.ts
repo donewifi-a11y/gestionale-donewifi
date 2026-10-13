@@ -22,6 +22,13 @@ export interface SlotOccupato {
   data_ora: string;
   durata_minuti: number;
   tecnico_id: string | null;
+  /** ★ NUOVA (2026-10-13) — prima questo pannello ignorava del tutto i
+   * tecnici esterni (solo `tecnico_id` era letto, mai `tecnico_esterno_id`,
+   * pur essendo già una colonna su `appuntamenti`): un conflitto reale su
+   * un tecnico esterno restava invisibile. Aggiunta qui perché necessaria
+   * comunque per mostrare gli impegni da squadra di un tecnico esterno —
+   * stesso trattamento anche per il primo assegnatario, a costo zero. */
+  tecnico_esterno_id: string | null;
 }
 
 /** ★ NUOVA (2026-09-16, bug reale segnalato insieme al titolo
@@ -52,14 +59,37 @@ export async function getSlotOccupatiProssimi(): Promise<SlotOccupato[]> {
 
   const { data, error } = await supabase
     .from("appuntamenti")
-    .select("id, titolo, data_ora, durata_minuti, tecnico_id")
+    .select("id, titolo, data_ora, durata_minuti, tecnico_id, tecnico_esterno_id")
     .eq("stato", "Programmato")
     .gte("data_ora", oggi.toISOString())
     .lte("data_ora", tra14gg.toISOString())
     .order("data_ora", { ascending: true });
   if (error) console.error("getSlotOccupatiProssimi:", error.message);
 
-  return data ?? [];
+  // ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+  // simultanea... diverse squadre") — un membro extra della squadra è
+  // altrettanto occupato in quello slot del primo assegnatario: senza
+  // questo, il pannello "Slot già occupati" avrebbe mostrato libero un
+  // tecnico in realtà già impegnato come squadra su un altro intervento.
+  const { data: squadra, error: erroreSquadra } = await supabase
+    .from("appuntamento_squadra")
+    .select("tecnico_id, tecnico_esterno_id, appuntamenti!inner(id, titolo, data_ora, durata_minuti, stato)")
+    .gte("appuntamenti.data_ora", oggi.toISOString())
+    .lte("appuntamenti.data_ora", tra14gg.toISOString())
+    .eq("appuntamenti.stato", "Programmato");
+  if (erroreSquadra) console.error("getSlotOccupatiProssimi (squadra):", erroreSquadra.message);
+
+  type RigaSquadra = { tecnico_id: string | null; tecnico_esterno_id: string | null; appuntamenti: { id: string; titolo: string; data_ora: string; durata_minuti: number } };
+  const slotSquadra: SlotOccupato[] = ((squadra ?? []) as unknown as RigaSquadra[]).map((r) => ({
+    id: r.appuntamenti.id,
+    titolo: r.appuntamenti.titolo,
+    data_ora: r.appuntamenti.data_ora,
+    durata_minuti: r.appuntamenti.durata_minuti,
+    tecnico_id: r.tecnico_id,
+    tecnico_esterno_id: r.tecnico_esterno_id,
+  }));
+
+  return [...(data ?? []), ...slotSquadra];
 }
 
 export interface RisultatoRicercaAppuntamento {
@@ -216,13 +246,39 @@ async function notificaTecnicoAppuntamento(tecnicoId: string | null, testo: stri
  * le direzioni. Ignora gli appuntamenti "Annullato" (uno spazio libero) e,
  * in modifica, l'appuntamento stesso.
  */
-async function trovaSovrapposizioneTecnico(
+// ★ NUOVA (2026-10-13, richiesta esplicita: "dobbiamo dare la possibilità
+// di creare appuntamenti in simultanea, in cui sono presenti diverse
+// squadre e mettere la possibilità di far vedere alla squadra
+// l'intervento") — un membro della squadra è una persona interna O un
+// tecnico esterno, mai entrambi — stesso identico schema già usato per
+// tecnico_id/tecnico_esterno_id, qui generalizzato a "quanti ne servono"
+// invece di uno solo. Vedi migrazione 0089 (appuntamento_squadra).
+export interface MembroSquadra {
+  tipo: "interno" | "esterno";
+  id: string;
+}
+
+export interface MembroSquadraRisolto extends MembroSquadra {
+  nome: string;
+}
+
+/**
+ * ★ ESTESA (2026-10-13, vedi MembroSquadra sopra) — prima controllava solo
+ * `appuntamenti.tecnico_id` di UNA persona interna: generalizzata a
+ * qualunque membro (interno o esterno) e a ENTRAMBE le fonti di impegno —
+ * l'appuntamento su cui è il primo assegnatario (`appuntamenti`) E ogni
+ * appuntamento su cui è un membro extra della squadra
+ * (`appuntamento_squadra`) — altrimenti un tecnico già occupato come
+ * "squadra" su un altro intervento sarebbe risultato libero.
+ */
+async function trovaSovrapposizionePersona(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  tecnicoId: string,
+  membro: MembroSquadra,
   dataOraInizio: string,
   durataMinuti: number,
   escludiAppuntamentoId?: string
 ): Promise<string | null> {
+  const colonna = membro.tipo === "interno" ? "tecnico_id" : "tecnico_esterno_id";
   const inizio = new Date(dataOraInizio);
   const fine = new Date(inizio.getTime() + durataMinuti * 60 * 1000);
   // ★ margine di un giorno per lato: comodo per la query (niente bisogno di
@@ -231,17 +287,31 @@ async function trovaSovrapposizioneTecnico(
   const margineInizio = new Date(inizio.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const margineFine = new Date(fine.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-  let query = supabase
+  let queryPrimario = supabase
     .from("appuntamenti")
     .select("id, titolo, data_ora, durata_minuti")
-    .eq("tecnico_id", tecnicoId)
+    .eq(colonna, membro.id)
     .neq("stato", "Annullato")
     .gte("data_ora", margineInizio)
     .lte("data_ora", margineFine);
-  if (escludiAppuntamentoId) query = query.neq("id", escludiAppuntamentoId);
+  if (escludiAppuntamentoId) queryPrimario = queryPrimario.neq("id", escludiAppuntamentoId);
 
-  const { data } = await query;
-  for (const a of data ?? []) {
+  const querySquadra = supabase
+    .from("appuntamento_squadra")
+    .select("appuntamenti!inner(id, titolo, data_ora, durata_minuti, stato)")
+    .eq(colonna, membro.id);
+
+  const [{ data: comePrimario }, { data: comeSquadra }] = await Promise.all([queryPrimario, querySquadra]);
+
+  type RigaAppuntamento = { id: string; titolo: string; data_ora: string; durata_minuti: number };
+  const candidati: RigaAppuntamento[] = [
+    ...((comePrimario as RigaAppuntamento[] | null) ?? []),
+    ...((comeSquadra ?? []) as unknown as { appuntamenti: RigaAppuntamento & { stato: string } }[])
+      .map((r) => r.appuntamenti)
+      .filter((a) => a.stato !== "Annullato" && a.id !== escludiAppuntamentoId),
+  ];
+
+  for (const a of candidati) {
     const altroInizio = new Date(a.data_ora);
     const altroFine = new Date(altroInizio.getTime() + a.durata_minuti * 60 * 1000);
     if (altroInizio < fine && inizio < altroFine) {
@@ -249,6 +319,69 @@ async function trovaSovrapposizioneTecnico(
     }
   }
   return null;
+}
+
+/** Controlla il primo assegnatario + ogni membro extra della squadra, restituendo il primo conflitto trovato (con chi). */
+async function trovaSovrapposizioneSquadra(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  primario: MembroSquadra | null,
+  squadraExtra: MembroSquadra[],
+  nomeRisolto: (m: MembroSquadra) => Promise<string>,
+  dataOraInizio: string,
+  durataMinuti: number,
+  escludiAppuntamentoId?: string
+): Promise<string | null> {
+  const membri = [...(primario ? [primario] : []), ...squadraExtra];
+  for (const m of membri) {
+    const conflitto = await trovaSovrapposizionePersona(supabase, m, dataOraInizio, durataMinuti, escludiAppuntamentoId);
+    if (conflitto) return `${await nomeRisolto(m)} ha già un appuntamento in questa fascia oraria: ${conflitto}.`;
+  }
+  return null;
+}
+
+/** Nome leggibile di un membro squadra, per i messaggi di conflitto — una query per persone, una per tecnici esterni, non una per membro. */
+async function creaRisolutoreNomi(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  membri: MembroSquadra[]
+): Promise<(m: MembroSquadra) => Promise<string>> {
+  const idInterni = membri.filter((m) => m.tipo === "interno").map((m) => m.id);
+  const idEsterni = membri.filter((m) => m.tipo === "esterno").map((m) => m.id);
+  const [{ data: persone }, { data: esterni }] = await Promise.all([
+    idInterni.length ? supabase.from("persone").select("id, nome").in("id", idInterni) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    idEsterni.length
+      ? supabase.from("tecnici_esterni").select("id, nome, cognome").in("id", idEsterni)
+      : Promise.resolve({ data: [] as { id: string; nome: string; cognome: string | null }[] }),
+  ]);
+  const mappaPersone = new Map((persone ?? []).map((p) => [p.id, p.nome]));
+  const mappaEsterni = new Map((esterni ?? []).map((t) => [t.id, [t.nome, t.cognome].filter(Boolean).join(" ")]));
+  return async (m: MembroSquadra) => (m.tipo === "interno" ? (mappaPersone.get(m.id) ?? "Il tecnico") : (mappaEsterni.get(m.id) ?? "Il tecnico esterno"));
+}
+
+/** Sostituisce la squadra extra di un appuntamento (cancella e reinserisce — più semplice di un diff riga per riga per una lista corta). */
+async function sostituisciSquadraAppuntamento(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  appuntamentoId: string,
+  squadraExtra: MembroSquadra[]
+): Promise<void> {
+  await supabase.from("appuntamento_squadra").delete().eq("appuntamento_id", appuntamentoId);
+  if (squadraExtra.length === 0) return;
+  await supabase.from("appuntamento_squadra").insert(
+    squadraExtra.map((m) => ({
+      appuntamento_id: appuntamentoId,
+      tecnico_id: m.tipo === "interno" ? m.id : null,
+      tecnico_esterno_id: m.tipo === "esterno" ? m.id : null,
+    }))
+  );
+}
+
+/** La squadra extra di un appuntamento (oltre al primo assegnatario), nomi già risolti — per precompilare il form di modifica. */
+export async function getSquadraAppuntamento(appuntamentoId: string): Promise<MembroSquadraRisolto[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("appuntamento_squadra").select("tecnico_id, tecnico_esterno_id").eq("appuntamento_id", appuntamentoId);
+  const righe = data ?? [];
+  const membri: MembroSquadra[] = righe.map((r) => (r.tecnico_id ? { tipo: "interno" as const, id: r.tecnico_id } : { tipo: "esterno" as const, id: r.tecnico_esterno_id! }));
+  const risolvi = await creaRisolutoreNomi(supabase, membri);
+  return Promise.all(membri.map(async (m) => ({ ...m, nome: await risolvi(m) })));
 }
 
 export async function creaAppuntamento(dati: {
@@ -261,6 +394,11 @@ export async function creaAppuntamento(dati: {
   note: string;
   tipoServizio: TipoServizioAppuntamento;
   telefonoCliente?: string;
+  /** ★ NUOVA (2026-10-13, richiesta esplicita: "appuntamenti in
+   * simultanea... diverse squadre") — persone in più oltre al primo
+   * assegnatario (`tecnicoId` sopra), stesso intervento — vedi
+   * MembroSquadra/migrazione 0089. */
+  squadraExtra?: MembroSquadra[];
 }) {
   const supabase = await createClient();
   const {
@@ -270,9 +408,12 @@ export async function creaAppuntamento(dati: {
   const personaId = await getPersonaCorrenteId();
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
-  if (dati.tecnicoId) {
-    const conflitto = await trovaSovrapposizioneTecnico(supabase, dati.tecnicoId, dati.dataOra, dati.durataMinuti);
-    if (conflitto) return { errore: `Il tecnico ha già un appuntamento in questa fascia oraria: ${conflitto}.` };
+  const squadraExtra = dati.squadraExtra ?? [];
+  const primario: MembroSquadra | null = dati.tecnicoId ? { tipo: "interno", id: dati.tecnicoId } : null;
+  if (primario || squadraExtra.length > 0) {
+    const risolvi = await creaRisolutoreNomi(supabase, [...(primario ? [primario] : []), ...squadraExtra]);
+    const conflitto = await trovaSovrapposizioneSquadra(supabase, primario, squadraExtra, risolvi, dati.dataOra, dati.durataMinuti);
+    if (conflitto) return { errore: conflitto };
   }
 
   // ★ l'evento Google si crea prima del salvataggio in database così, se
@@ -287,24 +428,28 @@ export async function creaAppuntamento(dati: {
     durataMinuti: dati.durataMinuti,
   });
 
-  const { error } = await supabase.from("appuntamenti").insert({
-    titolo: dati.titolo,
-    indirizzo: dati.indirizzo || null,
-    data_ora: dati.dataOra,
-    durata_minuti: dati.durataMinuti,
-    tecnico_id: dati.tecnicoId || null,
-    ticket_id: dati.ticketId || null,
-    // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
-    // migrazione 0087) — ha senso solo SENZA ticket: con un Ticket
-    // collegato il numero si legge da lì, un doppione qui potrebbe
-    // disallinearsi se il cliente lo aggiorna altrove.
-    telefono_cliente: dati.ticketId ? null : dati.telefonoCliente?.trim() || null,
-    note: dati.note || null,
-    tipo_servizio: dati.tipoServizio,
-    creato_da: personaId,
-    google_event_id: googleEventId,
-  });
-  if (error) {
+  const { data: creato, error } = await supabase
+    .from("appuntamenti")
+    .insert({
+      titolo: dati.titolo,
+      indirizzo: dati.indirizzo || null,
+      data_ora: dati.dataOra,
+      durata_minuti: dati.durataMinuti,
+      tecnico_id: dati.tecnicoId || null,
+      ticket_id: dati.ticketId || null,
+      // ★ FIX (2026-10-02, audit completezza funzionale — moduli restanti,
+      // migrazione 0087) — ha senso solo SENZA ticket: con un Ticket
+      // collegato il numero si legge da lì, un doppione qui potrebbe
+      // disallinearsi se il cliente lo aggiorna altrove.
+      telefono_cliente: dati.ticketId ? null : dati.telefonoCliente?.trim() || null,
+      note: dati.note || null,
+      tipo_servizio: dati.tipoServizio,
+      creato_da: personaId,
+      google_event_id: googleEventId,
+    })
+    .select("id")
+    .single();
+  if (error || !creato) {
     // ★ FIX (2026-10-02, audit d'oro — regressione) — se l'INSERT fallisce
     // DOPO che l'evento Google è già stato creato, restava orfano: visibile
     // su Google Calendar a tutti, senza alcun collegamento nel gestionale e
@@ -313,14 +458,24 @@ export async function creaAppuntamento(dati: {
     // status "cancelled" invece di una cancellazione vera) — non deve far
     // fallire la risposta se anche questa pulizia fallisce.
     if (googleEventId) await aggiornaEventoCalendario(googleEventId, { status: "cancelled" });
-    return { errore: error.message };
+    return { errore: error?.message ?? "Errore imprevisto durante la creazione." };
   }
+
+  if (squadraExtra.length > 0) await sostituisciSquadraAppuntamento(supabase, creato.id, squadraExtra);
 
   await notificaTecnicoAppuntamento(
     dati.tecnicoId || null,
     `📅 Ti è stato assegnato un nuovo appuntamento: "${dati.titolo}" — ${formattaDataOraBreve(dati.dataOra)}.`,
     personaId
   );
+  // ★ ogni membro extra della squadra riceve la stessa notifica del primo
+  // assegnatario — "far vedere alla squadra l'intervento" vale anche per
+  // l'avviso che l'intervento esiste, non solo per la visibilità passiva.
+  for (const m of squadraExtra) {
+    if (m.tipo === "interno") {
+      await notificaTecnicoAppuntamento(m.id, `📅 Sei in squadra su un nuovo appuntamento: "${dati.titolo}" — ${formattaDataOraBreve(dati.dataOra)}.`, personaId);
+    }
+  }
 
   revalidatePath("/calendario");
   return { errore: null };
@@ -340,6 +495,8 @@ export async function modificaAppuntamento(
     note: string;
     tipoServizio: TipoServizioAppuntamento;
     telefonoCliente?: string;
+    /** ★ NUOVA (2026-10-13) — vedi creaAppuntamento() sopra. */
+    squadraExtra?: MembroSquadra[];
   }
 ) {
   const supabase = await createClient();
@@ -354,9 +511,12 @@ export async function modificaAppuntamento(
   // bloccare nulla se assente).
   if (!personaId) return { errore: ERRORE_PERSONA_MANCANTE };
 
-  if (dati.tecnicoId) {
-    const conflitto = await trovaSovrapposizioneTecnico(supabase, dati.tecnicoId, dati.dataOra, dati.durataMinuti, id);
-    if (conflitto) return { errore: `Il tecnico ha già un appuntamento in questa fascia oraria: ${conflitto}.` };
+  const squadraExtra = dati.squadraExtra ?? [];
+  const primario: MembroSquadra | null = dati.tecnicoId ? { tipo: "interno", id: dati.tecnicoId } : null;
+  if (primario || squadraExtra.length > 0) {
+    const risolvi = await creaRisolutoreNomi(supabase, [...(primario ? [primario] : []), ...squadraExtra]);
+    const conflitto = await trovaSovrapposizioneSquadra(supabase, primario, squadraExtra, risolvi, dati.dataOra, dati.durataMinuti, id);
+    if (conflitto) return { errore: conflitto };
   }
 
   const { data: esistente } = await supabase
@@ -423,6 +583,12 @@ export async function modificaAppuntamento(
       personaId
     );
   }
+
+  // ★ NUOVA (2026-10-13) — sostituisce sempre l'intera squadra extra
+  // (anche con una lista vuota, per permettere di rimuovere tutti i membri
+  // aggiunti in precedenza) — stesso principio "sostituisci tutto" già
+  // usato per i materiali di una Scheda di Lavoro.
+  await sostituisciSquadraAppuntamento(supabase, id, squadraExtra);
 
   revalidatePath("/calendario");
   return { errore: null };
