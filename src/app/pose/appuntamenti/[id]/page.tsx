@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, CalendarClock, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarClock, Phone, StickyNote, Building2 } from "lucide-react";
 import { getAppuntamentoTecnicoEsterno, getCatalogoMaterialiEsterno, chiUsaPose } from "../../actions";
 import { SchedaDettaglioPose } from "@/components/pose/scheda-dettaglio";
 import { COLORE_SERVIZIO } from "@/lib/types";
@@ -86,6 +86,28 @@ export default async function AppuntamentoPosePage({ params }: { params: Promise
               Note
             </p>
             <p className="mt-1 whitespace-pre-wrap">{appuntamento.note}</p>
+          </div>
+        )}
+        {/* ★ NUOVA (2026-10-14, richiesta esplicita: "dove si trova
+        l'antenna, se su tetto o su balcone, la casa di quanti piani è e
+        se da un balcone è a vista un nostro ripetitore") — compilati
+        dall'operatore in fase di pianificazione (vedi migrazione 0090),
+        mostrati qui perché utili a chi va fisicamente sul posto: sapere
+        in anticipo se serve l'attrezzatura per il tetto o se dal balcone
+        c'è già un ripetitore visibile risparmia un secondo giro. */}
+        {(appuntamento.posizione_antenna || appuntamento.piani_edificio != null) && (
+          <div className="mt-3 border-t pt-3 text-sm">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+              <Building2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              Struttura
+            </p>
+            <div className="mt-1 flex flex-col gap-0.5">
+              {appuntamento.posizione_antenna && <p>Antenna su: <b>{appuntamento.posizione_antenna}</b></p>}
+              {appuntamento.piani_edificio != null && <p>Edificio di <b>{appuntamento.piani_edificio}</b> piani</p>}
+              {appuntamento.posizione_antenna === "Balcone" && appuntamento.ripetitore_visibile_balcone != null && (
+                <p>Ripetitore visibile dal balcone: <b>{appuntamento.ripetitore_visibile_balcone ? "Sì" : "No"}</b></p>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -2413,6 +2413,14 @@ export function PianificaAppuntamento({
   // di un oggetto — più comodo come valore di una checkbox HTML.
   const [tecnicoPrimario, setTecnicoPrimario] = useState(tecnicoIniziale ?? ticket.tecnico_assegnato ?? "");
   const [squadraSelezionata, setSquadraSelezionata] = useState<Set<string>>(new Set());
+  // ★ NUOVA (2026-10-14, richiesta esplicita: "dove si trova l'antenna, se
+  // su tetto o su balcone, la casa di quanti piani è e se da un balcone è
+  // a vista un nostro ripetitore") — chiarito subito dopo: li inserisce
+  // l'operatore qui, in fase di pianificazione, non il tecnico da pose —
+  // vedi migrazione 0090. Tutti e tre facoltativi.
+  const [posizioneAntenna, setPosizioneAntenna] = useState<"Tetto" | "Balcone" | "">("");
+  const [pianiEdificio, setPianiEdificio] = useState("");
+  const [ripetitoreVisibile, setRipetitoreVisibile] = useState(false);
   function alternaSquadra(chiave: string) {
     setSquadraSelezionata((cur) => {
       const nuovo = new Set(cur);
@@ -2462,6 +2470,9 @@ export function PianificaAppuntamento({
           const [tipo, id] = chiave.split(":");
           return { tipo: tipo as "interno" | "esterno", id };
         }),
+        posizioneAntenna,
+        pianiEdificio,
+        ripetitoreVisibileBalcone: ripetitoreVisibile,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -2646,6 +2657,39 @@ export function PianificaAppuntamento({
             </div>
           </div>
         )}
+
+        {/* ★ NUOVA (2026-10-14, richiesta esplicita — vedi migrazione 0090)
+        — stesso box "facoltativo" della Squadra aggiuntiva sopra: posizione
+        antenna e piani edificio sempre visibili, il terzo campo (ripetitore
+        visibile) solo scegliendo "Balcone", perché non ha senso altrimenti. */}
+        <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2">
+          <span className="text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground">Dettagli struttura (facoltativo)</span>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={posizioneAntenna}
+              onChange={(e) => setPosizioneAntenna(e.target.value as "Tetto" | "Balcone" | "")}
+              className="h-8 rounded-lg border bg-background px-2 text-xs"
+            >
+              <option value="">Posizione antenna</option>
+              <option value="Tetto">Tetto</option>
+              <option value="Balcone">Balcone</option>
+            </select>
+            <input
+              type="number"
+              min={1}
+              value={pianiEdificio}
+              onChange={(e) => setPianiEdificio(e.target.value)}
+              placeholder="Piani edificio"
+              className="h-8 rounded-lg border bg-background px-2 text-xs"
+            />
+          </div>
+          {posizioneAntenna === "Balcone" && (
+            <label className="flex items-center gap-1.5 text-xs">
+              <input type="checkbox" checked={ripetitoreVisibile} onChange={(e) => setRipetitoreVisibile(e.target.checked)} className="h-3.5 w-3.5" />
+              Da questo balcone si vede un nostro ripetitore
+            </label>
+          )}
+        </div>
         {errore && <p className="text-xs text-critical">{errore}</p>}
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={inCorso} className="min-h-11 flex-1">

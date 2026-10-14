@@ -330,6 +330,15 @@ export interface Appuntamento {
   tipo_servizio: TipoServizioAppuntamento;
   creato_da: string | null;
   google_event_id: string | null;
+  /** ★ NUOVA (2026-10-14, richiesta esplicita: "dove si trova l'antenna,
+   * se su tetto o su balcone, la casa di quanti piani è e se da un
+   * balcone è a vista un nostro ripetitore") — tutti e tre facoltativi,
+   * compilati dall'operatore in fase di pianificazione (non dal tecnico
+   * da pose, vedi migrazione 0090). */
+  posizione_antenna: "Tetto" | "Balcone" | null;
+  piani_edificio: number | null;
+  /** ★ ha senso solo con posizione_antenna === "Balcone". */
+  ripetitore_visibile_balcone: boolean | null;
 }
 
 export interface NotaTicket {

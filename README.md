@@ -7284,3 +7284,41 @@ aprirsi sulla pratica giusta. Stesso meccanismo copiato identico
 (`useSearchParams` + `useEffect`, usato anche dalla ricerca globale).
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Dettagli struttura in pianificazione — antenna, piani, ripetitore (2026-10-14)
+
+Richiesta esplicita: *"dobbiamo mettere che per le nuove installazioni e
+interventi in loco sia possibile inserire, facoltativo, dove si trova
+l'antenna, se su tetto o su balcone, la casa di quanti piani è e se da un
+balcone è a vista un nostro ripetitore"* — chiarita subito dopo: li
+inserisce l'**operatore quando pianifica l'intervento**, non il tecnico da
+pose.
+
+✅ **Tre nuove colonne facoltative su `appuntamenti`** (non sulla Scheda di
+Lavoro, compilata dal tecnico a lavoro finito — campi diversi, momenti
+diversi): `posizione_antenna` ("Tetto"/"Balcone"), `piani_edificio`,
+`ripetitore_visibile_balcone`. Nessun vincolo NOT NULL — restano facoltativi
+davvero, si può pianificare un appuntamento senza toccarli.
+
+✅ **Blocco "Struttura (facoltativo)"** aggiunto in entrambi i punti dove
+oggi si pianifica un appuntamento: pannello "Pianifica appuntamento" nel
+Ticket (`PianificaAppuntamento`, tickets-board.tsx) e Calendario →
+Nuovo/Modifica appuntamento (`calendario-board.tsx`) — stessi 3 campi in
+tutti e tre, "Modifica" precaricato dai valori già salvati. Il terzo campo
+("Ripetitore visibile") compare solo scegliendo "Balcone".
+
+✅ **Visibile anche al tecnico sul posto** — non richiesto esplicitamente,
+ma emerso rivedendo insieme l'anteprima: un tecnico che sa in anticipo se
+l'antenna va sul tetto (serve l'attrezzatura giusta) o se dal balcone c'è
+già un ripetitore visibile arriva più preparato. Mostrato nel dettaglio
+appuntamento su pose.donewifi.it (`pose/appuntamenti/[id]/page.tsx`, stesso
+blocco già usato per le Note) e in Vista Tecnico interna
+(`vista-tecnico-board.tsx`, nuovo componente `DettagliStrutturaAppuntamento`
+condiviso tra le due sezioni "In ritardo"/"Di oggi").
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0090_struttura_appuntamento.sql`
+— aggiunge le 3 colonne a `appuntamenti` con un vincolo di validità solo su
+`posizione_antenna` ("Tetto"/"Balcone" o null). Senza applicarla il
+salvataggio dei nuovi campi fallisce silenziosamente lato database.
+
+Build/lint puliti (0 errori).

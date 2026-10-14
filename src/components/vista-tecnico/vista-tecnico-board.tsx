@@ -40,6 +40,28 @@ import type { Appuntamento, MaterialeMagazzino, Persona, StatoTicket, Ticket } f
 // con tipo_servizio già impostato in base alla scelta, cosicché
 // "Segna completato" apra poi la Scheda giusta (Installazione o
 // Lavorazione tecnica).
+/** ★ NUOVA (2026-10-14, richiesta esplicita: "dove si trova l'antenna, se
+ * su tetto o su balcone, la casa di quanti piani è e se da un balcone è a
+ * vista un nostro ripetitore") — compilati dall'operatore in fase di
+ * pianificazione (vedi migrazione 0090), mostrati qui perché utili a chi
+ * va fisicamente sul posto. Usata due volte identica più sotto (sezione
+ * "In ritardo" e "Di oggi"), stesso motivo per cui `a.note` è duplicato in
+ * entrambe invece di un componente a sé — fattorizzata qui per non
+ * triplicare lo stesso blocco di markup. */
+function DettagliStrutturaAppuntamento({ a }: { a: Appuntamento }) {
+  if (!a.posizione_antenna && a.piani_edificio == null) return null;
+  return (
+    <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      <Building2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+      {a.posizione_antenna && <span>Antenna: <b className="text-foreground">{a.posizione_antenna}</b></span>}
+      {a.piani_edificio != null && <span>{a.piani_edificio} piani</span>}
+      {a.posizione_antenna === "Balcone" && a.ripetitore_visibile_balcone != null && (
+        <span>Ripetitore visibile: <b className="text-foreground">{a.ripetitore_visibile_balcone ? "Sì" : "No"}</b></span>
+      )}
+    </p>
+  );
+}
+
 type TipoRichiestaRapida = "Nuovo contratto" | "Intervento in loco";
 
 const CONFIG_RICHIESTA_RAPIDA: Record<
@@ -639,6 +661,7 @@ export function VistaTecnicoBoard({
                   </a>
                 )}
                 {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
+                <DettagliStrutturaAppuntamento a={a} />
                 <button
                   onClick={() => setAppuntamentoScheda(a)}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-bold text-success"
@@ -707,6 +730,7 @@ export function VistaTecnicoBoard({
                 </a>
               )}
               {a.note && <p className="mb-3 text-sm text-muted-foreground">{a.note}</p>}
+              <DettagliStrutturaAppuntamento a={a} />
               <button
                 onClick={() => setAppuntamentoScheda(a)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-bold text-success"

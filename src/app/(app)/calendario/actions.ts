@@ -399,6 +399,12 @@ export async function creaAppuntamento(dati: {
    * assegnatario (`tecnicoId` sopra), stesso intervento — vedi
    * MembroSquadra/migrazione 0089. */
   squadraExtra?: MembroSquadra[];
+  /** ★ NUOVA (2026-10-14, richiesta esplicita — vedi migrazione 0090) —
+   * tutti e tre facoltativi, compilati dall'operatore in fase di
+   * pianificazione. */
+  posizioneAntenna?: "Tetto" | "Balcone" | "";
+  pianiEdificio?: string;
+  ripetitoreVisibileBalcone?: boolean;
 }) {
   const supabase = await createClient();
   const {
@@ -446,6 +452,13 @@ export async function creaAppuntamento(dati: {
       tipo_servizio: dati.tipoServizio,
       creato_da: personaId,
       google_event_id: googleEventId,
+      posizione_antenna: dati.posizioneAntenna || null,
+      piani_edificio: dati.pianiEdificio ? Number(dati.pianiEdificio) : null,
+      // ★ ha senso solo con "Balcone" — chi pianifica potrebbe comunque
+      // aver lasciato il select su "Tetto" dopo aver cambiato idea, non
+      // c'è bisogno di azzerarlo esplicitamente qui: il form stesso nasconde
+      // il campo quando non pertinente (vedi PianificaAppuntamento).
+      ripetitore_visibile_balcone: dati.posizioneAntenna === "Balcone" ? (dati.ripetitoreVisibileBalcone ?? null) : null,
     })
     .select("id")
     .single();
@@ -497,6 +510,10 @@ export async function modificaAppuntamento(
     telefonoCliente?: string;
     /** ★ NUOVA (2026-10-13) — vedi creaAppuntamento() sopra. */
     squadraExtra?: MembroSquadra[];
+    /** ★ NUOVA (2026-10-14) — vedi creaAppuntamento() sopra. */
+    posizioneAntenna?: "Tetto" | "Balcone" | "";
+    pianiEdificio?: string;
+    ripetitoreVisibileBalcone?: boolean;
   }
 ) {
   const supabase = await createClient();
@@ -539,6 +556,9 @@ export async function modificaAppuntamento(
       // migrazione 0087) — stesso principio di creaAppuntamento(): solo
       // senza Ticket collegato, altrimenti resta quanto letto da lì.
       ...(esistente?.ticket_id ? {} : { telefono_cliente: dati.telefonoCliente?.trim() || null }),
+      posizione_antenna: dati.posizioneAntenna || null,
+      piani_edificio: dati.pianiEdificio ? Number(dati.pianiEdificio) : null,
+      ripetitore_visibile_balcone: dati.posizioneAntenna === "Balcone" ? (dati.ripetitoreVisibileBalcone ?? null) : null,
     })
     .eq("id", id);
   if (error) return { errore: error.message };

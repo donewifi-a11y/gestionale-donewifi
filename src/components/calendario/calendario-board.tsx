@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil, Search } from "lucide-react";
+import { Plus, Clock, MapPin, Check, X as XIcon, AlertTriangle, StickyNote, Trash2, NotebookPen, ChevronLeft, ChevronRight, CalendarClock, ExternalLink, Phone, FileText, Loader2, Wrench, HardHat, Pencil, Search, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1034,6 +1034,12 @@ function FormNuovoAppuntamento({
   // del gemello in tickets-board.tsx (PianificaAppuntamento), vedi lì per
   // il commento completo.
   const [squadraSelezionata, setSquadraSelezionata] = useState<Set<string>>(new Set());
+  // ★ NUOVA (2026-10-14, richiesta esplicita — vedi migrazione 0090 e
+  // il gemello in tickets-board.tsx/PianificaAppuntamento). Tutti e tre
+  // facoltativi.
+  const [posizioneAntenna, setPosizioneAntenna] = useState<"Tetto" | "Balcone" | "">("");
+  const [pianiEdificio, setPianiEdificio] = useState("");
+  const [ripetitoreVisibile, setRipetitoreVisibile] = useState(false);
   function alternaSquadra(id: string) {
     setSquadraSelezionata((cur) => {
       const nuovo = new Set(cur);
@@ -1138,6 +1144,9 @@ function FormNuovoAppuntamento({
         tipoServizio,
         telefonoCliente: String(dati.get("telefonoCliente") || ""),
         squadraExtra: Array.from(squadraSelezionata).map((id) => ({ tipo: "interno" as const, id })),
+        posizioneAntenna,
+        pianiEdificio,
+        ripetitoreVisibileBalcone: ripetitoreVisibile,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1333,6 +1342,47 @@ function FormNuovoAppuntamento({
           )}
         </SezioneForm>
 
+        {/* ★ NUOVA (2026-10-14, richiesta esplicita: "dove si trova
+        l'antenna, se su tetto o su balcone, la casa di quanti piani è e
+        se da un balcone è a vista un nostro ripetitore") — compilata
+        dall'operatore qui in fase di pianificazione, non dal tecnico da
+        pose (vedi migrazione 0090). Tutti e tre facoltativi. */}
+        <SezioneForm icona={Building2} titolo="Struttura (facoltativo)">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="posizioneAntenna">Posizione antenna</Label>
+              <select
+                id="posizioneAntenna"
+                value={posizioneAntenna}
+                onChange={(e) => setPosizioneAntenna(e.target.value as "Tetto" | "Balcone" | "")}
+                className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">— non indicato —</option>
+                <option value="Tetto">Tetto</option>
+                <option value="Balcone">Balcone</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="pianiEdificio">Piani edificio</Label>
+              <Input
+                id="pianiEdificio"
+                type="number"
+                min={1}
+                value={pianiEdificio}
+                onChange={(e) => setPianiEdificio(e.target.value)}
+                placeholder="es. 4"
+                className="mt-1 bg-background"
+              />
+            </div>
+          </div>
+          {posizioneAntenna === "Balcone" && (
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" checked={ripetitoreVisibile} onChange={(e) => setRipetitoreVisibile(e.target.checked)} className="h-3.5 w-3.5" />
+              Da questo balcone si vede un nostro ripetitore
+            </label>
+          )}
+        </SezioneForm>
+
         <div>
           <Label htmlFor="note">Note</Label>
           <Input id="note" name="note" placeholder="es. portare router di scorta" className="mt-1" />
@@ -1441,6 +1491,12 @@ function FormModificaAppuntamento({
   // rischiava di romperlo per un tocco distratto. Bloccato per difetto
   // (sola lettura), un "Modifica" esplicito lo sblocca.
   const [titoloSbloccato, setTitoloSbloccato] = useState(false);
+  // ★ NUOVA (2026-10-14, richiesta esplicita — vedi migrazione 0090 e il
+  // gemello in FormNuovoAppuntamento sopra). Precaricata dai valori già
+  // salvati, come tecnicoId/squadraSelezionata.
+  const [posizioneAntenna, setPosizioneAntenna] = useState<"Tetto" | "Balcone" | "">(appuntamento.posizione_antenna ?? "");
+  const [pianiEdificio, setPianiEdificio] = useState(appuntamento.piani_edificio != null ? String(appuntamento.piani_edificio) : "");
+  const [ripetitoreVisibile, setRipetitoreVisibile] = useState(appuntamento.ripetitore_visibile_balcone ?? false);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1464,6 +1520,9 @@ function FormModificaAppuntamento({
         tipoServizio,
         telefonoCliente: String(dati.get("telefonoCliente") || ""),
         squadraExtra: Array.from(squadraSelezionata).map((id) => ({ tipo: "interno" as const, id })),
+        posizioneAntenna,
+        pianiEdificio,
+        ripetitoreVisibileBalcone: ripetitoreVisibile,
       });
       if (risultato.errore) {
         setErrore(risultato.errore);
@@ -1719,6 +1778,44 @@ function FormModificaAppuntamento({
               </div>
             )}
           </div>
+        </SezioneForm>
+
+        {/* ★ NUOVA (2026-10-14) — gemello del blocco in FormNuovoAppuntamento
+        sopra, vedi lì per il commento completo. */}
+        <SezioneForm icona={Building2} titolo="Struttura (facoltativo)">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="posizioneAntenna-m">Posizione antenna</Label>
+              <select
+                id="posizioneAntenna-m"
+                value={posizioneAntenna}
+                onChange={(e) => setPosizioneAntenna(e.target.value as "Tetto" | "Balcone" | "")}
+                className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">— non indicato —</option>
+                <option value="Tetto">Tetto</option>
+                <option value="Balcone">Balcone</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="pianiEdificio-m">Piani edificio</Label>
+              <Input
+                id="pianiEdificio-m"
+                type="number"
+                min={1}
+                value={pianiEdificio}
+                onChange={(e) => setPianiEdificio(e.target.value)}
+                placeholder="es. 4"
+                className="mt-1 bg-background"
+              />
+            </div>
+          </div>
+          {posizioneAntenna === "Balcone" && (
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" checked={ripetitoreVisibile} onChange={(e) => setRipetitoreVisibile(e.target.checked)} className="h-3.5 w-3.5" />
+              Da questo balcone si vede un nostro ripetitore
+            </label>
+          )}
         </SezioneForm>
 
         {!appuntamento.ticket_id && (
