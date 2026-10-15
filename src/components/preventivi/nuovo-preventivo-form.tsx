@@ -13,6 +13,10 @@ import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
 import type { Tariffa, MaterialeMagazzino, RigaPreventivo } from "@/lib/types";
 import { creaPreventivo, cercaClientiPerPreventivo, type RisultatoRicercaCliente } from "@/app/(app)/preventivi/actions";
 
+/** ★ NUOVA (2026-10-15) — stesso identico raggruppamento "Materiali" già
+ * in uso in materiali-board.tsx → Catalogo, vedi `materialiGruppi` sotto. */
+const CATEGORIA_SENZA = "Senza categoria";
+
 /** ★ NUOVA (2026-10-15, richiesta esplicita: "devi mettere nelle schede
  * cliente per fare preventivi") — collegamento preventivo→cliente già
  * funzionante end-to-end (`creaPreventivo()` accetta `clienteEsternoId`,
@@ -127,6 +131,27 @@ export function NuovoPreventivoForm({
   const testoRicercaCatalogo = ricercaCatalogo.trim().toLowerCase();
   const tariffeFiltrate = testoRicercaCatalogo ? tariffeVisibili.filter((t) => t.nome.toLowerCase().includes(testoRicercaCatalogo)) : tariffeVisibili;
   const materialiFiltrati = testoRicercaCatalogo ? materiali.filter((m) => m.nome.toLowerCase().includes(testoRicercaCatalogo)) : materiali;
+  // ★ NUOVA (2026-10-15, bug reale segnalato con screenshot: "troppo
+  // caotico il menu per scegliere i prodotti") — "Materiali" era un'unica
+  // parete di pulsanti senza alcun ordine percepibile (canoni/attivazioni,
+  // modelli di router, staffe di montaggio, cavi, antenne... tutti
+  // mescolati). Raggruppati per `categoria` — stesso identico campo e
+  // stesso meccanismo già in uso in Materiali → Catalogo
+  // (materiali-board.tsx, CATEGORIA_SENZA incluso), non un criterio nuovo:
+  // chi gestisce il catalogo compila già quel campo per altri scopi,
+  // riusarlo qui non richiede toccare i dati. Nessun `useMemo` — stesso
+  // stile non memoizzato già usato sopra per `tariffeFiltrate`/
+  // `materialiFiltrati` in questo stesso componente, il calcolo è
+  // leggero quanto quei due filtri.
+  const mappaMaterialiGruppi = new Map<string, MaterialeMagazzino[]>();
+  for (const m of materialiFiltrati) {
+    const chiave = m.categoria || CATEGORIA_SENZA;
+    if (!mappaMaterialiGruppi.has(chiave)) mappaMaterialiGruppi.set(chiave, []);
+    mappaMaterialiGruppi.get(chiave)!.push(m);
+  }
+  const materialiGruppi = Array.from(mappaMaterialiGruppi.entries()).sort(([a], [b]) =>
+    a === CATEGORIA_SENZA ? 1 : b === CATEGORIA_SENZA ? -1 : a.localeCompare(b)
+  );
 
   // ★ NUOVA (2026-10-15, richiesta esplicita: "quando aggiungo un pezzo
   // vorrei che venisse segnato che viene aggiunto, magari con un popup") —
@@ -212,8 +237,19 @@ export function NuovoPreventivoForm({
       vista senza dover scorrere mentre si aggiungono voci. Sotto `lg:`
       (`grid-cols-1`), le due colonne tornano una sotto l'altra nello
       stesso ordine di prima — nessun cambiamento per chi usa il form da
-      telefono. */}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_340px]">
+      telefono.
+      ★ FIX (2026-10-15, bug reale segnalato con screenshot: "il riepilogo
+      dovrebbe essere sticky" — non lo era) — `items-start` faceva sì che
+      la cella di griglia della colonna destra fosse alta solo quanto il
+      proprio contenuto (il riepilogo, breve), non quanto la colonna
+      sinistra (il catalogo, lungo): una volta superata quella poca
+      altezza lo sticky si "staccava" subito, molto prima della fine della
+      pagina — stesso identico meccanismo già diagnosticato per l'header
+      sticky della colonna Ticket. Tolto `items-start`: di default CSS
+      Grid stira (`align-items: stretch`) la cella destra all'altezza
+      della sinistra, dando allo sticky tutto lo spazio della colonna in
+      cui restare agganciato. */}
+      <form onSubmit={onSubmit} className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-5">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Cliente</p>
@@ -337,16 +373,23 @@ export function NuovoPreventivoForm({
             <div>
               <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">Materiali</p>
               {materialiFiltrati.length === 0 && <p className="text-xs text-muted-foreground">Nessun materiale trovato.</p>}
-              <div className="flex flex-wrap gap-1.5">
-                {materialiFiltrati.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => aggiungiMateriale(m)}
-                    className="rounded-lg border bg-background px-2.5 py-1.5 text-xs font-semibold shadow-sm transition hover:border-primary/40"
-                  >
-                    {m.nome} · {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, tipoPrezzo))}
-                  </button>
+              <div className="flex flex-col gap-2.5">
+                {materialiGruppi.map(([categoria, voci]) => (
+                  <div key={categoria}>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">{categoria}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {voci.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => aggiungiMateriale(m)}
+                          className="rounded-lg border bg-background px-2.5 py-1.5 text-xs font-semibold shadow-sm transition hover:border-primary/40"
+                        >
+                          {m.nome} · {formattaValuta(prezzoPerTipoCliente(m.prezzo_unitario, tipoPrezzo))}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
