@@ -147,6 +147,33 @@ export function iniziali(persona: Persona) {
   return persona.nome.slice(0, 2).toUpperCase();
 }
 
+// ★ NUOVA (2026-10-15, Fase 2A audit UX/UI — "Supporto completo alla
+// tastiera") — gestore condiviso per i `role="button"` che aprono un
+// ticket (card del Kanban, righe della coda "Da assegnare"): prima solo
+// Enter era gestito (vedi invece `eliminaVista` più sotto nel file, che
+// Space ce l'ha già — stessa convenzione qui estesa). `e.target ===
+// e.currentTarget` è il punto chiave: sia la card che la riga della coda
+// contengono già controlli interattivi propri (checkbox selezione,
+// bottone "cliente tornato", select di riassegnazione inline, bottone
+// "Avanza stato", bottone "Prendi in carico") che fermano la propagazione
+// solo sul `click`, mai sul `keydown` — senza questo controllo, premere
+// Invio/Spazio con il focus su uno di quei controlli annidati avrebbe
+// APERTO ANCHE il ticket in più (bug preesistente con Enter, mai notato
+// perché il vecchio codice non gestiva Space). Il controllo lascia invece
+// a ciascun controllo annidato il proprio comportamento nativo da
+// tastiera, intatto.
+function apriConTastiera(e: React.KeyboardEvent, apri: () => void) {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === "Enter") {
+    apri();
+  } else if (e.key === " " || e.key === "Spacebar") {
+    // ★ previene lo scroll della pagina che il browser farebbe di default
+    // per Spazio su un elemento focalizzato non nativamente interattivo.
+    e.preventDefault();
+    apri();
+  }
+}
+
 // ★ REDESIGN (2026-08), giro 2 — richiesta esplicita dopo aver rivisto lo
 // screenshot reale: il caos non erano più i colori (già tolti al giro
 // precedente) ma il testo di categoria, quasi sempre identico su ogni
@@ -763,12 +790,13 @@ export function TicketsBoard({
             value={ricerca}
             onChange={(e) => setRicerca(e.target.value)}
             placeholder="Cerca cliente o numero..."
+            aria-label="Cerca per cliente o numero ticket"
             className="h-9 w-48 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
-        <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} />
-        <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} />
-        <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} />
+        <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} ariaLabel="Filtra per stato" />
+        <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} ariaLabel="Filtra per categoria" />
+        <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} ariaLabel="Filtra per priorità" />
         <Button
           size="sm"
           variant={filtri.soloMiei ? "default" : "outline"}
@@ -865,7 +893,7 @@ export function TicketsBoard({
                   role="button"
                   tabIndex={0}
                   onClick={() => setAperto(t)}
-                  onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
+                  onKeyDown={(e) => apriConTastiera(e, () => setAperto(t))}
                   className="flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border bg-card p-3 transition hover:border-primary/40 hover:bg-muted/30 sm:flex-nowrap"
                 >
                   {colore && <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${colore.fascia}`} />}
@@ -924,7 +952,27 @@ export function TicketsBoard({
           );
           return (
             <div key={col.titolo} className="rounded-2xl bg-muted/50 p-3">
-              <div className="mb-1 flex items-center justify-between px-1">
+              {/* ★ NUOVA (2026-10-15, Fase 2B — prototipo minimo, approvato
+              solo per questa colonna) — intestazione persistente durante lo
+              scroll, SOLO per "Da Lavorare" (quella tipicamente più lunga):
+              `sticky top-0` si aggancia al viewport (nessun antenato tra
+              questo elemento e `<html>`/`<body>` ha un proprio `overflow`
+              diverso da quello di default — verificato leggendo
+              app-shell.tsx, tickets/page.tsx e questo stesso file — quindi
+              niente nuovo "containing block" che romperebbe l'aggancio).
+              `bg-card` invece del `bg-muted/50` ereditato dalla colonna: va
+              reso opaco, altrimenti le card sotto si vedrebbero in
+              trasparenza scorrendo — stesso token già usato qui accanto per
+              il contatore (`bg-card` + `shadow-sm`), non un colore nuovo.
+              `z-10` basta a restare sopra le card (che non dichiarano alcun
+              z-index, quindi stanno implicitamente a 0) senza avvicinarsi
+              alla sidebar/rail Chat (`z-30`) né ai Dialog/Drawer (`z-50` di
+              shadcn) — mai sopra menu o pannelli globali. */}
+              <div
+                className={`mb-1 flex items-center justify-between px-1 ${
+                  col.titolo === "Da Lavorare" ? "sticky top-0 z-10 bg-card py-1.5 shadow-sm" : ""
+                }`}
+              >
                 <span className="font-heading text-sm font-bold">{col.titolo}</span>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground shadow-sm">
                   {items.length}
@@ -1137,7 +1185,7 @@ export function TicketsBoard({
                             role="button"
                             tabIndex={0}
                             onClick={() => setAperto(t)}
-                            onKeyDown={(e) => e.key === "Enter" && setAperto(t)}
+                            onKeyDown={(e) => apriConTastiera(e, () => setAperto(t))}
                             // ★ NUOVA (2026-10-07, redesign "Home Ticket",
                             // opzione C) — border-l-4 invece del solito
                             // border-l-1: una striscia a sinistra che si
@@ -1556,16 +1604,25 @@ function Select({
   onChange,
   placeholder,
   options,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   options: string[];
+  /** ★ NUOVA (2026-10-15, Fase 2A audit UX/UI — "Etichette accessibili per
+   * i filtri") — il placeholder da solo non è un nome accessibile stabile
+   * per uno screen reader (è solo la prima `<option>`, indistinguibile
+   * dal valore scelto una volta cambiato). Facoltativo e senza alcun
+   * effetto visivo: i chiamanti che non lo passano restano identici a
+   * prima. */
+  ariaLabel?: string;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      aria-label={ariaLabel}
       className="h-9 rounded-md border bg-background px-3 text-sm"
     >
       <option value="">{placeholder}</option>

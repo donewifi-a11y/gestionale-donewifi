@@ -7322,3 +7322,44 @@ condiviso tra le due sezioni "In ritardo"/"Di oggi").
 salvataggio dei nuovi campi fallisce silenziosamente lato database.
 
 Build/lint puliti (0 errori).
+
+## Audit UX/UI pagina Ticket — Fase 2A/2B (2026-10-15)
+
+Richiesta esplicita: audit UX/UI professionale della pagina `/tickets`, in
+fasi separate con approvazione esplicita prima di ogni intervento sul
+codice (Fase 1: analisi, Fase 2A/2B: interventi mirati, non un redesign).
+
+✅ **Fase 2A — supporto completo alla tastiera.** Nuova funzione condivisa
+`apriConTastiera()` (`tickets-board.tsx`), usata dalla card del Kanban e
+dalla riga della coda "Da assegnare": Space apre il ticket come Invio
+(prima solo Invio era gestito), senza scroll involontario della pagina.
+Il controllo `e.target !== e.currentTarget` **corregge anche un bug
+preesistente con Invio**, mai notato: entrambe le righe contengono
+controlli annidati (checkbox selezione, riassegnazione inline, "Avanza
+stato", "Prendi in carico") che fermano la propagazione solo sul `click`,
+mai sul `keydown` — senza quel controllo, Invio/Spazio premuti con il
+focus su uno di quei controlli avrebbe aperto anche il ticket per sbaglio.
+
+✅ **Fase 2A — etichette accessibili sui filtri.** `aria-label` su ricerca
+cliente/numero e sui 3 select (stato/categoria/priorità) — questi ultimi
+tramite un nuovo prop opzionale `ariaLabel` sul componente `Select` locale
+del file. Nessun cambiamento visivo, nessun placeholder toccato.
+
+✅ **Fase 2B — prototipo sticky, solo colonna "Da Lavorare".** Intestazione
+di colonna persistente durante lo scroll (titolo + contatore sempre
+visibili), solo per questa colonna — le altre due restano invariate. Sfondo
+reso opaco (`bg-card`, stesso token già usato nel badge contatore accanto)
+per non lasciare le card scorrere "in trasparenza" sotto; verificato che
+nessun antenato (da qui fino a `<html>`) introduca un `overflow` proprio
+che romperebbe l'aggancio al viewport — stesso tipo di bug che in passato
+ha già colpito la sidebar quando era `position: sticky` (migrata a `fixed`
+per questo, vedi commento in `app-sidebar.tsx`).
+
+**Non verificato in un browser reale in questa fase** (dichiarato
+esplicitamente durante l'audit, non dato per buono): comportamento visivo
+effettivo dello sticky scorrendo, coerenza tema chiaro/scuro, interazione
+con la comparsa/scomparsa della barra bulk e della coda "Da assegnare",
+resa su mobile. Verifica utente consigliata prima di estendere lo sticky
+alle altre colonne.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
