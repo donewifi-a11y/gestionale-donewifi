@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { formattaValuta } from "@/lib/types";
 import type { Preventivo, StatoPreventivo } from "@/lib/types";
+import { ALIQUOTA_IVA, scorporaIva } from "@/lib/dati-azienda";
 import { inviaPreventivoApprovazione, eliminaPreventivo } from "@/app/(app)/preventivi/actions";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 
@@ -274,8 +275,29 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
               </div>
             ))}
           </div>
-          <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-bold">
-            <span>Totale</span>
+          {/* ★ NUOVA (2026-10-15, richiesta esplicita: "verifica nei
+          preventivi che ci siano tutti i dati che devono esserci per
+          legge" — confermato: Studio Armonia Srl, regime IVA ordinario,
+          aliquota 22%, prezzi già IVA inclusa) — stessa scomposizione già
+          mostrata al cliente su /approva/[token], ora visibile anche qui
+          a chi prepara il preventivo. */}
+          {(() => {
+            const { imponibile, iva } = scorporaIva(preventivo.totale);
+            return (
+              <div className="mt-2 flex flex-col gap-0.5 border-t pt-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Imponibile</span>
+                  <span className="tabular-nums">{formattaValuta(imponibile)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>IVA ({Math.round(ALIQUOTA_IVA * 100)}%)</span>
+                  <span className="tabular-nums">{formattaValuta(iva)}</span>
+                </div>
+              </div>
+            );
+          })()}
+          <div className="mt-1 flex items-center justify-between pt-1 text-sm font-bold">
+            <span>Totale (IVA inclusa)</span>
             <span className="tabular-nums">{formattaValuta(preventivo.totale)}</span>
           </div>
         </div>

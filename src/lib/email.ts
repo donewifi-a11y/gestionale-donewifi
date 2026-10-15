@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { AreaAccesso } from "@/lib/types";
 import { registraEsitoIntegrazione } from "@/lib/integrazioni-log";
+import { NOME_COMMERCIALE, RAGIONE_SOCIALE, INDIRIZZO_AZIENDA, PIVA_AZIENDA, TELEFONO_AZIENDA, DATI_AZIENDA_TESTO } from "@/lib/dati-azienda";
 
 // ★ MIGRATA (2026-09-03, bug reale: la casella Aruba di Commerciale è
 // stata bloccata da Aruba stessa — "525 5.7.13 Sending temporarily
@@ -114,9 +115,12 @@ export async function inviaEmail(a: { a: string; oggetto: string; corpoHtml: str
 // immagini incorporate in base64.
 const LOGO_URL = "https://gestione.donewifi.it/brand/logo-bianco.png";
 
-const FOOTER_AZIENDA =
-  '<b style="color:#6B625E;">Done Wifi</b> — Studio Armonia Srl, Via Tourneuve 6, 11100 Aosta (AO) — P.IVA 05690180012 — Tel. 0165 1825169';
-const FOOTER_AZIENDA_TESTO = "Done Wifi — Studio Armonia Srl, Via Tourneuve 6, 11100 Aosta (AO) — P.IVA 05690180012 — Tel. 0165 1825169";
+// ★ FIX (2026-10-15) — dati aziendali ora letti da un'unica fonte
+// condivisa (src/lib/dati-azienda.ts), non più scritti qui a mano: la
+// stessa fonte è riusata dalla pagina del preventivo (/approva/[token]),
+// che prima non mostrava mai questi dati.
+const FOOTER_AZIENDA = `<b style="color:#6B625E;">${NOME_COMMERCIALE}</b> — ${RAGIONE_SOCIALE}, ${INDIRIZZO_AZIENDA} — P.IVA ${PIVA_AZIENDA} — Tel. ${TELEFONO_AZIENDA}`;
+const FOOTER_AZIENDA_TESTO = DATI_AZIENDA_TESTO;
 
 // ★ NUOVA (2026-09-03, stesso contesto della migrazione a Resend sopra) —
 // da "comunicazioni@donewifi.it" (vero no-reply, nessuna casella dietro a
@@ -341,7 +345,13 @@ ${FOOTER_AZIENDA_TESTO}`,
   };
 }
 
-export function emailPreventivo(cliente: string, numero: number, totale: string, link: string) {
+// ★ ESTESA (2026-10-15, richiesta esplicita: "verifica nei preventivi che
+// ci siano tutti i dati che devono esserci per legge") — `validoFinoIl`
+// facoltativo (retrocompatibile: i vecchi punti di chiamata senza questo
+// argomento continuano a funzionare), aggiunge la data di validità già
+// nell'email stessa, non solo nella pagina del preventivo collegata.
+export function emailPreventivo(cliente: string, numero: number, totale: string, link: string, validoFinoIl?: string | null) {
+  const rigaValidita = validoFinoIl ? ` Valido fino al ${new Date(validoFinoIl).toLocaleDateString("it-IT")}.` : "";
   return {
     oggetto: `Done Wifi — Il tuo preventivo (#${numero})`,
     corpoHtml: involucroEmail({
@@ -349,7 +359,7 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
       corpoHtml: `
         <h1 style="font-size:21px;font-weight:800;color:#141414;margin:0 0 14px;letter-spacing:-0.01em;">Il tuo preventivo</h1>
         <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Gentile ${cliente},</p>
-        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato un preventivo per te (totale <b>${totale}</b>). Puoi vederlo nel dettaglio e scegliere se approvarlo direttamente da qui:</p>
+        <p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">abbiamo preparato un preventivo per te (totale <b>${totale}</b>).${rigaValidita} Puoi vederlo nel dettaglio e scegliere se approvarlo direttamente da qui:</p>
         ${bottoneEmail("Vedi il preventivo", link)}
         <p style="font-size:14px;color:#6B625E;line-height:1.6;margin:18px 0 0;">${CONTATTACI_TESTO}<br><b style="color:#141414;">Commerciale Done Wifi</b></p>
       `,
@@ -357,7 +367,7 @@ export function emailPreventivo(cliente: string, numero: number, totale: string,
     }),
     corpoTesto: `Gentile ${cliente},
 
-abbiamo preparato un preventivo per te (totale ${totale}). Puoi vederlo nel dettaglio e scegliere se approvarlo qui:
+abbiamo preparato un preventivo per te (totale ${totale}).${rigaValidita} Puoi vederlo nel dettaglio e scegliere se approvarlo qui:
 ${link}
 
 ${CONTATTACI_TESTO}

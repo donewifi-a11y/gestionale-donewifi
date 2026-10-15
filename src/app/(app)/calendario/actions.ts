@@ -147,7 +147,23 @@ export async function cercaAppuntamenti(testo: string): Promise<RisultatoRicerca
  */
 async function descrizioneEventoGoogle(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  dati: { ticketId: string; tecnicoId: string; note: string; telefonoCliente?: string | null }
+  dati: {
+    ticketId: string;
+    tecnicoId: string;
+    note: string;
+    telefonoCliente?: string | null;
+    /** ★ NUOVA (2026-10-15, bug reale segnalato: "non esce che è su tetto"
+     * — screenshot di un evento Google Calendar reale aperto dal tecnico
+     * sul posto, senza l'informazione) — i 3 campi "Dettagli struttura"
+     * (migrazione 0090) erano già salvati sull'appuntamento e già visibili
+     * in Vista Tecnico/pose, ma non arrivavano mai qui: Google Calendar è
+     * spesso il primo posto che un tecnico apre prima di partire, non il
+     * gestionale. Facoltativi come il resto di questa funzione — null se
+     * non compilati, nessuna riga aggiunta. */
+    posizioneAntenna?: "Tetto" | "Balcone" | null;
+    pianiEdificio?: number | null;
+    ripetitoreVisibileBalcone?: boolean | null;
+  }
 ): Promise<string | null> {
   const righe: string[] = [];
 
@@ -191,6 +207,13 @@ async function descrizioneEventoGoogle(
     const { data: tecnico } = await supabase.from("persone").select("nome").eq("id", dati.tecnicoId).maybeSingle();
     if (tecnico) righe.push(`Tecnico: ${tecnico.nome}`);
   }
+  if (dati.posizioneAntenna) {
+    righe.push(`Antenna su: ${dati.posizioneAntenna}`);
+    if (dati.posizioneAntenna === "Balcone" && dati.ripetitoreVisibileBalcone != null) {
+      righe.push(`Ripetitore visibile dal balcone: ${dati.ripetitoreVisibileBalcone ? "Sì" : "No"}`);
+    }
+  }
+  if (dati.pianiEdificio != null) righe.push(`Edificio di ${dati.pianiEdificio} piani`);
   if (dati.note.trim()) righe.push(dati.note.trim());
 
   return righe.length > 0 ? righe.join("\n") : null;
@@ -429,7 +452,15 @@ export async function creaAppuntamento(dati: {
   const googleEventId = await creaEventoCalendario({
     titolo: dati.titolo,
     indirizzo: dati.indirizzo || null,
-    note: await descrizioneEventoGoogle(supabase, { ticketId: dati.ticketId, tecnicoId: dati.tecnicoId, note: dati.note, telefonoCliente: dati.telefonoCliente }),
+    note: await descrizioneEventoGoogle(supabase, {
+      ticketId: dati.ticketId,
+      tecnicoId: dati.tecnicoId,
+      note: dati.note,
+      telefonoCliente: dati.telefonoCliente,
+      posizioneAntenna: dati.posizioneAntenna || null,
+      pianiEdificio: dati.pianiEdificio ? Number(dati.pianiEdificio) : null,
+      ripetitoreVisibileBalcone: dati.ripetitoreVisibileBalcone ?? null,
+    }),
     dataOraInizio: dati.dataOra,
     durataMinuti: dati.durataMinuti,
   });
@@ -572,6 +603,9 @@ export async function modificaAppuntamento(
         tecnicoId: dati.tecnicoId,
         note: dati.note,
         telefonoCliente: dati.telefonoCliente,
+        posizioneAntenna: dati.posizioneAntenna || null,
+        pianiEdificio: dati.pianiEdificio ? Number(dati.pianiEdificio) : null,
+        ripetitoreVisibileBalcone: dati.ripetitoreVisibileBalcone ?? null,
       }),
       dataOraInizio: dati.dataOra,
       durataMinuti: dati.durataMinuti,

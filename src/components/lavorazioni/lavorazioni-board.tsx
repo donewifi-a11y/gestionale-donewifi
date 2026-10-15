@@ -385,6 +385,16 @@ function DettaglioLavorazione({
       <div className="flex flex-col gap-4 text-sm">
         {lavorazione.descrizione && <p className="text-muted-foreground">{lavorazione.descrizione}</p>}
 
+        {/* ★ FIX (2026-10-15, Fase E — "sistema condiviso per stati, badge
+        e priorità") — prima lo stato selezionato era sempre rosso/primario
+        a prescindere dal valore ("Fatta" e "In corso" selezionati erano
+        visivamente indistinguibili): qui è l'unico punto del modulo
+        Lavorazioni che mostra lo stato corrente, va distinto con lo stesso
+        criterio semantico già in uso per Ticket/Segnalazioni (vedi
+        STILI_STATO in status-badge.tsx) — aperto/neutro, in corso,
+        completato. Stesso layout/dimensioni/bordi di prima, stesso
+        `cambiaStato`/`aria-pressed`, solo il colore dello stato SELEZIONATO
+        cambia in base a quale stato è. */}
         <div className="flex flex-wrap gap-1.5">
           {STATI_LAVORAZIONE.map((s) => (
             <button
@@ -395,7 +405,11 @@ function DettaglioLavorazione({
               onClick={() => cambiaStato(s)}
               className={`flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-60 ${
                 s === lavorazione.stato
-                  ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
+                  ? s === "Fatta"
+                    ? "border-success bg-success text-success-foreground shadow-sm"
+                    : s === "In corso"
+                      ? "border-primary bg-gradient-to-b from-primary to-[color-mix(in_oklch,var(--primary),black_14%)] text-primary-foreground shadow-sm"
+                      : "border-border bg-secondary text-secondary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:border-primary/40"
               }`}
             >

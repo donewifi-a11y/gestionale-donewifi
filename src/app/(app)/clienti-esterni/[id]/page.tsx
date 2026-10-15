@@ -252,10 +252,31 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
           </div>
 
           <div className="rounded-2xl border bg-card p-5 shadow-md">
-            <h2 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold">
-              <IconaCategoria icona={Euro} categoria="denaro" />
-              Preventivi collegati
-            </h2>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 font-heading text-sm font-bold">
+                <IconaCategoria icona={Euro} categoria="denaro" />
+                Preventivi collegati
+              </h2>
+              {/* ★ NUOVA (2026-10-15, richiesta esplicita: "devi mettere
+              nelle schede cliente per fare preventivi") — prima questa
+              sezione poteva solo ELENCARE i preventivi già collegati a
+              questo cliente (`getPreventiviCollegati`, filtrata su
+              `preventivi.cliente_esterno_id`), nessun modo per crearne uno
+              nuovo da qui: bisognava andare su Preventivi → Nuovo e
+              ricercare a mano lo stesso cliente. Il link porta gli stessi
+              dati già disponibili in questa pagina (nome/telefono/email/
+              tipologia) come query string, letti da `preventivi/nuovo/page.tsx`
+              e passati al form come se l'operatore l'avesse appena
+              cercato e scelto lì — stesso collegamento
+              (`cliente_esterno_id`), nessuna logica duplicata. */}
+              <Link
+                href={`/preventivi/nuovo?clienteEsternoId=${c.id}&nome=${encodeURIComponent(nomeVisualizzato(c))}&telefono=${encodeURIComponent(c.telefono ?? "")}&email=${encodeURIComponent(c.email ?? "")}&tipologia=${c.ragionesociale ? "Azienda" : "Privato"}`}
+                className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+              >
+                <Plus className="h-3 w-3" strokeWidth={2.5} />
+                Nuovo preventivo
+              </Link>
+            </div>
             {preventiviCollegati.length === 0 && (
               <p className="text-sm text-muted-foreground">Nessun preventivo trovato per questo cliente.</p>
             )}

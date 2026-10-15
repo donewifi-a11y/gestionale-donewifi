@@ -48,6 +48,15 @@ const STILI_STATO: Record<string, string> = {
   // Promozioni
   Programmata: "bg-primary/10 text-primary border-primary/20",
   Scaduta: "bg-muted text-muted-foreground border-transparent",
+
+  // ★ NUOVA (2026-10-15, Fase E — "sistema condiviso per stati, badge e
+  // priorità") — stato delle Lavorazioni interne (lavorazioni-board.tsx):
+  // stessi tre gradini semantici già in uso per Ticket/Segnalazioni
+  // (aperto/neutro → in corso → completato), valori reali invariati
+  // ("Da fare"/"In corso"/"Fatta", mai rinominati qui).
+  "Da fare": "bg-muted text-muted-foreground border-transparent",
+  "In corso": "bg-primary/10 text-primary border-primary/20",
+  Fatta: "bg-success/10 text-success border-success/20",
 };
 
 const STILE_DEFAULT = "bg-muted text-muted-foreground border-transparent";

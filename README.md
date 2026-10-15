@@ -7363,3 +7363,64 @@ resa su mobile. Verifica utente consigliata prima di estendere lo sticky
 alle altre colonne.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Fase D/E audit UX/UI + conformità Preventivi + scheda cliente (2026-10-15)
+
+✅ **Fase D — Select unificati.** Nuovo componente condiviso
+`src/components/condivisi/select-semplice.tsx`, usato ora sia dai filtri
+Ticket sia dai campi struttura/rete della Scheda Installazione (prima due
+implementazioni fatte in casa quasi identiche). Il Select shadcn/Radix
+(`ui/select.tsx`) resta inutilizzato — verificato non importato da nessun
+file: adottarlo avrebbe richiesto riscrivere 7 punti d'uso per un
+beneficio non dimostrato rispetto a un `<select>` nativo, già pienamente
+accessibile da tastiera.
+
+✅ **Fase E — Stato Lavorazioni uniformato.** Il selettore di stato "Da
+fare/In corso/Fatta" (pannello di dettaglio Lavorazione) mostrava sempre
+lo stesso colore (rosso/primario) per lo stato selezionato, qualunque
+fosse — "Fatta" e "In corso" indistinguibili. Ora segue lo stesso criterio
+semantico già in uso per Ticket/Segnalazioni (`STILI_STATO` in
+`status-badge.tsx`, esteso con i 3 valori reali di Lavorazioni, mai
+rinominati).
+
+✅ **Fix — struttura antenna mancante su Google Calendar** (bug reale
+segnalato con screenshot: "non esce che è su tetto"). I 3 campi "Dettagli
+struttura" (migrazione 0090) erano salvati e visibili in Vista Tecnico/pose
+ma non arrivavano mai alla descrizione dell'evento Google Calendar —
+spesso il primo posto che un tecnico controlla prima di partire. Ora
+inclusi, sia alla creazione sia alla modifica di un appuntamento. Vale solo
+per appuntamenti creati/modificati da ora in poi — un evento già esistente
+va risalvato per aggiornarlo.
+
+✅ **Conformità Preventivi** (richiesta esplicita: "verifica che ci siano
+tutti i dati che devono esserci per legge"). Il "documento" che il cliente
+vede davvero non è un PDF ma la pagina `/approva/[token]`: prima non
+mostrava data di emissione, mostrava la validità solo a scadenza già
+avvenuta, nessuna scomposizione IVA, nessun dato fiscale aziendale (solo
+nel footer dell'email, mai sulla pagina). Confermato dall'utente: Studio
+Armonia è una Srl (regime IVA ordinario, esclude il forfettario), aliquota
+22%, prezzi già IVA inclusa.
+- Nuova fonte unica `src/lib/dati-azienda.ts` (ragione sociale, indirizzo,
+  P.IVA, telefono, aliquota IVA, funzione `scorporaIva()`) — riusata da
+  `email.ts` (footer, prima duplicato a mano) e dalla pagina preventivo.
+- `/approva/[token]`: ora mostra sempre data di emissione, data di
+  validità, e la scomposizione Imponibile/IVA(22%)/Totale invece del solo
+  "Totale" secco. Dati fiscali aziendali visibili anche qui, non solo nel
+  footer email.
+- Stessa scomposizione IVA aggiunta anche nel pannello interno
+  `preventivi-board.tsx`, per coerenza tra cosa vede lo staff e cosa vede
+  il cliente.
+- Email del preventivo: aggiunta la data di validità anche nel testo.
+
+✅ **Nuovo preventivo dalla scheda cliente** (richiesta esplicita: "devi
+mettere nelle schede cliente per fare preventivi"). Il collegamento
+preventivo↔cliente (`cliente_esterno_id`) era già funzionante end-to-end
+(scrittura in `creaPreventivo()`, lettura in `getPreventiviCollegati()`) ma
+raggiungibile solo cercando a mano il cliente dentro il form Preventivi.
+Aggiunto un bottone "Nuovo preventivo" nella card "Preventivi collegati"
+di `clienti-esterni/[id]`, che porta a `/preventivi/nuovo` con nome/
+telefono/email/tipologia già precompilati — stesso risultato di cercarlo e
+sceglierlo a mano, nessuna logica duplicata (`NuovoPreventivoForm` accetta
+ora un prop opzionale `clientePrecompilato`).
+
+Build/lint puliti (0 errori). Nessuna migrazione.

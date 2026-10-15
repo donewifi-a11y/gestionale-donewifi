@@ -49,6 +49,7 @@ import { messaggioWhatsappPratica, CHIAVE_BOZZA_CONTATTO_SUBENTRO } from "@/lib/
 import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket } from "@/app/(app)/richieste-clienti/actions";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
+import { SelectSemplice } from "@/components/condivisi/select-semplice";
 import type { AreaAccesso, Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
@@ -879,9 +880,9 @@ export function TicketsBoard({
       se sono visibili o no — nessuno stato duplicato. */}
       {pannelloFiltriAperto && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-3">
-          <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} ariaLabel="Filtra per stato" />
-          <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} ariaLabel="Filtra per categoria" />
-          <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} ariaLabel="Filtra per priorità" />
+          <SelectSemplice value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} ariaLabel="Filtra per stato" />
+          <SelectSemplice value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={CATEGORIE_TICKET} ariaLabel="Filtra per categoria" />
+          <SelectSemplice value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} ariaLabel="Filtra per priorità" />
           <Button
             size="sm"
             variant={filtri.soloMiei ? "default" : "outline"}
@@ -1715,42 +1716,6 @@ export function TicketsBoard({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function Select({
-  value,
-  onChange,
-  placeholder,
-  options,
-  ariaLabel,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  options: string[];
-  /** ★ NUOVA (2026-10-15, Fase 2A audit UX/UI — "Etichette accessibili per
-   * i filtri") — il placeholder da solo non è un nome accessibile stabile
-   * per uno screen reader (è solo la prima `<option>`, indistinguibile
-   * dal valore scelto una volta cambiato). Facoltativo e senza alcun
-   * effetto visivo: i chiamanti che non lo passano restano identici a
-   * prima. */
-  ariaLabel?: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={ariaLabel}
-      className="h-9 rounded-md border bg-background px-3 text-sm"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
   );
 }
 

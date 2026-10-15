@@ -1,18 +1,45 @@
 import { createClient } from "@/lib/supabase/server";
-import { NuovoPreventivoForm } from "@/components/preventivi/nuovo-preventivo-form";
+import { NuovoPreventivoForm, type ClientePrecompilato } from "@/components/preventivi/nuovo-preventivo-form";
 import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
 
-export default async function NuovoPreventivoPage() {
+// ★ NUOVA (2026-10-15, richiesta esplicita: "devi mettere nelle schede
+// cliente per fare preventivi") — `?clienteEsternoId=` (+ nome/telefono/
+// email/tipologia) arriva dal bottone "Nuovo preventivo" aggiunto nella
+// scheda cliente (clienti-esterni/[id]/page.tsx): stesso risultato di
+// cercare e scegliere quel cliente a mano nel form, solo senza doverlo
+// rifare ogni volta partendo già dalla sua scheda.
+export default async function NuovoPreventivoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ clienteEsternoId?: string; nome?: string; telefono?: string; email?: string; tipologia?: string }>;
+}) {
   const supabase = await createClient();
+  const sp = await searchParams;
 
   const [{ data: tariffe }, { data: materiali }] = await Promise.all([
     supabase.from("tariffe").select("*").eq("attivo", true).order("ordine", { ascending: true }),
     supabase.from("materiali_magazzino").select("*").eq("attivo", true).order("ordine", { ascending: true }),
   ]);
 
+  const clienteEsternoId = sp.clienteEsternoId ? Number(sp.clienteEsternoId) : null;
+  const clientePrecompilato: ClientePrecompilato | undefined =
+    clienteEsternoId && sp.nome
+      ? {
+          id: clienteEsternoId,
+          nome: sp.nome,
+          telefono: sp.telefono || null,
+          email: sp.email || null,
+          tipologiaCliente: sp.tipologia === "Azienda" ? "Azienda" : "Privato",
+        }
+      : undefined;
+
   return (
     <div className="mx-auto max-w-2xl">
-      <NuovoPreventivoForm tariffe={(tariffe as Tariffa[]) ?? []} materiali={(materiali as MaterialeMagazzino[]) ?? []} />
+      <NuovoPreventivoForm
+        tariffe={(tariffe as Tariffa[]) ?? []}
+        materiali={(materiali as MaterialeMagazzino[]) ?? []}
+        clientePrecompilato={clientePrecompilato}
+      />
     </div>
   );
 }

@@ -13,15 +13,39 @@ import { formattaValuta, prezzoPerTipoCliente } from "@/lib/types";
 import type { Tariffa, MaterialeMagazzino, RigaPreventivo } from "@/lib/types";
 import { creaPreventivo, cercaClientiPerPreventivo, type RisultatoRicercaCliente } from "@/app/(app)/preventivi/actions";
 
-export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]; materiali: MaterialeMagazzino[] }) {
+/** ★ NUOVA (2026-10-15, richiesta esplicita: "devi mettere nelle schede
+ * cliente per fare preventivi") — collegamento preventivo→cliente già
+ * funzionante end-to-end (`creaPreventivo()` accetta `clienteEsternoId`,
+ * `getPreventiviCollegati()` lo rilegge), ma raggiungibile SOLO cercando a
+ * mano il cliente dentro questo form — niente partiva dalla sua scheda.
+ * Questo prop precompila esattamente come se l'operatore lo avesse appena
+ * cercato e scelto dal widget di ricerca sotto (stesso `clienteCollegato`),
+ * nessuna logica duplicata. */
+export interface ClientePrecompilato {
+  id: number;
+  nome: string;
+  telefono: string | null;
+  email: string | null;
+  tipologiaCliente: "Privato" | "Azienda";
+}
+
+export function NuovoPreventivoForm({
+  tariffe,
+  materiali,
+  clientePrecompilato,
+}: {
+  tariffe: Tariffa[];
+  materiali: MaterialeMagazzino[];
+  clientePrecompilato?: ClientePrecompilato;
+}) {
   const router = useRouter();
   const toast = useToast();
-  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">("Privato");
-  const [clienteNome, setClienteNome] = useState("");
-  const [clienteTelefono, setClienteTelefono] = useState("");
-  const [clienteEmail, setClienteEmail] = useState("");
+  const [tipologiaCliente, setTipologiaCliente] = useState<"Privato" | "Azienda">(clientePrecompilato?.tipologiaCliente ?? "Privato");
+  const [clienteNome, setClienteNome] = useState(clientePrecompilato?.nome ?? "");
+  const [clienteTelefono, setClienteTelefono] = useState(clientePrecompilato?.telefono ?? "");
+  const [clienteEmail, setClienteEmail] = useState(clientePrecompilato?.email ?? "");
   const [segnalazioneId, setSegnalazioneId] = useState<string | null>(null);
-  const [clienteEsternoId, setClienteEsternoId] = useState<number | null>(null);
+  const [clienteEsternoId, setClienteEsternoId] = useState<number | null>(clientePrecompilato?.id ?? null);
   const [note, setNote] = useState("");
   // ★ FIX (2026-10-01, audit completezza funzionale — moduli restanti) —
   // nessun campo di scadenza: un preventivo "Inviato" restava aperto a
@@ -44,7 +68,18 @@ export function NuovoPreventivoForm({ tariffe, materiali }: { tariffe: Tariffa[]
   // il preventivo nella sua scheda (vedi getPreventiviCollegati).
   const [ricercaCliente, setRicercaCliente] = useState("");
   const [risultatiRicerca, setRisultatiRicerca] = useState<RisultatoRicercaCliente[]>([]);
-  const [clienteCollegato, setClienteCollegato] = useState<RisultatoRicercaCliente | null>(null);
+  const [clienteCollegato, setClienteCollegato] = useState<RisultatoRicercaCliente | null>(
+    clientePrecompilato
+      ? {
+          tipo: "cliente_esterno",
+          id: clientePrecompilato.id,
+          nome: clientePrecompilato.nome,
+          telefono: clientePrecompilato.telefono,
+          email: clientePrecompilato.email,
+          tipologiaCliente: clientePrecompilato.tipologiaCliente,
+        }
+      : null
+  );
   const timerRicerca = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {

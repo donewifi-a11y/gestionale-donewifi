@@ -4,6 +4,7 @@ import { urlFirmataDocumento } from "@/lib/documenti";
 import { ConfermaBottone } from "@/components/approva/conferma-bottone";
 import { formattaValuta } from "@/lib/types";
 import type { RigaPreventivo } from "@/lib/types";
+import { DATI_AZIENDA_TESTO, ALIQUOTA_IVA, scorporaIva } from "@/lib/dati-azienda";
 
 // ★ FIX — forma del join dichiarata esplicitamente invece del doppio cast
 // `as unknown as`: ticket_id/segnalazione_id/preventivo_id/appuntamento_id
@@ -22,7 +23,7 @@ interface RigaTokenApprovazione {
     | "trasferimento_contratto";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
-  preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number; valido_fino_il: string | null } | null;
+  preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number; valido_fino_il: string | null; creato_il: string } | null;
   appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
   richieste_clienti: { cliente: string | null; tipo_richiesta: string | null; contratto_pdf_url: string | null; tickets: { numero: number; cliente: string } | null } | null;
 }
@@ -51,7 +52,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select(
-      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale, valido_fino_il), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale, valido_fino_il, creato_il), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
     )
     .eq("token", token)
     .maybeSingle();
@@ -83,6 +84,9 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   // altrimenti il cliente clicca "Approvo" e scopre solo dopo, dal
   // messaggio d'errore della chiamata, che il preventivo non è più valido.
   const preventivoScaduto = !!preventivo?.valido_fino_il && new Date(preventivo.valido_fino_il) < new Date(new Date().toDateString());
+  // ★ NUOVA (2026-10-15) — vedi dati-azienda.ts: scomposizione IVA solo
+  // per la visualizzazione, `preventivo.totale` resta il valore salvato.
+  const scomposizione = preventivo ? scorporaIva(preventivo.totale) : null;
 
   let urlContratto: string | null = null;
   if (segnalazione?.contratto_pdf_url) {
@@ -202,6 +206,19 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
               <br />
               {preventivo.cliente_nome}, ecco il dettaglio.
             </p>
+            {/* ★ NUOVA (2026-10-15, richiesta esplicita: "verifica nei
+            preventivi che ci siano tutti i dati che devono esserci per
+            legge") — data di emissione e data di validità: prima la
+            validità compariva SOLO a scadenza già avvenuta ("è scaduto
+            il..."), il cliente non sapeva mai entro quando doveva
+            decidere finché non era già tardi. Emissione non veniva
+            mostrata affatto. */}
+            <p className="text-[11px] text-muted-foreground">
+              Preventivo del {new Date(preventivo.creato_il).toLocaleDateString("it-IT")}
+              {preventivo.valido_fino_il && !preventivoScaduto && (
+                <> · valido fino al {new Date(preventivo.valido_fino_il).toLocaleDateString("it-IT")}</>
+              )}
+            </p>
             <div className="w-full rounded-lg border bg-muted/40 p-3 text-left text-sm">
               {preventivo.righe.map((r, i) => (
                 <div key={i} className="flex items-start justify-between gap-2 py-1 text-xs">
@@ -211,8 +228,25 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
                   <span className="shrink-0 font-semibold tabular-nums">{formattaValuta(r.quantita * r.prezzoUnitario)}</span>
                 </div>
               ))}
-              <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-bold">
-                <span>Totale</span>
+              {/* ★ NUOVA (2026-10-15, richiesta esplicita — confermato:
+              Studio Armonia Srl, regime IVA ordinario, aliquota 22%,
+              prezzi già IVA inclusa) — prima c'era solo un "Totale" secco,
+              senza scomposizione IVA, obbligatoria per una Srl in regime
+              ordinario. */}
+              {scomposizione && (
+                <div className="mt-2 flex flex-col gap-0.5 border-t pt-2 text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span>Imponibile</span>
+                    <span className="tabular-nums">{formattaValuta(scomposizione.imponibile)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>IVA ({Math.round(ALIQUOTA_IVA * 100)}%)</span>
+                    <span className="tabular-nums">{formattaValuta(scomposizione.iva)}</span>
+                  </div>
+                </div>
+              )}
+              <div className="mt-1 flex items-center justify-between pt-1 text-sm font-bold">
+                <span>Totale (IVA inclusa)</span>
                 <span className="tabular-nums">{formattaValuta(preventivo.totale)}</span>
               </div>
             </div>
@@ -227,6 +261,12 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
             ) : (
               <ConfermaBottone token={token} tipo="preventivo" />
             )}
+            {/* ★ NUOVA (2026-10-15) — identità fiscale dell'azienda, prima
+            presente SOLO nel footer dell'email che linkava qui, mai sulla
+            pagina dove il cliente legge davvero il preventivo e lo
+            approva — vedi src/lib/dati-azienda.ts (fonte unica, condivisa
+            con il footer email). */}
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground/70">{DATI_AZIENDA_TESTO}</p>
           </>
         ) : (
           <>

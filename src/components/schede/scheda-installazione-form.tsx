@@ -5,6 +5,7 @@ import { MapPin, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FirmaPad, type FirmaPadHandle } from "@/components/condivisi/firma-pad";
+import { SelectSemplice } from "@/components/condivisi/select-semplice";
 import { FirmaClienteScheda } from "@/components/schede/firma-cliente-scheda";
 import { SelettoreMateriali } from "@/components/schede/selettore-materiali";
 import { SchedaWizard, type PassoScheda } from "@/components/schede/scheda-wizard";
@@ -205,7 +206,15 @@ export function SchedaInstallazioneForm({
       contenuto: (
         <>
           <Campo label="Supporto *">
-            <Select value={supporto} onChange={setSupporto} opzioni={OPZIONI_INSTALLAZIONE.supporto} />
+            <SelectSemplice
+              value={supporto}
+              onChange={setSupporto}
+              options={OPZIONI_INSTALLAZIONE.supporto}
+              placeholder="Seleziona..."
+              placeholderSelezionabile={false}
+              ariaLabel="Supporto"
+              className={campoClass}
+            />
           </Campo>
           <Campo label="Posizione">
             <input value={posizione} onChange={(e) => setPosizione(e.target.value)} placeholder="Es. Balcone, tetto, palo..." className={campoClass} />
@@ -247,7 +256,15 @@ export function SchedaInstallazioneForm({
       contenuto: (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Campo label="Tipo cavo *">
-            <Select value={tipoCavo} onChange={setTipoCavo} opzioni={OPZIONI_INSTALLAZIONE.cavo} />
+            <SelectSemplice
+              value={tipoCavo}
+              onChange={setTipoCavo}
+              options={OPZIONI_INSTALLAZIONE.cavo}
+              placeholder="Seleziona..."
+              placeholderSelezionabile={false}
+              ariaLabel="Tipo cavo"
+              className={campoClass}
+            />
           </Campo>
           <Campo label="Metri stimati">
             <input value={metriCavo} onChange={(e) => setMetriCavo(e.target.value)} type="number" min="0" step="1" className={campoClass} />
@@ -276,7 +293,15 @@ export function SchedaInstallazioneForm({
             <input value={bts} onChange={(e) => setBts(e.target.value)} className={campoClass} />
           </Campo>
           <Campo label="Modello CPE *">
-            <Select value={modelloCpe} onChange={setModelloCpe} opzioni={OPZIONI_INSTALLAZIONE.cpe} />
+            <SelectSemplice
+              value={modelloCpe}
+              onChange={setModelloCpe}
+              options={OPZIONI_INSTALLAZIONE.cpe}
+              placeholder="Seleziona..."
+              placeholderSelezionabile={false}
+              ariaLabel="Modello CPE"
+              className={campoClass}
+            />
           </Campo>
           <Campo label="MAC Address">
             <input
@@ -306,7 +331,15 @@ export function SchedaInstallazioneForm({
             <input value={snr} onChange={(e) => setSnr(e.target.value)} type="number" min={-20} max={60} className={campoClass} />
           </Campo>
           <Campo label="Router *">
-            <Select value={router} onChange={setRouter} opzioni={OPZIONI_INSTALLAZIONE.router} />
+            <SelectSemplice
+              value={router}
+              onChange={setRouter}
+              options={OPZIONI_INSTALLAZIONE.router}
+              placeholder="Seleziona..."
+              placeholderSelezionabile={false}
+              ariaLabel="Router"
+              className={campoClass}
+            />
           </Campo>
           <Campo label="Ping (ms)">
             <input value={ping} onChange={(e) => setPing(e.target.value)} type="number" min={0} max={5000} className={campoClass} />
@@ -442,17 +475,6 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
       <Label>{label}</Label>
       {children}
     </div>
-  );
-}
-
-function Select({ value, onChange, opzioni }: { value: string; onChange: (v: string) => void; opzioni: readonly string[] }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={campoClass}>
-      <option value="" disabled>Seleziona...</option>
-      {opzioni.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
   );
 }
 

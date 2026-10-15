@@ -148,7 +148,7 @@ export async function inviaPreventivoApprovazione(id: string, origine: string) {
 
   const { data: preventivo } = await supabase
     .from("preventivi")
-    .select("numero, cliente_nome, cliente_email, totale")
+    .select("numero, cliente_nome, cliente_email, totale, valido_fino_il")
     .eq("id", id)
     .single();
   if (!preventivo) return { errore: "Preventivo non trovato." };
@@ -163,7 +163,13 @@ export async function inviaPreventivoApprovazione(id: string, origine: string) {
   if (error) return { errore: error.message };
 
   const link = `${origine}/approva/${creato.token}`;
-  const { oggetto, corpoHtml, corpoTesto } = emailPreventivo(preventivo.cliente_nome, preventivo.numero, formattaValuta(preventivo.totale), link);
+  const { oggetto, corpoHtml, corpoTesto } = emailPreventivo(
+    preventivo.cliente_nome,
+    preventivo.numero,
+    formattaValuta(preventivo.totale),
+    link,
+    preventivo.valido_fino_il
+  );
   const risultato = await inviaEmail({ a: preventivo.cliente_email, oggetto, corpoHtml, corpoTesto, reparto: "Commerciale" });
   if (risultato.errore) return { errore: risultato.errore };
 
