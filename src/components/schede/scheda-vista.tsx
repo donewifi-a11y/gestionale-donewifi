@@ -184,7 +184,7 @@ export function SchedaVista({ scheda, modificabile = false }: { scheda: SchedaLa
                 {(scheda.tipo_cavo || scheda.metri_cavo) && <SottoCampo etichetta="Cablaggio" valore={`${scheda.tipo_cavo || "—"}${scheda.metri_cavo ? ` · ${scheda.metri_cavo} m` : ""}`} />}
                 {(scheda.modello_cpe || scheda.mac || scheda.bts || scheda.vlan) && (
                   <SottoCampo
-                    etichetta="Radio/CPE"
+                    etichetta="Radio/CPE/Antenna"
                     valore={`${scheda.modello_cpe || "—"}${scheda.mac ? ` · MAC ${scheda.mac}` : ""}${scheda.bts ? ` · BTS ${scheda.bts}` : ""}${scheda.vlan ? ` · VLAN ${scheda.vlan}` : ""}`}
                   />
                 )}

@@ -308,7 +308,15 @@ export function SchedaLavorazioneForm({
           {mostraCampiCpe && (
             <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3">
               <div>
-                <Label htmlFor="apparato-recuperato">{recuperoApparati ? "Apparato recuperato *" : "Modello nuova CPE (facoltativo)"}</Label>
+                {/* ★ FIX (2026-10-15, richiesta esplicita: "negli
+                interventi in loco per cambio antenna dobbiamo anche
+                mettere il modello dell'antenna") — confermato: "cambio
+                antenna" e "Cambio CPE" sono già lo stesso intervento in
+                questo gestionale (stesso dispositivo fisico, unificati il
+                2026-09-28) — il campo esisteva già, solo l'etichetta
+                diceva solo "CPE" e non segnalava che copre anche il
+                cambio antenna. Nessun valore salvato cambia. */}
+                <Label htmlFor="apparato-recuperato">{recuperoApparati ? "Apparato recuperato *" : "Modello nuova CPE/antenna (facoltativo)"}</Label>
                 <select
                   id="apparato-recuperato"
                   value={apparatoRecuperato}
@@ -322,7 +330,7 @@ export function SchedaLavorazioneForm({
                 </select>
               </div>
               <div>
-                <Label htmlFor="mac-recuperato">{recuperoApparati ? "MAC (se leggibile)" : "MAC nuova CPE"}</Label>
+                <Label htmlFor="mac-recuperato">{recuperoApparati ? "MAC (se leggibile)" : "MAC nuova CPE/antenna"}</Label>
                 <input
                   id="mac-recuperato"
                   type="text"
@@ -334,7 +342,7 @@ export function SchedaLavorazioneForm({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {recuperoApparati
                     ? "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile."
-                    : "Il MAC della CPE appena installata al posto della precedente."}
+                    : "Il MAC della CPE/antenna appena installata al posto della precedente."}
                 </p>
               </div>
               {recuperoApparati && cambioCpe && (

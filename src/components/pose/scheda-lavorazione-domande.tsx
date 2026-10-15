@@ -201,19 +201,26 @@ export function SchedaLavorazioneDomande({
     ...(mostraDomandeCpe
       ? ([
           {
-            domanda: recuperoApparati ? "Che apparato hai recuperato?" : "Che apparato hai installato? (facoltativo)",
+            // ★ FIX (2026-10-15, richiesta esplicita: "negli interventi in
+            // loco per cambio antenna dobbiamo anche mettere il modello
+            // dell'antenna") — confermato: "cambio antenna" e "Cambio CPE"
+            // sono già lo stesso intervento (unificati il 2026-09-28), il
+            // campo c'era già — solo il testo parlava solo di "apparato"
+            // generico/CPE, non segnalava esplicitamente che copre anche
+            // l'antenna. Nessun valore salvato cambia.
+            domanda: recuperoApparati ? "Che apparato hai recuperato?" : "Che apparato/antenna hai installato? (facoltativo)",
             categoria: "radio",
             icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
             valida: () => (recuperoApparati && !apparatoRecuperato ? "Scegli l'apparato recuperato prima di continuare." : null),
             contenuto: <TileScelta opzioni={OPZIONI_INSTALLAZIONE.cpe} valore={apparatoRecuperato} onChange={setApparatoRecuperato} />,
           },
           {
-            domanda: recuperoApparati ? "Indirizzo MAC?" : "MAC della nuova CPE?",
+            domanda: recuperoApparati ? "Indirizzo MAC?" : "MAC della nuova CPE/antenna?",
             categoria: "radio",
             icona: <PackageSearch className="h-6 w-6" strokeWidth={2.25} />,
             aiuto: recuperoApparati
               ? "Facoltativo — anche parziale, se l'etichetta è consumata o illeggibile."
-              : "Il MAC della CPE appena installata al posto della precedente.",
+              : "Il MAC della CPE/antenna appena installata al posto della precedente.",
             contenuto: (
               <CampoGrande
                 type="text"
