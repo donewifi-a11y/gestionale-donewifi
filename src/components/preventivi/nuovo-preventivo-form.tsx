@@ -128,19 +128,30 @@ export function NuovoPreventivoForm({
   const tariffeFiltrate = testoRicercaCatalogo ? tariffeVisibili.filter((t) => t.nome.toLowerCase().includes(testoRicercaCatalogo)) : tariffeVisibili;
   const materialiFiltrati = testoRicercaCatalogo ? materiali.filter((m) => m.nome.toLowerCase().includes(testoRicercaCatalogo)) : materiali;
 
+  // ★ NUOVA (2026-10-15, richiesta esplicita: "quando aggiungo un pezzo
+  // vorrei che venisse segnato che viene aggiunto, magari con un popup") —
+  // prima l'unico riscontro di un click su una tariffa/materiale era la
+  // riga che compariva (silenziosamente) in fondo alla sezione "Voci del
+  // preventivo", spesso fuori vista mentre si continua a scegliere dal
+  // catalogo. Stesso `toast` già usato nel resto del gestionale per
+  // confermare un'azione, non un popup/dialog a sé (coerenza con il resto
+  // del form, nessun componente nuovo).
   function aggiungiTariffa(t: Tariffa) {
     if (t.prezzo_mensile == null) return;
     setRighe((r) => [...r, { descrizione: `${t.nome} (canone mensile)`, quantita: 1, prezzoUnitario: t.prezzo_mensile as number }]);
+    toast(`"${t.nome}" aggiunto al preventivo.`, "successo");
   }
 
   function aggiungiMateriale(m: MaterialeMagazzino) {
     setRighe((r) => [...r, { descrizione: m.nome, quantita: 1, prezzoUnitario: prezzoPerTipoCliente(m.prezzo_unitario, tipoPrezzo) }]);
+    toast(`"${m.nome}" aggiunto al preventivo.`, "successo");
   }
 
   function aggiungiRigaLibera() {
     const prezzo = Number(rigaLiberaPrezzo.replace(",", "."));
     if (!rigaLiberaDescrizione.trim() || !Number.isFinite(prezzo)) return;
     setRighe((r) => [...r, { descrizione: rigaLiberaDescrizione.trim(), quantita: 1, prezzoUnitario: prezzo }]);
+    toast(`"${rigaLiberaDescrizione.trim()}" aggiunto al preventivo.`, "successo");
     setRigaLiberaDescrizione("");
     setRigaLiberaPrezzo("");
   }
@@ -194,7 +205,16 @@ export function NuovoPreventivoForm({
       </Link>
       <h1 className="font-heading mb-6 text-2xl font-bold tracking-tight">Nuovo Preventivo</h1>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      {/* ★ NUOVA (2026-10-15, richiesta esplicita: "avere il riepilogo sul
+      lato destro") — due colonne solo da `lg:` in su: a sinistra cliente +
+      catalogo (dove si costruisce il preventivo), a destra un riepilogo
+      fisso (`lg:sticky`) con voci/totale/validità/note/pulsanti, sempre a
+      vista senza dover scorrere mentre si aggiungono voci. Sotto `lg:`
+      (`grid-cols-1`), le due colonne tornano una sotto l'altra nello
+      stesso ordine di prima — nessun cambiamento per chi usa il form da
+      telefono. */}
+      <form onSubmit={onSubmit} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_340px]">
+        <div className="flex flex-col gap-5">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Cliente</p>
 
@@ -353,7 +373,9 @@ export function NuovoPreventivoForm({
             </div>
           </div>
         </div>
+        </div>
 
+        <div className="flex flex-col gap-5 lg:sticky lg:top-6">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           {/* ★ FIX (2026-10-07, audit d'oro gestionale, seguito) — il totale
           era visibile solo in fondo alla lista voci: con un preventivo con
@@ -423,6 +445,7 @@ export function NuovoPreventivoForm({
             {inCorso && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
             {inCorso ? "Creazione in corso…" : "Crea Preventivo"}
           </Button>
+        </div>
         </div>
       </form>
     </div>

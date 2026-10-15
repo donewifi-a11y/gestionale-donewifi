@@ -34,7 +34,11 @@ export default async function NuovoPreventivoPage({
       : undefined;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    // ★ ESTESA (2026-10-15, richiesta esplicita: "riepilogo sul lato
+    // destro") — il form è passato a due colonne da `lg:` in su
+    // (NuovoPreventivoForm), max-w-2xl era troppo stretto per ospitarle
+    // comodamente insieme.
+    <div className="mx-auto max-w-4xl">
       <NuovoPreventivoForm
         tariffe={(tariffe as Tariffa[]) ?? []}
         materiali={(materiali as MaterialeMagazzino[]) ?? []}
