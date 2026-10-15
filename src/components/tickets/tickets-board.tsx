@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check, Clock, FileText } from "lucide-react";
+import { UserRound, X, Search, ChevronRight, ChevronDown, UserPlus, CalendarPlus, CalendarClock, CalendarCheck2, AlertTriangle, Loader2, BookmarkPlus, Check, Clock, FileText, SlidersHorizontal } from "lucide-react";
 import { tempoRelativo } from "@/lib/tempo-relativo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -325,6 +325,14 @@ export function TicketsBoard({
   // che l'azione fosse andata a buon fine.
   const toast = useToast();
   const [ricerca, setRicerca] = useState("");
+  // ★ NUOVA (2026-10-15, Fase C — richiesta esplicita: "barra operativa
+  // compatta") — solo visibilità, nessun valore di filtro: chiuso di
+  // default come richiesto, non persistito (si vuole chiuso a ogni nuova
+  // sessione, non ricordato come i filtri stessi).
+  const [pannelloFiltriAperto, setPannelloFiltriAperto] = useState(false);
+  // ★ NUOVA (2026-10-15, Fase C) — solo visualizzazione della coda "Da
+  // assegnare", non tocca selezione/azioni sui ticket al suo interno.
+  const [codaEspansa, setCodaEspansa] = useState(false);
   // ★ FIX — filtri ricordati per utente/browser (stessa idea già applicata
   // su Hub Ticket nel gestionale precedente): lettura/scrittura ora in
   // usePersistedState() (src/lib/use-persisted-state.ts), estratto da qui
@@ -661,6 +669,43 @@ export function TicketsBoard({
     router.refresh();
   }
 
+  // ★ NUOVA (2026-10-15, Fase B — richiesta esplicita: "riepilogo visibile
+  // dei filtri attivi") — ricavata ogni render direttamente da `filtri`/
+  // `ricerca` (nessun nuovo stato, nessuna persistenza propria): una riga
+  // "vuota" possibile solo quando il valore è già quello di default (""/
+  // false), la stessa identica condizione già usata per mostrare "Azzera
+  // filtri" poco sotto — nessun filtro "predefinito che non restringe" può
+  // quindi generare una chip. `ricerca` è uno stato a parte da `filtri`
+  // (vedi `usePersistedState` più sopra: un oggetto unico per
+  // stato/categoria/priorità/reparto/soloMiei/nonAssegnati, la ricerca
+  // testuale vive per conto suo) — gestita qui separatamente apposta,
+  // invece di presumere che tutto passi da `aggiornaFiltri`.
+  // ★ FIX (2026-10-15, Fase C — richiesta esplicita) — tolte le chip
+  // "Reparto"/"Solo i miei"/"Non assegnati": duplicavano un'informazione
+  // già visibile altrove (tab reparto evidenziato, bottoni che diventano
+  // pieni quando attivi) invece di aggiungerne una nuova. Restano solo i
+  // quattro filtri senza alcun indicatore "attivo" proprio altrove.
+  const chipFiltriAttivi: { chiave: string; etichetta: string; rimuovi: () => void }[] = [
+    ricerca.trim() ? { chiave: "ricerca", etichetta: `Ricerca: “${ricerca.trim()}”`, rimuovi: () => setRicerca("") } : null,
+    filtri.stato ? { chiave: "stato", etichetta: `Stato: ${filtri.stato}`, rimuovi: () => aggiornaFiltri({ stato: "" }) } : null,
+    filtri.categoria ? { chiave: "categoria", etichetta: `Categoria: ${filtri.categoria}`, rimuovi: () => aggiornaFiltri({ categoria: "" }) } : null,
+    filtri.priorita ? { chiave: "priorita", etichetta: `Priorità: ${filtri.priorita}`, rimuovi: () => aggiornaFiltri({ priorita: "" }) } : null,
+  ].filter((c): c is { chiave: string; etichetta: string; rimuovi: () => void } => c !== null);
+
+  // ★ NUOVA (2026-10-15, Fase C — richiesta esplicita: "barra operativa
+  // compatta") — conteggio dei filtri "avanzati" (quelli che finiscono nel
+  // pannello apribile sotto), per il badge sul bottone che lo apre. Non
+  // include reparto/ricerca, sempre a vista diretta fuori dal pannello.
+  const filtriAvanzatiAttivi = [filtri.stato, filtri.categoria, filtri.priorita].filter(Boolean).length + (filtri.soloMiei ? 1 : 0) + (filtri.nonAssegnati ? 1 : 0);
+
+  // ★ NUOVA (2026-10-15, Fase C) — soglia di compressione della coda "Da
+  // assegnare": da 0 a 3 ticket resta come oggi (nessun bottone, lista
+  // sempre a vista); oltre, si comprime a una riga con conteggio + "Mostra"
+  // (stesso principio già in uso nel Kanban per i sottogruppi, vedi
+  // SOGLIA_COLLASSO_GRUPPO). Solo la VISUALIZZAZIONE cambia — `nonAssegnatiCoda`
+  // (il contenuto reale, selezione e azioni) resta identico.
+  const codaComprimibile = nonAssegnatiCoda.length > 3;
+
   return (
     <div>
       <DialogEliminaVista />
@@ -794,24 +839,23 @@ export function TicketsBoard({
             className="h-9 w-48 rounded-md border bg-background pl-8 pr-3 text-sm"
           />
         </div>
-        <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} ariaLabel="Filtra per stato" />
-        <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} ariaLabel="Filtra per categoria" />
-        <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} ariaLabel="Filtra per priorità" />
+        {/* ★ NUOVA (2026-10-15, Fase C — richiesta esplicita: "barra
+        operativa compatta") — stato/categoria/priorità/Solo i miei/Non
+        assegnati si spostano nel pannello sotto, apribile da qui; chiuso
+        di default. Il conteggio sul bottone (filtriAvanzatiAttivi, vedi
+        sopra) dice subito se c'è qualcosa di attivo anche a pannello
+        chiuso, senza doverlo aprire per saperlo — le chip sotto fanno lo
+        stesso per stato/categoria/priorità, qui serve anche per
+        soloMiei/nonAssegnati che non hanno una propria chip. */}
         <Button
           size="sm"
-          variant={filtri.soloMiei ? "default" : "outline"}
-          onClick={() => aggiornaFiltri({ soloMiei: !filtri.soloMiei })}
+          variant={filtriAvanzatiAttivi > 0 ? "default" : "outline"}
+          onClick={() => setPannelloFiltriAperto((a) => !a)}
+          aria-expanded={pannelloFiltriAperto}
         >
-          <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
-          Solo i miei
-        </Button>
-        <Button
-          size="sm"
-          variant={filtri.nonAssegnati ? "default" : "outline"}
-          onClick={() => aggiornaFiltri({ nonAssegnati: !filtri.nonAssegnati })}
-        >
-          <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
-          Non assegnati
+          <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Filtri{filtriAvanzatiAttivi > 0 ? ` (${filtriAvanzatiAttivi})` : ""}
+          <ChevronDown className={`h-3.5 w-3.5 transition ${pannelloFiltriAperto ? "rotate-180" : ""}`} strokeWidth={2.5} />
         </Button>
         {(filtri.stato || filtri.categoria || filtri.priorita || filtri.reparto || filtri.soloMiei || filtri.nonAssegnati || ricerca) && (
           <Button
@@ -827,6 +871,64 @@ export function TicketsBoard({
           </Button>
         )}
       </div>
+
+      {/* ★ NUOVA (2026-10-15, Fase C) — pannello filtri avanzati: stessi
+      controlli di prima, stessi handler (`aggiornaFiltri`), solo spostati
+      qui dentro. Sono componenti controllati da `filtri` (stato esterno al
+      pannello): aprire/chiudere questo blocco non tocca mai i valori, solo
+      se sono visibili o no — nessuno stato duplicato. */}
+      {pannelloFiltriAperto && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-3">
+          <Select value={filtri.stato} onChange={(v) => aggiornaFiltri({ stato: v })} placeholder="Tutti gli stati" options={SEQUENZA_STATO} ariaLabel="Filtra per stato" />
+          <Select value={filtri.categoria} onChange={(v) => aggiornaFiltri({ categoria: v })} placeholder="Tutte le categorie" options={[...CATEGORIE_TICKET]} ariaLabel="Filtra per categoria" />
+          <Select value={filtri.priorita} onChange={(v) => aggiornaFiltri({ priorita: v })} placeholder="Tutte le priorità" options={["Urgente", "Normale", "Bassa"]} ariaLabel="Filtra per priorità" />
+          <Button
+            size="sm"
+            variant={filtri.soloMiei ? "default" : "outline"}
+            onClick={() => aggiornaFiltri({ soloMiei: !filtri.soloMiei })}
+          >
+            <UserRound className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Solo i miei
+          </Button>
+          <Button
+            size="sm"
+            variant={filtri.nonAssegnati ? "default" : "outline"}
+            onClick={() => aggiornaFiltri({ nonAssegnati: !filtri.nonAssegnati })}
+          >
+            <UserPlus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Non assegnati
+          </Button>
+        </div>
+      )}
+
+      {/* ★ NUOVA (2026-10-15, Fase B) — riepilogo a colpo d'occhio di quali
+      filtri sono attivi ora, ciascuno rimovibile singolarmente: stesso
+      linguaggio visivo (pillola arrotondata con una X per toglierla) già
+      in uso per le viste salvate poco sopra (`eliminaVista`), qui con un
+      vero <button> invece di uno span role="button" (nessun motivo di
+      replicare quel pattern in codice nuovo). Zero ingombro quando non
+      c'è nessun filtro attivo — stesso principio della barra bulk. */}
+      {chipFiltriAttivi.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-muted-foreground">Filtri attivi:</span>
+          {chipFiltriAttivi.map((chip) => (
+            <span
+              key={chip.chiave}
+              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 py-1 pl-2.5 pr-1 text-xs font-medium text-foreground"
+            >
+              {chip.etichetta}
+              <button
+                type="button"
+                onClick={chip.rimuovi}
+                aria-label={`Rimuovi filtro ${chip.etichetta}`}
+                className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+              >
+                <X className="h-2.5 w-2.5" strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ★ NUOVA — barra azioni bulk: compare solo quando c'è una
       selezione, zero ingombro il resto del tempo. Vedi nota su
@@ -882,8 +984,24 @@ export function TicketsBoard({
             </span>
             <span className="font-heading text-sm font-bold">Da assegnare</span>
             <span className="rounded-full bg-warning px-2.5 py-0.5 text-xs font-bold text-warning-foreground">{nonAssegnatiCoda.length}</span>
-            <span className="ml-auto text-xs text-muted-foreground">ordinati per priorità e tempo di attesa</span>
+            {/* ★ NUOVA (2026-10-15, Fase C) — il bottone compare solo oltre
+            soglia: da 0 a 3 ticket la riga resta identica a prima (stessa
+            etichetta "ordinati per..."), nessun elemento nuovo introdotto. */}
+            {codaComprimibile ? (
+              <button
+                type="button"
+                onClick={() => setCodaEspansa((e) => !e)}
+                aria-expanded={codaEspansa}
+                className="ml-auto flex items-center gap-1 text-xs font-semibold text-warning transition hover:text-warning/80"
+              >
+                {codaEspansa ? "Comprimi" : "Mostra"}
+                <ChevronDown className={`h-3.5 w-3.5 transition ${codaEspansa ? "rotate-180" : ""}`} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <span className="ml-auto text-xs text-muted-foreground">ordinati per priorità e tempo di attesa</span>
+            )}
           </div>
+          {(!codaComprimibile || codaEspansa) && (
           <div className="mt-3 flex flex-col gap-2">
             {nonAssegnatiCoda.map((t) => {
               const colore = coloreReparto(t.reparto);
@@ -929,6 +1047,7 @@ export function TicketsBoard({
               );
             })}
           </div>
+          )}
         </div>
       )}
 

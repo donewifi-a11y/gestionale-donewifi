@@ -97,6 +97,22 @@ function PallinoTraccia({ etichetta, stato }: { etichetta: string; stato: StatoT
   );
 }
 
+// ★ NUOVA (2026-10-15, Fase A — uniformare la tastiera nei moduli
+// operativi) — stesso identico gestore già in uso in tickets-board.tsx
+// (apriConTastiera): Space oltre a Enter, `e.target === e.currentTarget`
+// per non attivare la card quando il focus è su un controllo annidato
+// (nessuno presente oggi in questa card, ma lo stesso principio applicato
+// per coerenza e perché è così che si comporta un vero `<button>`).
+function apriConTastiera(e: React.KeyboardEvent, apri: () => void) {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === "Enter") {
+    apri();
+  } else if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    apri();
+  }
+}
+
 const COLORE_TIPO: Record<string, string> = {
   "Cambio IBAN": "bg-success/10 text-success border-success/20",
   "Cambio Anagrafica": "bg-success/10 text-success border-success/20",
@@ -186,7 +202,7 @@ export function RichiesteClientiBoard({
                     role="button"
                     tabIndex={0}
                     onClick={() => setAperta(r)}
-                    onKeyDown={(e) => e.key === "Enter" && setAperta(r)}
+                    onKeyDown={(e) => apriConTastiera(e, () => setAperta(r))}
                     className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">

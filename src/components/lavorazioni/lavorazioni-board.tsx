@@ -24,6 +24,22 @@ function giorniAperta(data: string) {
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
 
+// ★ NUOVA (2026-10-15, Fase A — uniformare la tastiera nei moduli
+// operativi) — stesso identico gestore già in uso in tickets-board.tsx
+// (apriConTastiera): Space oltre a Enter, `e.target === e.currentTarget`
+// per non attivare la card quando il focus è su un controllo annidato
+// (nessuno presente oggi in questa card, ma lo stesso principio applicato
+// per coerenza e perché è così che si comporta un vero `<button>`).
+function apriConTastiera(e: React.KeyboardEvent, apri: () => void) {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === "Enter") {
+    apri();
+  } else if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    apri();
+  }
+}
+
 /** ★ NUOVA — richiesta esplicita: lavorazioni interne (Rete/Ufficio), non
  * pratiche cliente, assegnabili da un amministratore ad altro staff con
  * promemoria automatico se restano ferme (cron promemoria-lavorazioni).
@@ -95,7 +111,7 @@ export function LavorazioniBoard({
                       role="button"
                       tabIndex={0}
                       onClick={() => setAperta(l)}
-                      onKeyDown={(e) => e.key === "Enter" && setAperta(l)}
+                      onKeyDown={(e) => apriConTastiera(e, () => setAperta(l))}
                       className="cursor-pointer rounded-xl border bg-card p-3 text-left text-sm shadow-md transition hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40"
                     >
                       <div className="mb-1.5 flex items-center gap-1.5 font-semibold">

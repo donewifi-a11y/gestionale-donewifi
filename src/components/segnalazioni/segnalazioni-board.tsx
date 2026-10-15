@@ -147,6 +147,23 @@ function giorniAperta(data: string) {
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
 
+// ★ NUOVA (2026-10-15, Fase A — uniformare la tastiera nei moduli
+// operativi) — stesso identico gestore già in uso in tickets-board.tsx
+// (apriConTastiera). Qui Space era già gestito dal FIX del 2026-09-18 (vedi
+// sotto), ma senza il controllo `e.target === e.currentTarget`: mancava
+// solo quello, lo stesso già aggiunto altrove per non attivare la card
+// quando il focus è su un controllo annidato (nessuno presente oggi in
+// questa card, ma lo stesso principio applicato per coerenza).
+function apriConTastiera(e: React.KeyboardEvent, apri: () => void) {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === "Enter") {
+    apri();
+  } else if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    apri();
+  }
+}
+
 export function SegnalazioniBoard({
   segnalazioni,
   richieste,
@@ -407,18 +424,7 @@ export function SegnalazioniBoard({
                     role="button"
                     tabIndex={0}
                     onClick={() => setAperta(s)}
-                    onKeyDown={(e) => {
-                      // ★ FIX (2026-09-18, audit modulo Segnalazioni) —
-                      // mancava Space, il tasto standard per attivare un
-                      // elemento con role="button" da tastiera (Enter da
-                      // solo non basta per seguire la convenzione nativa
-                      // di un vero <button>) — stesso fix già applicato
-                      // alla card Ticket.
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setAperta(s);
-                      }
-                    }}
+                    onKeyDown={(e) => apriConTastiera(e, () => setAperta(s))}
                     className={`relative cursor-pointer overflow-hidden rounded-xl border bg-card p-3 pl-4 text-left text-sm shadow-md transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 ${STRIPE_COPERTURA[s.copertura]}`}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
