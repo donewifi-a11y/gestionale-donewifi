@@ -326,6 +326,76 @@ export async function prenotaAntennaInventario(id: string, ticketId: string) {
   return { errore: null };
 }
 
+// ★ NUOVA (2026-10-16, richiesta esplicita: "quando vengono pianificate
+// installazioni e cambio cpe... fai che possiamo assegnare una cpe con il
+// suo mac... visibile nel calendario") — prima la prenotazione di una CPE
+// (prenotaAntennaInventario sopra) era raggiungibile SOLO da Materiali →
+// Antenne, mai dalla pianificazione dell'appuntamento stessa: chi
+// pianificava doveva uscire, andare in Materiali, cercare il Ticket lì.
+// Letta qui con lo stesso client cookie-based già usato da Materiali →
+// Antenne (vedi materiali/page.tsx) — la stessa policy SELECT già
+// esistente su antenne_inventario, nessuna nuova policy necessaria.
+export async function getAntenneDisponibili(): Promise<{ id: string; tipologia: string; mac: string }[]> {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return [];
+  const { data } = await supabase.from("antenne_inventario").select("id, tipologia, mac").eq("stato", "Disponibile").order("tipologia", { ascending: true });
+  return data ?? [];
+}
+
+/** ★ NUOVA (2026-10-16, stessa richiesta di sopra) — unico punto
+ * d'ingresso per assegnare una CPE a un Ticket dalla pianificazione:
+ * `antennaId` riusa esattamente la stessa logica di prenotaAntennaInventario
+ * sopra (un pezzo già censito a magazzino, Disponibile → Prenotata);
+ * `tipologia`+`mac` copre invece il caso "non ancora censita" — scelta
+ * esplicita dell'utente (non limitare solo al magazzino già pronto) —
+ * creata direttamente come Prenotata per questo Ticket, stessa normalizzazione
+ * MAC di aggiungiAntenneInventario (maiuscolo, dedup implicito dal vincolo
+ * UNIQUE già esistente sulla colonna). Stesso controllo di permesso di
+ * prenotaAntennaInventario (solo Analisi Rete o admin) in entrambi i casi. */
+export async function assegnaCpeATicket(dati: { ticketId: string; antennaId?: string; tipologia?: string; mac?: string }) {
+  const supabase = await createClient();
+  const erroreAccesso = await verificaAnalisiReteOAdmin(supabase);
+  if (erroreAccesso) return { errore: erroreAccesso };
+  const persona = await getPersonaCorrente(supabase);
+
+  // antenne_inventario non ha policy insert/update/delete (vedi migrazione
+  // 0054): la scrittura passa dalla service role solo dopo il controllo
+  // applicativo appena fatto sopra — stesso principio di prenotaAntennaInventario.
+  const service = createServiceClient();
+
+  if (dati.antennaId) {
+    const { data: antenna } = await service.from("antenne_inventario").select("stato").eq("id", dati.antennaId).maybeSingle();
+    if (!antenna) return { errore: "CPE non trovata." };
+    if (antenna.stato !== "Disponibile") return { errore: "Questa CPE non è più disponibile." };
+    const { error } = await service
+      .from("antenne_inventario")
+      .update({ stato: "Prenotata", ticket_id: dati.ticketId, aggiornato_il: new Date().toISOString() })
+      .eq("id", dati.antennaId);
+    if (error) return { errore: error.message };
+  } else {
+    const mac = (dati.mac ?? "").trim().toUpperCase();
+    const tipologia = (dati.tipologia ?? "").trim();
+    if (!tipologia || !mac) return { errore: "Scegli una CPE a magazzino oppure inserisci modello e MAC." };
+    const { error } = await service.from("antenne_inventario").insert({
+      tipologia,
+      mac,
+      stato: "Prenotata",
+      ticket_id: dati.ticketId,
+      creato_da: persona?.id ?? null,
+    });
+    if (error) {
+      if (error.code === "23505") return { errore: "Questo MAC è già censito a inventario." };
+      return { errore: error.message };
+    }
+  }
+
+  revalidatePath("/materiali");
+  revalidatePath("/calendario");
+  revalidatePath("/tickets");
+  return { errore: null };
+}
+
 export async function annullaPrenotazioneAntenna(id: string) {
   const supabase = await createClient();
   const erroreAccesso = await verificaAnalisiReteOAdmin(supabase);

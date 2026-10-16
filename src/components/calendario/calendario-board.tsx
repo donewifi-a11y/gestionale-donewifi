@@ -14,6 +14,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
+import { AssegnaCpe } from "@/components/condivisi/assegna-cpe";
 import type { CategoriaIcona } from "@/lib/colore-icone";
 import {
   creaAppuntamento,
@@ -1250,10 +1251,16 @@ function FormNuovoAppuntamento({
               className="mt-1 bg-background"
             />
           </div>
-          {antenneRiservate.length > 0 && (
-            <p className="mt-1.5 text-xs font-semibold text-primary">
-              📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
-            </p>
+          {/* ★ ESTESA (2026-10-16, richiesta esplicita: "quando vengono
+          pianificate installazioni e cambio cpe... fai che possiamo
+          assegnare una cpe con il suo mac") — stesso blocco già esteso
+          nel gemello PianificaAppuntamento (tickets-board.tsx), vedi lì
+          per il commento completo. Richiede un Ticket collegato (la CPE
+          si assegna a un Ticket, non a un appuntamento senza Ticket). */}
+          {ticketId && (tipoServizio === "Nuova installazione" || tipoIntervento === "Cambio CPE") && (
+            <div className="mt-1.5">
+              <AssegnaCpe ticketId={ticketId} antenneRiservate={antenneRiservate} onAssegnata={() => getAntenneRiservatePerTicket(ticketId).then(setAntenneRiservate)} />
+            </div>
           )}
         </SezioneForm>
 
@@ -1708,10 +1715,24 @@ function FormModificaAppuntamento({
             {!titoloSbloccato && (
               <p className="mt-1 text-[11px] text-muted-foreground">Generato in automatico — tocca &quot;Modifica&quot; solo se serve davvero cambiarlo.</p>
             )}
-            {antenneRiservate.length > 0 && (
-              <p className="mt-1.5 text-xs font-semibold text-primary">
-                📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
-              </p>
+            {/* ★ ESTESA (2026-10-16, richiesta esplicita: "quando vengono
+            pianificate installazioni e cambio cpe... fai che possiamo
+            assegnare una cpe con il suo mac") — stesso blocco già esteso
+            nel gemello FormNuovoAppuntamento/PianificaAppuntamento, vedi
+            quest'ultimo per il commento completo. Qui non esiste un
+            selettore "tipo di intervento" (solo tipoServizio, mai una
+            scelta "Cambio CPE" per un appuntamento già creato) — mostrato
+            per qualunque appuntamento con un Ticket collegato, stesso
+            identico criterio già usato dal riepilogo in sola lettura
+            appena sostituito. */}
+            {appuntamento.ticket_id && (
+              <div className="mt-1.5">
+                <AssegnaCpe
+                  ticketId={appuntamento.ticket_id}
+                  antenneRiservate={antenneRiservate}
+                  onAssegnata={() => getAntenneRiservatePerTicket(appuntamento.ticket_id!).then(setAntenneRiservate)}
+                />
+              </div>
             )}
           </div>
         </SezioneForm>

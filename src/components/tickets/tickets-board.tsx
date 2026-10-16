@@ -50,6 +50,7 @@ import { getRapportinoTicket } from "@/app/(app)/tickets/actions";
 import { getRichiesteClientiPerTicket } from "@/app/(app)/richieste-clienti/actions";
 import { SegnalePulsante, entroOreDa } from "@/components/condivisi/segnale-pulsante";
 import { SelectSemplice } from "@/components/condivisi/select-semplice";
+import { AssegnaCpe } from "@/components/condivisi/assegna-cpe";
 import type { AreaAccesso, Appuntamento, MaterialeMagazzino, NotaTicket, Persona, PrioritaTicket, RichiestaCliente, StatoTicket, Ticket, RapportinoIntervento, SchedaLavoro, TipoServizioAppuntamento } from "@/lib/types";
 import { REPARTI, CATEGORIE_TICKET, TIPI_SERVIZIO_APPUNTAMENTO, INTERVENTI_RAPIDI, coloreReparto, coloreGruppo, titoloAppuntamento, stimaComuneDaIndirizzo } from "@/lib/types";
 import { CONFIG_SOTTOCATEGORIE } from "@/lib/campi-ticket";
@@ -2690,10 +2691,20 @@ export function PianificaAppuntamento({
         </div>
       )}
 
-      {antenneRiservate.length > 0 && (
-        <p className="mb-3 text-xs font-semibold text-primary">
-          📡 Antenna riservata: {antenneRiservate.map((a) => `${a.tipologia} (${a.mac})`).join(", ")}
-        </p>
+      {/* ★ ESTESA (2026-10-16, richiesta esplicita: "quando vengono
+      pianificate installazioni e cambio cpe... fai che possiamo
+      assegnare una cpe con il suo mac") — prima questo blocco era solo
+      un riepilogo in sola lettura (vedi commento storico su
+      antenneRiservate sopra): assegnare una CPE restava raggiungibile
+      solo da Materiali → Antenne, mai da qui, pur essendo questo il
+      momento naturale (si sta già scegliendo tipo di intervento/
+      installazione per questo stesso Ticket). Visibile solo per una
+      Nuova installazione o un "Cambio CPE" — per ogni altro intervento
+      non ha senso proporlo. */}
+      {(tipoServizio === "Nuova installazione" || tipoIntervento === "Cambio CPE") && (
+        <div className="mb-3">
+          <AssegnaCpe ticketId={ticket.id} antenneRiservate={antenneRiservate} onAssegnata={() => getAntenneRiservatePerTicket(ticket.id).then(setAntenneRiservate)} />
+        </div>
       )}
 
       {/* ★ FIX (2026-09-10, "diversi tipi di forme e non uniformità" —

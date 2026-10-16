@@ -7494,3 +7494,45 @@ lato database (le select esplicite nelle route PDF falliranno finché non
 è applicata).
 
 Build/lint puliti (0 errori).
+
+## Assegna CPE/antenna in pianificazione (2026-10-16)
+
+Richiesta esplicita: "quando vengono pianificate installazioni e cambio
+cpe... fai che possiamo assegnare una cpe con il suo mac. il tutto poi
+visibile nel calendario". Verificato: la prenotazione di una CPE esisteva
+già (`prenotaAntennaInventario`, stato Disponibile→Prenotata) ma era
+raggiungibile solo da Materiali → Antenne, mai dalla pianificazione
+dell'appuntamento — lì si vedeva solo in sola lettura, una volta già
+prenotata altrove. Confermato con l'utente: l'operatore deve poter
+scegliere sia tra le CPE già censite a magazzino sia scrivere al volo un
+MAC mai visto prima (censito e prenotato nello stesso momento).
+
+✅ **Due nuovi server action** in `materiali/actions.ts`:
+`getAntenneDisponibili()` (lista le CPE Disponibili per il menu) e
+`assegnaCpeATicket()` (unico punto d'ingresso: riusa la stessa logica di
+`prenotaAntennaInventario` per un pezzo già censito, oppure crea
+direttamente una nuova riga Prenotata per un MAC mai visto — stesso
+controllo di permesso, solo Analisi Rete o admin, in entrambi i casi).
+
+✅ **Nuovo componente condiviso** `src/components/condivisi/assegna-cpe.tsx`
+— un menu "da magazzino" + un campo libero "nuovo modello/MAC", usato nei
+tre punti dove oggi si pianifica un appuntamento: "Pianifica
+appuntamento" nel Ticket, e "Nuovo"/"Modifica appuntamento" nel
+Calendario. Visibile per una Nuova installazione o un "Cambio CPE"
+(dove quel dato esiste a quel punto del flusso — il form di modifica non
+ha un selettore "tipo di intervento" proprio, mostrato lì per qualunque
+appuntamento con un Ticket collegato, stesso criterio già in uso dal
+vecchio riepilogo in sola lettura).
+
+✅ **Visibile nel calendario** — nessuna modifica necessaria alla
+descrizione dell'evento Google Calendar: la riga "Antenna riservata: ..."
+legge già le CPE Prenotate per il Ticket al momento di creare/modificare
+l'appuntamento (`descrizioneEventoGoogle`), quindi assegnare la CPE prima
+di inviare il form la fa comparire lì in automatico.
+
+**Verificato con un test reale** (non solo build): simulato l'inserimento
+di un nuovo MAC su un ticket reale, verificata la lettura, verificato che
+un MAC duplicato venga bloccato dal vincolo già esistente — dati di test
+rimossi subito dopo.
+
+Build/lint puliti (0 errori). Nessuna migrazione.
