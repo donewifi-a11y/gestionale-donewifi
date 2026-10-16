@@ -7463,3 +7463,34 @@ testuale estratto e controllato: dati azienda, cliente, voci, e calcolo
 IVA esatto (verificato a mano: imponibile + IVA = totale).
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Dati legali del cliente nel preventivo (2026-10-16)
+
+Richiesta esplicita: "nel preventivo non ci sono i dati legali del
+cliente". Verificato: né a schermo né nel PDF compariva mai indirizzo/
+codice fiscale/P.IVA del cliente — dati già raccolti per un Cliente
+Esterno ma mai riportati sul preventivo, assenti del tutto per un cliente
+nuovo (Segnalazione) o inserito a mano.
+
+✅ **3 nuove colonne facoltative** su `preventivi`: `cliente_indirizzo`,
+`cliente_codice_fiscale`, `cliente_partita_iva` (migrazione 0091).
+
+✅ **Form "Nuovo Preventivo"** — 3 nuovi campi facoltativi nella card
+Cliente. Precompilati automaticamente in due casi, nessun inserimento
+doppio: scegliendo un cliente/segnalazione già esistente dalla ricerca
+(`cercaClientiPerPreventivo` ora porta anche questi dati — indirizzo
+composto dai campi separati, CF/P.IVA solo per un Cliente Esterno, mai
+per una Segnalazione che non li raccoglie ancora), oppure arrivando dal
+bottone "Nuovo preventivo" nella scheda cliente (stessi dati già lì).
+
+✅ **Mostrati ovunque il preventivo è già visibile**: pagina pubblica
+`/approva/[token]`, pannello interno, e PDF scaricabile — stesso
+pattern "mostra solo se presente" già usato per gli altri campi
+facoltativi del preventivo.
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0091_dati_fiscali_preventivo.sql`
+— senza applicarla il salvataggio dei nuovi campi fallisce silenziosamente
+lato database (le select esplicite nelle route PDF falliranno finché non
+è applicata).
+
+Build/lint puliti (0 errori).

@@ -23,7 +23,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: preventivo, error } = await supabase
     .from("preventivi")
-    .select("numero, cliente_nome, cliente_telefono, cliente_email, righe, totale, note, valido_fino_il, creato_il")
+    .select(
+      "numero, cliente_nome, cliente_telefono, cliente_email, cliente_indirizzo, cliente_codice_fiscale, cliente_partita_iva, righe, totale, note, valido_fino_il, creato_il"
+    )
     .eq("id", riga.preventivo_id)
     .maybeSingle();
   if (error || !preventivo) return NextResponse.json({ errore: "Preventivo non trovato." }, { status: 404 });

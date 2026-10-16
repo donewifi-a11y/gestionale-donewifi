@@ -187,6 +187,12 @@ export interface Preventivo {
   cliente_nome: string;
   cliente_telefono: string | null;
   cliente_email: string | null;
+  /** ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci
+   * sono i dati legali del cliente") — tutti e tre facoltativi, vedi
+   * migrazione 0091. */
+  cliente_indirizzo: string | null;
+  cliente_codice_fiscale: string | null;
+  cliente_partita_iva: string | null;
   tipologia_cliente: "Privato" | "Azienda";
   segnalazione_id: string | null;
   cliente_esterno_id: number | null;

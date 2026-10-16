@@ -19,6 +19,11 @@ interface DatiPreventivoPdf {
   cliente_nome: string;
   cliente_telefono: string | null;
   cliente_email: string | null;
+  /** ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci
+   * sono i dati legali del cliente") — facoltativi come il resto. */
+  cliente_indirizzo: string | null;
+  cliente_codice_fiscale: string | null;
+  cliente_partita_iva: string | null;
   righe: RigaPreventivo[];
   totale: number;
   note: string | null;
@@ -81,6 +86,14 @@ export function PreventivoDocument({ preventivo }: { preventivo: DatiPreventivoP
           <Text style={styles.righeCliente}>{preventivo.cliente_nome}</Text>
           {preventivo.cliente_telefono && <Text style={styles.righeClienteDettaglio}>Tel. {preventivo.cliente_telefono}</Text>}
           {preventivo.cliente_email && <Text style={styles.righeClienteDettaglio}>{preventivo.cliente_email}</Text>}
+          {preventivo.cliente_indirizzo && <Text style={styles.righeClienteDettaglio}>{preventivo.cliente_indirizzo}</Text>}
+          {(preventivo.cliente_codice_fiscale || preventivo.cliente_partita_iva) && (
+            <Text style={styles.righeClienteDettaglio}>
+              {preventivo.cliente_codice_fiscale ? `CF ${preventivo.cliente_codice_fiscale}` : ""}
+              {preventivo.cliente_codice_fiscale && preventivo.cliente_partita_iva ? " — " : ""}
+              {preventivo.cliente_partita_iva ? `P.IVA ${preventivo.cliente_partita_iva}` : ""}
+            </Text>
+          )}
         </View>
 
         <View style={styles.tabella}>

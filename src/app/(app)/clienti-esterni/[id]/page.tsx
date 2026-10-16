@@ -268,9 +268,15 @@ export default async function SchedaClienteEsternoPage({ params }: { params: Pro
               tipologia) come query string, letti da `preventivi/nuovo/page.tsx`
               e passati al form come se l'operatore l'avesse appena
               cercato e scelto lì — stesso collegamento
-              (`cliente_esterno_id`), nessuna logica duplicata. */}
+              (`cliente_esterno_id`), nessuna logica duplicata.
+              ★ ESTESA (2026-10-16, richiesta esplicita: "nel preventivo
+              non ci sono i dati legali del cliente") — indirizzo/codice
+              fiscale/P.IVA, già disponibili su questa scheda, passati
+              allo stesso modo. */}
               <Link
-                href={`/preventivi/nuovo?clienteEsternoId=${c.id}&nome=${encodeURIComponent(nomeVisualizzato(c))}&telefono=${encodeURIComponent(c.telefono ?? "")}&email=${encodeURIComponent(c.email ?? "")}&tipologia=${c.ragionesociale ? "Azienda" : "Privato"}`}
+                href={`/preventivi/nuovo?clienteEsternoId=${c.id}&nome=${encodeURIComponent(nomeVisualizzato(c))}&telefono=${encodeURIComponent(c.telefono ?? "")}&email=${encodeURIComponent(c.email ?? "")}&tipologia=${c.ragionesociale ? "Azienda" : "Privato"}&indirizzo=${encodeURIComponent(
+                  c.indirizzo ? `${[c.indirizzo, c.numero_civico].filter(Boolean).join(" ")}${c.cap || c.comune ? `, ${[c.cap, c.comune, c.provincia].filter(Boolean).join(" ")}` : ""}` : ""
+                )}&cf=${encodeURIComponent(c.codice_fiscale ?? "")}&piva=${encodeURIComponent(c.partita_iva ?? "")}`}
                 className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
               >
                 <Plus className="h-3 w-3" strokeWidth={2.5} />

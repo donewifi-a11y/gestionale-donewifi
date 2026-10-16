@@ -23,7 +23,17 @@ interface RigaTokenApprovazione {
     | "trasferimento_contratto";
   tickets: { numero: number; cliente: string; categoria: string } | null;
   segnalazioni: { numero: number; nome: string; contratto_pdf_url: string | null } | null;
-  preventivi: { numero: number; cliente_nome: string; righe: RigaPreventivo[]; totale: number; valido_fino_il: string | null; creato_il: string } | null;
+  preventivi: {
+    numero: number;
+    cliente_nome: string;
+    cliente_indirizzo: string | null;
+    cliente_codice_fiscale: string | null;
+    cliente_partita_iva: string | null;
+    righe: RigaPreventivo[];
+    totale: number;
+    valido_fino_il: string | null;
+    creato_il: string;
+  } | null;
   appuntamenti: { titolo: string; tickets: { numero: number; cliente: string } | null } | null;
   richieste_clienti: { cliente: string | null; tipo_richiesta: string | null; contratto_pdf_url: string | null; tickets: { numero: number; cliente: string } | null } | null;
 }
@@ -52,7 +62,7 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
   const { data: riga, error } = await supabase
     .from("token_approvazione")
     .select(
-      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, righe, totale, valido_fino_il, creato_il), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
+      "origine, tickets(numero, cliente, categoria), segnalazioni(numero, nome, contratto_pdf_url), preventivi(numero, cliente_nome, cliente_indirizzo, cliente_codice_fiscale, cliente_partita_iva, righe, totale, valido_fino_il, creato_il), appuntamenti(titolo, tickets(numero, cliente)), richieste_clienti(cliente, tipo_richiesta, contratto_pdf_url, tickets(numero, cliente))"
     )
     .eq("token", token)
     .maybeSingle();
@@ -206,6 +216,17 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
               <br />
               {preventivo.cliente_nome}, ecco il dettaglio.
             </p>
+            {/* ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo
+            non ci sono i dati legali del cliente") — indirizzo/codice
+            fiscale/P.IVA, quando presenti (tutti facoltativi). */}
+            {(preventivo.cliente_indirizzo || preventivo.cliente_codice_fiscale || preventivo.cliente_partita_iva) && (
+              <p className="text-[11px] text-muted-foreground">
+                {preventivo.cliente_indirizzo}
+                {preventivo.cliente_indirizzo && (preventivo.cliente_codice_fiscale || preventivo.cliente_partita_iva) && <br />}
+                {preventivo.cliente_codice_fiscale && <>CF {preventivo.cliente_codice_fiscale} </>}
+                {preventivo.cliente_partita_iva && <>P.IVA {preventivo.cliente_partita_iva}</>}
+              </p>
+            )}
             {/* ★ NUOVA (2026-10-15, richiesta esplicita: "verifica nei
             preventivi che ci siano tutti i dati che devono esserci per
             legge") — data di emissione e data di validità: prima la

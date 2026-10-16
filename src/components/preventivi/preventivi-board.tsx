@@ -264,6 +264,21 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
           )}
         </div>
 
+        {/* ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non
+        ci sono i dati legali del cliente") — indirizzo/codice fiscale/
+        P.IVA, quando presenti (tutti facoltativi). */}
+        {(preventivo.cliente_indirizzo || preventivo.cliente_codice_fiscale || preventivo.cliente_partita_iva) && (
+          <div className="text-xs text-muted-foreground">
+            {preventivo.cliente_indirizzo && <p>{preventivo.cliente_indirizzo}</p>}
+            {(preventivo.cliente_codice_fiscale || preventivo.cliente_partita_iva) && (
+              <p>
+                {preventivo.cliente_codice_fiscale && <>CF {preventivo.cliente_codice_fiscale} </>}
+                {preventivo.cliente_partita_iva && <>P.IVA {preventivo.cliente_partita_iva}</>}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="rounded-lg border bg-muted/40 p-3">
           <div className="flex flex-col gap-1.5">
             {preventivo.righe.map((r, i) => (

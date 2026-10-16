@@ -11,7 +11,7 @@ import type { Tariffa, MaterialeMagazzino } from "@/lib/types";
 export default async function NuovoPreventivoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ clienteEsternoId?: string; nome?: string; telefono?: string; email?: string; tipologia?: string }>;
+  searchParams: Promise<{ clienteEsternoId?: string; nome?: string; telefono?: string; email?: string; tipologia?: string; indirizzo?: string; cf?: string; piva?: string }>;
 }) {
   const supabase = await createClient();
   const sp = await searchParams;
@@ -30,6 +30,9 @@ export default async function NuovoPreventivoPage({
           telefono: sp.telefono || null,
           email: sp.email || null,
           tipologiaCliente: sp.tipologia === "Azienda" ? "Azienda" : "Privato",
+          indirizzo: sp.indirizzo || null,
+          codiceFiscale: sp.cf || null,
+          partitaIva: sp.piva || null,
         }
       : undefined;
 

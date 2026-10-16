@@ -31,6 +31,11 @@ export interface ClientePrecompilato {
   telefono: string | null;
   email: string | null;
   tipologiaCliente: "Privato" | "Azienda";
+  /** ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci
+   * sono i dati legali del cliente") — facoltativi come il resto. */
+  indirizzo?: string | null;
+  codiceFiscale?: string | null;
+  partitaIva?: string | null;
 }
 
 export function NuovoPreventivoForm({
@@ -48,6 +53,11 @@ export function NuovoPreventivoForm({
   const [clienteNome, setClienteNome] = useState(clientePrecompilato?.nome ?? "");
   const [clienteTelefono, setClienteTelefono] = useState(clientePrecompilato?.telefono ?? "");
   const [clienteEmail, setClienteEmail] = useState(clientePrecompilato?.email ?? "");
+  // ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci sono
+  // i dati legali del cliente") — stesso principio di telefono/email sopra.
+  const [clienteIndirizzo, setClienteIndirizzo] = useState(clientePrecompilato?.indirizzo ?? "");
+  const [clienteCodiceFiscale, setClienteCodiceFiscale] = useState(clientePrecompilato?.codiceFiscale ?? "");
+  const [clientePartitaIva, setClientePartitaIva] = useState(clientePrecompilato?.partitaIva ?? "");
   const [segnalazioneId, setSegnalazioneId] = useState<string | null>(null);
   const [clienteEsternoId, setClienteEsternoId] = useState<number | null>(clientePrecompilato?.id ?? null);
   const [note, setNote] = useState("");
@@ -81,6 +91,9 @@ export function NuovoPreventivoForm({
           telefono: clientePrecompilato.telefono,
           email: clientePrecompilato.email,
           tipologiaCliente: clientePrecompilato.tipologiaCliente,
+          indirizzo: clientePrecompilato.indirizzo ?? null,
+          codiceFiscale: clientePrecompilato.codiceFiscale ?? null,
+          partitaIva: clientePrecompilato.partitaIva ?? null,
         }
       : null
   );
@@ -107,6 +120,9 @@ export function NuovoPreventivoForm({
     setClienteNome(r.nome);
     setClienteTelefono(r.telefono || "");
     setClienteEmail(r.email || "");
+    setClienteIndirizzo(r.indirizzo || "");
+    setClienteCodiceFiscale(r.codiceFiscale || "");
+    setClientePartitaIva(r.partitaIva || "");
     setTipologiaCliente(r.tipologiaCliente);
     setSegnalazioneId(r.tipo === "segnalazione" ? String(r.id) : null);
     setClienteEsternoId(r.tipo === "cliente_esterno" ? Number(r.id) : null);
@@ -202,6 +218,9 @@ export function NuovoPreventivoForm({
         clienteNome,
         clienteTelefono,
         clienteEmail,
+        clienteIndirizzo,
+        clienteCodiceFiscale,
+        clientePartitaIva,
         tipologiaCliente,
         segnalazioneId,
         clienteEsternoId,
@@ -336,6 +355,24 @@ export function NuovoPreventivoForm({
               ) : (
                 <p className="mt-1 text-[11px] text-muted-foreground">Serve per poterlo inviare in approvazione.</p>
               )}
+            </div>
+            {/* ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo
+            non ci sono i dati legali del cliente") — tutti e tre
+            facoltativi, precompilati automaticamente scegliendo un
+            cliente già esistente dalla ricerca sopra (o arrivando dalla
+            sua scheda, vedi ClientePrecompilato), restano comunque campi
+            liberi modificabili a mano. */}
+            <div className="col-span-2">
+              <Label htmlFor="clienteIndirizzo">Indirizzo (facoltativo)</Label>
+              <Input id="clienteIndirizzo" value={clienteIndirizzo} onChange={(e) => setClienteIndirizzo(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="clienteCodiceFiscale">Codice Fiscale (facoltativo)</Label>
+              <Input id="clienteCodiceFiscale" value={clienteCodiceFiscale} onChange={(e) => setClienteCodiceFiscale(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="clientePartitaIva">Partita IVA (facoltativo)</Label>
+              <Input id="clientePartitaIva" value={clientePartitaIva} onChange={(e) => setClientePartitaIva(e.target.value)} className="mt-1" />
             </div>
           </div>
         </div>

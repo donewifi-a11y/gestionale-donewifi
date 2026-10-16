@@ -26,6 +26,12 @@ export async function creaPreventivo(dati: {
   clienteNome: string;
   clienteTelefono: string;
   clienteEmail: string;
+  /** ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci
+   * sono i dati legali del cliente") — tutti e tre facoltativi, vedi
+   * migrazione 0091. */
+  clienteIndirizzo?: string;
+  clienteCodiceFiscale?: string;
+  clientePartitaIva?: string;
   tipologiaCliente: "Privato" | "Azienda";
   segnalazioneId?: string | null;
   clienteEsternoId?: number | null;
@@ -50,6 +56,9 @@ export async function creaPreventivo(dati: {
       cliente_nome: dati.clienteNome.trim(),
       cliente_telefono: dati.clienteTelefono.trim() || null,
       cliente_email: dati.clienteEmail.trim() || null,
+      cliente_indirizzo: dati.clienteIndirizzo?.trim() || null,
+      cliente_codice_fiscale: dati.clienteCodiceFiscale?.trim() || null,
+      cliente_partita_iva: dati.clientePartitaIva?.trim() || null,
       tipologia_cliente: dati.tipologiaCliente,
       segnalazione_id: dati.segnalazioneId || null,
       cliente_esterno_id: dati.clienteEsternoId || null,
@@ -235,6 +244,15 @@ export interface RisultatoRicercaCliente {
   telefono: string | null;
   email: string | null;
   tipologiaCliente: "Privato" | "Azienda";
+  /** ★ NUOVA (2026-10-16, richiesta esplicita: "nel preventivo non ci
+   * sono i dati legali del cliente") — precompila gli stessi campi nel
+   * form quando si sceglie un cliente/segnalazione già esistente. Una
+   * Segnalazione ha solo l'indirizzo (via/civico/comune/cap), mai
+   * codice fiscale/P.IVA — raccolti solo più avanti nel percorso cliente;
+   * un Cliente Esterno li ha già tutti. */
+  indirizzo: string | null;
+  codiceFiscale: string | null;
+  partitaIva: string | null;
 }
 
 // ★ NUOVA — il preventivo si crea da una schermata dedicata (non più
@@ -260,18 +278,23 @@ export async function cercaClientiPerPreventivo(query: string): Promise<Risultat
   const [segnalazioni, clientiEsterni] = await Promise.all([
     supabase
       .from("segnalazioni")
-      .select("id, nome, telefono, email, tipologia_cliente")
+      .select("id, nome, telefono, email, tipologia_cliente, via, civico, comune, cap")
       .or(`nome.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%`)
       .limit(8),
     supabase
       .from("clienti_esterni")
-      .select("id, nome, cognome, ragionesociale, telefono, email")
+      .select("id, nome, cognome, ragionesociale, telefono, email, indirizzo, numero_civico, cap, comune, provincia, codice_fiscale, partita_iva")
       .or(`nome.ilike.%${testoSicuro}%,cognome.ilike.%${testoSicuro}%,ragionesociale.ilike.%${testoSicuro}%,telefono.ilike.%${testoSicuro}%`)
       .limit(8),
   ]);
 
   const risultati: RisultatoRicercaCliente[] = [];
   for (const s of segnalazioni.data ?? []) {
+    // ★ NUOVA (2026-10-16) — indirizzo composto dai campi separati della
+    // Segnalazione (via/civico/comune/cap, mai un unico campo testuale),
+    // null se non c'è nemmeno la via (evita una stringa fatta di soli
+    // separatori vuoti).
+    const indirizzo = s.via ? [s.via, s.civico].filter(Boolean).join(" ") + (s.cap || s.comune ? `, ${[s.cap, s.comune].filter(Boolean).join(" ")}` : "") : null;
     risultati.push({
       tipo: "segnalazione",
       id: s.id,
@@ -279,10 +302,16 @@ export async function cercaClientiPerPreventivo(query: string): Promise<Risultat
       telefono: s.telefono,
       email: s.email,
       tipologiaCliente: s.tipologia_cliente === "Azienda" ? "Azienda" : "Privato",
+      indirizzo,
+      codiceFiscale: null,
+      partitaIva: null,
     });
   }
   for (const c of clientiEsterni.data ?? []) {
     const nome = c.ragionesociale || [c.cognome, c.nome].filter(Boolean).join(" ") || "—";
+    const indirizzo = c.indirizzo
+      ? [c.indirizzo, c.numero_civico].filter(Boolean).join(" ") + (c.cap || c.comune ? `, ${[c.cap, c.comune, c.provincia].filter(Boolean).join(" ")}` : "")
+      : null;
     risultati.push({
       tipo: "cliente_esterno",
       id: c.id,
@@ -290,6 +319,9 @@ export async function cercaClientiPerPreventivo(query: string): Promise<Risultat
       telefono: c.telefono,
       email: c.email,
       tipologiaCliente: c.ragionesociale ? "Azienda" : "Privato",
+      indirizzo,
+      codiceFiscale: c.codice_fiscale,
+      partitaIva: c.partita_iva,
     });
   }
   return risultati;
