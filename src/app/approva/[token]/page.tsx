@@ -1,4 +1,4 @@
-import { AlertTriangle, FileText } from "lucide-react";
+import { AlertTriangle, FileText, Download } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/server";
 import { urlFirmataDocumento } from "@/lib/documenti";
 import { ConfermaBottone } from "@/components/approva/conferma-bottone";
@@ -250,6 +250,16 @@ export default async function ApprovaPage({ params }: { params: Promise<{ token:
                 <span className="tabular-nums">{formattaValuta(preventivo.totale)}</span>
               </div>
             </div>
+            {/* ★ NUOVA (2026-10-16, richiesta esplicita: "preventivo devono
+            essere scaricabili in pdf") — stesso token monouso già usato
+            per questa pagina, nessun login richiesto. */}
+            <a
+              href={`/api/approva/${token}/pdf`}
+              className="flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              <Download className="h-4 w-4" strokeWidth={2.25} />
+              Scarica PDF
+            </a>
             {preventivoScaduto ? (
               <>
                 <AlertTriangle className="h-8 w-8 text-warning" strokeWidth={2} />

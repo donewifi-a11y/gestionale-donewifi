@@ -7424,3 +7424,42 @@ sceglierlo a mano, nessuna logica duplicata (`NuovoPreventivoForm` accetta
 ora un prop opzionale `clientePrecompilato`).
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Preventivi scaricabili in PDF (2026-10-16)
+
+Richiesta esplicita: "preventivo devono essere scaricabili in pdf". Prima
+nel progetto non esisteva alcuna generazione PDF reale (i contratti sono
+PDF caricati a mano, il Rapportino usa "Stampa" del browser → "Salva come
+PDF"). Confermato con l'utente: PDF vero scaricabile con un click, non la
+finestra di stampa del browser.
+
+✅ **Nuova dipendenza `@react-pdf/renderer`** (^4.9.0) — l'unica aggiunta
+reale: nessun'altra libreria PDF esisteva da riusare. Scelta per essere
+leggera e compatibile con l'ambiente serverless di Vercel (niente Chrome
+headless/Puppeteer).
+
+✅ **Nuovo documento condiviso** `src/lib/pdf/preventivo-document.tsx` —
+stessi identici dati e stessa scomposizione IVA già mostrati su
+`/approva/[token]` e nel pannello interno Preventivi (riusa
+`dati-azienda.ts`/`scorporaIva()`, nessuna duplicazione): intestazione
+azienda, numero/data emissione/validità, cliente, voci, imponibile/IVA/
+totale, note, footer con P.IVA.
+
+✅ **Due route di generazione**, stesso documento, controllo d'accesso
+diverso a seconda di chi scarica:
+- `api/preventivi/[id]/pdf` — uso interno, dietro login (staff).
+- `api/approva/[token]/pdf` — uso pubblico, stesso token monouso già in
+  uso per la pagina che il cliente apre e approva, nessun login.
+
+✅ **Bottone "Scarica PDF"** aggiunto in entrambi i punti dove il
+preventivo è già visibile: pannello interno (`preventivi-board.tsx`) e
+pagina pubblica (`/approva/[token]`).
+
+**Verificato con un test reale**, non solo con la build: generato
+davvero un PDF da un preventivo esistente in produzione (token di
+approvazione temporaneo creato e poi eliminato subito dopo il test,
+nessun dato lasciato indietro) — PDF valido (1 pagina), contenuto
+testuale estratto e controllato: dati azienda, cliente, voci, e calcolo
+IVA esatto (verificato a mano: imponibile + IVA = totale).
+
+Build/lint puliti (0 errori). Nessuna migrazione.

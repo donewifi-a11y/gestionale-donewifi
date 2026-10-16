@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2, Phone, Mail } from "lucide-react";
+import { Search, Send, Trash2, Check, Clock, X, FileText, Loader2, Phone, Mail, Download } from "lucide-react";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -301,6 +301,18 @@ function DettaglioPreventivo({ preventivo, isAdmin, onChiudi }: { preventivo: Pr
             <span className="tabular-nums">{formattaValuta(preventivo.totale)}</span>
           </div>
         </div>
+
+        {/* ★ NUOVA (2026-10-16, richiesta esplicita: "preventivo devono
+        essere scaricabili in pdf") — stesso documento generato per il
+        cliente su /approva/[token]/pdf, qui dietro login invece che
+        dietro il token di approvazione. */}
+        <a
+          href={`/api/preventivi/${preventivo.id}/pdf`}
+          className="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+        >
+          <Download className="h-4 w-4" strokeWidth={2.25} />
+          Scarica PDF
+        </a>
 
         {preventivo.note && (
           <div>
