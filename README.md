@@ -7536,3 +7536,32 @@ un MAC duplicato venga bloccato dal vincolo già esistente — dati di test
 rimossi subito dopo.
 
 Build/lint puliti (0 errori). Nessuna migrazione.
+
+## Disdette riviste: cessazione, recupero apparati, "Pagato ritiro" (2026-10-20)
+
+Richiesta esplicita: Fatturazione apre il Ticket di disdetta quando arriva
+una raccomandata o una PEC; indica data di ricezione e modalità di invio;
+poi quando cessa la fatturazione (da lì gli apparati si possono recuperare),
+come vengono recuperati (ritiro in loco o consegna in ufficio) e il costo
+(95 €, 61 € oppure consegna in ufficio gratuita); il ritiro va pagato e solo
+con "Pagato ritiro" il Ticket passa ad Analisi Rete.
+
+- **Creazione** (`campi-ticket.ts`): data di ricezione e modalità di invio
+  (Raccomandata A/R / PEC) obbligatorie al posto della vecchia "Data
+  desiderata", mai usata altrove. Il motivo diventa facoltativo.
+- **Nuova sezione** `sezione-disdetta.tsx` (sostituisce "Dismissione — ritiro
+  apparati"): cessazione fatturazione, modalità, costo. Consegna in ufficio:
+  gratuita, passa subito ad Analisi Rete. Ritiro in loco: resta a
+  Fatturazione fino a "Pagato ritiro".
+- **Azioni** (`tickets/actions.ts`): `impostaRecuperoDisdetta()` e
+  `segnaRitiroDisdettaPagato()` sostituiscono `fissaDataDismissioneDisdetta()`;
+  il costo è imposto anche lato server (95/61 solo in loco, 0 solo in ufficio).
+- **Chiusura guidata**: `aggiornaStatoTicket()` non completa più una disdetta
+  senza cessazione e modalità, né un ritiro in loco non ancora pagato.
+- Il KPI "Cessazioni del mese" continua a leggere `data_dismissione_disdetta`,
+  che ora significa cessazione fatturazione.
+
+**⚠️ MIGRAZIONE DA APPLICARE:** `supabase/migrations/0092_disdetta_recupero_apparati.sql`
+(3 colonne su `tickets`). Senza, impostare il recupero fallisce.
+
+Build/lint puliti (0 errori).

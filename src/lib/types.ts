@@ -130,10 +130,16 @@ export interface Ticket {
    * reparto di fatturazione... deve dare i tempi per la dismissione e una
    * volta fatto deve essere inoltrato al reparto analisi di rete... per il
    * ritiro degli apparati") — solo sui Ticket di Disdetta (sottocategoria
-   * "Disdetta"), fissata da Fatturazione con fissaDataDismissioneDisdetta()
+   * "Disdetta"), fissata da Fatturazione con impostaRecuperoDisdetta()
    * (tickets/actions.ts), che passa anche il reparto ad Analisi Rete.
    * NULL finché non ancora fissata. */
   data_dismissione_disdetta: string | null;
+  /** ★ NUOVA (2026-10-20, richiesta esplicita: Fatturazione fissa
+   * modalità e costo del recupero apparati e segna "Pagato ritiro") —
+   * solo Ticket di Disdetta, vedi migrazione 0092. */
+  disdetta_modalita_ritiro: "Ritiro in loco" | "Consegna in ufficio" | null;
+  disdetta_costo_recupero: number | null;
+  disdetta_ritiro_pagato_il: string | null;
 }
 
 export interface Segnalazione {

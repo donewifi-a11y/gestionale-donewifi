@@ -25,7 +25,6 @@ import {
   inviaEmailPraticaCliente,
   cambiaRepartoTicket,
   eliminaTicket,
-  fissaDataDismissioneDisdetta,
 } from "@/app/(app)/tickets/actions";
 import {
   avviaPraticaSubentro,
@@ -277,7 +276,7 @@ function attesaDa(dataCreazione: string): string {
 // ★ NUOVA (2026-09-24, richiesta esplicita: "per i ticket di disdetta e
 // ritiro, gli stessi devono rimanere visibili e editabili anche dal
 // reparto fatturazione") — un Ticket di Disdetta viene riassegnato a
-// "Analisi Rete" per il ritiro apparati (fissaDataDismissioneDisdetta(),
+// "Analisi Rete" per il ritiro apparati (impostaRecuperoDisdetta(),
 // migrazione 0074), ma Fatturazione deve continuare a trovarlo — stessa
 // regola appena estesa lato RLS (persona_vede_ticket(), migrazione 0081):
 // qui serve applicarla anche alla tab per reparto appena aggiunta,
@@ -1813,14 +1812,6 @@ function DettaglioTicket({
   // l'allegato dei campi extra di creaTicket() (presigned upload URL).
   const [inCorsoContrattoSubentro, startContrattoSubentro] = useTransition();
   const [inCorsoInvioContrattoSubentro, startInvioContrattoSubentro] = useTransition();
-  // ★ NUOVA (2026-09-10, richiesta esplicita: "fatturazione... deve dare i
-  // tempi per la dismissione e una volta fatto deve essere inoltrato al
-  // reparto analisi di rete... per il ritiro degli apparati") — vedi
-  // sezione "Disdetta" più sotto e fissaDataDismissioneDisdetta()
-  // (tickets/actions.ts).
-  const [dataDismissione, setDataDismissione] = useState("");
-  const [inCorsoDismissione, startDismissione] = useTransition();
-  const [erroreDismissione, setErroreDismissione] = useState("");
   const [linkVecchioCliente, setLinkVecchioCliente] = useState("");
   const [esitoLinkVecchio, setEsitoLinkVecchio] = useState("");
   const assegnatario = ticket.tecnico_assegnato ? persone.find((p) => p.id === ticket.tecnico_assegnato) : null;
@@ -2014,26 +2005,6 @@ function DettaglioTicket({
       }
       onCambiato({ ...ticket, reparto: nuovo });
       toast(`Reparto cambiato in "${nuovo}".`, "successo");
-      router.refresh();
-    });
-  }
-
-  // ★ NUOVA (2026-09-10) — vedi la sezione "Disdetta" più sotto.
-  function fissaDismissione() {
-    if (!dataDismissione) {
-      setErroreDismissione("Indica la data di dismissione.");
-      return;
-    }
-    setErroreDismissione("");
-    startDismissione(async () => {
-      const risultato = await fissaDataDismissioneDisdetta(ticket.id, dataDismissione);
-      if (risultato.errore) {
-        setErroreDismissione(risultato.errore);
-        toast(risultato.errore);
-        return;
-      }
-      onCambiato({ ...ticket, reparto: "Analisi Rete", data_dismissione_disdetta: dataDismissione });
-      toast("Dismissione fissata — passato ad Analisi Rete.", "successo");
       router.refresh();
     });
   }
@@ -2369,11 +2340,6 @@ function DettaglioTicket({
             inviaContrattoSubentroClick,
             ticketCompletato: ticket.stato === "Completato",
           }}
-          dataDismissione={dataDismissione}
-          setDataDismissione={setDataDismissione}
-          fissaDismissione={fissaDismissione}
-          inCorsoDismissione={inCorsoDismissione}
-          erroreDismissione={erroreDismissione}
           praticheInviabili={PRATICHE_INVIABILI}
           praticaPerSottocategoria={PRATICA_PER_SOTTOCATEGORIA}
           praticaScelta={praticaScelta}
@@ -2383,6 +2349,7 @@ function DettaglioTicket({
           onInviaEmailPratica={() => inviaEmailPraticaCliente(ticket.id, praticaScelta, linkPratica)}
           inCorsoApprovazione={inCorsoApprovazione}
           inviaApprovazione={inviaApprovazione}
+          onCambiato={onCambiato}
           onCompletaClick={() => {
             setMostraRapportinoForm(true);
             // ★ il Rapportino si apre in cima al pannello (vedi

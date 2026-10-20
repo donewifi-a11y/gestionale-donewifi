@@ -112,10 +112,19 @@ export const CONFIG_SOTTOCATEGORIE: Record<string, ConfigSottocategoria> = {
     ],
   },
   Disdetta: {
-    info: "Dopo l'invio: Raccomandata A/R a Studio Armonia Srl o PEC a studioarmonia@pec.it. Antenna e router andranno restituiti al nostro personale.",
+    // ★ RIVISTA (2026-10-20, richiesta esplicita: la disdetta arriva a
+    // Fatturazione per raccomandata o PEC, che apre il Ticket indicando
+    // quando e come è stata ricevuta) — prima "Data desiderata" (data
+    // scelta dal cliente), mai usata altrove: ora data di ricezione e
+    // modalità di invio, i due dati che servono davvero a tracciare la
+    // comunicazione ufficiale. Il motivo non è sempre scritto nella lettera:
+    // facoltativo. La data di cessazione la decide Fatturazione dopo, dal
+    // Ticket (SezioneDisdetta), non il cliente qui.
+    info: "Apri il Ticket quando arriva la raccomandata A/R o la PEC (studioarmonia@pec.it). Dopo, dal Ticket, indica la cessazione della fatturazione e come recuperare antenna e router.",
     campi: [
-      { id: "motivo_disdetta", label: "Motivo", tipo: "select", obbligatorio: true, opzioni: ["Trasloco", "Passo ad altro operatore", "Non mi serve più", "Altro"] },
-      { id: "data_desiderata", label: "Data desiderata", tipo: "date", obbligatorio: true },
+      { id: "data_ricezione", label: "Data di ricezione della disdetta", tipo: "date", obbligatorio: true },
+      { id: "modalita_invio", label: "Come è stata inviata", tipo: "select", obbligatorio: true, opzioni: ["Raccomandata A/R", "PEC"] },
+      { id: "motivo_disdetta", label: "Motivo", tipo: "select", obbligatorio: false, opzioni: ["Trasloco", "Passo ad altro operatore", "Non mi serve più", "Altro"] },
     ],
   },
   "Fatture non saldate": {

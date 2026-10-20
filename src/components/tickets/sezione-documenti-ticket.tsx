@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { FileText, FileSignature, Repeat, CalendarClock, Send, Loader2, Check } from "lucide-react";
+import { FileText, FileSignature, Repeat, Send, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SuggerimentoCampo } from "@/components/ui/suggerimento-campo";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
@@ -10,6 +10,7 @@ import { PulsanteDocumento } from "@/components/condivisi/pulsante-documento";
 import { SchedaVista } from "@/components/schede/scheda-vista";
 import { RapportinoVista } from "@/components/tickets/rapportino";
 import { SubentroDoppioConsenso } from "@/components/tickets/sezione-subentro";
+import { SezioneDisdetta } from "@/components/tickets/sezione-disdetta";
 import { urlDocumentoRichiesta } from "@/app/(app)/richieste-clienti/actions";
 import { etichettaDettaglio } from "@/lib/etichette-dettagli";
 import type { RapportinoIntervento, RichiestaCliente, SchedaLavoro, Ticket } from "@/lib/types";
@@ -44,11 +45,6 @@ export function SezioneDocumentiTicket({
   richieste,
   praticaSubentro,
   subentro,
-  dataDismissione,
-  setDataDismissione,
-  fissaDismissione,
-  inCorsoDismissione,
-  erroreDismissione,
   praticheInviabili,
   praticaPerSottocategoria,
   praticaScelta,
@@ -59,6 +55,7 @@ export function SezioneDocumentiTicket({
   inCorsoApprovazione,
   inviaApprovazione,
   onCompletaClick,
+  onCambiato,
 }: {
   ticket: Ticket;
   numeroDocumenti: number;
@@ -69,11 +66,6 @@ export function SezioneDocumentiTicket({
   richieste: RichiestaCliente[];
   praticaSubentro: RichiestaCliente | undefined;
   subentro: PropsSubentro;
-  dataDismissione: string;
-  setDataDismissione: (v: string) => void;
-  fissaDismissione: () => void;
-  inCorsoDismissione: boolean;
-  erroreDismissione: string;
   praticheInviabili: { slug: string; titolo: string }[];
   praticaPerSottocategoria: Record<string, string>;
   praticaScelta: string;
@@ -86,6 +78,8 @@ export function SezioneDocumentiTicket({
   /** ★ apre lo stesso Rapportino di chiusura dello stepper di stato in
    * SezioneStatoTicket (setMostraRapportinoForm(true) in DettaglioTicket). */
   onCompletaClick: () => void;
+  /** ★ aggiorna il Ticket aperto dopo un'azione di SezioneDisdetta. */
+  onCambiato: (t: Ticket) => void;
 }) {
   const richiesteNonSubentro = richieste.filter((r) => r.tipo_richiesta !== "Subentro");
 
@@ -233,48 +227,11 @@ export function SezioneDocumentiTicket({
         </div>
       )}
 
-      {/* ★ NUOVA (2026-09-10, richiesta esplicita: "problemi con i ticket
-      di disdetta... fatturazione... deve dare i tempi per la
-      dismissione e una volta fatto deve essere inoltrato al reparto
-      analisi di rete... per il ritiro degli apparati") — un solo
-      passaggio, non due da ricordarsi separatamente: vedi
-      fissaDataDismissioneDisdetta() e fissaDismissione() più sopra. */}
-      {ticket.sottocategoria === "Disdetta" && (
-        <div>
-          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            <IconaCategoria icona={CalendarClock} categoria="tempo" dimensione="sm" />
-            Dismissione — ritiro apparati
-          </div>
-          {ticket.data_dismissione_disdetta ? (
-            <p className="rounded-lg border bg-muted/30 p-3 text-sm">
-              Dismissione fissata per il <b>{new Date(ticket.data_dismissione_disdetta).toLocaleDateString("it-IT")}</b>
-              {ticket.reparto === "Analisi Rete" ? " — passato ad Analisi Rete per il ritiro apparati." : "."}
-            </p>
-          ) : ticket.reparto === "Fatturazione" ? (
-            <div className="flex flex-col gap-2 rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">
-                Fissa la data di dismissione concordata col cliente — il Ticket passerà da solo ad Analisi Rete per
-                pianificare il ritiro degli apparati.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={dataDismissione}
-                  onChange={(e) => setDataDismissione(e.target.value)}
-                  className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
-                />
-                <Button size="sm" onClick={fissaDismissione} disabled={inCorsoDismissione} className="min-h-9 shrink-0">
-                  {inCorsoDismissione ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <CalendarClock className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                  {inCorsoDismissione ? "Salvataggio…" : "Fissa e passa ad Analisi Rete"}
-                </Button>
-              </div>
-              {erroreDismissione && <p className="text-xs text-critical">{erroreDismissione}</p>}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">In attesa che Fatturazione fissi la data di dismissione.</p>
-          )}
-        </div>
-      )}
+      {/* ★ RISCRITTA (2026-10-20, revisione flusso disdette) — il vecchio
+      blocco "Dismissione — ritiro apparati" chiedeva solo una data e passava
+      subito ad Analisi Rete: ora cessazione fatturazione, modalità e costo di
+      recupero, "Pagato ritiro" — vedi sezione-disdetta.tsx. */}
+      {ticket.sottocategoria === "Disdetta" && <SezioneDisdetta ticket={ticket} onCambiato={onCambiato} />}
 
       {/* ★ NASCOSTA per i Ticket di Subentro (2026-09-10, "non deve
       comparire invia una pratica al cliente è ancora un refuso del

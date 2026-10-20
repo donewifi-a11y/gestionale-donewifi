@@ -264,55 +264,150 @@ export async function cambiaRepartoTicket(id: string, repartoNuovo: AreaAccesso,
   return { errore: null };
 }
 
-/** ★ NUOVA (2026-09-10, richiesta esplicita: "problemi con i ticket di
- * disdetta. una volta aperti dal reparto di fatturazione che li ha
- * ricevuti, la stessa deve dare i tempi per la dismissione e una volta
- * fatto deve essere inoltrato al reparto analisi di rete per procedere con
- * la pianificazione del ritiro degli apparati") — un'unica azione invece
- * di due passaggi separati da ricordarsi (fissare la data, POI cambiare
- * reparto a mano dal selettore generico): Fatturazione fissa la data di
- * dismissione, il Ticket passa da solo ad Analisi Rete, che viene
- * notificata sui 3 canali con la data già in mano per pianificare il
- * ritiro apparati (vedi anche l'intervento "Recupero Apparati" nella
- * Scheda Lavorazione, 2026-09-10). Scrittura via service role, stesso
- * principio delle altre funzioni di scrittura Ticket in questo file. */
-export async function fissaDataDismissioneDisdetta(ticketId: string, dataDismissione: string) {
+/** ★ RIVISTA (2026-10-20, richiesta esplicita: "la fatturazione indica
+ * quando cesserà la fatturazione e sarà possibile recuperarla... fissa il
+ * costo di recupero 95€, 61€ o consegna in sede che è gratuito... le
+ * modalità di ritiro apparati sono fissate da fatturazione") — sostituisce
+ * fissaDataDismissioneDisdetta() (2026-09-10), che passava il Ticket ad
+ * Analisi Rete appena fissata la data, senza costo né modalità. Ora
+ * Fatturazione decide tre cose insieme: data di cessazione (colonna già
+ * esistente data_dismissione_disdetta), modalità (Ritiro in loco /
+ * Consegna in ufficio) e costo (95 o 61 per il ritiro in loco, 0 per la
+ * consegna in ufficio, sempre gratuita).
+ *
+ * Consegna in ufficio (gratuita): nulla da incassare, il Ticket passa
+ * subito ad Analisi Rete. Ritiro in loco: il Ticket RESTA a Fatturazione
+ * finché non incassa il costo e preme "Pagato ritiro"
+ * (segnaRitiroDisdettaPagato() sotto) — solo allora Analisi Rete lo vede
+ * da pianificare. Scrittura via service role, stesso principio delle altre
+ * funzioni di scrittura Ticket in questo file. */
+export async function impostaRecuperoDisdetta(
+  ticketId: string,
+  dati: { dataCessazione: string; modalita: "Ritiro in loco" | "Consegna in ufficio"; costo: number }
+) {
   const supabase = await createClient();
   const persona = await getPersonaCorrente(supabase);
   if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
-  if (!dataDismissione) return { errore: "Indica la data di dismissione." };
-  // ★ FIX (2026-09-18, audit modulo Ticket) — validava solo che il campo
-  // non fosse vuoto, non che fosse una data valida o non già passata: si
-  // poteva fissare una dismissione a ieri (o a un valore manomesso non in
-  // formato data) e il Ticket passava comunque ad Analisi Rete con quella
-  // data storicamente scorretta, senza alcun avviso.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataDismissione) || Number.isNaN(new Date(dataDismissione).getTime())) {
-    return { errore: "Data di dismissione non valida." };
+  if (!dati.dataCessazione) return { errore: "Indica quando cessa la fatturazione." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dati.dataCessazione) || Number.isNaN(new Date(dati.dataCessazione).getTime())) {
+    return { errore: "Data di cessazione non valida." };
   }
-  if (dataDismissione < dataItaliaStringa()) {
-    return { errore: "La data di dismissione non può essere nel passato." };
-  }
+  if (dati.dataCessazione < dataItaliaStringa()) return { errore: "La data di cessazione non può essere nel passato." };
+  if (dati.modalita !== "Ritiro in loco" && dati.modalita !== "Consegna in ufficio") return { errore: "Scegli la modalità di recupero." };
+  // ★ il costo non è libero: 95 o 61 per il ritiro in loco, gratuito (0)
+  // solo per la consegna in ufficio — stessa regola del listino, imposta
+  // anche qui lato server oltre che nel form.
+  if (dati.modalita === "Consegna in ufficio" && dati.costo !== 0) return { errore: "La consegna in ufficio è gratuita." };
+  if (dati.modalita === "Ritiro in loco" && dati.costo !== 95 && dati.costo !== 61) return { errore: "Il ritiro in loco costa 95 € o 61 €." };
 
   const service = createServiceClient();
   const { data: ticket } = await service
     .from("tickets")
-    .select("numero, cliente, sottocategoria, reparto")
+    .select("numero, cliente, sottocategoria, reparto, disdetta_ritiro_pagato_il")
     .eq("id", ticketId)
     .single();
   if (!ticket) return { errore: "Ticket non trovato." };
-  if (ticket.sottocategoria !== "Disdetta") {
-    return { errore: "Questa azione è disponibile solo sui Ticket di Disdetta." };
-  }
+  if (ticket.sottocategoria !== "Disdetta") return { errore: "Questa azione è disponibile solo sui Ticket di Disdetta." };
+  if (ticket.disdetta_ritiro_pagato_il) return { errore: "Il ritiro risulta già pagato: non si possono più cambiare modalità e costo." };
 
+  const gratuita = dati.modalita === "Consegna in ufficio";
+  const nuovoReparto = gratuita ? "Analisi Rete" : ticket.reparto;
   const { error } = await service
     .from("tickets")
-    .update({ data_dismissione_disdetta: dataDismissione, reparto: "Analisi Rete", aggiornato_il: new Date().toISOString() })
+    .update({
+      data_dismissione_disdetta: dati.dataCessazione,
+      disdetta_modalita_ritiro: dati.modalita,
+      disdetta_costo_recupero: dati.costo,
+      reparto: nuovoReparto,
+      aggiornato_il: new Date().toISOString(),
+    })
     .eq("id", ticketId);
   if (error) return { errore: error.message };
 
-  const dataLeggibile = new Date(dataDismissione).toLocaleDateString("it-IT");
+  const dataLeggibile = new Date(dati.dataCessazione).toLocaleDateString("it-IT");
+  const descrizione = gratuita
+    ? `Fatturazione cessa il ${dataLeggibile}. Recupero apparati: consegna in ufficio, gratuita.`
+    : `Fatturazione cessa il ${dataLeggibile}. Recupero apparati: ritiro in loco, costo ${dati.costo} € — in attesa del pagamento.`;
 
   await Promise.all([
+    service.from("note_ticket").insert({ ticket_id: ticketId, autore_id: persona.id, testo: descrizione }),
+    service.from("storico").insert({
+      origine: "ticket",
+      riferimento_id: ticketId,
+      operazione: "Recupero apparati impostato",
+      valore_dopo: `${dati.modalita} · ${dati.costo} €`,
+      operatore_id: persona.id,
+    }),
+    ...(gratuita
+      ? [
+          service.from("storico").insert({
+            origine: "ticket",
+            riferimento_id: ticketId,
+            operazione: "Cambio Reparto",
+            valore_prima: ticket.reparto,
+            valore_dopo: "Analisi Rete",
+            operatore_id: persona.id,
+          }),
+          notificaSuTuttiICanali({
+            reparto: "Analisi Rete",
+            telegramHtml: `📦 <b>Disdetta — consegna apparati in ufficio</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}\nFatturazione cessa il ${dataLeggibile}. Il cliente riconsegna in ufficio (gratuito).`,
+            chatTesto: `📦 Disdetta Ticket #${ticket.numero} (${ticket.cliente}) — consegna apparati in ufficio dal ${dataLeggibile}, nessun ritiro da pianificare.`,
+            emailTitolo: `Disdetta — consegna apparati in ufficio, Ticket #${ticket.numero}`,
+            emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il Ticket di Disdetta <b>#${ticket.numero}</b> — ${ticket.cliente} — ha la fatturazione che cessa il <b>${dataLeggibile}</b>. Il cliente riconsegnerà gli apparati in ufficio (gratuito): registrali come recuperati quando arrivano.</p>`,
+            emailCorpoTesto: `Il Ticket di Disdetta #${ticket.numero} (${ticket.cliente}) ha la fatturazione che cessa il ${dataLeggibile}. Il cliente riconsegna gli apparati in ufficio (gratuito): registrali come recuperati quando arrivano.`,
+            emailLink: `https://gestione.donewifi.it/tickets?aperto=${ticketId}`,
+          }),
+        ]
+      : []),
+  ]);
+
+  revalidatePath("/tickets");
+  return { errore: null, passatoAdAnalisiRete: gratuita };
+}
+
+/** ★ NUOVA (2026-10-20, richiesta esplicita: "per far saldare il ritiro la
+ * fatturazione deve farsi pagare la lavorazione e ricevuto il pagamento
+ * schiaccia il pulsante pagato ritiro") — solo per il ritiro in loco a
+ * pagamento (95 € / 61 €): registra l'incasso e solo ora passa il Ticket
+ * ad Analisi Rete, che viene avvisata di pianificare il ritiro. */
+export async function segnaRitiroDisdettaPagato(ticketId: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+
+  const service = createServiceClient();
+  const { data: ticket } = await service
+    .from("tickets")
+    .select("numero, cliente, sottocategoria, reparto, data_dismissione_disdetta, disdetta_modalita_ritiro, disdetta_costo_recupero, disdetta_ritiro_pagato_il")
+    .eq("id", ticketId)
+    .single();
+  if (!ticket) return { errore: "Ticket non trovato." };
+  if (ticket.sottocategoria !== "Disdetta") return { errore: "Questa azione è disponibile solo sui Ticket di Disdetta." };
+  if (ticket.disdetta_modalita_ritiro !== "Ritiro in loco" || !ticket.disdetta_costo_recupero) {
+    return { errore: "Imposta prima il ritiro in loco e il suo costo." };
+  }
+  if (ticket.disdetta_ritiro_pagato_il) return { errore: "Il ritiro risulta già pagato." };
+
+  const { error } = await service
+    .from("tickets")
+    .update({ disdetta_ritiro_pagato_il: new Date().toISOString(), reparto: "Analisi Rete", aggiornato_il: new Date().toISOString() })
+    .eq("id", ticketId);
+  if (error) return { errore: error.message };
+
+  const dataLeggibile = ticket.data_dismissione_disdetta ? new Date(ticket.data_dismissione_disdetta).toLocaleDateString("it-IT") : null;
+  await Promise.all([
+    service.from("note_ticket").insert({
+      ticket_id: ticketId,
+      autore_id: persona.id,
+      testo: `Ritiro pagato (${ticket.disdetta_costo_recupero} €) — passato ad Analisi Rete per pianificare il ritiro degli apparati.`,
+    }),
+    service.from("storico").insert({
+      origine: "ticket",
+      riferimento_id: ticketId,
+      operazione: "Ritiro apparati pagato",
+      valore_dopo: `${ticket.disdetta_costo_recupero} €`,
+      operatore_id: persona.id,
+    }),
     service.from("storico").insert({
       origine: "ticket",
       riferimento_id: ticketId,
@@ -321,18 +416,13 @@ export async function fissaDataDismissioneDisdetta(ticketId: string, dataDismiss
       valore_dopo: "Analisi Rete",
       operatore_id: persona.id,
     }),
-    service.from("note_ticket").insert({
-      ticket_id: ticketId,
-      autore_id: persona.id,
-      testo: `Dismissione fissata per il ${dataLeggibile} — passato ad Analisi Rete per pianificare il ritiro degli apparati.`,
-    }),
     notificaSuTuttiICanali({
       reparto: "Analisi Rete",
-      telegramHtml: `📦 <b>Disdetta da pianificare — ritiro apparati</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}\nDismissione fissata per il ${dataLeggibile}.`,
-      chatTesto: `📦 Disdetta Ticket #${ticket.numero} (${ticket.cliente}) — dismissione fissata per il ${dataLeggibile}, pianifica il ritiro apparati.`,
+      telegramHtml: `📦 <b>Disdetta da pianificare — ritiro apparati pagato</b>\n\nTicket #${ticket.numero} — ${ticket.cliente}${dataLeggibile ? `\nCessazione: ${dataLeggibile}` : ""}`,
+      chatTesto: `📦 Disdetta Ticket #${ticket.numero} (${ticket.cliente}) — ritiro in loco pagato, pianifica il ritiro apparati.`,
       emailTitolo: `Disdetta da pianificare — Ticket #${ticket.numero}`,
-      emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il Ticket di Disdetta <b>#${ticket.numero}</b> — ${ticket.cliente} — ha la dismissione fissata per il <b>${dataLeggibile}</b>: pianifica il ritiro degli apparati.</p>`,
-      emailCorpoTesto: `Il Ticket di Disdetta #${ticket.numero} (${ticket.cliente}) ha la dismissione fissata per il ${dataLeggibile} — pianifica il ritiro degli apparati.`,
+      emailCorpoHtml: `<p style="font-size:15px;color:#141414;line-height:1.6;margin:0 0 6px;">Il Ticket di Disdetta <b>#${ticket.numero}</b> — ${ticket.cliente} — ha il ritiro in loco <b>pagato</b>${dataLeggibile ? ` (cessazione ${dataLeggibile})` : ""}: pianifica il ritiro degli apparati.</p>`,
+      emailCorpoTesto: `Il Ticket di Disdetta #${ticket.numero} (${ticket.cliente}) ha il ritiro in loco pagato${dataLeggibile ? ` (cessazione ${dataLeggibile})` : ""} — pianifica il ritiro degli apparati.`,
       emailLink: `https://gestione.donewifi.it/tickets?aperto=${ticketId}`,
     }),
   ]);
@@ -354,6 +444,28 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
   const personaId = persona.id;
 
   const service = createServiceClient();
+
+  // ★ NUOVA (2026-10-20, revisione flusso disdette) — prima un Ticket di
+  // Disdetta si chiudeva senza alcun controllo. Ora si completa solo con
+  // la cessazione fatturazione e la modalità di recupero già fissate da
+  // Fatturazione e, per il ritiro in loco a pagamento, con il pagamento
+  // già registrato ("Pagato ritiro").
+  if (statoNuovo === "Completato") {
+    const { data: t } = await service
+      .from("tickets")
+      .select("sottocategoria, data_dismissione_disdetta, disdetta_modalita_ritiro, disdetta_costo_recupero, disdetta_ritiro_pagato_il")
+      .eq("id", id)
+      .single();
+    if (t?.sottocategoria === "Disdetta") {
+      if (!t.data_dismissione_disdetta || !t.disdetta_modalita_ritiro) {
+        return { errore: "Prima di completare la disdetta, Fatturazione deve indicare la cessazione e le modalità di recupero apparati." };
+      }
+      if (t.disdetta_modalita_ritiro === "Ritiro in loco" && (t.disdetta_costo_recupero ?? 0) > 0 && !t.disdetta_ritiro_pagato_il) {
+        return { errore: "Il ritiro in loco non risulta ancora pagato: Fatturazione deve premere \"Pagato ritiro\"." };
+      }
+    }
+  }
+
   const { error } = await service
     .from("tickets")
     .update({ stato: statoNuovo, aggiornato_il: new Date().toISOString() })
