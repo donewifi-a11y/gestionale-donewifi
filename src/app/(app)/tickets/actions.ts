@@ -13,6 +13,7 @@ import { REPARTO_PER_TIPO_RICHIESTA, type AreaAccesso, type PrioritaTicket, type
 import { dataItaliaStringa } from "@/lib/data-italia";
 import { validaEmail, validaTelefono } from "@/lib/validazione";
 import { chiudiAppuntamentiApertiDelTicket } from "@/lib/chiudi-appuntamenti-ticket";
+import { registraApparatiRitirati } from "@/lib/disdetta";
 
 // ★ le Server Action, in produzione, nascondono al client il messaggio di
 // un errore lanciato con "throw" — per mostrare messaggi utili bisogna
@@ -431,6 +432,23 @@ export async function segnaRitiroDisdettaPagato(ticketId: string) {
   return { errore: null };
 }
 
+/** ★ NUOVA (2026-10-20, richiesta esplicita: "fatturazione... riceve una
+ * notifica quando apparati ritirati e che può chiudere la pratica") —
+ * pulsante "Apparati ritirati" di Analisi Rete: per la consegna in ufficio
+ * (nessuna Scheda di recupero) o come ripiego se la Scheda non è stata
+ * compilata. Segna il ritiro e avvisa Fatturazione, che può chiudere. Il
+ * salvataggio di una Scheda con "Recupero Apparati" fa la stessa cosa da
+ * solo (registraApparatiRitirati in lib/disdetta.ts). */
+export async function segnaApparatiRitirati(ticketId: string) {
+  const supabase = await createClient();
+  const persona = await getPersonaCorrente(supabase);
+  if (!persona) return { errore: ERRORE_PERSONA_MANCANTE };
+  const r = await registraApparatiRitirati(ticketId, persona.id);
+  if (r.errore) return { errore: r.errore };
+  revalidatePath("/tickets");
+  return { errore: null };
+}
+
 export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, statoVecchio: StatoTicket) {
   const supabase = await createClient();
   // ★ FIX SICUREZZA (2026-09-10, stessa causa di creaTicket()/
@@ -453,7 +471,7 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
   if (statoNuovo === "Completato") {
     const { data: t } = await service
       .from("tickets")
-      .select("sottocategoria, data_dismissione_disdetta, disdetta_modalita_ritiro, disdetta_costo_recupero, disdetta_ritiro_pagato_il")
+      .select("sottocategoria, data_dismissione_disdetta, disdetta_modalita_ritiro, disdetta_costo_recupero, disdetta_ritiro_pagato_il, disdetta_apparati_ritirati_il")
       .eq("id", id)
       .single();
     if (t?.sottocategoria === "Disdetta") {
@@ -462,6 +480,9 @@ export async function aggiornaStatoTicket(id: string, statoNuovo: StatoTicket, s
       }
       if (t.disdetta_modalita_ritiro === "Ritiro in loco" && (t.disdetta_costo_recupero ?? 0) > 0 && !t.disdetta_ritiro_pagato_il) {
         return { errore: "Il ritiro in loco non risulta ancora pagato: Fatturazione deve premere \"Pagato ritiro\"." };
+      }
+      if (!t.disdetta_apparati_ritirati_il) {
+        return { errore: "Gli apparati non risultano ancora ritirati: si completa dopo il ritiro (o la consegna in ufficio)." };
       }
     }
   }

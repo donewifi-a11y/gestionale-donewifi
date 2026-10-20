@@ -11,6 +11,7 @@ import { generaTestoScheda } from "@/lib/testo-rapporto";
 import { schedaRiguardaGestionaleAntenne, notificaGestionaleAntenne } from "@/lib/notifiche-antenne";
 import { scaricaGiacenzaMateriali, riconciliaAntennaInstallata, riconciliaAntennaRecuperata } from "@/app/(app)/materiali/actions";
 import { revalidatePath } from "next/cache";
+import { registraApparatiRitirati } from "@/lib/disdetta";
 import { createHash, randomInt, timingSafeEqual } from "crypto";
 import { validaEmail } from "@/lib/validazione";
 import type { Appuntamento, MaterialeUsato, SchedaLavoro, StatoAppuntamento, TipoServizioAppuntamento } from "@/lib/types";
@@ -1094,6 +1095,15 @@ export async function salvaSchedaLavoro(
     } else {
       await riconciliaAntennaInstallata(macMaiuscolo, appuntamento.ticket_id, schedaCreata?.id ?? null);
     }
+  }
+
+  // ★ NUOVA (2026-10-20, richiesta esplicita: Fatturazione "riceve una
+  // notifica quando apparati ritirati e che può chiudere la pratica") —
+  // una Scheda con "Recupero Apparati" su un appuntamento di un Ticket di
+  // Disdetta segna gli apparati come ritirati, a prescindere dal MAC (che
+  // resta facoltativo, anche parziale). Non blocca mai il salvataggio.
+  if (tipo === "Lavorazione tecnica" && dati.interventiEseguiti?.includes("Recupero Apparati") && appuntamento.ticket_id) {
+    await registraApparatiRitirati(appuntamento.ticket_id, persona.id);
   }
 
   // ★ NUOVA (2026-08-27, richiesta esplicita: "il rapporto di lavoro deve

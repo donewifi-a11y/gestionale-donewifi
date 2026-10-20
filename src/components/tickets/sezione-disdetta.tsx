@@ -6,7 +6,7 @@ import { CalendarClock, Loader2, Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconaCategoria } from "@/components/condivisi/icona-categoria";
 import { useToast } from "@/components/ui/toast";
-import { impostaRecuperoDisdetta, segnaRitiroDisdettaPagato } from "@/app/(app)/tickets/actions";
+import { impostaRecuperoDisdetta, segnaRitiroDisdettaPagato, segnaApparatiRitirati, aggiornaStatoTicket } from "@/app/(app)/tickets/actions";
 import type { Ticket } from "@/lib/types";
 
 const COSTI_RITIRO_IN_LOCO = [95, 61] as const;
@@ -42,6 +42,41 @@ export function SezioneDisdetta({ ticket, onCambiato }: { ticket: Ticket; onCamb
   const inLoco = ticket.disdetta_modalita_ritiro === "Ritiro in loco";
   const pagato = !!ticket.disdetta_ritiro_pagato_il;
   const siamoFatturazione = ticket.reparto === "Fatturazione";
+  const ritirati = !!ticket.disdetta_apparati_ritirati_il;
+  const chiusa = ticket.stato === "Completato";
+  // Fatturazione vede il Ticket fino alla fine anche quando è in carico ad
+  // Analisi Rete (RLS + repartiTabDelTicket): chiude lei, a ritiro avvenuto.
+  const staAdAnalisiRete = ticket.reparto === "Analisi Rete";
+
+  function apparatiRitirati() {
+    setErrore("");
+    startTransizione(async () => {
+      const r = await segnaApparatiRitirati(ticket.id);
+      if (r.errore) {
+        setErrore(r.errore);
+        toast(r.errore);
+        return;
+      }
+      onCambiato({ ...ticket, disdetta_apparati_ritirati_il: new Date().toISOString() });
+      toast("Apparati ritirati — Fatturazione è stata avvisata.", "successo");
+      router.refresh();
+    });
+  }
+
+  function chiudiPratica() {
+    setErrore("");
+    startTransizione(async () => {
+      const r = await aggiornaStatoTicket(ticket.id, "Completato", ticket.stato);
+      if (r?.errore) {
+        setErrore(r.errore);
+        toast(r.errore);
+        return;
+      }
+      onCambiato({ ...ticket, stato: "Completato" });
+      toast("Pratica di disdetta chiusa.", "successo");
+      router.refresh();
+    });
+  }
 
   function conferma() {
     if (!data) return setErrore("Indica quando cessa la fatturazione.");
@@ -127,6 +162,32 @@ export function SezioneDisdetta({ ticket, onCambiato }: { ticket: Ticket; onCamb
             </>
           )}
           {!inLoco && ticket.reparto === "Analisi Rete" && <p className="text-muted-foreground">Passato ad Analisi Rete: il cliente consegna gli apparati in ufficio.</p>}
+          {ritirati && (
+            <p className="flex items-center gap-1.5 text-success">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Apparati ritirati il {new Date(ticket.disdetta_apparati_ritirati_il!).toLocaleDateString("it-IT")}.
+            </p>
+          )}
+          {!ritirati && staAdAnalisiRete && (!inLoco || pagato) && !chiusa && (
+            <div className="pt-1">
+              <Button size="sm" onClick={apparatiRitirati} disabled={inCorso} className="min-h-9">
+                {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                Apparati ritirati
+              </Button>
+              <p className="mt-1 text-[11px] text-muted-foreground">Si segna da solo quando la Scheda ha &quot;Recupero Apparati&quot;; qui per la consegna in ufficio.</p>
+            </div>
+          )}
+          {ritirati && !chiusa && (
+            <div className="mt-1 flex flex-col gap-2 rounded-md border border-success/40 bg-success/10 p-2.5">
+              <p className="text-sm font-semibold">Apparati ritirati: la pratica si può chiudere.</p>
+              {(ticket.reparto === "Fatturazione" || staAdAnalisiRete) && (
+                <Button size="sm" onClick={chiudiPratica} disabled={inCorso} className="min-h-9 self-start">
+                  {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                  Chiudi pratica
+                </Button>
+              )}
+            </div>
+          )}
           {errore && <p className="text-xs text-critical">{errore}</p>}
         </div>
       </div>

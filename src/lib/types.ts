@@ -140,6 +140,9 @@ export interface Ticket {
   disdetta_modalita_ritiro: "Ritiro in loco" | "Consegna in ufficio" | null;
   disdetta_costo_recupero: number | null;
   disdetta_ritiro_pagato_il: string | null;
+  /** ★ NUOVA (2026-10-20) — quando gli apparati sono stati recuperati;
+   * Fatturazione viene avvisata e può chiudere. Vedi migrazione 0093. */
+  disdetta_apparati_ritirati_il: string | null;
 }
 
 export interface Segnalazione {

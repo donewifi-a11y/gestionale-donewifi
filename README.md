@@ -7565,3 +7565,19 @@ con "Pagato ritiro" il Ticket passa ad Analisi Rete.
 (3 colonne su `tickets`). Senza, impostare il recupero fallisce.
 
 Build/lint puliti (0 errori).
+
+## Disdetta: apparati ritirati e chiusura da Fatturazione (2026-10-20)
+
+Richiesta: "fatturazione deve vedere sempre il ticket fino alla fine e riceve una notifica quando
+apparati ritirati e che può chiudere la pratica".
+
+- Migrazione `0093_disdetta_apparati_ritirati.sql`: colonna `tickets.disdetta_apparati_ritirati_il`.
+- `src/lib/disdetta.ts` (`registraApparatiRitirati`): segna il ritiro, scrive nota e storico e
+  notifica Fatturazione (Telegram, Chat, Email). Idempotente, non lancia mai.
+- Si attiva da solo salvando una Scheda con "Recupero Apparati" su un Ticket di Disdetta
+  (`salvaSchedaLavoro`, `salvaSchedaLavoroEsterno`), anche senza MAC. Per la consegna in ufficio
+  c'è il pulsante "Apparati ritirati" (`segnaApparatiRitirati`) in `sezione-disdetta.tsx`.
+- Il Ticket non si può completare finché gli apparati non risultano ritirati; a ritiro registrato
+  compare il riquadro "Chiudi pratica".
+- Fatturazione vede la Disdetta fino alla fine (RLS + `repartiTabDelTicket`) anche quando è in
+  carico ad Analisi Rete.
