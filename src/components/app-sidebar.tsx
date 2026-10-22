@@ -26,6 +26,7 @@ import {
   Wrench,
   ChevronRight,
   AlertTriangle,
+  Gift,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -177,6 +178,9 @@ export function AppSidebar({
           ...(vedeRichieste ? [{ href: "/richieste-clienti", etichetta: "Gestione Cliente", icona: ClipboardList }] : []),
           ...(vedeTariffe ? [{ href: "/preventivi", etichetta: "Preventivi", icona: FileText }] : []),
           ...(vedeTariffe ? [{ href: "/tariffe", etichetta: "Tariffe", icona: Tags }] : []),
+          // ★ NUOVA — concorso "Tenta la fortuna" (fortuna.donewifi.it): coupon, campagne e premi.
+          // Stessa visibilità di Tariffe (amministratori e Commerciale); le campagne sono solo admin (vedi la pagina).
+          ...(vedeTariffe ? [{ href: "/fortuna", etichetta: "Fortuna", icona: Gift }] : []),
         ],
       },
       {
