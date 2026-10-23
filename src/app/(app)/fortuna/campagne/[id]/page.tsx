@@ -12,6 +12,7 @@ import { createFortunaClient, fortunaConfigurata } from "@/lib/fortuna/client";
 import { richiediFortuna } from "@/lib/fortuna/permessi";
 import { daOraRoma, formattaData, immagineValida, versoOraRoma, type RigaPremio } from "@/lib/fortuna/premi";
 import type { ModalitaPremio } from "@/lib/fortuna/probabilita";
+import type { GraficaPremio } from "@/lib/fortuna/premi";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ async function salvaCampagna(id: string, formData: FormData) {
   torna(id, "Campagna salvata.", true);
 }
 
-type RigaInput = { id?: string; nome: string; immagine: string; modalita: ModalitaPremio; percentuale: number; quantita: number | null };
+type RigaInput = { id?: string; nome: string; immagine: string | null; grafica: GraficaPremio; modalita: ModalitaPremio; percentuale: number; quantita: number | null };
 
 /** Legge e valida il JSON dell'editor: ritorna le righe pulite oppure un messaggio d'errore. */
 function leggiRighe(grezzo: string): { righe: RigaInput[] } | { errore: string } {
@@ -57,15 +58,19 @@ function leggiRighe(grezzo: string): { righe: RigaInput[] } | { errore: string }
   const righe: RigaInput[] = [];
   for (const x of json as Record<string, unknown>[]) {
     const nome = typeof x.nome === "string" ? x.nome.trim() : "";
-    if (!nome || nome.length > 80) return { errore: "Dai un nome (massimo 80 caratteri) a ogni prodotto." };
-    if (typeof x.immagine !== "string" || !immagineValida(x.immagine)) return { errore: `«${nome}»: immagine non valida.` };
+    if (x.grafica !== "modello" && x.grafica !== "immagine") return { errore: `«${nome || "prodotto"}»: grafica non valida.` };
+    // con il modello il testo può essere più lungo (finisce dentro la grafica) e la foto è facoltativa
+    if (!nome || nome.length > (x.grafica === "modello" ? 120 : 80)) return { errore: "Dai un nome a ogni prodotto (massimo 120 caratteri con il modello, 80 con l'immagine completa)." };
+    const img = x.immagine;
+    if (img !== null && (typeof img !== "string" || !immagineValida(img))) return { errore: `«${nome}»: immagine non valida.` };
+    if (x.grafica === "immagine" && img === null) return { errore: `«${nome}»: con «Immagine completa» serve caricare l'immagine.` };
     if (x.modalita !== "percentuale" && x.modalita !== "pezzi") return { errore: `«${nome}»: modalità non valida.` };
     if (typeof x.percentuale !== "number" || !Number.isFinite(x.percentuale) || x.percentuale < 0 || x.percentuale > 100) return { errore: `«${nome}»: la percentuale deve essere tra 0 e 100.` };
     const q = x.quantita;
     if (q !== null && (typeof q !== "number" || !Number.isInteger(q) || q < 0 || q > 1_000_000)) return { errore: `«${nome}»: quantità non valida.` };
     if (x.modalita === "pezzi" && (q === null || (q as number) < 1)) return { errore: `«${nome}»: un prodotto a pezzi ha bisogno di almeno 1 pezzo.` };
     if (x.id !== undefined && (typeof x.id !== "string" || !UUID.test(x.id))) return { errore: "Dati non validi." };
-    righe.push({ id: x.id as string | undefined, nome, immagine: x.immagine, modalita: x.modalita, percentuale: x.percentuale, quantita: q as number | null });
+    righe.push({ id: x.id as string | undefined, nome, immagine: img as string | null, grafica: x.grafica as GraficaPremio, modalita: x.modalita, percentuale: x.percentuale, quantita: q as number | null });
   }
   return { righe };
 }
@@ -100,6 +105,7 @@ async function salvaPremi(id: string, formData: FormData) {
   const campi = (r: RigaInput, ordine: number) => ({
     nome: r.nome,
     immagine: r.immagine,
+    grafica: r.grafica,
     modalita: r.modalita,
     percentuale: r.modalita === "pezzi" ? 0 : r.percentuale,
     ordine,
@@ -158,6 +164,7 @@ export default async function DettaglioCampagna({ params, searchParams }: { para
     id: p.premio_id,
     nome: p.nome,
     immagine: p.immagine,
+    grafica: p.grafica,
     modalita: p.modalita,
     percentuale: Number(p.percentuale),
     quantita: p.quantita_totale,
@@ -200,7 +207,7 @@ export default async function DettaglioCampagna({ params, searchParams }: { para
             <i> pezzi ÷ partecipanti previsti</i>, e i prodotti a percentuale si dividono il resto. Un pezzo che esce è subito prenotato; se il vincitore non firma, annulli il coupon dalla sua scheda e il pezzo torna in gioco.
           </p>
           <p className="mb-4 text-sm text-muted-foreground">
-            Puoi cambiare immagine, nome, percentuali e pezzi anche con la campagna in corso: vale per i <b>nuovi</b> coupon, quelli già emessi restano come sono.
+            Per ogni prodotto scrivi il <b>testo del premio</b> (e, se vuoi, una <b>foto</b>): il coupon lo compone da solo nella grafica DONE, con l&apos;anteprima qui sotto. In alternativa puoi caricare un&apos;<i>immagine completa</i> già pronta. Puoi cambiare testo, foto, percentuali e pezzi anche con la campagna in corso: vale per i <b>nuovi</b> coupon, quelli già emessi restano come sono.
           </p>
           <EditorPremi iniziali={iniziali} previstiIniziali={c.partecipanti_previsti ?? null} azioneSalva={salvaPremi.bind(null, id)} />
         </CardContent>

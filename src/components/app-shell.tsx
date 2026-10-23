@@ -12,6 +12,7 @@ import { TodoWidget } from "@/components/todo/todo-widget";
 import { TodoDataProvider, useTodoData } from "@/components/todo/todo-data-context";
 import { SegnalazioniDatiProvider, useSegnalazioniDati } from "@/components/segnalazioni/segnalazioni-dati-context";
 import { ToastProvider } from "@/components/ui/toast";
+import { useFortunaDaVedere } from "@/components/fortuna/fortuna-badge";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { MessageCircle, PanelRightClose } from "lucide-react";
 import type { AreaAccesso, Persona } from "@/lib/types";
@@ -94,6 +95,8 @@ function AppShellCorpo({
   const [railChat, aggiornaRailChat] = usePersistedState("rail-chat-compressa", { compressa: false });
   const { nonLettiTotali } = useChatData();
   const { conteggio: nuoviDatiSegnalazioni } = useSegnalazioniDati();
+  // ★ NUOVA — coupon Fortuna non ancora visti (solo per chi vede la voce: amministratori e Commerciale)
+  const fortunaDaVedere = useFortunaDaVedere(personaAmministratore || personaReparti.includes("Commerciale"));
   const { todo } = useTodoData();
   const todoDaFare = (todo ?? []).filter((t) => !t.fatto).length;
   // ★ NUOVA (2026-09-09, "procedi con tutte" — proposta 4: suono diverso
@@ -117,6 +120,7 @@ function AppShellCorpo({
           personaAmministratore={personaAmministratore}
           personaReparti={personaReparti}
           nuoviDatiSegnalazioni={nuoviDatiSegnalazioni}
+          fortunaDaVedere={fortunaDaVedere}
           onApriChat={() => setStrumentoAperto((s) => (s === "chat" ? null : "chat"))}
           onApriTodo={() => setStrumentoAperto((s) => (s === "todo" ? null : "todo"))}
           nonLettiChat={nonLettiTotali}

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Plus, Equal, Trash2, ImagePlus, Images, TriangleAlert } from "lucide-react";
+import { Plus, Equal, Trash2, ImagePlus, Images, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BUCKET_PREMI, IMMAGINI_PREDEFINITE, type RigaPremio } from "@/lib/fortuna/premi";
+import { BUCKET_PREMI, IMMAGINI_PREDEFINITE, urlAnteprima, type GraficaPremio, type RigaPremio } from "@/lib/fortuna/premi";
 import { calcolaProbabilita, type ModalitaPremio } from "@/lib/fortuna/probabilita";
 
 const COLORI = ["#e11d48", "#2563eb", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#4d7c0f", "#475569", "#ea580c"];
@@ -49,9 +49,32 @@ async function caricaImmagine(file: File): Promise<string> {
   return j.urlPubblico as string;
 }
 
+/** Anteprima del coupon vero, generata dal sito pubblico con la stessa grafica che vedranno i clienti. */
+function AnteprimaCoupon({ testo, foto }: { testo: string; foto: string | null }) {
+  const [src, setSrc] = useState(() => urlAnteprima(testo, foto));
+  const [errore, setErrore] = useState(false);
+  // aspetta che si smetta di scrivere prima di rigenerare l'immagine
+  useEffect(() => {
+    const t = setTimeout(() => { setErrore(false); setSrc(urlAnteprima(testo, foto)); }, 600);
+    return () => clearTimeout(t);
+  }, [testo, foto]);
+
+  return errore ? (
+    <div className="flex h-44 w-44 items-center justify-center rounded-xl border bg-muted p-2 text-center text-xs text-muted-foreground">Anteprima non disponibile</div>
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="Anteprima del coupon" onError={() => setErrore(true)} className="h-44 w-44 rounded-xl border bg-muted object-cover" />
+  );
+}
+
 const MODALITA: { id: ModalitaPremio; etichetta: string }[] = [
   { id: "percentuale", etichetta: "Percentuale" },
   { id: "pezzi", etichetta: "A pezzi" },
+];
+
+const GRAFICHE: { id: GraficaPremio; etichetta: string }[] = [
+  { id: "modello", etichetta: "Modello DONE" },
+  { id: "immagine", etichetta: "Immagine completa" },
 ];
 
 export function EditorPremi({
@@ -96,7 +119,7 @@ export function EditorPremi({
     contatore.current += 1;
     setRighe((rs) => [
       ...rs,
-      { chiave: `nuovo-${contatore.current}`, nome: "", immagine: IMMAGINI_PREDEFINITE[0], modalita: "percentuale", percentuale: 0, quantita: null, rimanenti: null, emessi: 0, firmati: 0, totali: 0 },
+      { chiave: `nuovo-${contatore.current}`, nome: "", immagine: null, grafica: "modello", modalita: "percentuale", percentuale: 0, quantita: null, rimanenti: null, emessi: 0, firmati: 0, totali: 0 },
     ]);
   }
 
@@ -115,6 +138,13 @@ export function EditorPremi({
     if (r.modalita === modalita) return;
     if (modalita === "pezzi") modifica(r.chiave, { modalita, quantita: Math.max(1, r.quantita ?? 1, r.emessi) });
     else modifica(r.chiave, { modalita, quantita: null });
+  }
+
+  function cambiaGrafica(r: RigaPremio, grafica: GraficaPremio) {
+    if (r.grafica === grafica) return;
+    setLibreriaPer(null);
+    // un coupon completo non è una "foto del prodotto", e viceversa: si riparte da zero nel passaggio
+    modifica(r.chiave, { grafica, immagine: grafica === "immagine" ? IMMAGINI_PREDEFINITE[0] : null });
   }
 
   async function scelto(file: File | undefined) {
@@ -139,7 +169,9 @@ export function EditorPremi({
       <input
         type="hidden"
         name="premi"
-        value={JSON.stringify(righe.map(({ id, nome, immagine, modalita, percentuale, quantita }) => ({ id, nome, immagine, modalita, percentuale: modalita === "pezzi" ? 0 : percentuale, quantita })))}
+        value={JSON.stringify(
+          righe.map(({ id, nome, immagine, grafica, modalita, percentuale, quantita }) => ({ id, nome, immagine, grafica, modalita, percentuale: modalita === "pezzi" ? 0 : percentuale, quantita })),
+        )}
       />
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => scelto(e.target.files?.[0])} />
 
@@ -192,26 +224,58 @@ export function EditorPremi({
           const colore = COLORI[i % COLORI.length];
           const esaurito = r.quantita !== null && r.id !== undefined && (rimanentiDopo(r) ?? 0) <= 0;
           const pezzi = r.modalita === "pezzi";
+          const modello = r.grafica === "modello";
           return (
             <div key={r.chiave} className="flex flex-col gap-3 rounded-2xl border-2 bg-card p-4" style={{ borderColor: colore }}>
               <div className="flex gap-3">
                 <div className="flex shrink-0 flex-col items-center gap-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={r.immagine} alt="" className="h-24 w-24 rounded-xl border object-cover" />
-                  <button
-                    type="button"
-                    disabled={inCaricamento === r.chiave}
-                    onClick={() => { caricaPer.current = r.chiave; fileRef.current?.click(); }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                  >
-                    <ImagePlus className="h-3 w-3" />{inCaricamento === r.chiave ? "Carico…" : "Cambia immagine"}
-                  </button>
-                  <button type="button" onClick={() => setLibreriaPer(libreriaPer === r.chiave ? null : r.chiave)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
-                    <Images className="h-3 w-3" />Libreria
-                  </button>
+                  {modello ? (
+                    <AnteprimaCoupon testo={r.nome} foto={r.immagine} />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.immagine ?? ""} alt="" className="h-44 w-44 rounded-xl border object-cover" />
+                  )}
+                  <div className="flex w-44 items-center justify-between gap-1">
+                    <button
+                      type="button"
+                      disabled={inCaricamento === r.chiave}
+                      onClick={() => { caricaPer.current = r.chiave; fileRef.current?.click(); }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                    >
+                      <ImagePlus className="h-3 w-3" />{inCaricamento === r.chiave ? "Carico…" : modello ? (r.immagine ? "Cambia foto" : "Aggiungi foto") : "Cambia immagine"}
+                    </button>
+                    {modello && r.immagine && (
+                      <button type="button" onClick={() => modifica(r.chiave, { immagine: null })} className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:underline">
+                        <X className="h-3 w-3" />Togli
+                      </button>
+                    )}
+                    {!modello && (
+                      <button type="button" onClick={() => setLibreriaPer(libreriaPer === r.chiave ? null : r.chiave)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+                        <Images className="h-3 w-3" />Libreria
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <Input value={r.nome} onChange={(e) => modifica(r.chiave, { nome: e.target.value })} placeholder="Nome del prodotto (es. 2 mesi gratis)" maxLength={80} required />
+                  <Input
+                    value={r.nome}
+                    onChange={(e) => modifica(r.chiave, { nome: e.target.value })}
+                    placeholder={modello ? "Testo del premio (es. 2 mesi di internet gratis)" : "Nome del prodotto"}
+                    maxLength={modello ? 120 : 80}
+                    required
+                  />
+                  <div className="inline-flex w-fit rounded-lg border p-0.5 text-xs font-medium" role="group" aria-label="Grafica del coupon">
+                    {GRAFICHE.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => cambiaGrafica(r, g.id)}
+                        className={`rounded-md px-3 py-1 ${r.grafica === g.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {g.etichetta}
+                      </button>
+                    ))}
+                  </div>
                   <div className="inline-flex w-fit rounded-lg border p-0.5 text-xs font-medium" role="group" aria-label="Come si definisce la probabilità">
                     {MODALITA.map((m) => (
                       <button
@@ -290,7 +354,7 @@ export function EditorPremi({
                 </Button>
               </div>
 
-              {libreriaPer === r.chiave && (
+              {!modello && libreriaPer === r.chiave && (
                 <div className="flex flex-wrap gap-2 border-t pt-3">
                   {IMMAGINI_PREDEFINITE.map((src) => (
                     // eslint-disable-next-line @next/next/no-img-element

@@ -78,6 +78,7 @@ export function AppSidebar({
   nonLettiChat = 0,
   todoDaFare = 0,
   nuoviDatiSegnalazioni = 0,
+  fortunaDaVedere = 0,
 }: {
   email: string;
   persone: Persona[];
@@ -94,6 +95,8 @@ export function AppSidebar({
    * ancora senza seguito (contratto non ancora inviato/approvato) — badge
    * sulla voce "Nuovi Clienti", vedi sotto. */
   nuoviDatiSegnalazioni?: number;
+  /** ★ NUOVA — coupon Fortuna emessi e non ancora visti dallo staff: numerino sulla voce «Fortuna». */
+  fortunaDaVedere?: number;
 }) {
   const pathname = usePathname();
   const [aperta, setAperta] = useState(false);
@@ -398,6 +401,11 @@ export function AppSidebar({
                           badge "non letti" della Chat qui sotto, senza
                           l'animazione (qui non serve la stessa urgenza al
                           secondo di un messaggio in arrivo). */}
+                          {voce.href === "/fortuna" && fortunaDaVedere > 0 && (
+                            <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                              {fortunaDaVedere}
+                            </span>
+                          )}
                           {voce.href === "/segnalazioni" && nuoviDatiSegnalazioni > 0 && (
                             <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                               {nuoviDatiSegnalazioni}

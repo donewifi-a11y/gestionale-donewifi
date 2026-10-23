@@ -24,6 +24,7 @@ type Risultato = {
   stato: string;
   emesso_at: string;
   premio_nome: string;
+  segnalazione_numero: number | null;
   part: { nome: string; cognome: string; telefono: string } | { nome: string; cognome: string; telefono: string }[] | null;
 };
 
@@ -46,12 +47,25 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
     const orCoupon = [`codice.ilike.%${q.toUpperCase()}%`, ...(ids.length ? [`partecipante_id.in.(${ids.join(",")})`] : [])].join(",");
     const { data } = await db
       .from("fortuna_coupon")
-      .select("codice, stato, emesso_at, premio_nome, part:fortuna_partecipanti(nome, cognome, telefono)")
+      .select("codice, stato, emesso_at, premio_nome, segnalazione_numero, part:fortuna_partecipanti(nome, cognome, telefono)")
       .or(orCoupon)
       .order("emesso_at", { ascending: false })
       .limit(50);
     risultati = (data ?? []) as Risultato[];
   }
+
+  // coupon che nessuno ha ancora aperto: sono i nuovi arrivi, da vedere e, volendo, trasformare in segnalazione
+  type DaVedere = { codice: string; emesso_at: string; premio_nome: string; part: { nome: string; cognome: string; telefono: string } | { nome: string; cognome: string; telefono: string }[] | null };
+  const { data: daVedereDati } = q
+    ? { data: [] }
+    : await db
+        .from("fortuna_coupon")
+        .select("codice, emesso_at, premio_nome, part:fortuna_partecipanti(nome, cognome, telefono)")
+        .is("visto_at", null)
+        .neq("stato", "annullato")
+        .order("emesso_at", { ascending: false })
+        .limit(30);
+  const daVedere = (daVedereDati ?? []) as DaVedere[];
 
   // riepilogo della campagna attiva (o, in mancanza, l'ultima creata)
   const { data: camp } = await db
@@ -78,36 +92,58 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
         <Button type="submit" size="lg" className="h-10 px-4"><Search />Cerca</Button>
       </form>
 
+      {!q && daVedere.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-2 flex items-center gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Da vedere</h2>
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">{daVedere.length}</span>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {daVedere.map((d) => {
+              const p = uno(d.part);
+              return (
+                <li key={d.codice}>
+                  <Link href={`/fortuna/coupon/${d.codice}`} className="flex flex-col gap-0.5 rounded-xl border-2 border-primary/50 bg-primary/5 p-3 transition hover:bg-primary/10">
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="text-base font-bold">{p?.nome} {p?.cognome}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{formattaData(d.emesso_at)}</span>
+                    </span>
+                    <span className="text-sm text-muted-foreground">{p?.telefono} · {d.premio_nome}</span>
+                    <span className="font-mono text-sm font-bold tracking-wider text-primary">{d.codice}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {q && (
         <section className="mb-8">
           <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{risultati.length} {risultati.length === 1 ? "risultato" : "risultati"}</h2>
           {risultati.length === 0 ? (
             <StatoVuoto icona={Ticket} titolo="Nessun coupon trovato." compatto />
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow><TableHead>Codice</TableHead><TableHead>Nome</TableHead><TableHead>Telefono</TableHead><TableHead>Premio</TableHead><TableHead>Stato</TableHead><TableHead>Emesso</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {risultati.map((r) => {
-                      const p = uno(r.part);
-                      return (
-                        <TableRow key={r.codice}>
-                          <TableCell className="font-mono font-bold"><Link className="text-primary hover:underline" href={`/fortuna/coupon/${r.codice}`}>{r.codice}</Link></TableCell>
-                          <TableCell>{p?.nome} {p?.cognome}</TableCell>
-                          <TableCell>{p?.telefono}</TableCell>
-                          <TableCell>{r.premio_nome}</TableCell>
-                          <TableCell>{r.stato === "contrattualizzato" ? <Badge>Contratto firmato</Badge> : r.stato === "annullato" ? <Badge variant="destructive">Annullato</Badge> : <Badge variant="secondary">In attesa</Badge>}</TableCell>
-                          <TableCell>{formattaData(r.emesso_at)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <ul className="flex flex-col gap-2">
+              {risultati.map((r) => {
+                const p = uno(r.part);
+                return (
+                  <li key={r.codice}>
+                    <Link href={`/fortuna/coupon/${r.codice}`} className="flex flex-col gap-1 rounded-xl border bg-card p-3 transition hover:bg-muted">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="text-base font-bold">{p?.nome} {p?.cognome}</span>
+                        <span className="font-mono text-sm font-bold tracking-wider text-primary">{r.codice}</span>
+                      </span>
+                      <span className="text-sm text-muted-foreground">{p?.telefono} · {r.premio_nome} · {formattaData(r.emesso_at)}</span>
+                      <span className="flex flex-wrap gap-1.5">
+                        {r.stato === "contrattualizzato" ? <Badge>Contratto firmato</Badge> : r.stato === "annullato" ? <Badge variant="destructive">Annullato</Badge> : <Badge variant="secondary">In attesa</Badge>}
+                        {r.segnalazione_numero != null && <Badge variant="outline">Segnalazione #{r.segnalazione_numero}</Badge>}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
       )}

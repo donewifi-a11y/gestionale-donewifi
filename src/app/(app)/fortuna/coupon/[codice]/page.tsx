@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ArrowLeft, Ban, CheckCircle2, Hourglass, Undo2 } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Hourglass, Mail, Phone, PhoneCall, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createFortunaClient, fortunaConfigurata } from "@/lib/fortuna/client";
 import { richiediFortuna } from "@/lib/fortuna/permessi";
-import { formattaData, type StatoCoupon } from "@/lib/fortuna/premi";
+import { formattaData, SITO_FORTUNA, type StatoCoupon } from "@/lib/fortuna/premi";
 import { FortunaNonConfigurata } from "@/components/fortuna/fortuna-non-configurata";
+import { TrasformaSegnalazione } from "@/components/fortuna/trasforma-segnalazione";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ const MESSAGGI: Record<string, string> = {
 };
 
 export default async function SchedaCoupon({ params, searchParams }: { params: Promise<{ codice: string }>; searchParams: Promise<{ esito?: string }> }) {
-  await richiediFortuna("operatore");
+  const { persona } = await richiediFortuna("operatore");
   if (!fortunaConfigurata()) return <div className="mx-auto max-w-2xl"><FortunaNonConfigurata /></div>;
 
   const codice = decodeURIComponent((await params).codice).toUpperCase();
@@ -44,10 +45,22 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
   const db = createFortunaClient();
   const { data: c } = await db
     .from("fortuna_coupon")
-    .select("id, codice, stato, emesso_at, contrattualizzato_at, annullato_at, email_inviata_at, email_errore, premio_nome, premio_immagine, premio:fortuna_premi(quantita_rimanenti, quantita_totale), part:fortuna_partecipanti(nome, cognome, telefono, email)")
+    .select(
+      "id, codice, token, stato, emesso_at, contrattualizzato_at, annullato_at, email_inviata_at, email_errore, visto_at, visto_da, segnalazione_id, segnalazione_numero, segnalazione_at, premio_nome, premio_immagine, premio_grafica, premio:fortuna_premi(quantita_rimanenti, quantita_totale), part:fortuna_partecipanti(nome, cognome, telefono, email)",
+    )
     .eq("codice", codice)
     .maybeSingle();
   if (!c) notFound();
+
+  // «una volta visto»: aprire la scheda per la prima volta la toglie dall'elenco «Da vedere» e ricorda chi l'ha vista
+  let vistoAt = c.visto_at as string | null;
+  let vistoDa = c.visto_da as string | null;
+  if (!vistoAt) {
+    vistoAt = new Date().toISOString();
+    vistoDa = persona.nome;
+    const { error } = await db.from("fortuna_coupon").update({ visto_at: vistoAt, visto_da: vistoDa }).eq("id", c.id).is("visto_at", null);
+    if (error) console.error("fortuna: segno «visto»", error);
+  }
 
   const premio = uno(c.premio);
   const part = uno(c.part);
@@ -66,22 +79,49 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
         </p>
       )}
 
+      {/* chi è e come contattarlo: un tocco per chiamare o scrivere, anche da telefono */}
       <Card>
-        <CardContent className="flex flex-col gap-1 pt-4">
-          <p className="font-mono text-3xl font-black tracking-widest">{c.codice}</p>
-          <p className="text-lg font-semibold">{part?.nome} {part?.cognome}</p>
-          <p className="text-muted-foreground">{part?.telefono} · {part?.email}</p>
-          {/* nome e immagine sono quelli del momento dell'estrazione, anche se il prodotto è stato modificato dopo */}
-          <p className="mt-2 text-base">🎁 <b>{c.premio_nome}</b>{" "}
-            <span className="text-sm text-muted-foreground">({!limitato ? "scorta illimitata" : `pezzi rimasti: ${premio?.quantita_rimanenti ?? 0}`})</span>
-          </p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.premio_immagine} alt={c.premio_nome} className="mt-2 h-auto w-64 rounded-xl border" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Emesso: {formattaData(c.emesso_at)} · Email {c.email_inviata_at ? `inviata ${formattaData(c.email_inviata_at)}` : `non inviata${c.email_errore ? ` (${c.email_errore})` : ""}`}
+        <CardContent className="flex flex-col gap-3 pt-4">
+          <div>
+            <p className="font-mono text-3xl font-black tracking-widest">{c.codice}</p>
+            <p className="text-xl font-semibold">{part?.nome} {part?.cognome}</p>
+            <p className="mt-1 text-base">🎁 <b>{c.premio_nome}</b>{" "}
+              <span className="text-sm text-muted-foreground">({!limitato ? "scorta illimitata" : `pezzi rimasti: ${premio?.quantita_rimanenti ?? 0}`})</span>
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {part?.telefono && (
+              <Button asChild variant="outline" size="lg" className="h-11 justify-start text-base"><a href={`tel:${part.telefono}`}><Phone />{part.telefono}</a></Button>
+            )}
+            {part?.email && (
+              <Button asChild variant="outline" size="lg" className="h-11 min-w-0 justify-start text-base"><a href={`mailto:${part.email}`}><Mail /><span className="truncate">{part.email}</span></a></Button>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Emesso: {formattaData(c.emesso_at)} · visto da <b>{vistoDa ?? "—"}</b> {formattaData(vistoAt)}
+            <br />Email {c.email_inviata_at ? `inviata ${formattaData(c.email_inviata_at)}` : `non inviata${c.email_errore ? ` (${c.email_errore})` : ""}`}
           </p>
         </CardContent>
       </Card>
+
+      {/* il passo successivo: da coupon a segnalazione, poi la trafila di sempre (contatto → gestione cliente → trasmessa) */}
+      {!annullato && (
+        <Card className={c.segnalazione_id ? "" : "border-primary/40 bg-primary/5"}>
+          <CardContent className="flex flex-col gap-3 pt-4">
+            <h2 className="font-semibold">Contatto con il cliente</h2>
+            {c.segnalazione_id ? (
+              <>
+                <p role="status" className="text-sm text-muted-foreground">
+                  <b className="text-foreground">Segnalazione #{c.segnalazione_numero}</b> creata il {formattaData(c.segnalazione_at)}. Da lì prosegui con il contatto e il nuovo contratto.
+                </p>
+                <Button asChild size="lg" className="h-11 w-full text-base"><Link href={`/segnalazioni?aperto=${c.segnalazione_id}`}><PhoneCall />Apri la segnalazione</Link></Button>
+              </>
+            ) : (
+              <TrasformaSegnalazione couponId={c.id} />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className={annullato ? "border-destructive/40 bg-destructive/5" : firmato ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"}>
         <CardContent className="flex flex-col gap-3 pt-4">
@@ -89,20 +129,20 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
             {annullato ? <Ban className="h-5 w-5 text-destructive" /> : firmato ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Hourglass className="h-5 w-5 text-amber-600" />}
             {annullato ? `Coupon annullato il ${formattaData(c.annullato_at)}` : firmato ? `Contratto firmato il ${formattaData(c.contrattualizzato_at)}` : "In attesa di sottoscrizione"}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {annullato ? (
-              <form action={impostaStato.bind(null, c.id, c.codice, "emesso")}>
-                <Button size="lg" className="h-10 px-4 text-base"><Undo2 />Ripristina coupon</Button>
+              <form action={impostaStato.bind(null, c.id, c.codice, "emesso")} className="w-full sm:w-auto">
+                <Button size="lg" className="h-11 w-full px-4 text-base"><Undo2 />Ripristina coupon</Button>
               </form>
             ) : (
               <>
-                <form action={impostaStato.bind(null, c.id, c.codice, firmato ? "emesso" : "contrattualizzato")}>
-                  <Button size="lg" variant={firmato ? "outline" : "default"} className="h-10 px-4 text-base">
+                <form action={impostaStato.bind(null, c.id, c.codice, firmato ? "emesso" : "contrattualizzato")} className="w-full sm:w-auto">
+                  <Button size="lg" variant={firmato ? "outline" : "default"} className="h-11 w-full px-4 text-base">
                     {firmato ? "Annulla la firma: riporta a «in attesa»" : "Conferma contratto firmato"}
                   </Button>
                 </form>
-                <form action={impostaStato.bind(null, c.id, c.codice, "annullato")}>
-                  <Button size="lg" variant="destructive" className="h-10 px-4 text-base"><Ban />Annulla coupon</Button>
+                <form action={impostaStato.bind(null, c.id, c.codice, "annullato")} className="w-full sm:w-auto">
+                  <Button size="lg" variant="destructive" className="h-11 w-full px-4 text-base"><Ban />Annulla coupon</Button>
                 </form>
               </>
             )}
@@ -112,6 +152,15 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
               ? limitato ? "Il pezzo è tornato disponibile per altri giocatori. Ripristinando lo si riprenota, se nel frattempo non è stato dato a qualcun altro." : "Il coupon non è più valido."
               : limitato ? "Il pezzo è già prenotato per questo coupon. Se il cliente non lo userà, «Annulla coupon» lo rimette in gioco." : "Annullando, il coupon non è più valido."}
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4">
+          <h2 className="mb-2 font-semibold">Il coupon del cliente</h2>
+          {/* nome e immagine sono quelli del momento dell'estrazione, anche se il prodotto è stato modificato dopo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={c.premio_grafica === "modello" || !c.premio_immagine ? `${SITO_FORTUNA}/c/${c.token}/immagine` : c.premio_immagine} alt={c.premio_nome} className="h-auto w-full max-w-sm rounded-xl border" />
         </CardContent>
       </Card>
 

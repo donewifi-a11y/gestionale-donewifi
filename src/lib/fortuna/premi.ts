@@ -11,11 +11,22 @@ export const IMMAGINI_PREDEFINITE = Array.from({ length: 10 }, (_, i) => `${BASE
 /** Un'immagine è valida solo se sta nel nostro bucket (niente URL arbitrari nelle email ai clienti). */
 export const immagineValida = (url: string) => url.startsWith(BASE_PUBBLICA);
 
+/** Sito pubblico del gioco: genera la grafica del coupon (anteprima e coupon veri). */
+export const SITO_FORTUNA = (process.env.NEXT_PUBLIC_FORTUNA_SITO_URL || "https://fortuna.donewifi.it").replace(/\/$/, "");
+
+/** Anteprima della grafica del coupon con quel testo e quella foto (facoltativa). */
+export const urlAnteprima = (testo: string, foto: string | null) =>
+  `${SITO_FORTUNA}/anteprima?testo=${encodeURIComponent(testo.trim() || "Il tuo premio")}${foto ? `&foto=${encodeURIComponent(foto)}` : ""}`;
+
+/** "modello": testo + foto facoltativa dentro la grafica base DONE. "immagine": un'immagine già completa caricata da voi. */
+export type GraficaPremio = "modello" | "immagine";
+
 export type RigaPremio = {
   chiave: string; // identificativo locale dell'editor
   id?: string; // presente se il premio esiste già nel database
   nome: string;
-  immagine: string;
+  immagine: string | null; // con il modello è la foto del prodotto (facoltativa), con "immagine" è il coupon completo
+  grafica: GraficaPremio;
   modalita: ModalitaPremio; // "percentuale" (la sceglie l'admin) o "pezzi" (automatica da pezzi / partecipanti previsti)
   percentuale: number; // usata solo in modalità "percentuale"
   quantita: number | null; // null = illimitata (solo modalità "percentuale")
