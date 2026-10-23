@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ArrowLeft, CheckCircle2, Hourglass } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Hourglass, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createFortunaClient, fortunaConfigurata } from "@/lib/fortuna/client";
@@ -28,7 +28,7 @@ async function impostaStato(couponId: string, codice: string, nuovo: StatoCoupon
 const MESSAGGI: Record<string, string> = {
   ok: "Stato aggiornato.",
   invariato: "Il coupon era già in questo stato.",
-  premio_esaurito: "Questo prodotto ha finito la scorta: aumenta la quantità in «Campagne e prodotti» prima di confermare il contratto.",
+  premio_esaurito: "Il pezzo di questo prodotto è stato dato a un altro coupon: non si può più ripristinare. Aumenta la quantità in «Campagne e prodotti» e riprova.",
   non_trovato: "Coupon non trovato.",
   errore: "Errore durante l'aggiornamento. Riprova.",
 };
@@ -44,7 +44,7 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
   const db = createFortunaClient();
   const { data: c } = await db
     .from("fortuna_coupon")
-    .select("id, codice, stato, emesso_at, contrattualizzato_at, email_inviata_at, email_errore, premio:fortuna_premi(nome, immagine, quantita_rimanenti), part:fortuna_partecipanti(nome, cognome, telefono, email)")
+    .select("id, codice, stato, emesso_at, contrattualizzato_at, annullato_at, email_inviata_at, email_errore, premio_nome, premio_immagine, premio:fortuna_premi(quantita_rimanenti, quantita_totale), part:fortuna_partecipanti(nome, cognome, telefono, email)")
     .eq("codice", codice)
     .maybeSingle();
   if (!c) notFound();
@@ -53,6 +53,8 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
   const part = uno(c.part);
   const { data: storico } = await db.from("fortuna_log").select("azione, utente, at").eq("coupon_id", c.id).order("at", { ascending: false }).limit(20);
   const firmato = c.stato === "contrattualizzato";
+  const annullato = c.stato === "annullato";
+  const limitato = premio?.quantita_totale != null;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
@@ -69,31 +71,47 @@ export default async function SchedaCoupon({ params, searchParams }: { params: P
           <p className="font-mono text-3xl font-black tracking-widest">{c.codice}</p>
           <p className="text-lg font-semibold">{part?.nome} {part?.cognome}</p>
           <p className="text-muted-foreground">{part?.telefono} · {part?.email}</p>
-          <p className="mt-2 text-base">🎁 <b>{premio?.nome}</b>{" "}
-            <span className="text-sm text-muted-foreground">({premio?.quantita_rimanenti == null ? "scorta illimitata" : `rimanenti: ${premio.quantita_rimanenti}`})</span>
+          {/* nome e immagine sono quelli del momento dell'estrazione, anche se il prodotto è stato modificato dopo */}
+          <p className="mt-2 text-base">🎁 <b>{c.premio_nome}</b>{" "}
+            <span className="text-sm text-muted-foreground">({!limitato ? "scorta illimitata" : `pezzi rimasti: ${premio?.quantita_rimanenti ?? 0}`})</span>
           </p>
-          {premio && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={premio.immagine} alt={premio.nome} className="mt-2 h-auto w-64 rounded-xl border" />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={c.premio_immagine} alt={c.premio_nome} className="mt-2 h-auto w-64 rounded-xl border" />
           <p className="mt-2 text-sm text-muted-foreground">
             Emesso: {formattaData(c.emesso_at)} · Email {c.email_inviata_at ? `inviata ${formattaData(c.email_inviata_at)}` : `non inviata${c.email_errore ? ` (${c.email_errore})` : ""}`}
           </p>
         </CardContent>
       </Card>
 
-      <Card className={firmato ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"}>
+      <Card className={annullato ? "border-destructive/40 bg-destructive/5" : firmato ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"}>
         <CardContent className="flex flex-col gap-3 pt-4">
           <p className="flex items-center gap-2 text-lg font-semibold">
-            {firmato ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Hourglass className="h-5 w-5 text-amber-600" />}
-            {firmato ? `Contratto firmato il ${formattaData(c.contrattualizzato_at)}` : "In attesa di sottoscrizione"}
+            {annullato ? <Ban className="h-5 w-5 text-destructive" /> : firmato ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Hourglass className="h-5 w-5 text-amber-600" />}
+            {annullato ? `Coupon annullato il ${formattaData(c.annullato_at)}` : firmato ? `Contratto firmato il ${formattaData(c.contrattualizzato_at)}` : "In attesa di sottoscrizione"}
           </p>
-          <form action={impostaStato.bind(null, c.id, c.codice, firmato ? "emesso" : "contrattualizzato")}>
-            <Button size="lg" variant={firmato ? "outline" : "default"} className="h-10 px-4 text-base">
-              {firmato ? "Annulla: riporta a «in attesa»" : "Conferma contratto firmato"}
-            </Button>
-          </form>
-          {!firmato && <p className="text-sm text-muted-foreground">Confermando, se il prodotto ha una scorta viene scalato di uno.</p>}
+          <div className="flex flex-wrap gap-2">
+            {annullato ? (
+              <form action={impostaStato.bind(null, c.id, c.codice, "emesso")}>
+                <Button size="lg" className="h-10 px-4 text-base"><Undo2 />Ripristina coupon</Button>
+              </form>
+            ) : (
+              <>
+                <form action={impostaStato.bind(null, c.id, c.codice, firmato ? "emesso" : "contrattualizzato")}>
+                  <Button size="lg" variant={firmato ? "outline" : "default"} className="h-10 px-4 text-base">
+                    {firmato ? "Annulla la firma: riporta a «in attesa»" : "Conferma contratto firmato"}
+                  </Button>
+                </form>
+                <form action={impostaStato.bind(null, c.id, c.codice, "annullato")}>
+                  <Button size="lg" variant="destructive" className="h-10 px-4 text-base"><Ban />Annulla coupon</Button>
+                </form>
+              </>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {annullato
+              ? limitato ? "Il pezzo è tornato disponibile per altri giocatori. Ripristinando lo si riprenota, se nel frattempo non è stato dato a qualcun altro." : "Il coupon non è più valido."
+              : limitato ? "Il pezzo è già prenotato per questo coupon. Se il cliente non lo userà, «Annulla coupon» lo rimette in gioco." : "Annullando, il coupon non è più valido."}
+          </p>
         </CardContent>
       </Card>
 

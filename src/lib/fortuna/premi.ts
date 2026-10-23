@@ -1,3 +1,5 @@
+import type { ModalitaPremio } from "@/lib/fortuna/probabilita";
+
 export const BUCKET_PREMI = "fortuna-premi";
 
 // NEXT_PUBLIC_*: viene sostituita a build-time, quindi vale sia nel server sia nel browser.
@@ -14,14 +16,16 @@ export type RigaPremio = {
   id?: string; // presente se il premio esiste già nel database
   nome: string;
   immagine: string;
-  percentuale: number;
-  quantita: number | null; // null = illimitata
+  modalita: ModalitaPremio; // "percentuale" (la sceglie l'admin) o "pezzi" (automatica da pezzi / partecipanti previsti)
+  percentuale: number; // usata solo in modalità "percentuale"
+  quantita: number | null; // null = illimitata (solo modalità "percentuale")
   rimanenti: number | null;
-  emessi: number;
+  emessi: number; // coupon non annullati: occupano la scorta
   firmati: number;
+  totali: number; // tutti i coupon, annullati compresi: se > 0 il prodotto non si può cancellare
 };
 
-export type StatoCoupon = "emesso" | "contrattualizzato";
+export type StatoCoupon = "emesso" | "contrattualizzato" | "annullato";
 
 // ── date: il server gira in UTC, la campagna ragiona in ora italiana ──
 const DATA_ROMA = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "short" });

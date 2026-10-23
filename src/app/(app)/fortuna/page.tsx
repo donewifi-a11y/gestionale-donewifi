@@ -23,7 +23,7 @@ type Risultato = {
   codice: string;
   stato: string;
   emesso_at: string;
-  premio: { nome: string } | { nome: string }[] | null;
+  premio_nome: string;
   part: { nome: string; cognome: string; telefono: string } | { nome: string; cognome: string; telefono: string }[] | null;
 };
 
@@ -46,7 +46,7 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
     const orCoupon = [`codice.ilike.%${q.toUpperCase()}%`, ...(ids.length ? [`partecipante_id.in.(${ids.join(",")})`] : [])].join(",");
     const { data } = await db
       .from("fortuna_coupon")
-      .select("codice, stato, emesso_at, premio:fortuna_premi(nome), part:fortuna_partecipanti(nome, cognome, telefono)")
+      .select("codice, stato, emesso_at, premio_nome, part:fortuna_partecipanti(nome, cognome, telefono)")
       .or(orCoupon)
       .order("emesso_at", { ascending: false })
       .limit(50);
@@ -64,6 +64,10 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
   const { data: riepilogo } = camp
     ? await db.from("fortuna_riepilogo").select("*").eq("campagna_id", camp.id).order("ordine").order("nome")
     : { data: [] };
+  // probabilità reale adesso (stessa funzione SQL dell'estrazione): i prodotti fuori gara non compaiono
+  const { data: probabilita } = camp ? await db.rpc("fortuna_probabilita", { p_campagna: camp.id }) : { data: [] };
+  const pAttuale = new Map(((probabilita ?? []) as { premio_id: string; probabilita: number }[]).map((x) => [x.premio_id, Number(x.probabilita) * 100]));
+  const formatoP = (n: number) => n.toLocaleString("it-IT", { maximumFractionDigits: n < 1 ? 2 : 1 });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -94,8 +98,8 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
                           <TableCell className="font-mono font-bold"><Link className="text-primary hover:underline" href={`/fortuna/coupon/${r.codice}`}>{r.codice}</Link></TableCell>
                           <TableCell>{p?.nome} {p?.cognome}</TableCell>
                           <TableCell>{p?.telefono}</TableCell>
-                          <TableCell>{uno(r.premio)?.nome}</TableCell>
-                          <TableCell>{r.stato === "contrattualizzato" ? <Badge>Contratto firmato</Badge> : <Badge variant="secondary">In attesa</Badge>}</TableCell>
+                          <TableCell>{r.premio_nome}</TableCell>
+                          <TableCell>{r.stato === "contrattualizzato" ? <Badge>Contratto firmato</Badge> : r.stato === "annullato" ? <Badge variant="destructive">Annullato</Badge> : <Badge variant="secondary">In attesa</Badge>}</TableCell>
                           <TableCell>{formattaData(r.emesso_at)}</TableCell>
                         </TableRow>
                       );
@@ -119,16 +123,18 @@ export default async function FortunaPage({ searchParams }: { searchParams: Prom
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Premio</TableHead><TableHead>% uscita</TableHead><TableHead>Scorta</TableHead><TableHead>Coupon emessi</TableHead><TableHead>Contratti firmati</TableHead></TableRow>
+                  <TableRow><TableHead>Premio</TableHead><TableHead>Tipo</TableHead><TableHead>Probabilità ora</TableHead><TableHead>Scorta</TableHead><TableHead>Coupon emessi</TableHead><TableHead>Firmati</TableHead><TableHead>Annullati</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {(riepilogo ?? []).map((r) => (
                     <TableRow key={r.premio_id}>
                       <TableCell className="font-medium">{r.nome}</TableCell>
-                      <TableCell>{r.percentuale}%</TableCell>
+                      <TableCell>{r.modalita === "pezzi" ? "a pezzi" : "a percentuale"}</TableCell>
+                      <TableCell>{pAttuale.has(r.premio_id) ? `${formatoP(pAttuale.get(r.premio_id)!)}%` : <span className="text-muted-foreground">fuori gioco</span>}</TableCell>
                       <TableCell>{r.quantita_totale === null ? "illimitata" : `${r.quantita_rimanenti} / ${r.quantita_totale}`}</TableCell>
                       <TableCell>{r.emessi}</TableCell>
                       <TableCell>{r.contrattualizzati}</TableCell>
+                      <TableCell>{r.annullati}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

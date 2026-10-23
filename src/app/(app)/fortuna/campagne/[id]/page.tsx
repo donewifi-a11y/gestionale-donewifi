@@ -11,6 +11,7 @@ import { FortunaNonConfigurata } from "@/components/fortuna/fortuna-non-configur
 import { createFortunaClient, fortunaConfigurata } from "@/lib/fortuna/client";
 import { richiediFortuna } from "@/lib/fortuna/permessi";
 import { daOraRoma, formattaData, immagineValida, versoOraRoma, type RigaPremio } from "@/lib/fortuna/premi";
+import type { ModalitaPremio } from "@/lib/fortuna/probabilita";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ async function salvaCampagna(id: string, formData: FormData) {
   torna(id, "Campagna salvata.", true);
 }
 
-type RigaInput = { id?: string; nome: string; immagine: string; percentuale: number; quantita: number | null };
+type RigaInput = { id?: string; nome: string; immagine: string; modalita: ModalitaPremio; percentuale: number; quantita: number | null };
 
 /** Legge e valida il JSON dell'editor: ritorna le righe pulite oppure un messaggio d'errore. */
 function leggiRighe(grezzo: string): { righe: RigaInput[] } | { errore: string } {
@@ -58,11 +59,13 @@ function leggiRighe(grezzo: string): { righe: RigaInput[] } | { errore: string }
     const nome = typeof x.nome === "string" ? x.nome.trim() : "";
     if (!nome || nome.length > 80) return { errore: "Dai un nome (massimo 80 caratteri) a ogni prodotto." };
     if (typeof x.immagine !== "string" || !immagineValida(x.immagine)) return { errore: `«${nome}»: immagine non valida.` };
+    if (x.modalita !== "percentuale" && x.modalita !== "pezzi") return { errore: `«${nome}»: modalità non valida.` };
     if (typeof x.percentuale !== "number" || !Number.isFinite(x.percentuale) || x.percentuale < 0 || x.percentuale > 100) return { errore: `«${nome}»: la percentuale deve essere tra 0 e 100.` };
     const q = x.quantita;
     if (q !== null && (typeof q !== "number" || !Number.isInteger(q) || q < 0 || q > 1_000_000)) return { errore: `«${nome}»: quantità non valida.` };
+    if (x.modalita === "pezzi" && (q === null || (q as number) < 1)) return { errore: `«${nome}»: un prodotto a pezzi ha bisogno di almeno 1 pezzo.` };
     if (x.id !== undefined && (typeof x.id !== "string" || !UUID.test(x.id))) return { errore: "Dati non validi." };
-    righe.push({ id: x.id as string | undefined, nome, immagine: x.immagine, percentuale: x.percentuale, quantita: q as number | null });
+    righe.push({ id: x.id as string | undefined, nome, immagine: x.immagine, modalita: x.modalita, percentuale: x.percentuale, quantita: q as number | null });
   }
   return { righe };
 }
@@ -75,30 +78,39 @@ async function salvaPremi(id: string, formData: FormData) {
   if ("errore" in letto) return torna(id, letto.errore);
   const { righe } = letto;
 
+  const grezzoPrevisti = String(formData.get("previsti") ?? "").trim();
+  const previsti = grezzoPrevisti === "" ? null : Number(grezzoPrevisti);
+  if (previsti !== null && (!Number.isInteger(previsti) || previsti < 1 || previsti > 10_000_000)) return torna(id, "I partecipanti previsti devono essere un numero intero da 1 in su.");
+  if (righe.some((r) => r.modalita === "pezzi") && previsti === null) return torna(id, "Indica i partecipanti previsti: servono a calcolare la percentuale dei prodotti a pezzi.");
+
   const db = createFortunaClient();
-  const { data: esistenti } = await db.from("fortuna_riepilogo").select("premio_id, nome, emessi, contrattualizzati").eq("campagna_id", id);
+  const { data: esistenti } = await db.from("fortuna_riepilogo").select("premio_id, nome, emessi, totali").eq("campagna_id", id);
   const perId = new Map((esistenti ?? []).map((e) => [e.premio_id as string, e]));
+  const emessiDi = (r: RigaInput) => (r.id ? Number(perId.get(r.id)!.emessi) : 0);
 
   // ── validazione completa: nessuna scrittura finché non è tutto a posto ──
   for (const r of righe) {
     if (r.id && !perId.has(r.id)) return torna(id, "Un prodotto non appartiene a questa campagna: ricarica la pagina.");
-    const firmati = r.id ? Number(perId.get(r.id)!.contrattualizzati) : 0;
-    if (r.quantita !== null && r.quantita < firmati) {
-      return torna(id, `«${r.nome}»: ci sono già ${firmati} contratti firmati, le quantità disponibili non possono essere meno.`);
+    // i pezzi già usciti (coupon non annullati) occupano la scorta: non si può scendere sotto
+    if (r.quantita !== null && r.quantita < emessiDi(r)) {
+      return torna(id, `«${r.nome}»: sono già usciti ${emessiDi(r)} coupon, le quantità disponibili non possono essere meno.`);
     }
   }
 
-  const campi = (r: RigaInput, ordine: number) => {
-    const firmati = r.id ? Number(perId.get(r.id)!.contrattualizzati) : 0;
-    return {
-      nome: r.nome,
-      immagine: r.immagine,
-      percentuale: r.percentuale,
-      ordine,
-      quantita_totale: r.quantita,
-      quantita_rimanenti: r.quantita === null ? null : r.quantita - firmati,
-    };
-  };
+  const campi = (r: RigaInput, ordine: number) => ({
+    nome: r.nome,
+    immagine: r.immagine,
+    modalita: r.modalita,
+    percentuale: r.modalita === "pezzi" ? 0 : r.percentuale,
+    ordine,
+    quantita_totale: r.quantita,
+    quantita_rimanenti: r.quantita === null ? null : r.quantita - emessiDi(r),
+  });
+
+  if (previsti !== undefined) {
+    const { error } = await db.from("fortuna_campagne").update({ partecipanti_previsti: previsti }).eq("id", id);
+    if (error) return torna(id, "Impossibile salvare i partecipanti previsti.");
+  }
 
   for (const [i, r] of righe.entries()) {
     const { error } = r.id
@@ -110,13 +122,13 @@ async function salvaPremi(id: string, formData: FormData) {
     }
   }
 
-  // prodotti tolti dall'editor: si cancellano se mai usciti, altrimenti si "spengono" (0%) per non perdere i coupon
+  // prodotti tolti dall'editor: si cancellano se mai usciti, altrimenti si mettono fuori gioco per non perdere i coupon
   const spenti: string[] = [];
   const tenuti = new Set(righe.map((r) => r.id).filter(Boolean));
   for (const e of esistenti ?? []) {
     if (tenuti.has(e.premio_id)) continue;
-    if (Number(e.emessi) > 0) {
-      await db.from("fortuna_premi").update({ percentuale: 0 }).eq("id", e.premio_id);
+    if (Number(e.totali) > 0) {
+      await db.from("fortuna_premi").update({ modalita: "percentuale", percentuale: 0 }).eq("id", e.premio_id);
       spenti.push(e.nome as string);
     } else {
       await db.from("fortuna_premi").delete().eq("id", e.premio_id);
@@ -124,7 +136,7 @@ async function salvaPremi(id: string, formData: FormData) {
   }
 
   revalidatePath(`/fortuna/campagne/${id}`);
-  torna(id, spenti.length ? `Prodotti salvati. «${spenti.join("», «")}» ha già coupon emessi: non è stato cancellato ma messo allo 0%.` : "Prodotti salvati.", true);
+  torna(id, spenti.length ? `Prodotti salvati. «${spenti.join("», «")}» ha già coupon emessi: non è stato cancellato ma messo fuori gioco.` : "Prodotti salvati.", true);
 }
 
 export default async function DettaglioCampagna({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; errore?: string }> }) {
@@ -146,11 +158,13 @@ export default async function DettaglioCampagna({ params, searchParams }: { para
     id: p.premio_id,
     nome: p.nome,
     immagine: p.immagine,
+    modalita: p.modalita,
     percentuale: Number(p.percentuale),
     quantita: p.quantita_totale,
     rimanenti: p.quantita_rimanenti,
     emessi: Number(p.emessi),
     firmati: Number(p.contrattualizzati),
+    totali: Number(p.totali),
   }));
 
   return (
@@ -180,12 +194,15 @@ export default async function DettaglioCampagna({ params, searchParams }: { para
 
       <Card>
         <CardContent className="pt-4">
-          <h2 className="mb-1 font-semibold">Prodotti e percentuali</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Aggiungi quanti prodotti vuoi e dai a ciascuno una percentuale di uscita. Se la quantità è «illimitata» il prodotto esce sempre; se imposti una quantità,
-            scende quando confermi il contratto firmato e a zero il prodotto smette di uscire.
+          <h2 className="mb-1 font-semibold">Prodotti e probabilità</h2>
+          <p className="mb-2 text-sm text-muted-foreground">
+            Ogni prodotto può essere <b>a percentuale</b> (la scegli tu, es. «2 mesi gratis» 60%) oppure <b>a pezzi</b> (es. 1 router): per i pezzi la percentuale la calcola il sistema da
+            <i> pezzi ÷ partecipanti previsti</i>, e i prodotti a percentuale si dividono il resto. Un pezzo che esce è subito prenotato; se il vincitore non firma, annulli il coupon dalla sua scheda e il pezzo torna in gioco.
           </p>
-          <EditorPremi iniziali={iniziali} azioneSalva={salvaPremi.bind(null, id)} />
+          <p className="mb-4 text-sm text-muted-foreground">
+            Puoi cambiare immagine, nome, percentuali e pezzi anche con la campagna in corso: vale per i <b>nuovi</b> coupon, quelli già emessi restano come sono.
+          </p>
+          <EditorPremi iniziali={iniziali} previstiIniziali={c.partecipanti_previsti ?? null} azioneSalva={salvaPremi.bind(null, id)} />
         </CardContent>
       </Card>
     </div>
